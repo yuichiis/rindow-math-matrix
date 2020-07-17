@@ -1286,7 +1286,7 @@ class LinearAlgebra
         $images_size = $images->size();
         $images_buff = $images->buffer();
         if($ndim!=4) {
-            throw new InvalidArgumentException('images must be 4D dimension')
+            throw new InvalidArgumentException('images must be 4D dimension');
         }
         if($channels_first) {
             [$batches,
