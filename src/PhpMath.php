@@ -932,7 +932,7 @@ class PhpMath
             $yy = $y+$vin_y;
             $filter_w_pos = $filter_h_pos;
             for($x=0; $x<$filter_w; $x++) {
-                $channel_pos = $filter_w_pos
+                $channel_pos = $filter_w_pos;
                 $out_channel_pos = $out_filter_pos;
                 $xx = $x+$vin_x;
                 #print('yx=%d,%d' % (yy,xx))
