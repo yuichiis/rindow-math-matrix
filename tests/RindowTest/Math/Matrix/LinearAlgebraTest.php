@@ -1169,8 +1169,7 @@ class Test extends TestCase
                 $stride_h,$stride_w],
             $padding,
             $channels_first,
-            $cols_channels_first,
-            $cols
+            $cols_channels_first
         );
         $out_h = 2;
         $out_w = 2;
