@@ -1206,5 +1206,23 @@ class Test extends TestCase
         ]],
         $cols->toArray()
         );
+        
+        $newImages = $mo->zerosLike($images);
+        $mo->la()->col2im(
+            $cols,
+            $newImages,
+            $filterSize=[
+                $kernel_h,$kernel_h],
+            $strides=[
+                $stride_h,$stride_w],
+            $padding,
+            $channels_first,
+            $cols_channels_first
+        );
+        
+        $this->assertEquals(
+            $images->toArray(),
+            $newImages->toArray()
+        );
     }
 }
