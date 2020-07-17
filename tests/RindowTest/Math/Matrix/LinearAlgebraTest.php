@@ -1148,6 +1148,7 @@ class Test extends TestCase
         $stride_w = 1;
         $padding = null;
         $channels_first = null;
+        $cols_channels_first=null;
         $cols = null;
         
         $images = $mo->arange(
