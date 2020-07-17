@@ -783,7 +783,7 @@ class PhpMath
         for($j=0; $j<$rows; $j++,$idAj+=$incAj,$idX+=$incX) {
             $idA = $idAj;
             $max = $A[$idA];
-            for($i=1; $i<$cols; $i++,$idA+=$incAi) 
+            for($i=1; $i<$cols; $i++,$idA+=$incAi) {
                 $na = $A[$idA];
                 if($max<$na)
                     $max = $na;
