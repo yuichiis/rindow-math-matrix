@@ -1325,10 +1325,11 @@ class LinearAlgebra
                     $channels,$filter_h,$filter_w
                 ]);
             } else {
-                $cols = $this->zeros([
+                $cols = $this->alloc([
                     $batches,$out_h,$out_w,
                     $filter_h,$filter_w,$channels
                 ]);
+                $this->zeros($cols);
             }
         }
         $out = $cols->buffer();
