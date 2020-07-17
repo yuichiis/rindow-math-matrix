@@ -1004,7 +1004,7 @@ class PhpMath
                 $in_w*$filter_w*
                 $channels;
             #print('outsz=',out.shape)
-            $start_h = -floor(($in_h-$out_h)/2)
+            $start_h = -floor(($in_h-$out_h)/2);
             $start_w = -floor(($in_w-$out_w)/2);
             $end_h = $start_h+$in_h;
             $end_w = $start_w+$in_w;
