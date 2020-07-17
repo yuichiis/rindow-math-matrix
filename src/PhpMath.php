@@ -950,7 +950,7 @@ class PhpMath
                              $images[$channel_pos] = $out[$out_channel_pos];
                         }
                     }
-                    $out_channel_pos = $out_filter_pos;
+                    $out_channel_pos = $out_channel_step;
                     $channel_pos += $channel_step;
                 }
                 $out_filter_pos += $out_filter_step;
