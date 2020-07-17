@@ -1161,8 +1161,7 @@ class Test extends TestCase
             $im_w,
             $channels
         ]);
-        $cols = $mo->la()->im2col2d(
-            $reverse=false,
+        $cols = $mo->la()->im2col(
             $images,
             $filterSize=[
                 $kernel_h,$kernel_h],
