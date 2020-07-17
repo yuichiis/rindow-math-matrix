@@ -1041,7 +1041,7 @@ class PhpMath
             $filter_w_step = $channels;
             $filter_h_step = $filter_w_step*$in_w;
         }
-        if($cols_data_format == 'channels_first') {
+        if($cols_channels_first) {
             $out_filter_step = 1;
             $out_channel_step = $filter_h*$filter_w;
         } else {
