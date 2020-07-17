@@ -1166,7 +1166,7 @@ class Test extends TestCase
             $filterSize=[
                 $kernel_h,$kernel_h],
             $strides=[
-                $strides_h,$strides_w],
+                $stride_h,$stride_w],
             $padding,
             $channels_first,
             $cols_channels_first,
