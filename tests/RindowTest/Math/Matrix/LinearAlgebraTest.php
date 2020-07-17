@@ -1154,12 +1154,12 @@ class Test extends TestCase
             $batches*
             $im_h*$im_w*
             $channels
-        )->reshape(
+        )->reshape([
             $batches,
             $im_h,
             $im_w,
             $channels
-        );
+        ]);
         $cols = $mo->la()->im2col2d(
             $reverse=false,
             $images,
