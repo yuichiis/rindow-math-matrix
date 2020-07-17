@@ -1133,4 +1133,76 @@ class Test extends TestCase
         $Y = $math->astype($X, $dtype);
         $this->assertEquals([-1,0,1,2,3],$Y->toArray());
     }
+    
+    public function testIm2col2d()
+    {
+        $mo = $this->newMatrixOperator();
+
+        $batches = 1;
+        $im_h = 4;
+        $im_w = 4;
+        $channels = 3;
+        $kernel_h = 3;
+        $kernel_w = 3;
+        $stride_h = 1;
+        $stride_w = 1;
+        $padding = null;
+        $channels_first = null;
+        $cols = null;
+        
+        $images = $mo->arange(
+            $batches*
+            $im_h*$im_w*
+            $channels
+        ).reshape(
+            $batches,
+            $im_h,
+            $im_w,
+            $channels
+        );
+        $cols = $mo->la()->im2col2d(
+            $reverse=false,
+            $images,
+            $filterSize=[
+                $kernel_h,$kernel_h],
+            $strides=[
+                $strides_h,$strides_w],
+            $padding,
+            $channels_first,
+            $cols_channels_first,
+            $cols
+        );
+        $out_h = 2;
+        $out_w = 2;
+        
+        $this->assertEquals(
+            [
+                $batches,
+                $out_h,$out_w,
+                $kernel_h,$kernel_w,
+                $channels,
+            ],
+            $cols->shape()
+        );
+        $this->assertEquals(
+        [[
+          [
+           [[[0,1,2],[3,4,5],[6,7,8]],
+            [[12,13,14],[15,16,17],[18,19,20]],
+            [[24,25,26],[27,28,29],[30,31,32]],],
+           [[[3,4,5],[6,7,8],[9,10,11]],
+            [[15,16,17],[18,19,20],[21,22,23]],
+            [[27,28,29],[30,31,32],[33,34,35]],],
+          ],
+          [
+           [[[12,13,14],[15,16,17],[18,19,20]],
+            [[24,25,26],[27,28,29],[30,31,32]],
+            [[36,37,38],[39,40,41],[42,43,44]],],
+           [[[15,16,17],[18,19,20],[21,22,23]],
+            [[27,28,29],[30,31,32],[33,34,35]],
+            [[39,40,41],[42,43,44],[45,46,47]],],
+          ],
+        ]]
+        );
+    }
 }
