@@ -1311,6 +1311,7 @@ class LinearAlgebra
             $strides;
         $padding = ($padding) ? true:false;
         $channels_first = ($channels_first) ? true:false;
+        $cols_channels_first = ($cols_channels_first) ? true:false;
         if($cols==null) {
             if($padding) {
                 $out_h = $in_h;
