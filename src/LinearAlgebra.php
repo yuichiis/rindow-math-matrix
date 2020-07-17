@@ -1338,7 +1338,7 @@ class LinearAlgebra
         $out_size = $cols->size();
         $this->math->im2col2d(
             $reverse,
-            $images,
+            $images_buff,
             $images_offset,
             $images_size,
             $batches,
