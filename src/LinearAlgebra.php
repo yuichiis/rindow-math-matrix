@@ -1032,7 +1032,7 @@ class LinearAlgebra
         }
         return $this->reduceWalk($func, $A, $axis, $X, $dtypeX);
     }
-
+/*
     public function reduceMax(NDArray $A,int $axis,NDArray $X=null,$dtypeX=null) : NDArray
     {
 
@@ -1045,7 +1045,7 @@ class LinearAlgebra
         }
         return $this->reduceWalk($func, $A, $axis, $X, $dtypeX);
     }
-
+*/
     public function reduceMean(NDArray $A,int $axis,NDArray $X=null,$dtypeX=null) : NDArray
     {
         $func = function($m,$AA,$idxA,$ldA) {
@@ -1118,7 +1118,8 @@ class LinearAlgebra
     /**
      *    X(m) := sum( A(m,n) )
      */
-     public function reduceSum(
+     
+    public function reduceSum(
         NDArray $A,
         int $axis=null,
         NDArray $X=null,
@@ -1164,5 +1165,195 @@ class LinearAlgebra
             $XX,$offX,1);
 
         return $X;
+    }
+    
+    public function reduceMax(
+        NDArray $A,
+        int $axis,
+        NDArray $X=null,
+        $dtypeX=null) : NDArray
+    {
+        if($axis===null)
+            $axis = 0;
+        if($axis!==0 && $axis!==1 && $axis!==-1)
+            throw new InvalidArgumentException('"axis" must be 0 or 1 or -1.');
+        $shapeA = $A->shape();
+        if($axis==0) {
+            $trans = true;
+            $rows = array_pop($shapeA);
+        } else {
+            $trans = false;
+            $rows = $shapeA[0];
+        }
+
+        if($dtypeX===null) {
+            $dtypeX = $A->dtype();
+        }
+        if($X==null) {
+            $X = $this->alloc([$rows],$dtypeX);
+        } else {
+            if($X->shape()!=[$rows]) {
+                $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$X->shape()).')';
+                throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
+            }
+        }
+
+        $m = $A->shape()[0];
+        $n = $A->size()/$m;
+        $AA = $A->buffer();
+        $offA = $A->offset();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+
+        $this->math->reduceMax(
+            $trans,
+            $m,
+            $n,
+            $AA,$offA,$n,
+            $XX,$offX,1);
+
+        return $X;
+    }
+
+    public function im2col(
+        NDArray $images,
+        array $filterSize=null,
+        array $strides=null,
+        bool $padding=null,
+        bool $channels_first=null,
+        bool $cols_channels_first=null,
+        NDArray $cols=null
+        ) : NDArray
+    {
+        $ndim = $images->ndim();
+        if($ndim==4) {
+            $_cols = $this->im2col2d(
+                false,
+                $images,
+                $filterSize,
+                $strides,
+                $padding,
+                $channels_first,
+                $cols_channels_first,
+                $cols
+            );
+            if($cols==null) {
+                $cols = $_cols;
+            }
+        }
+        return $cols;
+    }
+    
+    public function col2im(
+        NDArray $cols,
+        NDArray $images,
+        array $filterSize=null,
+        array $strides=null,
+        bool $padding=null,
+        bool $channels_first=null,
+        bool $cols_channels_first=null
+        ) : NDArray
+    {
+        $ndim = $images->ndim();
+        if($ndim==4) {
+            $this->im2col2d(
+                true,
+                $images,
+                $filterSize,
+                $strides,
+                $padding,
+                $channels_first,
+                $cols_channels_first,
+                $cols
+            );
+        }
+        return $images;
+    }
+
+    public function im2col2d(
+        bool $reverse,
+        NDArray $images,
+        array $filterSize=null,
+        array $strides=null,
+        bool $padding=null,
+        bool $channels_first=null,
+        bool $cols_channels_first=null,
+        NDArray $cols=null
+        ) : NDArray
+    {
+        $ndim = $images->ndim();
+        $images_offset = $images->offset();
+        $images_size = $images->size();
+        $images_buff = $images->buffer();
+        if($ndim!=4) {
+            throw new InvalidArgumentException('images must be 4D dimension')
+        }
+        if($channels_first) {
+            [$batches,
+             $channels,
+             $in_h,$in_w] =
+                $images->shape();
+        } else {
+            [$batches,
+             $in_h,$in_w,
+             $channels] =
+                $images->shape();
+        }
+        if($filterSize==null) {
+            $filterSize = [3,3];
+        }
+        [$filter_h,$filter_w] =
+            $filterSize;
+        if($strides==null) {
+            $strides = [1,1];
+        }
+        [$stride_h,$stride_w] =
+            $strides;
+        $padding = ($padding) ? true:false;
+        $channels_first = ($channels_first) ? true:false;
+        if($cols==null) {
+            if($padding) {
+                $out_h = $in_h;
+                $out_w = $in_w;
+            } else {
+                $out_h = floor(($in_h-$filter_h)/$stride_h)+1;
+                $out_w = floor(($in_w-$filter_w)/$stride_w)+1;
+            }
+            if($cols_channels_first) {
+                $cols = $this->zeros([
+                    $batches,$out_h,$out_w,
+                    $channels,$filter_h,$filter_w
+                ]);
+            } else {
+                $cols = $this->zeros([
+                    $batches,$out_h,$out_w,
+                    $filter_h,$filter_w,$channels
+                ]);
+            }
+        }
+        $out = $cols->buffer();
+        $out_offset = $cols->offset();
+        $out_size = $cols->size();
+        $this->math->im2col2d(
+            $reverse,
+            $images,
+            $images_offset,
+            $images_size,
+            $batches,
+            $in_h,
+            $in_w,
+            $channels,
+            $filter_h,
+            $filter_w,
+            $strides_h,
+            $strides_w,
+            $padding,
+            $channels_first,
+            $cols_channels_first,
+            $out,
+            $out_offset,
+            $out_size
+        );
+        return $cols;
     }
 }
