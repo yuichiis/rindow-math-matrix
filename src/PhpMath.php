@@ -1018,8 +1018,8 @@ class PhpMath
                 $out_w*$filter_w*
                 $channels;
         }
-        if($out_size!=$out_buff_size ||
-            count($out)-$out_offset>$out_buff_size) {
+        if($out_size!=$out_buf_size ||
+            count($out)-$out_offset>$out_buf_size) {
             throw new InvalidArgumentException('output buffer size is invalid');
         }
         if($channels_first) {
