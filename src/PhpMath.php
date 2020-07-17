@@ -747,6 +747,50 @@ class PhpMath
             $X[$idX] = $sum;
         }
     }
+    
+    /**
+     * X(m) := sum( A(m,n) )
+     */
+    public function reduceMax(
+        bool $trans,
+        int $m,
+        int $n,
+        Buffer $A, int $offsetA, int $ldA,
+        Buffer $X, int $offsetX, int $incX
+        ) : void
+    {
+        if($this->useMath($A)) {
+            $this->math->reduceMax($trans,$m,$n,$A,$offsetA,$ldA,$X,$offsetX,$incX);
+            return;
+        }
+
+        if(!$trans) {
+            $rows = $m; $cols = $n;
+        } else {
+            $rows = $n; $cols = $m;
+        }
+
+        if($offsetA+($m-1)*$ldA+($n-1)>=count($A))
+            throw new RuntimeException('Vector specification too large for buffer.');
+        if($offsetX+($rows-1)*$incX>=count($X))
+            throw new RuntimeException('Vector specification too large for buffer.');
+
+        if(!$trans) { $incAj = $ldA; $incAi = 1;}
+        else        { $incAj = 1;    $incAi = $ldA;}
+
+        $idAj = $offsetA;
+        $idX = $offsetX;
+        for($j=0; $j<$rows; $j++,$idAj+=$incAj,$idX+=$incX) {
+            $idA = $idAj
+            $max = $A[$idA];
+            for($i=1; $i<$cols; $i++,$idA+=$incAi) 
+                $na = $A[$idA];
+                if($max<$na)
+                    $max = $na;
+            }
+            $X[$idX] = $max;
+        }
+    }
 
     public function softmax(
         int $m,
@@ -856,5 +900,200 @@ class PhpMath
                 }
             }
         }
+    }
+    
+    /**
+     * copy a image with channels
+     */
+    protected function copyCell2d(
+        bool $reverse,
+        Buffer $images,
+        int $images_pos,
+        int $filter_h,
+        int $filter_w,
+        int $channels,
+        int $channel_step,
+        int $filter_w_step,
+        int $filter_h_step,
+        int $vin_y,
+        int $vin_x,
+        int $vin_h,
+        int $vin_w,
+        int $out,
+        int $out_pos,
+        int $out_filter_step,
+        int $out_channel_step
+        )
+    {
+        #print('v=%d,%d,%d,%d' % (vin_y,vin_x,vin_h,vin_w))
+        $filter_h_pos = $images_pos;
+        $out_filter_pos = $out_pos;
+        for($y=0; $y<$filter_h; $y++) {
+            $yy = $y+$vin_y;
+            $filter_w_pos = $filter_h_pos;
+            for($x=0; $x<$filter_w; $x++) {
+                $channel_pos = $filter_w_pos
+                $out_channel_pos = $out_filter_pos;
+                $xx = $x+$vin_x;
+                #print('yx=%d,%d' % (yy,xx))
+                for($c=0; $c<$channels; $c++) {
+                    if($yy<0 || $yy>=$vin_h ||
+                       $xx<0 || $xx>=$vin_w) {
+                        #print('pad') 
+                        if(!$reverse) {
+                            $out[$out_channel_pos] = 0;
+                        }
+                    } else {
+                        if(!$reverse) {
+                            $out[$out_channel_pos] =  $images[$channel_pos];
+                        } else {
+                             $images[$channel_pos] = $out[$out_channel_pos];
+                        }
+                    }
+                    $out_channel_pos = $out_filter_pos;
+                    $channel_pos += $channel_step;
+                }
+                $out_filter_pos += $out_filter_step;
+                $filter_w_pos += $filter_w_step;
+            }
+            $filter_h_pos += $filter_h_step;
+        }
+        return $out_pos;
+    }
+    
+    /**
+    * images: (n,h,w,c) : channels_last
+    *        (n,c,h,w) : channels_first
+    * strides:
+    * padding:
+    * data_format:
+    * output:(n,i)
+    */
+    public function im2col2d(
+        bool $reverse,
+        Buffer $images,
+        int $images_offset,
+        int $images_size,
+        int $batches,
+        int $in_h,
+        int $in_w,
+        int $channels,
+        int $filter_h,
+        int $filter_w,
+        int $strides_h,
+        int $strides_w,
+        bool $padding,
+        bool $channels_first,
+        bool $cols_channels_first,
+        Buffer $out,
+        int $out_offset,
+        int $out_size
+        )
+    {
+        $images_buf_size = $batches*$in_h*$in_w*$channels;
+        if($images_size!=$images_buf_size ||
+            count($images)-$images_offset<$images_buf_size) {
+            throw new InvalidArgumentException('images buffer size is invalid');
+        }
+        $out_h = floor(($in_h-$filter_h)/$stride_h)+1;
+        $out_w = floor(($in_w-$filter_w)/$stride_w)+1;
+        if($padding) {
+            $out_buf_size = 
+                $batches*
+                $in_h*$filter_h*
+                $in_w*$filter_w*
+                $channels;
+            #print('outsz=',out.shape)
+            $start_h = -floor(($in_h-$out_h)/2)
+            $start_w = -floor(($in_w-$out_w)/2);
+            $end_h = $start_h+$in_h;
+            $end_w = $start_w+$in_w;
+            #print('start-end=(%d,%d)-(%d,%d)'%(start_h,start_w,end_h,end_w))
+        } else {
+            $start_h = $start_w = 0;
+            $end_h = $out_h;
+            $end_w = $out_w;
+            $out_buf_size = $batches*
+                $out_h*$filter_h*
+                $out_w*$filter_w*
+                $channels;
+        }
+        if($out_size!=$out_buff_size ||
+            count($out)-$out_offset>$out_buff_size) {
+            throw new InvalidArgumentException('output buffer size is invalid');
+        }
+        if($channels_first) {
+            # stride parameters
+            $stride_w_step = $stride_w;
+            $stride_h_step = $in_w*$stride_h;
+            $batch_step = $channels*$in_w*$in_h;
+            # copy parameters
+            $channel_step = $in_h*$in_w;
+            $filter_w_step = 1;
+            $filter_h_step = $in_w;
+        } else {
+            # stride parameters
+            $stride_w_step = $channels*$stride_w;
+            $stride_h_step = $channels*$in_w*$stride_h;
+            $batch_step = $channels*$in_w*$in_h;
+            # copy parameters
+            $channel_step = 1;
+            $filter_w_step = $channels;
+            $filter_h_step = $filter_w_step*$in_w;
+        }
+        if($cols_data_format == 'channels_first') {
+            $out_filter_step = 1;
+            $out_channel_step = $filter_h*$filter_w;
+        } else {
+            $out_filter_step = $channels;
+            $out_channel_step = 1;
+        }
+        $out_cell_step = $filter_h*$filter_w*$channels;
+        
+        $out_pos = $out_offset;
+        $batch_pos = 0;
+    
+        $start_vin_y = $start_h*$stride_h;
+        $start_vin_x = $start_w*$stride_w;
+        $vin_h = ($out_h-1)*$stride_h+$filter_h;
+        $vin_w = ($out_w-1)*$stride_w+$filter_w;
+    
+        for($batch=0; $batch<$batches;$batch++) {
+            $stride_h_pos = $batch_pos+($start_h*$stride_h_step);
+            $vin_y = $start_vin_y;
+            for ($y=$start_h;$y<$end_h;$y++){
+                $stride_w_pos = $stride_h_pos+($start_w*$stride_w_step);
+                $vin_x = $start_vin_x;
+                for($x=$start_w;$x<$end_w;$x++) {
+                    #print('osf=%d,%d,%d'%(out_h,stride_h,filter_h))
+                    $out_pos = $this->copyCell2d(
+                        $reverse,
+                        $images,
+                        $stride_w_pos,
+                        $filter_h,
+                        $filter_w,
+                        $channels,
+                        $channel_step,
+                        $filter_w_step,
+                        $filter_h_step,
+                        $vin_y,
+                        $vin_x,
+                        $vin_h,
+                        $vin_w,
+                        $out,
+                        $out_pos,
+                        $out_filter_step,
+                        $out_channel_step
+                    );
+                    $stride_w_pos += $stride_w_step;
+                    $vin_x += $stride_w;
+                    $out_pos += $out_cell_step;
+                }
+                $stride_h_pos += $stride_h_step;
+                $vin_y += $stride_h;
+            }    
+            $batch_pos += $batch_step;
+        }
+        return $out;
     }
 }
