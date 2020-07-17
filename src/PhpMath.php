@@ -781,7 +781,7 @@ class PhpMath
         $idAj = $offsetA;
         $idX = $offsetX;
         for($j=0; $j<$rows; $j++,$idAj+=$incAj,$idX+=$incX) {
-            $idA = $idAj
+            $idA = $idAj;
             $max = $A[$idA];
             for($i=1; $i<$cols; $i++,$idA+=$incAi) 
                 $na = $A[$idA];
