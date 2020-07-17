@@ -919,7 +919,7 @@ class PhpMath
         int $vin_x,
         int $vin_h,
         int $vin_w,
-        int $out,
+        Buffer $out,
         int $out_pos,
         int $out_filter_step,
         int $out_channel_step
