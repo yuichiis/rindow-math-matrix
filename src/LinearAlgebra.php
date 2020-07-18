@@ -1321,10 +1321,11 @@ class LinearAlgebra
                 $out_w = intval(floor(($in_w-$filter_w)/$stride_w)+1);
             }
             if($cols_channels_first) {
-                $cols = $this->zeros([
+                $cols = $this->alloc([
                     $batches,$out_h,$out_w,
                     $channels,$filter_h,$filter_w
                 ]);
+                $this->zeros($cols);
             } else {
                 $cols = $this->alloc([
                     $batches,$out_h,$out_w,
