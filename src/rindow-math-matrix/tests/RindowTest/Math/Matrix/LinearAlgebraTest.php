@@ -1293,7 +1293,7 @@ class Test extends TestCase
           ],
         ]],
         $cols->toArray()
-        );da
+        );
         
         $newImages = $mo->zerosLike($images);
         $mo->la()->col2im(
