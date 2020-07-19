@@ -1319,6 +1319,8 @@ class LinearAlgebra
             } else {
                 $out_h = intval(floor(($in_h-$filter_h)/$stride_h)+1);
                 $out_w = intval(floor(($in_w-$filter_w)/$stride_w)+1);
+                echo "in_h=$in_h,filter_h=$filter_h,stride_h=$stride_h\n";
+                echo "out_h=$out_h\h";
             }
             if($cols_channels_first) {
                 $cols = $this->alloc([
