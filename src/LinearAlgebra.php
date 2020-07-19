@@ -1312,7 +1312,8 @@ class LinearAlgebra
         $padding = ($padding) ? true:false;
         $channels_first = ($channels_first) ? true:false;
         $cols_channels_first = ($cols_channels_first) ? true:false;
-        if($cols==null) {
+        if($cols==null) 
+            echo "padding=";var_dump($padding);
             if($padding) {
                 $out_h = $in_h;
                 $out_w = $in_w;
