@@ -1313,16 +1313,12 @@ class LinearAlgebra
         $channels_first = ($channels_first) ? true:false;
         $cols_channels_first = ($cols_channels_first) ? true:false;
         if($cols==null) {
-            echo "padding=";
-            var_dump($padding);
             if($padding) {
                 $out_h = $in_h;
                 $out_w = $in_w;
             } else {
                 $out_h = intval(floor(($in_h-$filter_h)/$stride_h)+1);
                 $out_w = intval(floor(($in_w-$filter_w)/$stride_w)+1);
-                echo "in_h=$in_h,filter_h=$filter_h,stride_h=$stride_h\n";
-                echo "out_h=$out_h\h";
             }
             if($cols_channels_first) {
                 $cols = $this->alloc([
