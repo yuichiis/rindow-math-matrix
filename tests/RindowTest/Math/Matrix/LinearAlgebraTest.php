@@ -1154,7 +1154,9 @@ class Test extends TestCase
         $images = $mo->arange(
             $batches*
             $im_h*$im_w*
-            $channels
+            $channels,
+            null,null,
+            NDArray::float32
         )->reshape([
             $batches,
             $im_h,
@@ -1223,7 +1225,7 @@ class Test extends TestCase
             $newImages->toArray()
         );
     }
-    
+
     public function testIm2col2dForPool()
     {
         $mo = $this->newMatrixOperator();
@@ -1244,7 +1246,9 @@ class Test extends TestCase
         $images = $mo->arange(
             $batches*
             $im_h*$im_w*
-            $channels
+            $channels,
+            null,null,
+            NDArray::float32
         )->reshape([
             $batches,
             $im_h,
@@ -1289,7 +1293,7 @@ class Test extends TestCase
             [[26,29],[38,41]],],
            [[[30,33],[42,45]],
             [[31,34],[43,46]],
-            [[32,35],[44,47]],],
+            [[32,35],[44,46]],],
           ],
         ]],
         $cols->toArray()
