@@ -914,8 +914,8 @@ class PhpMath
         int $filter_w,
         int $channels,
         int $channel_step,
-        int $filter_w_step,
         int $filter_h_step,
+        int $filter_w_step,
         int $vim_y,
         int $vim_x,
         int $vim_h,
@@ -959,7 +959,7 @@ class PhpMath
             }
             $filter_h_pos += $filter_h_step;
         }
-        return $out_pos;
+        
     }
     
     /**
@@ -991,6 +991,28 @@ class PhpMath
         int $cols_size
         )
     {
+        if($this->math) {
+            $this->math->im2col2d(
+                $reverse,
+                $images_buff,
+                $images_offset,
+                $images_size,
+                $batches,
+                $in_h,
+                $in_w,
+                $channels,
+                $filter_h,
+                $filter_w,
+                $stride_h,
+                $stride_w,
+                $padding,
+                $channels_first,
+                $cols_channels_first,
+                $cols,
+                $cols_offset,
+                $cols_size
+            );
+        }
         $images_buf_size = $batches*$im_h*$im_w*$channels;
         if($images_size!=$images_buf_size ||
             count($images)-$images_offset<$images_buf_size) {
@@ -1067,7 +1089,7 @@ class PhpMath
                 $vim_x = $start_vim_x;
                 for($x=$start_w;$x<$end_w;$x++) {
                     #print('osf=%d,%d,%d'%(out_h,stride_h,filter_h))
-                    $out_pos = $this->copyCell2d(
+                    $this->copyCell2d(
                         $reverse,
                         $images,
                         $stride_w_pos,
@@ -1075,8 +1097,8 @@ class PhpMath
                         $filter_w,
                         $channels,
                         $channel_step,
-                        $filter_w_step,
                         $filter_h_step,
+                        $filter_w_step,
                         $vim_y,
                         $vim_x,
                         $vim_h,
@@ -1095,6 +1117,5 @@ class PhpMath
             }    
             $batch_pos += $batch_step;
         }
-        return $cols;
     }
 }
