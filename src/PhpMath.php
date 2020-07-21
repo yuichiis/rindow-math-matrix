@@ -994,7 +994,7 @@ class PhpMath
         if($this->math) {
             $this->math->im2col2d(
                 $reverse,
-                $images_buff,
+                $images,
                 $images_offset,
                 $images_size,
                 $batches,
