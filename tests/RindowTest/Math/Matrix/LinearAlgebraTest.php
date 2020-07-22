@@ -1166,7 +1166,7 @@ class Test extends TestCase
         $cols = $mo->la()->im2col(
             $images,
             $filterSize=[
-                $kernel_h,$kernel_h],
+                $kernel_h,$kernel_w],
             $strides=[
                 $stride_h,$stride_w],
             $padding,
@@ -1212,7 +1212,7 @@ class Test extends TestCase
             $cols,
             $newImages,
             $filterSize=[
-                $kernel_h,$kernel_h],
+                $kernel_h,$kernel_w],
             $strides=[
                 $stride_h,$stride_w],
             $padding,
@@ -1258,7 +1258,7 @@ class Test extends TestCase
         $cols = $mo->la()->im2col(
             $images,
             $filterSize=[
-                $kernel_h,$kernel_h],
+                $kernel_h,$kernel_w],
             $strides=[
                 $stride_h,$stride_w],
             $padding,
@@ -1304,7 +1304,7 @@ class Test extends TestCase
             $cols,
             $newImages,
             $filterSize=[
-                $kernel_h,$kernel_h],
+                $kernel_h,$kernel_w],
             $strides=[
                 $stride_h,$stride_w],
             $padding,
