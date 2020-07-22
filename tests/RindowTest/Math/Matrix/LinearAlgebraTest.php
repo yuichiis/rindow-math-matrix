@@ -1185,6 +1185,7 @@ class Test extends TestCase
             ],
             $cols->shape()
         );
+        $aaaa = $cols->toArray();
         /*
         $this->assertEquals(
         [[
@@ -1220,6 +1221,7 @@ class Test extends TestCase
             $channels_first,
             $cols_channels_first
         );
+        $aaaa = $newImages->toArray();
         /*
         $this->assertEquals(
             $images->toArray(),
@@ -1279,6 +1281,7 @@ class Test extends TestCase
             ],
             $cols->shape()
         );
+        $aaaa = $cols->toArray();
         /*
         $this->assertEquals(
         [[
@@ -1314,6 +1317,7 @@ class Test extends TestCase
             $channels_first,
             $cols_channels_first
         );
+        $aaaa = $newImages->toArray();
         /*
         $this->assertEquals(
             $images->toArray(),
