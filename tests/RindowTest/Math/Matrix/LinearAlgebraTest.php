@@ -1267,7 +1267,6 @@ class Test extends TestCase
         );
         $out_h = 2;
         $out_w = 2;
-        return;
         
         $this->assertEquals(
             [
