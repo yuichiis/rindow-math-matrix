@@ -1220,7 +1220,6 @@ class Test extends TestCase
             $cols_channels_first
         );
         
-        return;
         $this->assertEquals(
             $images->toArray(),
             $newImages->toArray()
