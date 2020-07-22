@@ -1206,7 +1206,6 @@ class Test extends TestCase
         ]],
         $cols->toArray()
         );
-        return;
         
         $newImages = $mo->zerosLike($images);
         $mo->la()->col2im(
@@ -1221,6 +1220,7 @@ class Test extends TestCase
             $cols_channels_first
         );
         
+        return;
         $this->assertEquals(
             $images->toArray(),
             $newImages->toArray()
