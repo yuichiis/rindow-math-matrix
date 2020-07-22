@@ -1175,7 +1175,6 @@ class Test extends TestCase
         );
         $out_h = 2;
         $out_w = 2;
-        return;
         
         $this->assertEquals(
             [
@@ -1207,6 +1206,7 @@ class Test extends TestCase
         ]],
         $cols->toArray()
         );
+        return;
         
         $newImages = $mo->zerosLike($images);
         $mo->la()->col2im(
