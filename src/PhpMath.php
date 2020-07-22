@@ -1015,6 +1015,7 @@ class PhpMath
                 $cols_offset,
                 $cols_size
             );
+            return;
         }
         $images_buf_size = $batches*$im_h*$im_w*$channels;
         if($images_size!=$images_buf_size ||
