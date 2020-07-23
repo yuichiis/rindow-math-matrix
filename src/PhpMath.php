@@ -1271,7 +1271,7 @@ class PhpMath
         $vim_w = ($out_w-1)*$stride_w+$filter_w;
     
         for($batch=0; $batch<$batches;$batch++) {
-            $stride_w_pos = $batch_pos $start_w*$stride_w_step;
+            $stride_w_pos = $batch_pos+ $start_w*$stride_w_step;
             $vim_x = $start_vim_x;
             for($x=$start_w;$x<$end_w;$x++) {
                 #print('osf=%d,%d,%d'%(out_h,stride_h,filter_h))
