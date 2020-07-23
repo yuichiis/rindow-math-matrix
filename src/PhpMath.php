@@ -1197,7 +1197,7 @@ class PhpMath
         int $cols_size
         )
     {
-        if(false&&$this->math) {
+        if($this->math) {
             $this->math->im2col1d(
                 $reverse,
                 $images,
