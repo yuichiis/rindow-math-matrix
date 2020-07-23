@@ -1133,103 +1133,6 @@ class Test extends TestCase
         $Y = $math->astype($X, $dtype);
         $this->assertEquals([-1,0,1,2,3],$Y->toArray());
     }
-
-    public function testIm2col2dForPool()
-    {
-        $mo = $this->newMatrixOperator();
-
-        $batches = 1;
-        $im_h = 4;
-        $im_w = 4;
-        $channels = 3;
-        $kernel_h = 2;
-        $kernel_w = 2;
-        $stride_h = 2;
-        $stride_w = 2;
-        $padding = null;
-        $channels_first = null;
-        $cols_channels_first=true;
-        $cols = null;
-        
-        $images = $mo->arange(
-            $batches*
-            $im_h*$im_w*
-            $channels,
-            null,null,
-            NDArray::float32
-        )->reshape([
-            $batches,
-            $im_h,
-            $im_w,
-            $channels
-        ]);
-        $cols = $mo->la()->im2col(
-            $images,
-            $filterSize=[
-                $kernel_h,$kernel_w],
-            $strides=[
-                $stride_h,$stride_w],
-            $padding,
-            $channels_first,
-            $cols_channels_first
-        );
-        $out_h = 2;
-        $out_w = 2;
-        
-        $this->assertEquals(
-            [
-                $batches,
-                $out_h,$out_w,
-                $channels,
-                $kernel_h,$kernel_w,
-            ],
-            $cols->shape()
-        );
-        $aaaa = $cols->toArray();
-        
-        $this->assertEquals(
-        [[
-          [
-           [[[0,3],[12,15]],
-            [[1,4],[13,16]],
-            [[2,5],[14,17]],],
-           [[[6,9],[18,21]],
-            [[7,10],[19,22]],
-            [[8,11],[20,23]],],
-          ],
-          [
-           [[[24,27],[36,39]],
-            [[25,28],[37,40]],
-            [[26,29],[38,41]],],
-           [[[30,33],[42,45]],
-            [[31,34],[43,46]],
-            [[32,35],[44,47]],],
-          ],
-        ]],
-        $cols->toArray()
-        );
-        
-        
-        $newImages = $mo->zerosLike($images);
-        $mo->la()->col2im(
-            $cols,
-            $newImages,
-            $filterSize=[
-                $kernel_h,$kernel_w],
-            $strides=[
-                $stride_h,$stride_w],
-            $padding,
-            $channels_first,
-            $cols_channels_first
-        );
-        $aaaa = $newImages->toArray();
-        
-        $this->assertEquals(
-            $images->toArray(),
-            $newImages->toArray()
-        );
-        
-    }
     
     public function testIm2col2dNormal()
     {
@@ -1282,8 +1185,6 @@ class Test extends TestCase
             ],
             $cols->shape()
         );
-        $aaaa = $cols->toArray();
-        
         $this->assertEquals(
         [[
           [
@@ -1292,7 +1193,7 @@ class Test extends TestCase
             [[24,25,26],[27,28,29],[30,31,32]],],
            [[[3,4,5],[6,7,8],[9,10,11]],
             [[15,16,17],[18,19,20],[21,22,23]],
-            [[27,28,29],[30,31,32 ],[33,34,35]],],
+            [[27,28,29],[30,31,32],[33,34,35]],],
           ],
           [
            [[[12,13,14],[15,16,17],[18,19,20]],
@@ -1306,6 +1207,97 @@ class Test extends TestCase
         $cols->toArray()
         );
         
+        $newImages = $mo->zerosLike($images);
+        $mo->la()->col2im(
+            $cols,
+            $newImages,
+            $filterSize=[
+                $kernel_h,$kernel_w],
+            $strides=[
+                $stride_h,$stride_w],
+            $padding,
+            $channels_first,
+            $cols_channels_first
+        );
+        
+        $this->assertEquals(
+            $images->toArray(),
+            $newImages->toArray()
+        );
+    }
+
+    public function testIm2col2dForPool()
+    {
+        $mo = $this->newMatrixOperator();
+
+        $batches = 1;
+        $im_h = 4;
+        $im_w = 4;
+        $channels = 3;
+        $kernel_h = 2;
+        $kernel_w = 2;
+        $stride_h = 2;
+        $stride_w = 2;
+        $padding = null;
+        $channels_first = null;
+        $cols_channels_first=true;
+        $cols = null;
+        
+        $images = $mo->arange(
+            $batches*
+            $im_h*$im_w*
+            $channels,
+            null,null,
+            NDArray::float32
+        )->reshape([
+            $batches,
+            $im_h,
+            $im_w,
+            $channels
+        ]);
+        $cols = $mo->la()->im2col(
+            $images,
+            $filterSize=[
+                $kernel_h,$kernel_w],
+            $strides=[
+                $stride_h,$stride_w],
+            $padding,
+            $channels_first,
+            $cols_channels_first
+        );
+        $out_h = 2;
+        $out_w = 2;
+        
+        $this->assertEquals(
+            [
+                $batches,
+                $out_h,$out_w,
+                $channels,
+                $kernel_h,$kernel_w,
+            ],
+            $cols->shape()
+        );
+        $this->assertEquals(
+        [[
+          [
+           [[[0,3],[12,15]],
+            [[1,4],[13,16]],
+            [[2,5],[14,17]],],
+           [[[6,9],[18,21]],
+            [[7,10],[19,22]],
+            [[8,11],[20,23]],],
+          ],
+          [
+           [[[24,27],[36,39]],
+            [[25,28],[37,40]],
+            [[26,29],[38,41]],],
+           [[[30,33],[42,45]],
+            [[31,34],[43,46]],
+            [[32,35],[44,46]],],
+          ],
+        ]],
+        $cols->toArray()
+        );
         
         $newImages = $mo->zerosLike($images);
         $mo->la()->col2im(
@@ -1319,12 +1311,10 @@ class Test extends TestCase
             $channels_first,
             $cols_channels_first
         );
-        $aaaa = $newImages->toArray();
         
         $this->assertEquals(
             $images->toArray(),
             $newImages->toArray()
         );
-        
     }
 }
