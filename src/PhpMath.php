@@ -1130,10 +1130,13 @@ class PhpMath
         int $images_pos,
         int $filter_w,
         int $channels,
+        
         int $channel_step,
         int $filter_w_step,
         int $vim_x,
+        int $vim_w,
         Buffer $out,
+        
         int $out_pos,
         int $out_filter_step,
         int $out_channel_step
@@ -1281,11 +1284,13 @@ class PhpMath
                     $stride_w_pos,
                     $filter_w,
                     $channels,
+                    
                     $channel_step,
                     $filter_w_step,
                     $vim_x,
                     $vim_w,
                     $cols,
+                    
                     $out_pos,
                     $out_filter_step,
                     $out_channel_step
