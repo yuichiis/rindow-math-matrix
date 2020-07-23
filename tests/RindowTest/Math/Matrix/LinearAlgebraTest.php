@@ -1209,6 +1209,7 @@ class Test extends TestCase
         $cols->toArray()
         );
         */
+        return;
         $newImages = $mo->zerosLike($images);
         $mo->la()->col2im(
             $cols,
@@ -1305,6 +1306,7 @@ class Test extends TestCase
         $cols->toArray()
         );
         */
+        return;
         $newImages = $mo->zerosLike($images);
         $mo->la()->col2im(
             $cols,
