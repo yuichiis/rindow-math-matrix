@@ -1376,9 +1376,9 @@ class Test extends TestCase
             $cols,
             $newImages,
             $filterSize=[
-                $kernel_h,$kernel_w],
+                $kernel_w],
             $strides=[
-                $stride_h,$stride_w],
+                $stride_w],
             $padding,
             $channels_first,
             $cols_channels_first
@@ -1449,9 +1449,9 @@ class Test extends TestCase
             $cols,
             $newImages,
             $filterSize=[
-                $kernel_h,$kernel_w],
+                $kernel_w],
             $strides=[
-                $stride_h,$stride_w],
+                $stride_w],
             $padding,
             $channels_first,
             $cols_channels_first
