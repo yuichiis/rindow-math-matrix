@@ -1186,7 +1186,7 @@ class Test extends TestCase
             $cols->shape()
         );
         $aaaa = $cols->toArray();
-        /*
+        
         $this->assertEquals(
         [[
           [
@@ -1208,7 +1208,7 @@ class Test extends TestCase
         ]],
         $cols->toArray()
         );
-        */
+        
         
         $newImages = $mo->zerosLike($images);
         $mo->la()->col2im(
@@ -1223,12 +1223,12 @@ class Test extends TestCase
             $cols_channels_first
         );
         $aaaa = $newImages->toArray();
-        /*
+        
         $this->assertEquals(
             $images->toArray(),
             $newImages->toArray()
         );
-        */
+        
     }
     
     public function testIm2col2dNormal()
@@ -1283,7 +1283,7 @@ class Test extends TestCase
             $cols->shape()
         );
         $aaaa = $cols->toArray();
-        /*
+        
         $this->assertEquals(
         [[
           [
@@ -1305,7 +1305,7 @@ class Test extends TestCase
         ]],
         $cols->toArray()
         );
-        */
+        
         
         $newImages = $mo->zerosLike($images);
         $mo->la()->col2im(
@@ -1320,11 +1320,11 @@ class Test extends TestCase
             $cols_channels_first
         );
         $aaaa = $newImages->toArray();
-        /*
+        
         $this->assertEquals(
             $images->toArray(),
             $newImages->toArray()
         );
-        */
+        
     }
 }
