@@ -1226,7 +1226,6 @@ class LinearAlgebra
         } else {
             $rows = array_pop($shapeA);
         }
-        echo "rows=$rows\n";
         $this->scal(1/$rows,$X);
         return $X;
     }
