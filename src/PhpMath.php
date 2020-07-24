@@ -940,7 +940,8 @@ class PhpMath
                     if(!$reverse) {
                         $out[$out_channel_pos] =  $images[$channel_pos];
                     } else {
-                         $images[$channel_pos] = $out[$out_channel_pos];
+                        // Sum for Back propagation
+                         $images[$channel_pos] += $out[$out_channel_pos];
                     }
                 }
                 $out_channel_pos += $out_channel_step;
@@ -1126,7 +1127,8 @@ class PhpMath
                         if(!$reverse) {
                             $out[$out_channel_pos] =  $images[$channel_pos];
                         } else {
-                             $images[$channel_pos] = $out[$out_channel_pos];
+                            // Sum for Back propagation
+                             $images[$channel_pos] += $out[$out_channel_pos];
                         }
                     }
                     $out_channel_pos += $out_channel_step;
@@ -1351,7 +1353,8 @@ class PhpMath
                             if(!$reverse) {
                                 $out[$out_channel_pos] =  $images[$channel_pos];
                             } else {
-                                 $images[$channel_pos] = $out[$out_channel_pos];
+                                // Sum for Back propagation
+                                 $images[$channel_pos] += $out[$out_channel_pos];
                             }
                         }
                         $out_channel_pos += $out_channel_step;
