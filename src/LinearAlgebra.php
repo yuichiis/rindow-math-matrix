@@ -1568,7 +1568,7 @@ class LinearAlgebra
         $out = $cols->buffer();
         $out_offset = $cols->offset();
         $out_size = $cols->size();
-        $this->math->im2col2d(
+        $this->math->im2col3d(
             $reverse,
             $images_buff,
             $images_offset,
