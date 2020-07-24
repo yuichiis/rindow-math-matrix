@@ -1521,6 +1521,10 @@ class Test extends TestCase
         //$this->assertEquals(
         //    [],$cols->toArray()
         //);
+        $this->assertNotEquals(
+            $mo->zerosLike($cols)->toArray(),
+            $cols->toArray()
+        );
         
         $newImages = $mo->zerosLike($images);
         $mo->la()->col2im(
@@ -1601,6 +1605,10 @@ class Test extends TestCase
         //[],
         //$cols->toArray()
         //);
+        $this->assertNotEquals(
+            $mo->zerosLike($cols)->toArray(),
+            $cols->toArray()
+        );
         
         $newImages = $mo->zerosLike($images);
         $mo->la()->col2im(
