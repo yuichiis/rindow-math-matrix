@@ -1219,10 +1219,11 @@ class Test extends TestCase
             $channels_first,
             $cols_channels_first
         );
-        
-        $this->assertEquals(
-            $images->toArray(),
-            $newImages->toArray()
+        // result is Not equal to original
+        // because to sum for back propagation
+        //$this->assertEquals(
+        //    $images->toArray(),
+        //    $newImages->toArray()
         );
     }
 
@@ -1312,10 +1313,12 @@ class Test extends TestCase
             $cols_channels_first
         );
         
-        $this->assertEquals(
-            $images->toArray(),
-            $newImages->toArray()
-        );
+        // result is Not equal to original
+        // because to sum for back propagation
+        //$this->assertEquals(
+        //    $images->toArray(),
+        //    $newImages->toArray()
+        //);
     }
     public function testIm2col1dNormal()
     {
@@ -1384,10 +1387,12 @@ class Test extends TestCase
             $cols_channels_first
         );
         
-        $this->assertEquals(
-            $images->toArray(),
-            $newImages->toArray()
-        );
+        // result is Not equal to original
+        // because to sum for back propagation
+        //$this->assertEquals(
+        //    $images->toArray(),
+        //    $newImages->toArray()
+        //);
     }
 
     public function testIm2col1dForPool()
@@ -1457,10 +1462,12 @@ class Test extends TestCase
             $cols_channels_first
         );
         
-        $this->assertEquals(
-            $images->toArray(),
-            $newImages->toArray()
-        );
+        // result is Not equal to original
+        // because to sum for back propagation
+        //$this->assertEquals(
+        //    $images->toArray(),
+        //    $newImages->toArray()
+        //);
     }
     public function testIm2col3dNormal()
     {
@@ -1539,10 +1546,12 @@ class Test extends TestCase
             $cols_channels_first
         );
         
-        $this->assertEquals(
-            $images->toArray(),
-            $newImages->toArray()
-        );
+        // result is Not equal to original
+        // because to sum for back propagation
+        //$this->assertEquals(
+        //    $images->toArray(),
+        //    $newImages->toArray()
+        //);
     }
 
     public function testIm2col3dForPool()
@@ -1623,9 +1632,11 @@ class Test extends TestCase
             $cols_channels_first
         );
         
-        $this->assertEquals(
-            $images->toArray(),
-            $newImages->toArray()
-        );
+        // result is Not equal to original
+        // because to sum for back propagation
+        //$this->assertEquals(
+        //    $images->toArray(),
+        //    $newImages->toArray()
+        //);
     }
 }
