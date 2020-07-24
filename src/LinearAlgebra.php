@@ -1222,11 +1222,11 @@ class LinearAlgebra
         );
         $shapeA = $A->shape();
         if($axis==0) {
-            $rows = array_pop($shapeA);
+            $cols = array_pop($shapeA);
         } else {
-            $rows = $shapeA[0];
+            $cols = $shapeA[0];
         }
-        $this->scal(1/$rows,$X);
+        $this->scal(1/$cols,$X);
         return $X;
     }
 
