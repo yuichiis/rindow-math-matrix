@@ -1226,7 +1226,7 @@ class LinearAlgebra
         } else {
             $cols = $shapeA[0];
         }
-        $this->scal(1/$cols,$X);
+        #$this->scal(1/$cols,$X);
         return $X;
     }
 
