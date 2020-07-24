@@ -1226,21 +1226,7 @@ class LinearAlgebra
         ) : NDArray
     {
         $ndim = $images->ndim();
-        if($ndim==4) {
-            $_cols = $this->im2col2d(
-                false,
-                $images,
-                $filterSize,
-                $strides,
-                $padding,
-                $channels_first,
-                $cols_channels_first,
-                $cols
-            );
-            if($cols==null) {
-                $cols = $_cols;
-            }
-        } elseif($ndim==3) {
+        if($ndim==3) {
             $_cols = $this->im2col1d(
                 false,
                 $images,
@@ -1254,6 +1240,36 @@ class LinearAlgebra
             if($cols==null) {
                 $cols = $_cols;
             }
+        } elseif($ndim==4) {
+            $_cols = $this->im2col2d(
+                false,
+                $images,
+                $filterSize,
+                $strides,
+                $padding,
+                $channels_first,
+                $cols_channels_first,
+                $cols
+            );
+            if($cols==null) {
+                $cols = $_cols;
+            }
+        } elseif($ndim==5) {
+            $_cols = $this->im2col3d(
+                false,
+                $images,
+                $filterSize,
+                $strides,
+                $padding,
+                $channels_first,
+                $cols_channels_first,
+                $cols
+            );
+            if($cols==null) {
+                $cols = $_cols;
+            }
+        } else {
+            throw new InvalidArgumentException('unsuppoted images shape');
         }
         return $cols;
     }
@@ -1269,18 +1285,7 @@ class LinearAlgebra
         ) : NDArray
     {
         $ndim = $images->ndim();
-        if($ndim==4) {
-            $this->im2col2d(
-                true,
-                $images,
-                $filterSize,
-                $strides,
-                $padding,
-                $channels_first,
-                $cols_channels_first,
-                $cols
-            );
-        } elseif($ndim==3) {
+        if($ndim==3) {
             $this->im2col1d(
                 true,
                 $images,
@@ -1291,10 +1296,119 @@ class LinearAlgebra
                 $cols_channels_first,
                 $cols
             );
+        } elseif($ndim==4) {
+            $this->im2col2d(
+                true,
+                $images,
+                $filterSize,
+                $strides,
+                $padding,
+                $channels_first,
+                $cols_channels_first,
+                $cols
+            );
+        } elseif($ndim==5) {
+            $this->im2col3d(
+                true,
+                $images,
+                $filterSize,
+                $strides,
+                $padding,
+                $channels_first,
+                $cols_channels_first,
+                $cols
+            );
+        } else {
+            throw new InvalidArgumentException('unsuppoted images shape');
         }
         return $images;
     }
 
+    public function im2col1d(
+        bool $reverse,
+        NDArray $images,
+        array $filterSize=null,
+        array $strides=null,
+        bool $padding=null,
+        bool $channels_first=null,
+        bool $cols_channels_first=null,
+        NDArray $cols=null
+        ) : NDArray
+    {
+        $ndim = $images->ndim();
+        $images_offset = $images->offset();
+        $images_size = $images->size();
+        $images_buff = $images->buffer();
+        if($ndim!=3) {
+            throw new InvalidArgumentException('images must be 3D dimension');
+        }
+        if($channels_first) {
+            [$batches,
+             $channels,
+             $in_w] =
+                $images->shape();
+        } else {
+            [$batches,
+             $in_w,
+             $channels] =
+                $images->shape();
+        }
+        if($filterSize==null) {
+            $filterSize = [3];
+        }
+        [$filter_w] =
+            $filterSize;
+        if($strides==null) {
+            $strides = [1];
+        }
+        [$stride_w] =
+            $strides;
+        $padding = ($padding) ? true:false;
+        $channels_first = ($channels_first) ? true:false;
+        $cols_channels_first = ($cols_channels_first) ? true:false;
+        if($cols==null) {
+            if($padding) {
+                $out_w = $in_w;
+            } else {
+                $out_w = intval(floor(($in_w-$filter_w)/$stride_w)+1);
+            }
+            if($cols_channels_first) {
+                $cols = $this->alloc([
+                    $batches,$out_w,
+                    $channels,$filter_w
+                ]);
+                $this->zeros($cols);
+            } else {
+                $cols = $this->alloc([
+                    $batches,$out_w,
+                    $filter_w,$channels
+                ]);
+                $this->zeros($cols);
+            }
+        }
+        $out = $cols->buffer();
+        $out_offset = $cols->offset();
+        $out_size = $cols->size();
+        $this->math->im2col1d(
+            $reverse,
+            $images_buff,
+            $images_offset,
+            $images_size,
+            $batches,
+            $in_w,
+            $channels,
+            $filter_w,
+            $stride_w,
+            $padding,
+            $channels_first,
+            $cols_channels_first,
+            $out,
+            $out_offset,
+            $out_size
+        );
+        return $cols;
+    }
+    
     public function im2col2d(
         bool $reverse,
         NDArray $images,
@@ -1385,7 +1499,7 @@ class LinearAlgebra
         return $cols;
     }
 
-    public function im2col1d(
+    public function im2col3d(
         bool $reverse,
         NDArray $images,
         array $filterSize=null,
@@ -1400,49 +1514,53 @@ class LinearAlgebra
         $images_offset = $images->offset();
         $images_size = $images->size();
         $images_buff = $images->buffer();
-        if($ndim!=3) {
-            throw new InvalidArgumentException('images must be 3D dimension');
+        if($ndim!=5) {
+            throw new InvalidArgumentException('images must be 5D dimension');
         }
         if($channels_first) {
             [$batches,
              $channels,
-             $in_w] =
+             $in_d,$in_h,$in_w] =
                 $images->shape();
         } else {
             [$batches,
-             $in_w,
+             $in_d,$in_h,$in_w,
              $channels] =
                 $images->shape();
         }
         if($filterSize==null) {
-            $filterSize = [3];
+            $filterSize = [3,3,3];
         }
-        [$filter_w] =
+        [$filter_d,$filter_h,$filter_w] =
             $filterSize;
         if($strides==null) {
-            $strides = [1];
+            $strides = [1,1,1];
         }
-        [$stride_w] =
+        [$stride_d,$stride_h,$stride_w] =
             $strides;
         $padding = ($padding) ? true:false;
         $channels_first = ($channels_first) ? true:false;
         $cols_channels_first = ($cols_channels_first) ? true:false;
         if($cols==null) {
             if($padding) {
+                $out_d = $in_d;
+                $out_h = $in_h;
                 $out_w = $in_w;
             } else {
+                $out_d = intval(floor(($in_d-$filter_d)/$stride_d)+1);
+                $out_h = intval(floor(($in_h-$filter_h)/$stride_h)+1);
                 $out_w = intval(floor(($in_w-$filter_w)/$stride_w)+1);
             }
             if($cols_channels_first) {
                 $cols = $this->alloc([
-                    $batches,$out_w,
-                    $channels,$filter_w
+                    $batches,$out_d,$out_h,$out_w,
+                    $channels,$filter_d,$filter_h,$filter_w
                 ]);
                 $this->zeros($cols);
             } else {
                 $cols = $this->alloc([
-                    $batches,$out_w,
-                    $filter_w,$channels
+                    $batches,$out_d,$out_h,$out_w,
+                    $filter_d,$filter_h,$filter_w,$channels
                 ]);
                 $this->zeros($cols);
             }
@@ -1450,15 +1568,21 @@ class LinearAlgebra
         $out = $cols->buffer();
         $out_offset = $cols->offset();
         $out_size = $cols->size();
-        $this->math->im2col1d(
+        $this->math->im2col2d(
             $reverse,
             $images_buff,
             $images_offset,
             $images_size,
             $batches,
+            $in_d,
+            $in_h,
             $in_w,
             $channels,
+            $filter_d,
+            $filter_h,
             $filter_w,
+            $stride_d,
+            $stride_h,
             $stride_w,
             $padding,
             $channels_first,
