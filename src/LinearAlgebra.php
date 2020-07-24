@@ -1045,7 +1045,7 @@ class LinearAlgebra
         }
         return $this->reduceWalk($func, $A, $axis, $X, $dtypeX);
     }
-*/
+
     public function reduceMean(NDArray $A,int $axis,NDArray $X=null,$dtypeX=null) : NDArray
     {
         $func = function($m,$AA,$idxA,$ldA) {
@@ -1057,7 +1057,7 @@ class LinearAlgebra
         }
         return $this->reduceWalk($func, $A, $axis, $X, $dtypeX);
     }
-
+*/
     protected function reduceWalk(
         callable $func, NDArray $A,int $axis,NDArray $X=null,$dtypeX=null) : NDArray
     {
@@ -1212,6 +1212,21 @@ class LinearAlgebra
             $AA,$offA,$n,
             $XX,$offX,1);
 
+        return $X;
+    }
+
+    public function reduceMean(NDArray $A,int $axis,NDArray $X=null,$dtypeX=null) : NDArray
+    {
+        $X = $this->reduceSum(
+            $A,$axis,$X,$dtypeX
+        );
+        $shapeA = $A->shape();
+        if($axis==0) {
+            $rows = array_pop($shapeA);
+        } else {
+            $rows = $shapeA[0];
+        }
+        $this->scal(1/$rows,$X);
         return $X;
     }
 
