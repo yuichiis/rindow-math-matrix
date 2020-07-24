@@ -1224,7 +1224,7 @@ class Test extends TestCase
         //$this->assertEquals(
         //    $images->toArray(),
         //    $newImages->toArray()
-        );
+        //);
     }
 
     public function testIm2col2dForPool()
