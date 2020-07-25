@@ -959,6 +959,116 @@ class LinearAlgebra
         return $Y;
     }
 
+    public function scatter(
+        NDArray $X,
+        NDArray $Y,
+        int $numClass,
+        int $axis=null,
+        NDArray $A=null) : NDArray
+    {
+        if($axis===null) {
+            $axis=0;
+        }
+        if($axis==0) {
+            return $this->scatterAxis0($X,$Y,$numClass,$A);
+        } elseif($axis==1) {
+            return $this->scatterAxis1($X,$Y,$numClass,$A);
+        } else {
+            throw new InvalidArgumentException('axis must be 0 or 1');
+        }
+    }
+
+    protected function scatterAxis0(
+        NDArray $X,
+        NDArray $Y,
+        int $numClass,
+        NDArray $A=null) : NDArray
+    {
+        if($X->ndim()!=1) {
+            throw new InvalidArgumentException('"X" must be 1D-NDArray.');
+        }
+        $countX = $X->shape()[0];
+        $shape = $Y->shape();
+        $countY = array_shift($shape);
+        if($countX!=$countY) {
+            throw new InvalidArgumentException('Unmatch size "Y" with "X".');
+        }
+        $m = $numClass;
+        $n = (int)array_product($shape);
+        array_unshift($shape,$numClass);
+        if($A==null) {
+            $A = $this->alloc($shape,$Y->dtype());
+            $this->zeros($A);
+        } else {
+            if($A->shape()!=$shape){
+            throw new InvalidArgumentException('Unmatch size "Y" with "X" and "A" .');
+            }
+        }
+
+        $AA = $A->buffer();
+        $offA = $A->offset();
+        $ldA = $n;
+        $XX = $X->buffer();
+        $offX = $X->offset();
+        $YY = $Y->buffer();
+        $offY = $Y->offset();
+        $ldY = $n;
+
+        $this->math->scatterAxis0(
+            $m,
+            $n,
+            $countX,
+            $AA,$offA,$ldA,
+            $XX,$offX,1,
+            $YY,$offY,$ldY);
+
+        return $A;
+    }
+
+    protected function scatterAxis1(
+        NDArray $X,
+        NDArray $Y,
+        int $numClass,
+        NDArray $A=null) : NDArray
+    {
+        if($X->ndim()!=1) {
+            throw new InvalidArgumentException('"X" must be 1D-NDArray.');
+        }
+        if($Y->ndim()!=1) {
+            throw new InvalidArgumentException('"Y" must be 1D-NDArray.');
+        }
+        if($X->shape()[0]!=$Y->shape()[0]) {
+            throw new InvalidArgumentException('Unmatch size "X" and "Y".');
+        }
+        $m = $X->shape()[0];
+        $n = $numClass;
+        if($A==null) {
+            $A = $this->alloc([$m,$n]);
+            $this->zeros($A);
+        } else {
+            if($A->shape()!=[$m,$n]) {
+                throw new InvalidArgumentException('Unmatch size "X" and "Y" and "A".');
+            }
+        }
+
+        $AA = $A->buffer();
+        $offA = $A->offset();
+        $ldA = $n;
+        $XX = $X->buffer();
+        $offX = $X->offset();
+        $YY = $Y->buffer();
+        $offY = $Y->offset();
+
+        $this->math->scatterAxis1(
+            $m,
+            $n,
+            $AA,$offA,$ldA,
+            $XX,$offX,1,
+            $YY,$offY,1);
+
+        return $A;
+    }
+
     public function onehot(
         NDArray $X,
         int $numClass,
