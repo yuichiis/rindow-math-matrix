@@ -793,6 +793,54 @@ class PhpMath
         }
     }
 
+    /**
+     * X(m) := sum( A(m,n) )
+     */
+    public function reduceArgMax(
+        bool $trans,
+        int $m,
+        int $n,
+        Buffer $A, int $offsetA, int $ldA,
+        Buffer $X, int $offsetX, int $incX
+        ) : void
+    {
+        if($this->useMath($A)) {
+            $this->math->reduceArgMax($trans,$m,$n,$A,$offsetA,$ldA,$X,$offsetX,$incX);
+            return;
+        }
+
+        if(!$trans) {
+            $rows = $m; $cols = $n;
+        } else {
+            $rows = $n; $cols = $m;
+        }
+
+        if($offsetA+($m-1)*$ldA+($n-1)>=count($A))
+            throw new RuntimeException('Vector specification too large for buffer.');
+        if($offsetX+($rows-1)*$incX>=count($X))
+            throw new RuntimeException('Vector specification too large for buffer.');
+
+        if(!$trans) { $incAj = $ldA; $incAi = 1;}
+        else        { $incAj = 1;    $incAi = $ldA;}
+
+        $idAj = $offsetA;
+        $idX = $offsetX;
+        for($j=0; $j<$rows; $j++,$idAj+=$incAj,$idX+=$incX) {
+            $idA = $idAj;
+            $max = $A[$idA];
+            $argMax = 0;
+            $idA += $incAi;
+            for($i=1; $i<$cols; $i++,$idA+=$incAi) {
+                $na = $A[$idA];
+                if($max<$na) {
+                    $argMax = $i;
+                }
+                    $max = $na;
+            }
+            $X[$idX] = $argMax;
+        }
+    }
+
     public function softmax(
         int $m,
         int $n,
