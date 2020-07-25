@@ -913,6 +913,142 @@ class Test extends TestCase
         $this->assertEquals([1,5,9,10],$y->toArray());
     }
 
+    public function testScatterAxis0()
+    {
+        $mo = $this->newMatrixOperator();
+        // float32
+        $x = $mo->array([0,2],NDArray::int64);
+        $y = $mo->array([[1,2,3],[7,8,9]],NDArray::float32);
+        $a = $mo->la()->scatter($x,$y,$numClass=4,$axis=0);
+        $this->assertEquals(
+           [[1,2,3],
+            [0,0,0],
+            [7,8,9],
+            [0,0,0]],
+            $a->toArray()
+        );
+        // float64
+        $x = $mo->array([0,2],NDArray::int64);
+        $y = $mo->array([[1,2,3],[7,8,9]],NDArray::float64);
+        $a = $mo->la()->scatter($x,$y,$numClass=4,$axis=0);
+        $this->assertEquals(
+           [[1,2,3],
+            [0,0,0],
+            [7,8,9],
+            [0,0,0]],
+            $a->toArray()
+        );
+        // int64
+        $x = $mo->array([0,2],NDArray::int64);
+        $y = $mo->array([[1,2,3],[7,8,9]],NDArray::int64);
+        $a = $mo->la()->scatter($x,$y,$numClass=4,$axis=0);
+        $this->assertEquals(
+           [[1,2,3],
+            [0,0,0],
+            [7,8,9],
+            [0,0,0]],
+            $a->toArray()
+        );
+        // uint8
+        $x = $mo->array([0,2],NDArray::int64);
+        $y = $mo->array([[1,2,3],[7,8,9]],NDArray::uint8);
+        $a = $mo->la()->scatter($x,$y,$numClass=4,$axis=0);
+        $this->assertEquals(
+           [[1,2,3],
+            [0,0,0],
+            [7,8,9],
+            [0,0,0]],
+            $a->toArray()
+        );
+        // float32
+        $x = $mo->array([0,2],NDArray::int64);
+        $y = $mo->array([1,3],NDArray::float32);
+        $a = $mo->la()->scatter($x,$y,$numClass=4,$axis=0);
+        $this->assertEquals(
+           [1,0,3,0],
+            $a->toArray()
+        );
+        // int32
+        $x = $mo->array([0,2],NDArray::int64);
+        $y = $mo->array([1,3],NDArray::int32);
+        $a = $mo->la()->scatter($x,$y,$numClass=4,$axis=0);
+        $this->assertEquals(
+           [1,0,3,0],
+            $a->toArray()
+        );
+        // float64
+        $x = $mo->array([0,2],NDArray::int64);
+        $y = $mo->array([1,3],NDArray::float64);
+        $a = $mo->la()->scatter($x,$y,$numClass=4,$axis=0);
+        $this->assertEquals(
+           [1,0,3,0],
+            $a->toArray()
+        );
+        // int64
+        $x = $mo->array([0,2],NDArray::int64);
+        $y = $mo->array([1,3],NDArray::int64);
+        $a = $mo->la()->scatter($x,$y,$numClass=4,$axis=0);
+        $this->assertEquals(
+           [1,0,3,0],
+            $a->toArray()
+        );
+        // uint8
+        $x = $mo->array([0,2],NDArray::int64);
+        $y = $mo->array([252,254],NDArray::uint8);
+        $a = $mo->la()->scatter($x,$y,$numClass=4,$axis=0);
+        $this->assertEquals(
+           [252,0,254,0],
+            $a->toArray()
+        );
+        // x=uint8
+        $x = $mo->array([0,255],NDArray::uint8);
+        $y = $mo->array([252,254],NDArray::uint8);
+        $a = $mo->la()->scatter($x,$y,$numClass=256,$axis=0);
+        $this->assertEquals(252,$a[0]);
+        $this->assertEquals(254,$a[255]);
+    }
+
+    public function testScatterAxis1()
+    {
+        $mo = $this->newMatrixOperator();
+        $x = $mo->array([0,1,2,0],NDArray::int32);
+        $y = $mo->array([1,5,9,10],NDArray::float32);
+        $a = $mo->la()->scatter($x,$y,$numClass=3,$axis=1);
+        $this->assertEquals(
+           [[1,0,0],
+            [0,5,0],
+            [0,0,9],
+            [10,0,0]],
+            $a->toArray());
+
+        $x = $mo->array([0,1,2,0],NDArray::int64);
+        $a = $mo->la()->scatter($x,$y,$numClass=3,$axis=1);
+        $this->assertEquals(
+           [[1,0,0],
+            [0,5,0],
+            [0,0,9],
+            [10,0,0]],
+            $a->toArray());
+
+        $x = $mo->array([0,1,2,0],NDArray:: float32);
+        $a = $mo->la()->scatter($x,$y,$numClass=3,$axis=1);
+        $this->assertEquals(
+           [[1,0,0],
+            [0,5,0],
+            [0,0,9],
+            [10,0,0]],
+            $a->toArray());
+
+        $x = $mo->array([0,1,2,0],NDArray:: float64);
+        $a = $mo->la()->scatter($x,$y,$numClass=3,$axis=1);
+        $this->assertEquals(
+           [[1,0,0],
+            [0,5,0],
+            [0,0,9],
+            [10,0,0]],
+            $a->toArray());
+    }
+
     public function testOnehot()
     {
         $mo = $this->newMatrixOperator();
