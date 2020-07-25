@@ -1021,7 +1021,7 @@ class LinearAlgebra
 
         return $X;
     }
-
+/*
     public function reduceArgMax(NDArray $A,int $axis,NDArray $X=null,$dtypeX=null) : NDArray
     {
         $func = function($m,$AA,$idxA,$ldA) {
@@ -1032,7 +1032,7 @@ class LinearAlgebra
         }
         return $this->reduceWalk($func, $A, $axis, $X, $dtypeX);
     }
-/*
+
     public function reduceMax(NDArray $A,int $axis,NDArray $X=null,$dtypeX=null) : NDArray
     {
 
@@ -1215,12 +1215,59 @@ class LinearAlgebra
         return $X;
     }
 
+    public function reduceArgMax(
+        NDArray $A,
+        int $axis,
+        NDArray $X=null,
+        $dtypeX=null) : NDArray
+    {
+        if($axis===null)
+            $axis = 0;
+        if($axis!==0 && $axis!==1 && $axis!==-1)
+            throw new InvalidArgumentException('"axis" must be 0 or 1 or -1.');
+        $shapeA = $A->shape();
+        if($axis==0) {
+            $trans = true;
+            $rows = array_pop($shapeA);
+        } else {
+            $trans = false;
+            $rows = $shapeA[0];
+        }
+
+        if($dtypeX==null) {
+            $dtypeX = NDArray::int64;
+        }
+        if($X==null) {
+            $X = $this->alloc([$rows],$dtypeX);
+        } else {
+            if($X->shape()!=[$rows]) {
+                $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$X->shape()).')';
+                throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
+            }
+        }
+
+        $m = $A->shape()[0];
+        $n = $A->size()/$m;
+        $AA = $A->buffer();
+        $offA = $A->offset();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+
+        $this->math->reduceArgMax(
+            $trans,
+            $m,
+            $n,
+            $AA,$offA,$n,
+            $XX,$offX,1);
+
+        return $X;
+    }
+
     public function reduceMean(NDArray $A,int $axis,NDArray $X=null,$dtypeX=null) : NDArray
     {
         $X = $this->reduceSum(
             $A,$axis,$X,$dtypeX
         );
-        $shapeA = $A->shape();
         if($axis==0) {
             $rows = $shapeA[0];
         } else {
