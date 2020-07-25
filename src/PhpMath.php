@@ -647,6 +647,79 @@ class PhpMath
     }
 
     /**
+     *      A(k,X(m)) := Y
+     */
+    public function scatterAxis0(
+        int $m,
+        int $n,
+        int $k,
+        Buffer $A, int $offsetA, int $ldA,
+        Buffer $X, int $offsetX, int $incX,
+        Buffer $Y, int $offsetY, int $ldY
+        ) : void
+    {
+        if($this->math) {
+            $this->math->scatterAxis0($m,$n,$k,$A,$offsetA,$ldA,$X,$offsetX,$incX,$Y,$offsetY,$ldY);
+            return;
+        }
+
+        if($offsetA+($m-1)*$ldA+$n-1>=count($A))
+            throw new RuntimeException('Vector specification too large for bufferA.');
+        if($offsetX+($k-1)*$incX>=count($X))
+            throw new RuntimeException('Vector specification too large for bufferX.');
+        if($offsetY+($k-1)*$ldY+$n-1>=count($Y))
+            throw new RuntimeException('Vector specification too large for bufferY.');
+
+        $idx = $offsetX;
+        $idy = $offsetY;
+        for($i=0; $i<$k; $i++,$idx+=$incX,$idy+=$ldY) {
+            $label = (int)$X[$idx];
+            if($label>=$m||$label<0)
+                throw new RuntimeException('Label number is out of bounds.');
+            $idA = $offsetA+$ldA*$label;
+            if($n==1) {
+                $A[$idA] = $Y[$idy];
+            } else {
+                $this->rindow_openblas_math_copy($n, $Y,$idy,1, $A,$idA,1);
+            }
+        }
+    }
+
+    /**
+     *     A(k,X(m)) := Y
+     */
+    public function scatterAxis1(
+        int $m,
+        int $n,
+        Buffer $A, int $offsetA, int $ldA,
+        Buffer $X, int $offsetX, int $incX,
+        Buffer $Y, int $offsetY, int $incY
+        ) : void
+    {
+        if($this->useMath($A)) {
+            $this->math->scatterAxis1($m,$n,$A,$offsetA,$ldA,$X,$offsetX,$incX,$Y,$offsetY,$incY);
+            return;
+        }
+
+        if($offsetA+($m-1)*$ldA+$n-1>=count($A))
+            throw new RuntimeException('Vector specification too large for bufferA.');
+        if($offsetX+($m-1)*$incX>=count($X))
+            throw new RuntimeException('Vector specification too large for bufferX.');
+        if($offsetY+($m-1)*$incY>=count($Y))
+            throw new RuntimeException('Vector specification too large for bufferY.');
+
+        $ida = $offsetA;
+        $idx = $offsetX;
+        $idy = $offsetY;
+        for ($i=0; $i<$m; $i++,$ida+=$ldA,$idx+=$incX,$idy+=$incY) {
+            $label = (int)$X[$idx];
+            if($label>=$n||$label<0)
+                throw new RuntimeException('Label number is out of bounds.');
+            $A[$ida+$label] = $Y[$idy];
+        }
+    }
+
+    /**
      *     Y := updateAddOnehot(X,a)
      */
     public function updateAddOnehot(
