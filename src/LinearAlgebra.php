@@ -1268,6 +1268,7 @@ class LinearAlgebra
         $X = $this->reduceSum(
             $A,$axis,$X,$dtypeX
         );
+        $shapeA = $A->shape();
         if($axis==0) {
             $rows = $shapeA[0];
         } else {
