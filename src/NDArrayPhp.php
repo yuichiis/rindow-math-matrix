@@ -217,7 +217,10 @@ class NDArrayPhp implements NDArray,Serializable
             if(count($offset)!=2 ||
                 !array_key_exists(0,$offset) || !array_key_exists(1,$offset) ||
                 $offset[0]>$offset[1]) {
-                    throw new OutOfRangeException("Illegal range specification.:[". implode (',',$offset).']');
+                    $det = '';
+                    if(is_numeric($offset[0])&&is_numeric($offset[1]))
+                        $det = ':['. implode (',',$offset).']';
+                    throw new OutOfRangeException("Illegal range specification.".$det);
             }
             $start = $offset[0];
             $end   = $offset[1];
