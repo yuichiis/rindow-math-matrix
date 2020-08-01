@@ -1793,8 +1793,8 @@ class Test extends TestCase
         $this->assertNotEquals(
             $x->toArray(),
             $y->toArray());
-        $this->assertLessThanOrEqual(1,max($x->toArray()));
-        $this->assertGreaterThanOrEqual(-1,min($x->toArray()));
+        $this->assertLessThanOrEqual(1,$mo->max($x));
+        $this->assertGreaterThanOrEqual(-1,$mo->min($x));
 
         $x = $mo->la()->randomUniform(
             $shape=[20,30],
@@ -1812,7 +1812,7 @@ class Test extends TestCase
         $this->assertNotEquals(
             $x->toArray(),
             $y->toArray());
-        $this->assertLessThanOrEqual(1,max($x->toArray()));
-        $this->assertGreaterThanOrEqual(-1,min($x->toArray()));
+        $this->assertLessThanOrEqual(1,$mo->max($x));
+        $this->assertGreaterThanOrEqual(-1,$mo->min($x));
     }
 }
