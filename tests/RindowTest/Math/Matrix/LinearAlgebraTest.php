@@ -1799,13 +1799,13 @@ class Test extends TestCase
         $x = $mo->la()->randomUniform(
             $shape=[20,30],
             $low=-1,
-            $high=1
+            $high=1,
             $dtype=NDArray::int32
             );
         $y = $mo->la()->randomUniform(
             $shape=[20,30],
             $low=-1,
-            $high=1
+            $high=1,
             $dtype=NDArray::int32);
         $this->assertEquals(
             NDArray::int32,$x->dtype());
