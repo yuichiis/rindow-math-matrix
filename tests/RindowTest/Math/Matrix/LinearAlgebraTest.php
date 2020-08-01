@@ -1830,4 +1830,5 @@ class Test extends TestCase
             $high=1,
             $dtype=NDArray::int32);
         var_dump($x->toArray());
+    }
 }
