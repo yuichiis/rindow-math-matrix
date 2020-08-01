@@ -1782,8 +1782,8 @@ class Test extends TestCase
 
         $x = $mo->la()->randomUniform(
             $shape=[20,30],
-            $low=-1,
-            $high=1);
+            $low=-1.0,
+            $high=1.0);
         $y = $mo->la()->randomUniform(
             $shape=[20,30],
             $low=-1,
@@ -1821,8 +1821,8 @@ class Test extends TestCase
 
         $x = $mo->la()->randomUniform(
             $shape=[10],
-            $low=-1,
-            $high=1);
+            $low=-1.5,
+            $high=1.5);
         var_dump($x->toArray());
         $x = $mo->la()->randomUniform(
             $shape=[10],
