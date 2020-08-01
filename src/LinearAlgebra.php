@@ -1775,7 +1775,7 @@ class LinearAlgebra
         int $seed=null,
         NDArray $X=null) : NDArray
     {
-        if($dtype!==null) {
+        if($dtype!==null&&$X!==null) {
             if ($X->dtype()!=$dtype) {
                 throw new InvalidArgumentException('Unmatch dtype and dtype of X');
             }
