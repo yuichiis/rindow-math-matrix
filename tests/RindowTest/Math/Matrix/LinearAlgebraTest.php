@@ -1781,7 +1781,7 @@ class Test extends TestCase
         $mo = $this->newMatrixOperator();
 
         $x = $mo->la()->randomUniform(
-            $shape=[2,3],
+            $shape=[20,30],
             $low=-1,
             $high=1);
         $y = $mo->la()->randomUniform(
@@ -1815,4 +1815,19 @@ class Test extends TestCase
         $this->assertLessThanOrEqual(1,$mo->max($x));
         $this->assertGreaterThanOrEqual(-1,$mo->min($x));
     }
+    public function testsingleRandomUniform()
+    {
+        $mo = $this->newMatrixOperator();
+
+        $x = $mo->la()->randomUniform(
+            $shape=[10],
+            $low=-1,
+            $high=1);
+        var_dump($x->toArray());
+        $x = $mo->la()->randomUniform(
+            $shape=[10],
+            $low=-1,
+            $high=1,
+            $dtype=NDArray::int32);
+        var_dump($x->toArray());
 }
