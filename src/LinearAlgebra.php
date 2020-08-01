@@ -1791,7 +1791,7 @@ class LinearAlgebra
             }
         }
         if($seed===null) {
-            $seed = random_int(PHP_INT_MIM,PHP_INT_MAX);
+            $seed = random_int(~PHP_INT_MAX,PHP_INT_MAX);
         }
 
         $n = $X->size();
