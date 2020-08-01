@@ -1707,7 +1707,7 @@ class PhpMath
         mt_srand($seed);
         $px = $offsetX;
         for($i=0; $i<$n; $i++,$px+=$incX) {
-            $X[$px] = ($high-$low)*php_mt_rand()/mt_getrandmax()+$low;
+            $X[$px] = ($high-$low)*mt_rand()/mt_getrandmax()+$low;
         }
     }
 }
