@@ -1800,7 +1800,7 @@ class LinearAlgebra
 
         $this->math->randomUniform(
             $n,
-            $XX,$offX,1
+            $XX,$offX,1,
             $low,
             $high,
             $seed);
