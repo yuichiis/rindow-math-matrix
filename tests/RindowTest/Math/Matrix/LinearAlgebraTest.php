@@ -1845,11 +1845,11 @@ class Test extends TestCase
 
         $x = $mo->la()->randomSequence(
             $base=500,
-            $size=100,
+            $size=100
             );
         $y = $mo->la()->randomSequence(
             $base=500,
-            $size=100,
+            $size=100
             );
         $this->assertEquals(
             NDArray::int64,$x->dtype());
