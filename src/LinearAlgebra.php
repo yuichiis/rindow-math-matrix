@@ -1852,7 +1852,7 @@ class LinearAlgebra
     public function randomSequence(
         int $base,
         int $size=null,
-        int $seed=null,
+        int $seed=null
         ) : NDArray
     {
         if($size==null) {
