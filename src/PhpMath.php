@@ -1677,12 +1677,6 @@ class PhpMath
     }
 
     /**
-    * images: (n,h,w,c) : channels_last
-    *        (n,c,h,w) : channels_first
-    * strides:
-    * padding:
-    * data_format:
-    * output:(n,i)
     */
     public function randomUniform(
         int $n,
@@ -1708,6 +1702,43 @@ class PhpMath
         $px = $offsetX;
         for($i=0; $i<$n; $i++,$px+=$incX) {
             $X[$px] = ($high-$low)*mt_rand()/mt_getrandmax()+$low;
+        }
+    }
+
+    protected function genRandNormal(float $mean, float $scale) : float
+    {
+        $max=mt_getrandmax();
+        $x=mt_rand(1,$max-1)/$max;
+        $y=mt_rand(1,$max-1)/$max;
+        return sqrt(-2*log($x))*cos(2*pi()*$y)*$scale+$mean;
+    }
+
+    /**
+    */
+    public function randomNormal(
+        int $n,
+        Buffer $X, int $offsetX, int $incX,
+        float $mean,
+        float $scale,
+        int $seed
+        )
+    {
+        if($this->math) {
+            $this->math->randomNormal(
+                $n,
+                $X,
+                $offsetX,
+                $incX,
+                $mean,
+                $scale,
+                $seed
+            );
+            return;
+        }
+        mt_srand($seed);
+        $px = $offsetX;
+        for($i=0; $i<$n; $i++,$px+=$incX) {
+            $X[$px] = genRandNormal($mean,$scale);
         }
     }
 }
