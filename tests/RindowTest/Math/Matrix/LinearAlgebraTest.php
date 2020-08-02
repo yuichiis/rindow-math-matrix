@@ -1838,4 +1838,9 @@ class Test extends TestCase
         $this->assertGreaterThanOrEqual(-1,$mo->min($x));
 
     }
+    public function testsiglerand()
+    {
+        $mo = new MatrixOperator();
+        var_dump($mo->random()->randn([10])->toArray());
+    }
 }
