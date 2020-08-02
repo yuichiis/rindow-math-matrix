@@ -1823,12 +1823,12 @@ class Test extends TestCase
 
         $x = $mo->la()->randomNormal(
             $shape=[20,30],
-            $low=-1.0,
-            $high=1.0);
+            $mean=0.0,
+            $scale=1.0);
         $y = $mo->la()->randomNormal(
             $shape=[20,30],
-            $low=-1,
-            $high=1);
+            $mean=0.0,
+            $scale=1.0);
         $this->assertEquals(
             NDArray::float32,$x->dtype());
         $this->assertNotEquals(
