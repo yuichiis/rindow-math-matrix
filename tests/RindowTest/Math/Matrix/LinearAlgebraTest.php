@@ -1838,4 +1838,25 @@ class Test extends TestCase
         $this->assertGreaterThanOrEqual(-4,$mo->min($x));
 
     }
+
+    public function testRandomSequence()
+    {
+        $mo = $this->newMatrixOperator();
+
+        $x = $mo->la()->randomSequence(
+            $base=500,
+            $size=100,
+            );
+        $y = $mo->la()->randomSequence(
+            $base=500,
+            $size=100,
+            );
+        $this->assertEquals(
+            NDArray::int64,$x->dtype());
+        $this->assertEquals(
+            [100],$x->shape());
+        $this->assertNotEquals(
+            $x->toArray(),
+            $y->toArray());
+    }
 }
