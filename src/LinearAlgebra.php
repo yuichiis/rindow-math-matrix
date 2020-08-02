@@ -1849,4 +1849,31 @@ class LinearAlgebra
         return $X;
     }
     
+    public function randomSequence(
+        int $base,
+        int $size=null,
+        int $seed=null,
+        ) : NDArray
+    {
+        if($size==null) {
+            $size = $base;
+        }
+        $X = $this->alloc([$base],NDArray::int64);
+        if($seed===null) {
+            $seed = random_int(~PHP_INT_MAX,PHP_INT_MAX);
+        }
+
+        $n = $base;
+        $XX = $X->buffer();
+        $offX = $X->offset();
+
+        $this->math->randomSequence(
+            $n,
+            $size,
+            $XX,$offX,1,
+            $seed);
+        $X = $X[[0,$size-1]];
+        return $X;
+    }
+    
 }
