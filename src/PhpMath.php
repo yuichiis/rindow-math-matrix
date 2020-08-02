@@ -1769,7 +1769,7 @@ class PhpMath
         }
         $px = $offsetX;
         for($i=0; $i<$n; $i++,$px+=$incX) {
-            $idx = mt_rand($i,$n)*$incX+$offsetX+;
+            $idx = mt_rand($i,$n)*$incX+$offsetX;
             $tmp = $X[$px];
             $X[$px] = $X[$idx];
             $X[$idx] = $tmp;
