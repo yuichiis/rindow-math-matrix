@@ -1838,21 +1838,4 @@ class Test extends TestCase
         $this->assertGreaterThanOrEqual(-4,$mo->min($x));
 
     }
-    public function testRandvar()
-    {
-        $mo = $this->newMatrixOperator();
-        $x = $mo->la()->randomNormal(
-            $shape=[3000],
-            $mean=0.0,
-            $scale=1.0);
-        var_dump($mo->min($x));
-        var_dump($mo->max($x));
-        
-        $x = $mo->la()->randomUniform(
-            $shape=[3000],
-            $low=-2.5,
-            $high=1.5);
-        var_dump($mo->min($x));
-        var_dump($mo->max($x));
-    }
 }
