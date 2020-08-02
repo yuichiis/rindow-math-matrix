@@ -1816,4 +1816,26 @@ class Test extends TestCase
         $this->assertLessThanOrEqual(1,$mop->max($x));
         $this->assertGreaterThanOrEqual(-1,$mop->min($x));
     }
+
+    public function testRandomNormal()
+    {
+        $mo = $this->newMatrixOperator();
+
+        $x = $mo->la()->randomNormal(
+            $shape=[20,30],
+            $low=-1.0,
+            $high=1.0);
+        $y = $mo->la()->randomNormal(
+            $shape=[20,30],
+            $low=-1,
+            $high=1);
+        $this->assertEquals(
+            NDArray::float32,$x->dtype());
+        $this->assertNotEquals(
+            $x->toArray(),
+            $y->toArray());
+        $this->assertLessThanOrEqual(1,$mo->max($x));
+        $this->assertGreaterThanOrEqual(-1,$mo->min($x));
+
+    }
 }
