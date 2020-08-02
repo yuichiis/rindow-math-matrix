@@ -1738,7 +1738,7 @@ class PhpMath
         mt_srand($seed);
         $px = $offsetX;
         for($i=0; $i<$n; $i++,$px+=$incX) {
-            $X[$px] = genRandNormal($mean,$scale);
+            $X[$px] = $this->genRandNormal($mean,$scale);
         }
     }
 }
