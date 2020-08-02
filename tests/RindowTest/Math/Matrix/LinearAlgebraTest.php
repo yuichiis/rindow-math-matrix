@@ -1834,13 +1834,8 @@ class Test extends TestCase
         $this->assertNotEquals(
             $x->toArray(),
             $y->toArray());
-        $this->assertLessThanOrEqual(1,$mo->max($x));
-        $this->assertGreaterThanOrEqual(-1,$mo->min($x));
+        $this->assertLessThanOrEqual(4,$mo->max($x));
+        $this->assertGreaterThanOrEqual(-4,$mo->min($x));
 
-    }
-    public function testsiglerand()
-    {
-        $mo = new MatrixOperator();
-        var_dump($mo->random()->randn([10])->toArray());
     }
 }
