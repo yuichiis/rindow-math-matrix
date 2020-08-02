@@ -1741,4 +1741,38 @@ class PhpMath
             $X[$px] = $this->genRandNormal($mean,$scale);
         }
     }
+    
+    /**
+    */
+    public function randomSequence(
+        int $n,
+        int $size,
+        Buffer $X, int $offsetX, int $incX,
+        int $seed
+        )
+    {
+        if($this->math) {
+            $this->math->randomSequence(
+                $n,
+                $size,
+                $X,
+                $offsetX,
+                $incX,
+                $seed
+            );
+            return;
+        }
+        mt_srand($seed);
+        $px = $offsetX;
+        for($i=0; $i<$n; $i++,$px+=$incX){
+            $X[$px] = $i;
+        }
+        $px = $offsetX;
+        for($i=0; $i<$n; $i++,$px+=$incX) {
+            $idx = mt_rand($i,$n)*$incX+$offsetX+;
+            $tmp = $X[$px];
+            $X[$px] = $X[$idx];
+            $X[$idx] = $tmp;
+        }
+    }
 }
