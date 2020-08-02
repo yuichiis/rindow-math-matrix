@@ -1811,8 +1811,9 @@ class Test extends TestCase
             NDArray::int32,$x->dtype());
         $this->assertNotEquals(
             $x->toArray(),
-            $y->toArray());
-        $this->assertLessThanOrEqual(1,max($x->toArray()));
-        $this->assertGreaterThanOrEqual(-1,min($x->toArray()));
+            $y->toArray());;
+        $mop = new MatrixOperator();
+        $this->assertLessThanOrEqual(1,$mop->max($x));
+        $this->assertGreaterThanOrEqual(-1,$mop->min($x));
     }
 }
