@@ -1848,5 +1848,9 @@ class Test extends TestCase
         var_dump($mo->min($x));
         var_dump($mo->max($x));
         
+        $x = $mo->random()->randn(
+            $shape=[3000]);
+        var_dump($mo->min($x));
+        var_dump($mo->max($x));
     }
 }
