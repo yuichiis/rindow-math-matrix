@@ -612,6 +612,16 @@ class PhpMath
         }
     }
 
+    protected function rindow_openblas_math_add($n,$X,$offsetX,$incX,$Y,$offsetY,$incY)
+    {
+        $idX = $offsetX;
+        $idY = $offsetY;
+        for($i=0; $i<$n; $i++, $idX+=$incX,$idY+=$incY) {
+            $tmp = $Y[$idY];
+            $Y[$idY] = $tmp + $X[$idX];
+        }
+    }
+    
     /**
      *     Y := A(k,X(m))
      */
@@ -655,11 +665,12 @@ class PhpMath
         int $k,
         Buffer $A, int $offsetA, int $ldA,
         Buffer $X, int $offsetX, int $incX,
-        Buffer $Y, int $offsetY, int $ldY
+        Buffer $Y, int $offsetY, int $ldY,
+        bool $addMode
         ) : void
     {
         if($this->math) {
-            $this->math->scatterAxis0($m,$n,$k,$A,$offsetA,$ldA,$X,$offsetX,$incX,$Y,$offsetY,$ldY);
+            $this->math->scatterAxis0($m,$n,$k,$A,$offsetA,$ldA,$X,$offsetX,$incX,$Y,$offsetY,$ldY,$addMode);
             return;
         }
 
@@ -678,9 +689,18 @@ class PhpMath
                 throw new RuntimeException('Label number is out of bounds.');
             $idA = $offsetA+$ldA*$label;
             if($n==1) {
-                $A[$idA] = $Y[$idy];
+                if($addMode){
+                    $tmp = $A[$idA];
+                    $A[$idA] = $tmp + $Y[$idy];
+                } else {
+                    $A[$idA] = $Y[$idy];
+                }
             } else {
-                $this->rindow_openblas_math_copy($n, $Y,$idy,1, $A,$idA,1);
+                if($addMode){
+                    $this->rindow_openblas_math_add($n, $Y,$idy,1, $A,$idA,1);
+                } else {
+                    $this->rindow_openblas_math_copy($n, $Y,$idy,1, $A,$idA,1);
+                }
             }
         }
     }
@@ -693,11 +713,12 @@ class PhpMath
         int $n,
         Buffer $A, int $offsetA, int $ldA,
         Buffer $X, int $offsetX, int $incX,
-        Buffer $Y, int $offsetY, int $incY
+        Buffer $Y, int $offsetY, int $incY,
+        bool $addMode
         ) : void
     {
         if($this->useMath($A)) {
-            $this->math->scatterAxis1($m,$n,$A,$offsetA,$ldA,$X,$offsetX,$incX,$Y,$offsetY,$incY);
+            $this->math->scatterAxis1($m,$n,$A,$offsetA,$ldA,$X,$offsetX,$incX,$Y,$offsetY,$incY,$addMode);
             return;
         }
 
@@ -714,8 +735,13 @@ class PhpMath
         for ($i=0; $i<$m; $i++,$ida+=$ldA,$idx+=$incX,$idy+=$incY) {
             $label = (int)$X[$idx];
             if($label>=$n||$label<0)
-                throw new RuntimeException('Label number is out of bounds.');
-            $A[$ida+$label] = $Y[$idy];
+                throw new RuntimeException('Label number is out of bounds.');{
+            if($addMode) {
+                $tmp = $A[$ida+$label];
+                $A[$ida+$label] = $tmp+$Y[$idy];
+            } else {
+                $A[$ida+$label] = $Y[$idy];
+            }
         }
     }
 
