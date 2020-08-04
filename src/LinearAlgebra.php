@@ -995,9 +995,9 @@ class LinearAlgebra
      * A(X) := Y
      */ 
     public function scatterAdd(
-        NDArray $A,
         NDArray $X,
         NDArray $Y,
+        NDArray $A,
         int $axis=null) : NDArray
     {
         if($axis===null) {
