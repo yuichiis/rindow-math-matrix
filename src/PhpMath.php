@@ -734,8 +734,9 @@ class PhpMath
         $idy = $offsetY;
         for ($i=0; $i<$m; $i++,$ida+=$ldA,$idx+=$incX,$idy+=$incY) {
             $label = (int)$X[$idx];
-            if($label>=$n||$label<0)
-                throw new RuntimeException('Label number is out of bounds.');{
+            if($label>=$n||$label<0){
+                throw new RuntimeException('Label number is out of bounds.');
+            }
             if($addMode) {
                 $tmp = $A[$ida+$label];
                 $A[$ida+$label] = $tmp+$Y[$idy];
