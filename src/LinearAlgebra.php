@@ -849,6 +849,9 @@ class LinearAlgebra
         return $B;
     }
 
+
+    /**
+     * Y := A[X]
     public function select(
         NDArray $A,
         NDArray $X,
@@ -867,6 +870,9 @@ class LinearAlgebra
         }
     }
 
+    /**
+     *    Y(i,j) := A(X[i],j)
+     */
     protected function selectAxis0(
         NDArray $A,
         NDArray $X,
@@ -915,6 +921,9 @@ class LinearAlgebra
         return $Y;
     }
 
+    /**
+     *  Y(i) := A(i,X[i])
+     */
     protected function selectAxis1(
         NDArray $A,
         NDArray $X,
@@ -959,6 +968,9 @@ class LinearAlgebra
         return $Y;
     }
 
+    /**
+     * A(X) := Y
+     */ 
     public function scatter(
         NDArray $X,
         NDArray $Y,
@@ -970,18 +982,43 @@ class LinearAlgebra
             $axis=0;
         }
         if($axis==0) {
-            return $this->scatterAxis0($X,$Y,$numClass,$A);
+            return $this->scatterAxis0(false,$X,$Y,$numClass,$A);
         } elseif($axis==1) {
-            return $this->scatterAxis1($X,$Y,$numClass,$A);
+            return $this->scatterAxis1(false,$X,$Y,$numClass,$A);
         } else {
             throw new InvalidArgumentException('axis must be 0 or 1');
         }
     }
 
-    protected function scatterAxis0(
+    /**
+     * A(X) := Y
+     */ 
+    public function scatterAdd(
+        NDArray $A,
         NDArray $X,
         NDArray $Y,
-        int $numClass,
+        int $axis=null) : NDArray
+    {
+        if($axis===null) {
+            $axis=0;
+        }
+        if($axis==0) {
+            return $this->scatterAxis0(true,$X,$Y,null,$A);
+        } elseif($axis==1) {
+            return $this->scatterAxis1(true,$X,$Y,null,$A);
+        } else {
+            throw new InvalidArgumentException('axis must be 0 or 1');
+        }
+    }
+
+    /**
+     * A(X[i],j) := Y[i,j]
+     */ 
+    protected function scatterAxis0(
+        bool $addMode,
+        NDArray $X,
+        NDArray $Y,
+        int $numClass=null,
         NDArray $A=null) : NDArray
     {
         if($X->ndim()!=1) {
@@ -993,15 +1030,17 @@ class LinearAlgebra
         if($countX!=$countY) {
             throw new InvalidArgumentException('Unmatch size "Y" with "X".');
         }
-        $m = $numClass;
         $n = (int)array_product($shape);
-        array_unshift($shape,$numClass);
         if($A==null) {
+            $m = $numClass;
+            array_unshift($shape,$numClass);
             $A = $this->alloc($shape,$Y->dtype());
             $this->zeros($A);
         } else {
+            $m = $A->shape()[0];
+            array_unshift($shape,$m);
             if($A->shape()!=$shape){
-            throw new InvalidArgumentException('Unmatch size "Y" with "X" and "A" .');
+                throw new InvalidArgumentException('Unmatch size "Y" with "A" .');
             }
         }
 
@@ -1020,15 +1059,21 @@ class LinearAlgebra
             $countX,
             $AA,$offA,$ldA,
             $XX,$offX,1,
-            $YY,$offY,$ldY);
+            $YY,$offY,$ldY,
+            $addMode
+            );
 
         return $A;
     }
 
+    /**
+     * A(i,X[i]) := Y[i]
+     */ 
     protected function scatterAxis1(
+        bool $addMode,
         NDArray $X,
         NDArray $Y,
-        int $numClass,
+        int $numClass=null,
         NDArray $A=null) : NDArray
     {
         if($X->ndim()!=1) {
@@ -1041,14 +1086,18 @@ class LinearAlgebra
             throw new InvalidArgumentException('Unmatch size "X" and "Y".');
         }
         $m = $X->shape()[0];
-        $n = $numClass;
         if($A==null) {
+            if($numClass==null){
+                throw new InvalidArgumentException('numClass must be specified when without target Array.');
+            }
+            $n = $numClass;
             $A = $this->alloc([$m,$n]);
             $this->zeros($A);
         } else {
-            if($A->shape()!=[$m,$n]) {
-                throw new InvalidArgumentException('Unmatch size "X" and "Y" and "A".');
+            if($A->shape()[0]!=$m) {
+                throw new InvalidArgumentException('Unmatch size "X" and "A".');
             }
+            $n = $A->shape()[1];
         }
 
         $AA = $A->buffer();
@@ -1064,7 +1113,9 @@ class LinearAlgebra
             $n,
             $AA,$offA,$ldA,
             $XX,$offX,1,
-            $YY,$offY,1);
+            $YY,$offY,1,
+            $addMode
+            );
 
         return $A;
     }
