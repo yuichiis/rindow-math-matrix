@@ -852,6 +852,7 @@ class LinearAlgebra
 
     /**
      * Y := A[X]
+     */
     public function select(
         NDArray $A,
         NDArray $X,
