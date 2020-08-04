@@ -1056,7 +1056,7 @@ class Test extends TestCase
         $x = $mo->array([0,2],NDArray::int64);
         $y = $mo->array([[1,2,3],[7,8,9]],NDArray::float32);
         $a = $mo->ones([4,3],NDArray::float32);
-        $mo->la()->scatterAdd($a,$x,$y,$axis=0);
+        $mo->la()->scatterAdd($x,$y,$a,$axis=0);
         $this->assertEquals(
            [[2,3,4],
             [1,1,1],
@@ -1068,7 +1068,7 @@ class Test extends TestCase
         $x = $mo->array([0,2],NDArray::int64);
         $y = $mo->array([[1,2,3],[7,8,9]],NDArray::float64);
         $a = $mo->ones([4,3],NDArray::float64);
-        $mo->la()->scatterAdd($a,$x,$y,$axis=0);
+        $mo->la()->scatterAdd($x,$y,$a,$axis=0);
         $this->assertEquals(
            [[2,3,4],
             [1,1,1],
@@ -1080,7 +1080,7 @@ class Test extends TestCase
         $x = $mo->array([0,2],NDArray::int64);
         $y = $mo->array([[1,2,3],[7,8,9]],NDArray::int64);
         $a = $mo->ones([4,3],NDArray::int64);
-        $mo->la()->scatterAdd($a,$x,$y,$axis=0);
+        $mo->la()->scatterAdd($x,$y,$a,$axis=0);
         $this->assertEquals(
            [[2,3,4],
             [1,1,1],
@@ -1092,7 +1092,7 @@ class Test extends TestCase
         $x = $mo->array([0,2],NDArray::int64);
         $y = $mo->array([[1,2,3],[7,8,9]],NDArray::uint8);
         $a = $mo->ones([4,3],NDArray::uint8);
-        $mo->la()->scatterAdd($a,$x,$y,$axis=0);
+        $mo->la()->scatterAdd($x,$y,$a,$axis=0);
         $this->assertEquals(
            [[2,3,4],
             [1,1,1],
@@ -1108,7 +1108,7 @@ class Test extends TestCase
         $x = $mo->array([0,1,2,0],NDArray::int32);
         $y = $mo->array([1,5,9,10],NDArray::float32);
         $a = $mo->ones([4,3],NDArray::float32);
-        $mo->la()->scatterAdd($a,$x,$y,$axis=1);
+        $mo->la()->scatterAdd($x,$y,$a,$axis=1);
         $this->assertEquals(
            [[2,1,1],
             [1,6,1],
@@ -1119,7 +1119,7 @@ class Test extends TestCase
         $x = $mo->array([0,1,2,0],NDArray::int32);
         $y = $mo->array([1,5,9,10],NDArray::float64);
         $a = $mo->ones([4,3],NDArray::float64);
-        $mo->la()->scatterAdd($a,$x,$y,$axis=1);
+        $mo->la()->scatterAdd($x,$y,$a,$axis=1);
         $this->assertEquals(
            [[2,1,1],
             [1,6,1],
