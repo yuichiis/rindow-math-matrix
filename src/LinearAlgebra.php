@@ -748,6 +748,24 @@ class LinearAlgebra
     }
 
     /**
+     *     X := tanh(X)
+     */
+    public function tanh(
+        NDArray $X
+        ) : NDArray
+    {
+        $n = $X->size();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+
+        $this->math->tanh(
+            $n,
+            $XX,$offX,1);
+
+        return $X;
+    }
+
+    /**
      *     Y(i) := 1 (X(i) = Y(i))
      *     Y(i) := 0 (X(i) = Y(i))
      */
