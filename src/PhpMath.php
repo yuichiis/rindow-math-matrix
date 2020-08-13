@@ -498,6 +498,29 @@ class PhpMath
     }
 
     /**
+     *     X := tanh(X)
+     */
+    public function tanh(
+        int $n,
+        Buffer $X, int $offsetX, int $incX
+        ) : void
+    {
+        //if($this->useMath($X)) {
+        //    $this->math->tanh($n,$X,$offsetX,$incX);
+        //    return;
+        //}
+
+        if($offsetX+($n-1)*$incX>=count($X))
+            throw new RuntimeException('Vector specification too large for buffer.');
+
+        $idx = $offsetX;
+        for ($i=0; $i<$n; $i++,$idx+=$incX) {
+            $t = $X[$idx];
+            $X[$idx] = tanh($t);
+        }
+    }
+
+    /**
      *     A(m,n) := X(n)
      */
     public function duplicate(
