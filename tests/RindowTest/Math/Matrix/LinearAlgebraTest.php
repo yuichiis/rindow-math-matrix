@@ -1938,4 +1938,23 @@ class Test extends TestCase
             $x->toArray(),
             $y->toArray());
     }
+
+    public function testSlice()
+    {
+        $mo = $this->newMatrixOperator();
+        
+        $x = $mo->arange(16)->reshape([2,4,3],NDArray::float32);
+
+        $y = $mo->la()->slice(
+            $x,
+            $start=[0,1],
+            $size=[-1,2]
+            );
+        $this->assertEquals(]
+            [[3,4,5],
+             [6,7,8],],
+            [[15,16,17],
+             [18,19,20],],
+        ]);
+    }
 }
