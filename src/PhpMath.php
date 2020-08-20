@@ -1840,6 +1840,15 @@ class PhpMath
         int $sizeAxis1
         )
     {
+        var_dump($m);
+        var_dump($n);
+        var_dump($k);
+        var_dump($startAxis0);
+        var_dump($sizeAxis0);
+        var_dump($startAxis1);
+        var_dump($sizeAxis1);
+        
+        
         if($this->math) {
             $this->math->slice(
                 $m,
