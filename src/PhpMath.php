@@ -1877,7 +1877,7 @@ class PhpMath
         for($i=0;$i<$sizeAxis0;$i++) {
             for($j=0;$j<$sizeAxis1;$j++){
                 $pa = ($i+$startAxis0)*$n*$k+($j+$startAxis1)*$k+$offsetA;
-                $py = $i*$n*$k+$j*$k+$offsetY;
+                $py = $i*$sizeAxis1*$k+$j*$k+$offsetY;
                 $this->rindow_openblas_math_copy($k,$A,$pa,$incA,$Y,$py,$incY);
             }
         }
