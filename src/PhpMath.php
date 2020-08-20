@@ -1874,7 +1874,7 @@ class PhpMath
         if($sizeAxis0*$sizeAxis1*$k*$incY>count($Y)-$offsetY){
             throw new InvalidArgumentException('BufferY size is too small');
         }
-        for($i=0; $i<$startAxis0+$sizeAxis0; $i++) {
+        for($i=0;$i<$sizeAxis0;$i++) {
             for($j=0;$j<$sizeAxis1;$j++){
                 $pa = ($i+$startAxis0)*$n+($j+$startAxis1)*$k+$offsetA;
                 $py = $i*$n+$j*$k+$offsetY;
