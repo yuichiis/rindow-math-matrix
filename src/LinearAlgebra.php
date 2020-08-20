@@ -2010,7 +2010,7 @@ class LinearAlgebra
             $outputShape = [$sizeAxis0];
             if($ndimBegin==2){
                 array_push($outputShape,
-                    $sizeAxi1);
+                    $sizeAxis1);
             }
             $outputShape = array_merge(
                 $outputShape,$shape);
