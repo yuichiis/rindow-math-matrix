@@ -1955,6 +1955,6 @@ class Test extends TestCase
              [6,7,8],],
             [[15,16,17],
              [18,19,20],],
-        ]);
+        ],$y->toArray());
     }
 }
