@@ -1943,7 +1943,7 @@ class Test extends TestCase
     {
         $mo = $this->newMatrixOperator();
         
-        $x = $mo->arange(16)->reshape([2,4,3],NDArray::float32);
+        $x = $mo->arange(24)->reshape([2,4,3],NDArray::float32);
 
         $y = $mo->la()->slice(
             $x,
