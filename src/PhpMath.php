@@ -1859,9 +1859,9 @@ class PhpMath
         echo 'Y=';
         var_dump(count($Y));
         echo 'offsetA=';
-        var_dump(count($offsetA));
+        var_dump($offsetA);
         echo 'offsetY=';
-        var_dump(count($offsetY));
+        var_dump($offsetY);
         
         
         if($this->math) {
