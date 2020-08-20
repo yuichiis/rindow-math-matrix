@@ -1854,6 +1854,10 @@ class PhpMath
         var_dump($startAxis1);
         echo 'size1=';
         var_dump($sizeAxis1);
+        echo 'A=';
+        var_dump(count($A));
+        echo 'Y=';
+        var_dump(count($Y));
         
         
         if($this->math) {
