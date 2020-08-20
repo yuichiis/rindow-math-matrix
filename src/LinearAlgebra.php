@@ -1946,4 +1946,92 @@ class LinearAlgebra
         return $X;
     }
     
+    public function slice(
+        NDArray $input,
+        array $begin,
+        array $size,
+        NDArray $output=null
+        ) : NDArray
+    {
+        $ndimBegin = count($begin);
+        if($ndimBegin<1||$ndimBegin>2) {
+            throw new InvalidArgumentException('begin must has 1 or 2 integer.');
+        }
+        $ndimSize = count($size);
+        if($ndimSize<1||$ndimSize>2) {
+            throw new InvalidArgumentException('Size must has 1 or 2 integer.');
+        }
+        if($ndimBegin!=$ndimSize){
+            throw new InvalidArgumentException('Unmatch shape of begin and size');
+        }
+        $ndimInput = $input->ndim();
+        if($ndimInput>$ndimBegin){
+            throw new InvalidArgumentException('Input shape rank is low to slice');
+        }
+        $shape = $input->shape();
+        $m = array_shift($shape);
+        $startAxis0 = array_shift($begin);
+        if($startAxis0<0){
+            $startAxis0 = $m+$startAxis0;
+        }
+        if($startAxis0<0||$startAxis0>=$m){
+            throw new InvalidArgumentException('start of axis 0 is invalid value.');
+        }
+        $sizeAxis0 = array_shift($size);
+        if($sizeAxis0<0){
+            $sizeAxis0 = $m-$startAxis0+$sizeAxis0+1;
+        }
+        if($sizeAxis0<1||$startAxis0+$sizeAxis0>$m){
+            throw new InvalidArgumentException('size of axis 0 is invalid value.');
+        }
+        if($ndimBegin==1){
+            $n = 1;
+            $startAxis1 = 0;
+            $sizeAxis1 = 1;
+        } else {
+            $n = array_shift($shape);
+            $startAxis1 = array_shift($begin);
+            if($startAxis1<0){
+                $startAxis1 = $n+$startAxis1;
+            }
+            if($startAxis1<0||$startAxis1>=$n){
+                throw new InvalidArgumentException('start of axis 1 is invalid value.');
+            }
+            $sizeAxis1 = array_shift($size);
+            if($sizeAxis1<0){
+                $sizeAxis1 = $n-$startAxis1+$sizeAxis1+1;
+            }
+            if($sizeAxis1<1||$startAxis1+$sizeAxis1>$n){
+                throw new InvalidArgumentException('size of axis 1 is invalid value.');
+            }
+        }
+        $k = array_product($shape);
+        if($output==null){
+            $outputShape = [$sizeAxis0];
+            if($ndimBegin==2){
+                array_push($outputShape,
+                    $sizeAxi1);
+            }
+            $outputShape = array_merge(
+                $outputShape,$shape);
+            $output = $this->alloc($outputShape);
+        }
+        
+        $A = $input->buffer();
+        $offsetA = $input->offset();
+        $Y = $output->buffer();
+        $offsetY = $output->offset();
+        $incA = 1;
+        $incY = 1;
+        $this->math->slice(
+            $m,
+            $n,
+            $k,
+            $A,$offsetA,$incA,
+            $Y,$offsetY,$incY,
+            $startAxis0,$sizeAxis0,
+            $startAxis1,$sizeAxis1
+        );
+        return $output;
+    }
 }
