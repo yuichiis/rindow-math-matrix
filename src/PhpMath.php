@@ -1865,11 +1865,11 @@ class PhpMath
         }
         if($startAxis0<0||$startAxis0>=$m||
             $sizeAxis0<0||$sizeAxis0+$startAxis0>$m){
-            throw new InvalidArgumentException('Axis0 range is too large for source array.')
+            throw new InvalidArgumentException('Axis0 range is too large for source array.');
         }
         if($startAxis1<0||$startAxis1>=$n||
             $sizeAxis1<0||$sizeAxis1+$startAxis1>$n){
-            throw new InvalidArgumentException('Axis1 range is too large for source array.')
+            throw new InvalidArgumentException('Axis1 range is too large for source array.');
         }
         if($sizeAxis0*$sizeAxis1*$k*$incY>count($Y)-$offsetY){
             throw new InvalidArgumentException('BufferY size is too small');
