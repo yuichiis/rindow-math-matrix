@@ -1825,4 +1825,61 @@ class PhpMath
             $X[$idx] = $tmp;
         }
     }
+
+    /**
+    */
+    public function slice(
+        int $m,
+        int $n,
+        int $k,
+        Buffer $A, int $offsetA, int $incA,
+        Buffer $Y, int $offsetY, int $incY,
+        int $startAxis0,
+        int $sizeAxis0,
+        int $startAxis1,
+        int $sizeAxis1,
+        )
+    {
+        if($this->math) {
+            $this->math->slice(
+                $m,
+                $n,
+                $k,
+                $A,
+                $offsetA,
+                $incA,
+                $Y,
+                $offsetY,
+                $incY,
+                $startAxis0,
+                $sizeAxis0,
+                $startAxis1,
+                $sizeAxis1
+            );
+            return;
+        }
+        if($m*$n*$k*$incA+$offsetA>count ($A)) {
+            throw new InvalidArgumentException('unmatch BufferA size and m,n,k');
+        }
+        if($m*$n*$k*$incY+$offsetY>count ($Y)) {
+        }
+        if($startAxis0<0||$startAxis0>=$m||
+            $sizeAxis0<0||$sizeAxis0+$startAxis0>$m){
+            throw new InvalidArgumentException('Axis0 range is too large for source array.')
+        }
+        if($startAxis1<0||$startAxis1>=$n||
+            $sizeAxis1<0||$sizeAxis1+$startAxis1>$n){
+            throw new InvalidArgumentException('Axis1 range is too large for source array.')
+        }
+        if($sizeAxis0*$sizeAxis1*$k*$incY>count($Y)-$offsetY){
+            throw new InvalidArgumentException('BufferY size is too small');
+        }
+        for($i=0; $i<$startAxis0+$sizeAxis0; $i++) {
+            for($j=0;$j=$sizeAxis1;$j++){
+                $pa = ($i+$startAxis0)*$n+($j+$startAxis1)*$k+$offsetA;
+                $py = $i*$n+$j*$k+$offsetY;p
+                $this->rindow_openblas_math_copy($k,$A,$pa,$incA,$Y,$pa,$incY);
+            }
+        }
+    }
 }
