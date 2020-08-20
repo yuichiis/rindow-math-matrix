@@ -1840,12 +1840,19 @@ class PhpMath
         int $sizeAxis1
         )
     {
+        echo 'm=';
         var_dump($m);
+        echo 'n=';
         var_dump($n);
+        echo 'k=';
         var_dump($k);
+        echo 'start0=';
         var_dump($startAxis0);
+        echo 'size0=';
         var_dump($sizeAxis0);
+        echo 'start1=';
         var_dump($startAxis1);
+        echo 'size1=';
         var_dump($sizeAxis1);
         
         
