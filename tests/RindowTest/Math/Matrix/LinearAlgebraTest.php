@@ -1977,6 +1977,17 @@ class Test extends TestCase
             [[21,22,23],]
         ],$y->toArray());
 
+        $y = $mo->la()->slice(
+            $x,
+            $start=[1],
+            $size=[1]
+            );
+        $this->assertEquals([
+            [[12,13,14],
+             [15,16,17],
+             [18,19,20],
+             [21,22,23],],
+        ],$y->toArray());
 
         $x = $mo->arange(8)->reshape([2,4],NDArray::float32);
         $y = $mo->la()->slice(
