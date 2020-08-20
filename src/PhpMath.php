@@ -1837,7 +1837,7 @@ class PhpMath
         int $startAxis0,
         int $sizeAxis0,
         int $startAxis1,
-        int $sizeAxis1,
+        int $sizeAxis1
         )
     {
         if($this->math) {
