@@ -1950,7 +1950,7 @@ class Test extends TestCase
             $start=[0,1],
             $size=[-1,2]
             );
-        $this->assertEquals(]
+        $this->assertEquals([
             [[3,4,5],
              [6,7,8],],
             [[15,16,17],
