@@ -2006,15 +2006,19 @@ class LinearAlgebra
             }
         }
         $k = array_product($shape);
+        $outputShape = [$sizeAxis0];
+        if($ndimBegin==2){
+            array_push($outputShape,
+                $sizeAxis1);
+        }
+        $outputShape = array_merge(
+            $outputShape,$shape);
         if($output==null){
-            $outputShape = [$sizeAxis0];
-            if($ndimBegin==2){
-                array_push($outputShape,
-                    $sizeAxis1);
-            }
-            $outputShape = array_merge(
-                $outputShape,$shape);
             $output = $this->alloc($outputShape);
+        }else{
+            if($outputShape!=$outputShape- >shape()){
+                throw new InvalidArgumentException('Unmatch output shape');
+            }
         }
         
         $A = $input->buffer();
