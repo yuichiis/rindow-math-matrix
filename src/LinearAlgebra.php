@@ -1965,7 +1965,7 @@ class LinearAlgebra
             throw new InvalidArgumentException('Unmatch shape of begin and size');
         }
         $ndimInput = $input->ndim();
-        if($ndimInput>$ndimBegin){
+        if($ndimInput<$ndimBegin){
             throw new InvalidArgumentException('Input shape rank is low to slice');
         }
         $shape = $input->shape();
