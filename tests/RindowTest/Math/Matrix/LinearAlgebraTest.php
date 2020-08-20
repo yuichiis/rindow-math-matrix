@@ -1956,5 +1956,25 @@ class Test extends TestCase
             [[15,16,17],
              [18,19,20],],
         ],$y->toArray());
+
+        $y = $mo->la()->slice(
+            $x,
+            $start=[0,1],
+            $size=[-1,1]
+            );
+        $this->assertEquals([
+            [[3,4,5],]
+            [[15,16,17],]
+        ],$y->toArray());
+
+        $y = $mo->la()->slice(
+            $x,
+            $start=[0,-1],
+            $size=[-1,1]
+            );
+        $this->assertEquals([
+            [[9,10,11],]
+            [[21,22,23],]
+        ],$y->toArray());
     }
 }
