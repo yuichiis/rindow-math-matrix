@@ -2014,7 +2014,7 @@ class LinearAlgebra
         $outputShape = array_merge(
             $outputShape,$shape);
         if($output==null){
-            $output = $this->alloc($outputShape,$input->dtype();
+            $output = $this->alloc($outputShape,$input->dtype());
         }else{
             if($outputShape!=$output->shape()){
                 throw new InvalidArgumentException('Unmatch output shape');
