@@ -1963,7 +1963,7 @@ class Test extends TestCase
             $size=[-1,1]
             );
         $this->assertEquals([
-            [[3,4,5],]
+            [[3,4,5],],
             [[15,16,17],]
         ],$y->toArray());
 
@@ -1973,7 +1973,7 @@ class Test extends TestCase
             $size=[-1,1]
             );
         $this->assertEquals([
-            [[9,10,11],]
+            [[9,10,11],],
             [[21,22,23],]
         ],$y->toArray());
     }
