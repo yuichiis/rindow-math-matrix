@@ -2016,7 +2016,7 @@ class LinearAlgebra
         if($output==null){
             $output = $this->alloc($outputShape);
         }else{
-            if($outputShape!=$output- >shape()){
+            if($outputShape != $output->shape()){
                 throw new InvalidArgumentException('Unmatch output shape');
             }
         }
