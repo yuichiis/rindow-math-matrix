@@ -2015,7 +2015,7 @@ class Test extends TestCase
             );
         $this->assertEquals([
             [[0,0,0],
-             [0,1,2]
+             [0,1,2],
              [3,4,5],
              [0,0,0]],
             [[0,0,0],
@@ -2034,7 +2034,7 @@ class Test extends TestCase
             );
         $this->assertEquals([
             [[0,0,0],
-             [0,1,2]
+             [0,1,2],
              [0,0,0],
              [0,0,0]],
             [[0,0,0],
@@ -2053,7 +2053,7 @@ class Test extends TestCase
             );
         $this->assertEquals([
             [[0,0,0],
-             [0,0,0]
+             [0,0,0],
              [0,0,0],
              [0,1,2]],
             [[0,0,0],
@@ -2072,7 +2072,7 @@ class Test extends TestCase
             );
         $this->assertEquals([
             [[0,0,0],
-             [0,0,0]
+             [0,0,0],
              [0,0,0],
              [0,0,0]],
             [[0,1,2],
