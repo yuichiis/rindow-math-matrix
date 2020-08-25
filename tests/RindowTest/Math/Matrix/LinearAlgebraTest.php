@@ -2102,7 +2102,7 @@ class Test extends TestCase
         $b = $mo->arange(6,6)->reshape([2,3],NDArray::float32);
         $y = $mo->la()->stack(
             [$a,$b],
-            $axis=0,
+            $axis=0
             );
         $this->assertEquals([
             [[0,1,2],
@@ -2115,7 +2115,7 @@ class Test extends TestCase
         $b = $mo->arange(6,6)->reshape([2,3],NDArray::float32);
         $y = $mo->la()->stack(
             [$a,$b],
-            $axis=1,
+            $axis=1
             );
         $this->assertEquals([
             [[0,1,2],
@@ -2128,7 +2128,7 @@ class Test extends TestCase
         $b = $mo->arange(12,12)->reshape([2,2,3],NDArray::float32);
         $y = $mo->la()->stack(
             [$a,$b],
-            $axis=0,
+            $axis=0
             );
         $this->assertEquals([
            [[[0,1,2],
@@ -2145,7 +2145,7 @@ class Test extends TestCase
         $b = $mo->arange(12,12)->reshape([2,2,3],NDArray::float32);
         $y = $mo->la()->stack(
             [$a,$b],
-            $axis=1,
+            $axis=1
             );
         $this->assertEquals([
            [[[0,1,2],
