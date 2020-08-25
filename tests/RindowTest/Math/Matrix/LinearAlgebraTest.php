@@ -2000,4 +2000,162 @@ class Test extends TestCase
             [5,6]
         ],$y->toArray());
     }
+
+    public function testStick()
+    {
+        $mo = $this->newMatrixOperator();
+        
+        $x = $mo->arange(12)->reshape([2,2,3],NDArray::float32);
+        $y = $mo->zeros([2,4,3]);
+        $mo->la()->stick(
+            $x,
+            $y,
+            $start=[0,1],
+            $size=[-1,2]
+            );
+        $this->assertEquals([
+            [[0,0,0],
+             [0,1,2]
+             [3,4,5],
+             [0,0,0]],
+            [[0,0,0],
+             [6,7,8],
+             [9,10,11],
+             [0,0,0]],
+        ],$y->toArray());
+
+        $x = $mo->arange(6)->reshape([2,1,3],NDArray::float32);
+        $y = $mo->zeros([2,4,3]);
+        $mo->la()->stick(
+            $x,
+            $y,
+            $start=[0,1],
+            $size=[-1,1]
+            );
+        $this->assertEquals([
+            [[0,0,0],
+             [0,1,2]
+             [0,0,0],
+             [0,0,0]],
+            [[0,0,0],
+             [3,4,5],
+             [0,0,0],
+             [0,0,0]],
+        ],$y->toArray());
+
+        $x = $mo->arange(6)->reshape([2,1,3],NDArray::float32);
+        $y = $mo->zeros([2,4,3]);
+        $mo->la()->stick(
+            $x,
+            $y,
+            $start=[0,-1],
+            $size=[-1,1]
+            );
+        $this->assertEquals([
+            [[0,0,0],
+             [0,0,0]
+             [0,0,0],
+             [0,1,2]],
+            [[0,0,0],
+             [0,0,0],
+             [0,0,0],
+             [3,4,5]],
+        ],$y->toArray());
+
+        $x = $mo->arange(12)->reshape([1,4,3],NDArray::float32);
+        $y = $mo->zeros([2,4,3]);
+        $mo->la()->stick(
+            $x,
+            $y,
+            $start=[1],
+            $size=[1]
+            );
+        $this->assertEquals([
+            [[0,0,0],
+             [0,0,0]
+             [0,0,0],
+             [0,0,0]],
+            [[0,1,2],
+             [3,4,5],
+             [6,7,8],
+             [9,10,11]],
+        ],$y->toArray());
+
+        $x = $mo->arange(4)->reshape([2,2],NDArray::float32);
+        $y = $mo->zeros([2,4]);
+        $mo->la()->slice(
+            $x,
+            $start=[0,1],
+            $size=[-1,2]
+            );
+        $this->assertEquals([
+            [0,0,1,0],
+            [0,2,3,0],
+        ],$y->toArray());
+    }
+    
+    public function testStack()
+    {
+        $mo = $this->newMatrixOperator();
+        
+        $a = $mo->arange(6,0)->reshape([2,3],NDArray::float32);
+        $b = $mo->arange(6,6)->reshape([2,3],NDArray::float32);
+        $y = $mo->la()->stack(
+            [$a,$b],
+            $axis=0,
+            );
+        $this->assertEquals([
+            [[0,1,2],
+             [3,4,5]],
+            [[6,7,8],
+             [9,10,11]],
+        ],$y->toArray());
+
+        $a = $mo->arange(6,0)->reshape([2,3],NDArray::float32);
+        $b = $mo->arange(6,6)->reshape([2,3],NDArray::float32);
+        $y = $mo->la()->stack(
+            [$a,$b],
+            $axis=1,
+            );
+        $this->assertEquals([
+            [[0,1,2],
+             [6,7,8]],
+            [[3,4,5],
+             [9,10,11]],
+        ],$y->toArray());
+        
+        $a = $mo->arange(12,0)->reshape([2, 2,3],NDArray::float32);
+        $b = $mo->arange(12,12)->reshape([2,2,3],NDArray::float32);
+        $y = $mo->la()->stack(
+            [$a,$b],
+            $axis=0,
+            );
+        $this->assertEquals([
+           [[[0,1,2],
+             [3,4,5]],
+            [[6,7,8],
+             [9,10,11]]],
+           [[[12,13,14],
+             [15,16,17]],
+            [[18,19,20],
+             [21,22,23]]],
+        ],$y->toArray());
+
+        $a = $mo->arange(12,0)->reshape([2, 2,3],NDArray::float32);
+        $b = $mo->arange(12,12)->reshape([2,2,3],NDArray::float32);
+        $y = $mo->la()->stack(
+            [$a,$b],
+            $axis=1,
+            );
+        $this->assertEquals([
+           [[[0,1,2],
+             [3,4,5]],
+            [[12,13,14],
+             [15,16,17]]],
+           [[[6,7,8],
+             [9,10,11]],
+            [[18,19,20],
+             [21,22,23]]],
+        ],$y->toArray());
+    }    
 }
