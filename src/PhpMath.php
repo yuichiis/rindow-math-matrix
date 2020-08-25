@@ -1829,6 +1829,7 @@ class PhpMath
     /**
     */
     public function slice(
+        bool $reverse,
         int $m,
         int $n,
         int $k,
@@ -1842,6 +1843,7 @@ class PhpMath
     {
         if($this->math) {
             $this->math->slice(
+                $reverse,
                 $m,
                 $n,
                 $k,
@@ -1878,7 +1880,11 @@ class PhpMath
             for($j=0;$j<$sizeAxis1;$j++){
                 $pa = ($i+$startAxis0)*$n*$k+($j+$startAxis1)*$k+$offsetA;
                 $py = $i*$sizeAxis1*$k+$j*$k+$offsetY;
-                $this->rindow_openblas_math_copy($k,$A,$pa,$incA,$Y,$py,$incY);
+                if(!$reverse) {
+                    $this->rindow_openblas_math_copy($k,$A,$pa,$incA,$Y,$py,$incY);
+                } else {
+                    $this->rindow_openblas_math_copy($k,$Y,$py,$incY,$A,$pa,$incA);
+                }
             }
         }
     }
