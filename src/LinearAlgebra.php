@@ -1966,7 +1966,7 @@ class LinearAlgebra
         NDArray $input,
         NDArray $output,
         array $begin,
-        array $size,
+        array $size
         ) : NDArray
     {
         return $this->doSlice(
