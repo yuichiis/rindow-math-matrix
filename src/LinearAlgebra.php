@@ -1953,6 +1953,104 @@ class LinearAlgebra
         NDArray $output=null
         ) : NDArray
     {
+        return $this->doSlice(
+            false,
+            $input,
+            $begin,
+            $size,
+            $output
+        );
+    }
+    
+    public function stick(
+        NDArray $input,
+        NDArray $output,
+        array $begin,
+        array $size,
+        ) : NDArray
+    {
+        return $this->doSlice(
+            true,
+            $output,
+            $begin,
+            $size,
+            $input
+        );
+    }
+
+    public function stack(
+        array $values,
+        int $axis=null
+    )
+    {
+        if($axis==null){
+            $axis=0;
+        }
+        if($axis==0){
+            $m = count($values);
+            $shape = $values[0]->shape();
+            array_unshift($shape,$m);
+            $output = $this->alloc($shape,$values[0]->dtype());
+            $i = 0;
+            foreach($values as $value){
+                if(!($value instanceof NDArray)) {
+                    throw new InvalidArgumentException('values must be array of NDArray');
+                }
+                $shape = $value->shape();
+                array_unshift($shape,1);
+                $value = $value->reshape(
+                    $shape);
+                $this->doSlice(true,
+                    $output,
+                    [$i],[1],
+                    $value
+                );
+                $i++;
+            }
+        } elseif($axis==1){
+            $n = count($values);
+            $shape = $values[0]->shape();
+            $m = array_shift($shape);
+            array_unshift($shape,$n);
+            array_unshift($shape,$m);
+            $output = $this->alloc($shape,$values[0]->dtype());
+            $i = 0;
+            foreach($values as $value){
+                if(!($value instanceof NDArray)) {
+                    throw new InvalidArgumentException('values must be array of NDArray');
+                }
+                $shape = $value->shape();
+                $m = array_shift($shape);
+                array_unshift($shape,1);
+                array_unshift($shape,$m);
+                $value = $value->reshape(
+                    $shape);
+                $this->doSlice(true,
+                    $output,
+                    [0,$i],[-1,1],
+                    $value
+                );
+                $i++;
+            }
+        } else {
+            throw new InvalidArgumentException('unsuppoted axis');
+        }
+        return $output;
+    }
+
+    protected function doSlice(
+        bool $reverse,
+        NDArray $input,
+        array $begin,
+        array $size,
+        NDArray $output=null
+        ) : NDArray
+    {
+        if(!$reverse){
+            $messageInput='Input';
+        } else {
+            $messageInput='Output';
+        }
         $ndimBegin = count($begin);
         if($ndimBegin<1||$ndimBegin>2) {
             throw new InvalidArgumentException('begin must has 1 or 2 integer.');
@@ -1966,7 +2064,7 @@ class LinearAlgebra
         }
         $ndimInput = $input->ndim();
         if($ndimInput<$ndimBegin){
-            throw new InvalidArgumentException('Input shape rank is low to slice');
+            throw new InvalidArgumentException($messageInput.' shape rank is low to slice');
         }
         $shape = $input->shape();
         $m = array_shift($shape);
@@ -2038,4 +2136,5 @@ class LinearAlgebra
         );
         return $output;
     }
+
 }
