@@ -2126,6 +2126,7 @@ class LinearAlgebra
         $incA = 1;
         $incY = 1;
         $this->math->slice(
+            $reverse,
             $m,
             $n,
             $k,
