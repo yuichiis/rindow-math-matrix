@@ -2083,7 +2083,7 @@ class Test extends TestCase
 
         $x = $mo->arange(4)->reshape([2,2],NDArray::float32);
         $y = $mo->zeros([2,4]);
-        $mo->la()->slice(
+        $mo->la()->stick(
             $x,
             $y,
             $start=[0,1],
