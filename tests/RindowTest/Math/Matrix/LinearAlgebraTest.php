@@ -2085,6 +2085,7 @@ class Test extends TestCase
         $y = $mo->zeros([2,4]);
         $mo->la()->slice(
             $x,
+            $y,
             $start=[0,1],
             $size=[-1,2]
             );
