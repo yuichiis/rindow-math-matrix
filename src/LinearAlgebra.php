@@ -2051,6 +2051,8 @@ class LinearAlgebra
         } else {
             $messageInput='Output';
         }
+        $orgBegin = $begin;
+        $orgSize = $size;
         $ndimBegin = count($begin);
         if($ndimBegin<1||$ndimBegin>2) {
             throw new InvalidArgumentException('begin must has 1 or 2 integer.');
@@ -2093,7 +2095,7 @@ class LinearAlgebra
                 $startAxis1 = $n+$startAxis1;
             }
             if($startAxis1<0||$startAxis1>=$n){
-                throw new InvalidArgumentException('start of axis 1 is invalid value.:begin=['.implode(',',$begin).']');
+                throw new InvalidArgumentException('start of axis 1 is invalid value.:begin=['.implode(',',$orgBegin).']');
             }
             $sizeAxis1 = array_shift($size);
             if($sizeAxis1<0){
