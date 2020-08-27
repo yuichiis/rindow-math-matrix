@@ -2093,7 +2093,7 @@ class LinearAlgebra
                 $startAxis1 = $n+$startAxis1;
             }
             if($startAxis1<0||$startAxis1>=$n){
-                throw new InvalidArgumentException('start of axis 1 is invalid value.');
+                throw new InvalidArgumentException('start of axis 1 is invalid value.:begin=['.implode(',',$begin).']');
             }
             $sizeAxis1 = array_shift($size);
             if($sizeAxis1<0){
