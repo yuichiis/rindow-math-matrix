@@ -1943,7 +1943,7 @@ class Test extends TestCase
     {
         $mo = $this->newMatrixOperator();
         
-        $x = $mo->arange(24)->reshape([2,4,3],NDArray::float32);
+        $x = $mo->arange(24,null,null,NDArray::float32)->reshape([2,4,3]);
 
         $y = $mo->la()->slice(
             $x,
@@ -1989,7 +1989,7 @@ class Test extends TestCase
              [21,22,23],],
         ],$y->toArray());
 
-        $x = $mo->arange(8)->reshape([2,4],NDArray::float32);
+        $x = $mo->arange(8,null,null,NDArray::float32)->reshape([2,4]);
         $y = $mo->la()->slice(
             $x,
             $start=[0,1],
@@ -2005,7 +2005,7 @@ class Test extends TestCase
     {
         $mo = $this->newMatrixOperator();
         
-        $x = $mo->arange(12)->reshape([2,2,3],NDArray::float32);
+        $x = $mo->arange(12,null,null,NDArray::float32)->reshape([2,2,3]);
         $y = $mo->zeros([2,4,3]);
         $mo->la()->stick(
             $x,
@@ -2024,7 +2024,7 @@ class Test extends TestCase
              [0,0,0]],
         ],$y->toArray());
 
-        $x = $mo->arange(6)->reshape([2,1,3],NDArray::float32);
+        $x = $mo->arange(6,null,null,NDArray::float32)->reshape([2,1,3]);
         $y = $mo->zeros([2,4,3]);
         $mo->la()->stick(
             $x,
@@ -2043,7 +2043,7 @@ class Test extends TestCase
              [0,0,0]],
         ],$y->toArray());
 
-        $x = $mo->arange(6)->reshape([2,1,3],NDArray::float32);
+        $x = $mo->arange(6,null,null,NDArray::float32)->reshape([2,1,3]);
         $y = $mo->zeros([2,4,3]);
         $mo->la()->stick(
             $x,
@@ -2062,7 +2062,7 @@ class Test extends TestCase
              [3,4,5]],
         ],$y->toArray());
 
-        $x = $mo->arange(12)->reshape([1,4,3],NDArray::float32);
+        $x = $mo->arange(12,null,null,NDArray::float32)->reshape([1,4,3]);
         $y = $mo->zeros([2,4,3]);
         $mo->la()->stick(
             $x,
@@ -2081,7 +2081,7 @@ class Test extends TestCase
              [9,10,11]],
         ],$y->toArray());
 
-        $x = $mo->arange(4)->reshape([2,2],NDArray::float32);
+        $x = $mo->arange(4,null,null,NDArray::float32)->reshape([2,2]);
         $y = $mo->zeros([2,4]);
         $mo->la()->stick(
             $x,
@@ -2099,8 +2099,8 @@ class Test extends TestCase
     {
         $mo = $this->newMatrixOperator();
         
-        $a = $mo->arange(6,0)->reshape([2,3],NDArray::float32);
-        $b = $mo->arange(6,6)->reshape([2,3],NDArray::float32);
+        $a = $mo->arange(6,0,null,NDArray::float32)->reshape([2,3]);
+        $b = $mo->arange(6,6,null,NDArray::float32)->reshape([2,3]);
         $y = $mo->la()->stack(
             [$a,$b],
             $axis=0
@@ -2112,8 +2112,8 @@ class Test extends TestCase
              [9,10,11]],
         ],$y->toArray());
 
-        $a = $mo->arange(6,0)->reshape([2,3],NDArray::float32);
-        $b = $mo->arange(6,6)->reshape([2,3],NDArray::float32);
+        $a = $mo->arange(6,0,null,NDArray::float32)->reshape([2,3]);
+        $b = $mo->arange(6,6,null,NDArray::float32)->reshape([2,3]);
         $y = $mo->la()->stack(
             [$a,$b],
             $axis=1
@@ -2125,8 +2125,8 @@ class Test extends TestCase
              [9,10,11]],
         ],$y->toArray());
         
-        $a = $mo->arange(12,0)->reshape([2, 2,3],NDArray::float32);
-        $b = $mo->arange(12,12)->reshape([2,2,3],NDArray::float32);
+        $a = $mo->arange(12,0,null,NDArray::float32)->reshape([2, 2,3]);
+        $b = $mo->arange(12,12,null,NDArray::float32)->reshape([2,2,3]);
         $y = $mo->la()->stack(
             [$a,$b],
             $axis=0
@@ -2142,8 +2142,8 @@ class Test extends TestCase
              [21,22,23]]],
         ],$y->toArray());
 
-        $a = $mo->arange(12,0)->reshape([2, 2,3],NDArray::float32);
-        $b = $mo->arange(12,12)->reshape([2,2,3],NDArray::float32);
+        $a = $mo->arange(12,0,null,NDArray::float32)->reshape([2, 2,3]);
+        $b = $mo->arange(12,12,null,NDArray::float32)->reshape([2,2,3]);
         $y = $mo->la()->stack(
             [$a,$b],
             $axis=1
