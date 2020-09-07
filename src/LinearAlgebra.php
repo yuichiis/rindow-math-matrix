@@ -2504,9 +2504,7 @@ class LinearAlgebra
         $S = $this->alloc([$n],$matrix->dtype());
         $this->zeros($S);
         for($i = 0; $i < $n; $i++){
-            for($j = 0; $j < $n; $j++){
-                $S[$i] = $W[$i];
-            }
+            $S[$i] = $W[$i];
         }
 
         //$matrices['U'] = $U;
