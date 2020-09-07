@@ -2260,7 +2260,7 @@ class Test extends TestCase
         echo "vt --------\n";
         foreach($vt->toArray() as $array)
             echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$array))."],\n";
-            */
+        */
     /*
     
 ------- s --------
