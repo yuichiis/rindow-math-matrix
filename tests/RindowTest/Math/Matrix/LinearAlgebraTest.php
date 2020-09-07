@@ -2262,7 +2262,6 @@ class Test extends TestCase
             echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$array))."],\n";
         */
     /*
-    
 ------- s --------
 [27.47, 0.00, 0.00, 0.00, 0.00],
 [ 0.00,22.64, 0.00, 0.00, 0.00],
