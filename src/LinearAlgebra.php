@@ -2501,12 +2501,11 @@ class LinearAlgebra
         }   while($clt < $q);
 
         // prepare S matrix as n*n daigonal matrix of singular values
-        $S = $this->alloc([$n,$n],$matrix->dtype());
+        $S = $this->alloc([$n],$matrix->dtype());
         $this->zeros($S);
         for($i = 0; $i < $n; $i++){
             for($j = 0; $j < $n; $j++){
-                $S[$i][$j] = 0;
-                $S[$i][$i] = $W[$i];
+                $S[$i] = $W[$i];
             }
         }
 
