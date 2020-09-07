@@ -2251,6 +2251,7 @@ class Test extends TestCase
         ]);
         $a = $mo->transpose($a);
         [$u,$s,$vt] = $mo->la()->svd($a);
+        /*
         echo "s --------\n";
         echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$s->toArray()))."],\n";
         echo "u --------\n";
@@ -2259,6 +2260,7 @@ class Test extends TestCase
         echo "vt --------\n";
         foreach($vt->toArray() as $array)
             echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$array))."],\n";
+            */
     /*
     
 ------- s --------
