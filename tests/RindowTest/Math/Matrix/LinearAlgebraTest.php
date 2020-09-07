@@ -2255,7 +2255,7 @@ class Test extends TestCase
             echo '['.implode(',',array_map(function($a){return sprintf('%6.2f',$a),$array;}))."],\n";
         echo "u --------\n";
         foreach($u->toArray() as $array)
-            echo '['.implode(',',array_map(function($a){return sprintf('%6.2f',$a),$array}))."],\n";
+            echo '['.implode(',',array_map(function($a){return sprintf('%6.2f',$a),$array;}))."],\n";
         echo "vt --------\n";
         foreach($vt->toArray() as $array)
             echo '['.implode(',',array_map(function($a){return sprintf('%6.2f',$a),$array;}))."],\n";
