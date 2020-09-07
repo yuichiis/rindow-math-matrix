@@ -378,10 +378,7 @@ class MatrixOperator
     public function transpose(NDArray $X) : NDArray
     {
         $shape = $X->shape();
-        $newShape = [];
-        while($n = array_shift($shape)) {
-            array_unshift($newShape,$n);
-        }
+        $newShape = array_reverse($shape);
         $Y = $this->alloc(null, $X->dtype(), $newShape);
         $w = 1;
         $posY = 0;

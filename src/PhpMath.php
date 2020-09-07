@@ -644,7 +644,7 @@ class PhpMath
             $Y[$idY] = $tmp + $X[$idX];
         }
     }
-    
+
     /**
      *     Y := A(k,X(m))
      */
@@ -829,6 +829,19 @@ class PhpMath
         }
     }
 
+
+    protected function math_sum(
+        int $n,
+        Buffer $X, int $offsetX, int $incX ) : float
+    {
+        $idxX = $offsetX;
+        $acc = 0.0;
+        for ($i=0; $i<$n; $i++,$idxX+=$incX) {
+            $acc += $X[$idxX];
+        }
+        return $acc;
+    }
+
     /**
      * X(m) := sum( A(m,n) )
      */
@@ -862,17 +875,12 @@ class PhpMath
         $idAj = $offsetA;
         $idX = $offsetX;
         for($j=0; $j<$rows; $j++,$idAj+=$incAj,$idX+=$incX) {
-            $sum = 0;
-            $idA = $idAj;
-            for($i=0; $i<$cols; $i++,$idA+=$incAi) {
-                $sum += $A[$idA];
-            }
-            $X[$idX] = $sum;
+            $X[$idX] = $this->math_sum($cols,$A,$idAj,$incAi);
         }
     }
-    
+
     /**
-     * X(m) := sum( A(m,n) )
+     * X(m) := max( A(m,n) )
      */
     public function reduceMax(
         bool $trans,
@@ -1073,7 +1081,7 @@ class PhpMath
             }
         }
     }
-    
+
     /**
      * copy a image with channels
      */
@@ -1103,7 +1111,7 @@ class PhpMath
             #print('yx=%d,%d' % (yy,xx))
             for($c=0; $c<$channels; $c++) {
                 if($xx<0 || $xx>=$vim_w) {
-                    #print('pad') 
+                    #print('pad')
                     if(!$reverse) {
                         $out[$out_channel_pos] = 0;
                     }
@@ -1122,7 +1130,7 @@ class PhpMath
             $filter_w_pos += $filter_w_step;
         }
     }
-    
+
     /**
     * images: (n,h,w,c) : channels_last
     *        (n,c,h,w) : channels_first
@@ -1176,7 +1184,7 @@ class PhpMath
         }
         $out_w = (int)floor(($im_w-$filter_w)/$stride_w)+1;
         if($padding) {
-            $out_buf_size = 
+            $out_buf_size =
                 $batches*
                 $im_w*$filter_w*
                 $channels;
@@ -1218,13 +1226,13 @@ class PhpMath
             $out_channel_step = 1;
         }
         $out_cell_step = $filter_w*$channels;
-        
+
         $out_pos = $cols_offset;
         $batch_pos = $images_offset;
-    
+
         $start_vim_x = $start_w*$stride_w;
         $vim_w = ($out_w-1)*$stride_w+$filter_w;
-    
+
         for($batch=0; $batch<$batches;$batch++) {
             $stride_w_pos = $batch_pos+ $start_w*$stride_w_step;
             $vim_x = $start_vim_x;
@@ -1248,11 +1256,11 @@ class PhpMath
                 $stride_w_pos += $stride_w_step;
                 $vim_x += $stride_w;
                 $out_pos += $out_cell_step;
-            }    
+            }
             $batch_pos += $batch_step;
         }
     }
-    
+
     /**
      * copy a image with channels
      */
@@ -1290,7 +1298,7 @@ class PhpMath
                 for($c=0; $c<$channels; $c++) {
                     if($yy<0 || $yy>=$vim_h ||
                        $xx<0 || $xx>=$vim_w) {
-                        #print('pad') 
+                        #print('pad')
                         if(!$reverse) {
                             $out[$out_channel_pos] = 0;
                         }
@@ -1310,9 +1318,9 @@ class PhpMath
             }
             $filter_h_pos += $filter_h_step;
         }
-        
+
     }
-    
+
     /**
     * images: (n,h,w,c) : channels_last
     *        (n,c,h,w) : channels_first
@@ -1373,7 +1381,7 @@ class PhpMath
         $out_h = floor(($im_h-$filter_h)/$stride_h)+1;
         $out_w = floor(($im_w-$filter_w)/$stride_w)+1;
         if($padding) {
-            $out_buf_size = 
+            $out_buf_size =
                 $batches*
                 $im_h*$filter_h*
                 $im_w*$filter_w*
@@ -1424,15 +1432,15 @@ class PhpMath
             $out_channel_step = 1;
         }
         $out_cell_step = $filter_h*$filter_w*$channels;
-        
+
         $out_pos = $cols_offset;
         $batch_pos = $images_offset;
-    
+
         $start_vim_y = $start_h*$stride_h;
         $start_vim_x = $start_w*$stride_w;
         $vim_h = ($out_h-1)*$stride_h+$filter_h;
         $vim_w = ($out_w-1)*$stride_w+$filter_w;
-    
+
         for($batch=0; $batch<$batches;$batch++) {
             $stride_h_pos = $batch_pos+($start_h*$stride_h_step);
             $vim_y = $start_vim_y;
@@ -1466,7 +1474,7 @@ class PhpMath
                 }
                 $stride_h_pos += $stride_h_step;
                 $vim_y += $stride_h;
-            }    
+            }
             $batch_pos += $batch_step;
         }
     }
@@ -1516,7 +1524,7 @@ class PhpMath
                         if($zz<0 || $zz>=$vim_d ||
                             $yy<0 || $yy>=$vim_h ||
                            $xx<0 || $xx>=$vim_w) {
-                            #print('pad') 
+                            #print('pad')
                             if(!$reverse) {
                                 $out[$out_channel_pos] = 0;
                             }
@@ -1539,7 +1547,7 @@ class PhpMath
             $filter_d_pos += $filter_d_step;
         }
     }
-    
+
     /**
     * images: (n,h,w,c) : channels_last
     *        (n,c,h,w) : channels_first
@@ -1607,7 +1615,7 @@ class PhpMath
         $out_h = floor(($im_h-$filter_h)/$stride_h)+1;
         $out_w = floor(($im_w-$filter_w)/$stride_w)+1;
         if($padding) {
-            $out_buf_size = 
+            $out_buf_size =
                 $batches*
                 $im_d*$filter_d*
                 $im_h*$filter_h*
@@ -1667,17 +1675,17 @@ class PhpMath
             $out_channel_step = 1;
         }
         $out_cell_step = $filter_d*$filter_h*$filter_w*$channels;
-        
+
         $out_pos = $cols_offset;
         $batch_pos = $images_offset;
-    
+
         $start_vim_z = $start_d*$stride_d;
         $start_vim_y = $start_h*$stride_h;
         $start_vim_x = $start_w*$stride_w;
         $vim_d = ($out_d-1)*$stride_d+$filter_d;
         $vim_h = ($out_h-1)*$stride_h+$filter_h;
         $vim_w = ($out_w-1)*$stride_w+$filter_w;
-    
+
         for($batch=0; $batch<$batches;$batch++) {
             $stride_d_pos = $batch_pos+($start_d*$stride_d_step);
             $vim_z = $start_vim_z;
@@ -1791,7 +1799,7 @@ class PhpMath
             $X[$px] = $this->genRandNormal($mean,$scale);
         }
     }
-    
+
     /**
     */
     public function randomSequence(
@@ -1830,6 +1838,7 @@ class PhpMath
     */
     public function slice(
         bool $reverse,
+        bool $addMode,
         int $m,
         int $n,
         int $k,
@@ -1844,6 +1853,7 @@ class PhpMath
         if($this->math) {
             $this->math->slice(
                 $reverse,
+                $addMode,
                 $m,
                 $n,
                 $k,
@@ -1881,9 +1891,17 @@ class PhpMath
                 $pa = ($i+$startAxis0)*$n*$k+($j+$startAxis1)*$k+$offsetA;
                 $py = $i*$sizeAxis1*$k+$j*$k+$offsetY;
                 if(!$reverse) {
-                    $this->rindow_openblas_math_copy($k,$A,$pa,$incA,$Y,$py,$incY);
+                    if($addMode){
+                        $this->rindow_openblas_math_add($k,$A,$pa,$incA,$Y,$py,$incY);
+                    } else {
+                        $this->rindow_openblas_math_copy($k,$A,$pa,$incA,$Y,$py,$incY);
+                    }
                 } else {
-                    $this->rindow_openblas_math_copy($k,$Y,$py,$incY,$A,$pa,$incA);
+                    if($addMode){
+                        $this->rindow_openblas_math_add($k,$Y,$py,$incY,$A,$pa,$incA);
+                    } else {
+                        $this->rindow_openblas_math_copy($k,$Y,$py,$incY,$A,$pa,$incA);
+                    }
                 }
             }
         }

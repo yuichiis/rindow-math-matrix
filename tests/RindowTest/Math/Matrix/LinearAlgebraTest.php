@@ -740,8 +740,13 @@ class Test extends TestCase
         $mo = $this->newMatrixOperator();
 
         // Y := X (duplicate 2 times)
-        $X = $mo->array([[1,2,3],[4,5,6]]);
+        $X = $mo->array([
+            [1,2,3],
+            [4,5,6]
+        ]);
         $Y = $mo->la()->repeat($X,2);
+        $this->assertEquals([2,3],$X->shape());
+        $this->assertEquals([2,2,3],$Y->shape());
         $this->assertEquals([
             [1,2,3],
             [4,5,6]
@@ -757,17 +762,91 @@ class Test extends TestCase
         $this->assertEquals(
             [[1,2,3],[4,5,6]]
         ,$X->toArray());
+        $this->assertEquals([2,3],$X->shape());
         $this->assertEquals([2,1,3],$Y->shape());
         $this->assertEquals(
             [[[1,2,3]],[[4,5,6]]]
         ,$Y->toArray());
 
-        $X = $mo->array([[[1,2,3],[4,5,6]],[[7,8,9],[10,11,12]]]);
+        //
+        $X = $mo->array([
+            [[1,2,3],[4,5,6]],
+            [[7,8,9],[10,11,12]]
+        ]);
         $Y = $mo->la()->repeat($X,4);
-        $this->assertEquals(
-            [[[1,2,3],[4,5,6]],[[7,8,9],[10,11,12]]]
-        ,$X->toArray());
+        $this->assertEquals([
+            [[1,2,3],[4,5,6]],
+            [[7,8,9],[10,11,12]]
+        ],$X->toArray());
+        $this->assertEquals([2,2,3],$X->shape());
         $this->assertEquals([2,4,2,3],$Y->shape());
+        $this->assertEquals([
+            [[[1,2,3],[4,5,6]],
+             [[1,2,3],[4,5,6]],
+             [[1,2,3],[4,5,6]],
+             [[1,2,3],[4,5,6]]],
+            [[[7,8,9],[10,11,12]],
+             [[7,8,9],[10,11,12]],
+             [[7,8,9],[10,11,12]],
+             [[7,8,9],[10,11,12]]],
+        ],$Y->toArray());
+    }
+
+    public function testReduceSumRepeated()
+    {
+        $mo = $this->newMatrixOperator();
+
+        // Y := X (sum 2 times)
+        $Y = $mo->array([
+            [[1,2,3],[1,2,3]],
+            [[4,5,6],[4,5,6]],
+        ]);
+        $X = $mo->la()->reduceSumRepeated($Y);
+        $this->assertEquals([2,2,3],$Y->shape());
+        $this->assertEquals([2,3],$X->shape());
+        $this->assertEquals([
+            [[1,2,3],[1,2,3]],
+            [[4,5,6],[4,5,6]],
+        ],$Y->toArray());
+        $this->assertEquals([
+            [2,4,6],
+            [8,10,12]
+        ],$X->toArray());
+
+        // 1 time
+        $Y = $mo->array([
+            [[1,2,3]],
+            [[4,5,6]]
+        ]);
+        $X = $mo->la()->reduceSumRepeated($Y);
+        $this->assertEquals([2,1,3],$Y->shape());
+        $this->assertEquals([2,3],$X->shape());
+        $this->assertEquals([
+            [1,2,3],
+            [4,5,6]
+        ],$X->toArray());
+        $this->assertEquals([
+            [[1,2,3]],
+            [[4,5,6]]
+        ],$Y->toArray());
+
+        $Y = $mo->array([
+            [[[1,2,3],[4,5,6]],
+             [[1,2,3],[4,5,6]],
+             [[1,2,3],[4,5,6]],
+             [[1,2,3],[4,5,6]]],
+            [[[7,8,9],[10,11,12]],
+             [[7,8,9],[10,11,12]],
+             [[7,8,9],[10,11,12]],
+             [[7,8,9],[10,11,12]]],
+        ]);
+        $X = $mo->la()->reduceSumRepeated($Y);
+        $this->assertEquals([2,4,2,3],$Y->shape());
+        $this->assertEquals([2,2,3],$X->shape());
+        $this->assertEquals([
+            [[4,8,12],[16,20,24]],
+            [[28,32,36],[40,44,48]]
+        ],$X->toArray());
         $this->assertEquals([
             [[[1,2,3],[4,5,6]],
              [[1,2,3],[4,5,6]],
@@ -1348,7 +1427,7 @@ class Test extends TestCase
         $Y = $math->astype($X, $dtype);
         $this->assertEquals([-1,0,1,2,3],$Y->toArray());
     }
-    
+
     public function testIm2col2dNormal()
     {
         $mo = $this->newMatrixOperator();
@@ -1365,7 +1444,7 @@ class Test extends TestCase
         $channels_first = null;
         $cols_channels_first=null;
         $cols = null;
-        
+
         $images = $mo->arange(
             $batches*
             $im_h*$im_w*
@@ -1390,7 +1469,7 @@ class Test extends TestCase
         );
         $out_h = 2;
         $out_w = 2;
-        
+
         $this->assertEquals(
             [
                 $batches,
@@ -1421,7 +1500,7 @@ class Test extends TestCase
         ]],
         $cols->toArray()
         );
-        
+
         $newImages = $mo->zerosLike($images);
         $mo->la()->col2im(
             $cols,
@@ -1458,7 +1537,7 @@ class Test extends TestCase
         $channels_first = null;
         $cols_channels_first=true;
         $cols = null;
-        
+
         $images = $mo->arange(
             $batches*
             $im_h*$im_w*
@@ -1483,7 +1562,7 @@ class Test extends TestCase
         );
         $out_h = 2;
         $out_w = 2;
-        
+
         $this->assertEquals(
             [
                 $batches,
@@ -1514,7 +1593,7 @@ class Test extends TestCase
         ]],
         $cols->toArray()
         );
-        
+
         $newImages = $mo->zerosLike($images);
         $mo->la()->col2im(
             $cols,
@@ -1527,7 +1606,7 @@ class Test extends TestCase
             $channels_first,
             $cols_channels_first
         );
-        
+
         // result is Not equal to original
         // because to sum for back propagation
         //$this->assertEquals(
@@ -1548,7 +1627,7 @@ class Test extends TestCase
         $channels_first = null;
         $cols_channels_first=null;
         $cols = null;
-        
+
         $images = $mo->arange(
             $batches*
             $im_w*
@@ -1571,7 +1650,7 @@ class Test extends TestCase
             $cols_channels_first
         );
         $out_w = 2;
-        
+
         $this->assertEquals(
             [
                 $batches,
@@ -1588,7 +1667,7 @@ class Test extends TestCase
         ]],
         $cols->toArray()
         );
-        
+
         $newImages = $mo->zerosLike($images);
         $mo->la()->col2im(
             $cols,
@@ -1601,7 +1680,7 @@ class Test extends TestCase
             $channels_first,
             $cols_channels_first
         );
-        
+
         // result is Not equal to original
         // because to sum for back propagation
         //$this->assertEquals(
@@ -1623,7 +1702,7 @@ class Test extends TestCase
         $channels_first = null;
         $cols_channels_first=true;
         $cols = null;
-        
+
         $images = $mo->arange(
             $batches*
             $im_w*
@@ -1646,7 +1725,7 @@ class Test extends TestCase
             $cols_channels_first
         );
         $out_w = 2;
-        
+
         $this->assertEquals(
             [
                 $batches,
@@ -1663,7 +1742,7 @@ class Test extends TestCase
           ],
         $cols->toArray()
         );
-        
+
         $newImages = $mo->zerosLike($images);
         $mo->la()->col2im(
             $cols,
@@ -1676,7 +1755,7 @@ class Test extends TestCase
             $channels_first,
             $cols_channels_first
         );
-        
+
         // result is Not equal to original
         // because to sum for back propagation
         //$this->assertEquals(
@@ -1703,7 +1782,7 @@ class Test extends TestCase
         $channels_first = null;
         $cols_channels_first=null;
         $cols = null;
-        
+
         $images = $mo->arange(
             $batches*
             $im_d*$im_h*$im_w*
@@ -1730,7 +1809,7 @@ class Test extends TestCase
         $out_d = 2;
         $out_h = 2;
         $out_w = 2;
-        
+
         $this->assertEquals(
             [
                 $batches,
@@ -1747,7 +1826,7 @@ class Test extends TestCase
             $mo->zerosLike($cols)->toArray(),
             $cols->toArray()
         );
-        
+
         $newImages = $mo->zerosLike($images);
         $mo->la()->col2im(
             $cols,
@@ -1760,7 +1839,7 @@ class Test extends TestCase
             $channels_first,
             $cols_channels_first
         );
-        
+
         // result is Not equal to original
         // because to sum for back propagation
         //$this->assertEquals(
@@ -1788,7 +1867,7 @@ class Test extends TestCase
         $channels_first = null;
         $cols_channels_first=true;
         $cols = null;
-        
+
         $images = $mo->arange(
             $batches*
             $im_d*$im_h*$im_w*
@@ -1815,7 +1894,7 @@ class Test extends TestCase
         $out_d = 2;
         $out_h = 2;
         $out_w = 2;
-        
+
         $this->assertEquals(
             [
                 $batches,
@@ -1833,7 +1912,7 @@ class Test extends TestCase
             $mo->zerosLike($cols)->toArray(),
             $cols->toArray()
         );
-        
+
         $newImages = $mo->zerosLike($images);
         $mo->la()->col2im(
             $cols,
@@ -1846,7 +1925,7 @@ class Test extends TestCase
             $channels_first,
             $cols_channels_first
         );
-        
+
         // result is Not equal to original
         // because to sum for back propagation
         //$this->assertEquals(
@@ -1854,7 +1933,7 @@ class Test extends TestCase
         //    $newImages->toArray()
         //);
     }
-    
+
     public function testRandomUniform()
     {
         $mo = $this->newMatrixOperator();
@@ -1942,7 +2021,7 @@ class Test extends TestCase
     public function testSlice()
     {
         $mo = $this->newMatrixOperator();
-        
+
         $x = $mo->arange(24,null,null,NDArray::float32)->reshape([2,4,3]);
 
         $y = $mo->la()->slice(
@@ -2004,7 +2083,7 @@ class Test extends TestCase
     public function testStick()
     {
         $mo = $this->newMatrixOperator();
-        
+
         $x = $mo->arange(12,null,null,NDArray::float32)->reshape([2,2,3]);
         $y = $mo->zeros([2,4,3]);
         $mo->la()->stick(
@@ -2094,11 +2173,11 @@ class Test extends TestCase
             [0,2,3,0],
         ],$y->toArray());
     }
-    
+
     public function testStack()
     {
         $mo = $this->newMatrixOperator();
-        
+
         $a = $mo->arange(6,0,null,NDArray::float32)->reshape([2,3]);
         $b = $mo->arange(6,6,null,NDArray::float32)->reshape([2,3]);
         $y = $mo->la()->stack(
@@ -2124,7 +2203,7 @@ class Test extends TestCase
             [[3,4,5],
              [9,10,11]],
         ],$y->toArray());
-        
+
         $a = $mo->arange(12,0,null,NDArray::float32)->reshape([2, 2,3]);
         $b = $mo->arange(12,12,null,NDArray::float32)->reshape([2,2,3]);
         $y = $mo->la()->stack(
@@ -2158,5 +2237,27 @@ class Test extends TestCase
             [[18,19,20],
              [21,22,23]]],
         ],$y->toArray());
-    }    
+    }
+
+    public function testSvd()
+    {
+        $mo = $this->newMatrixOperator();
+        $a = $mo->array([
+            [8.79,  6.11, -9.15,  9.57, -3.49,  9.84,],
+            [9.93,  6.91, -7.93,  1.64,  4.02,  0.15,],
+            [9.83,  5.04,  4.86,  8.83,  9.80, -8.99,],
+            [5.45, -0.27,  4.85,  0.74, 10.00, -6.02,],
+            [3.16,  7.98,  3.01,  5.80,  4.27, -5.31,],
+        ]);
+        [$u,$s,$vt] = $mo->la()->svd($a);
+        echo "s --------\n";
+        foreach($s->toArray() as $array)
+            echo '['.implode(',',array_map(fn($a)=>sprintf('%6.2f',$a),$array))."],\n";
+        echo "u --------\n";
+        foreach($u->toArray() as $array)
+            echo '['.implode(',',array_map(fn($a)=>sprintf('%6.2f',$a),$array))."],\n";
+        echo "vt --------\n";
+        foreach($vt->toArray() as $array)
+            echo '['.implode(',',array_map(fn($a)=>sprintf('%6.2f',$a),$array))."],\n";
+    }
 }
