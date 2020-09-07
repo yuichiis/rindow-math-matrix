@@ -2252,7 +2252,7 @@ class Test extends TestCase
         [$u,$s,$vt] = $mo->la()->svd($a);
         echo "s --------\n";
         foreach($s->toArray() as $array)
-            echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$array))."],\n";
+            echo '['.implode(',',array_map(function($a){return sprintf('%6.2f',$a);},$array))."]\n";
         echo "u --------\n";
         foreach($u->toArray() as $array)
             echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$array))."],\n";
