@@ -2235,7 +2235,7 @@ class LinearAlgebra
     {
         [$m,$n] = $matrix->shape();
         $U = $this->copy($matrix);
-        $V = $this->alloc([$n,$n]);
+        $V = $this->alloc([$n,$n],$matrix->dtype());
         $this->zeros($V);
         $this->copy(
             $matrix[[0,(int)(min($m,$n)-1)]],
