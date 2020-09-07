@@ -2249,6 +2249,7 @@ class Test extends TestCase
             [5.45, -0.27,  4.85,  0.74, 10.00, -6.02,],
             [3.16,  7.98,  3.01,  5.80,  4.27, -5.31,],
         ]);
+        $a = $mo->transpose($a);
         [$u,$s,$vt] = $mo->la()->svd($a);
         echo "s --------\n";
         foreach($s->toArray() as $array)
