@@ -36,6 +36,17 @@ class PhpLapack
         return $this->forceLapack || in_array($X->dtype(),$this->floatTypes);
     }
 
+    /**
+     * Below is the author of the original code
+     * @author Yehia Abed
+     * @copyright 2010
+     * @see https://github.com/d3veloper/SVD
+     *
+     * **************** CAUTION *********************
+     * OpenBLAS has the DGESVD. But it is difficult to use DGESVD in LAPACKE
+     * on Windows. it is the implement temporarily.
+     *
+     */
     public function gesvd(
         int $matrix_layout,
         int $jobu,
@@ -49,69 +60,42 @@ class PhpLapack
         Buffer $SuperB,  int $offsetSuperB
     ) : void
     {
-        $this->lapack->gesvd(
-            $matrix_layout,
-            $jobu,
-            $jobvt,
-            $m,
-            $n,
-            $A,  $offsetA,  $ldA,
-            $S,  $offsetS,
-            $U,  $offsetU,  $ldU,
-            $VT, $offsetVT, $ldVT,
-            $SuperB,  $offsetSuperB
-        );
-    }
-
-    /**
-     * Below is the author of the original code
-     * @author Yehia Abed
-     * @copyright 2010
-     * @see https://github.com/d3veloper/SVD
-     *
-     * **************** CAUTION *********************
-     * OpenBLAS has the DGESVD. But it is difficult to use DGESVD in LAPACKE
-     * on Windows. it is the implement temporarily.
-     *
-     * This implementation uses C language array order.
-     * However, in the actual DGESVD in OpenBLAS, the FORTRAN language array
-     * order is adopted. This is also an issue that remains.
-     */
-    private function sameSign($a, $b)
-    {
-        if($b >= 0){
-            $result = abs($a);
-        } else {
-            $result = - abs($a);
+        if($this->useLapack($A)) {
+            $this->lapack->gesvd(
+                $matrix_layout,
+                $jobu,
+                $jobvt,
+                $m,
+                $n,
+                $A,  $offsetA,  $ldA,
+                $S,  $offsetS,
+                $U,  $offsetU,  $ldU,
+                $VT, $offsetVT, $ldVT,
+                $SuperB,  $offsetSuperB
+            );
+            return;
         }
-        return $result;
-    }
 
-    private function pythag($a, $b)
-    {
-        $absa = abs($a);
-        $absb = abs($b);
+        $A = new NDArrayPhp($A,$A->dtype(),[$m,$n],$offsetA);
+        $U = new NDArrayPhp($U,$U->dtype(),[$m,$ldU],$offsetU);
+        $V = new NDArrayPhp(null,$VT->dtype(),[$n,$ldVT]);
 
-        if( $absa > $absb ){
-            return $absa * sqrt( 1.0 + pow( $absb / $absa , 2) );
-        } else {
-            if( $absb > 0.0 ){
-                return $absb * sqrt( 1.0 + pow( $absa / $absb, 2 ) );
-            } else {
-                return 0.0;
-            }
+        $min_num = min($m,$n);
+        for($i=0;$i<$m;$i++) {
+            $this->copy($A[$i][[0,(int)($min_num-1)]],
+                $U[$i][[0,(int)($min_num-1)]]);
         }
-    }
+        for($i=0;$i<$min_num;$i++) {
+            $this->copy($A[$i][[0,(int)($n-1)]],
+                $V[$i][[0,(int)($n-1)]]);
+        }
 
-    public function svd(NDArray $matrix)
-    {
-        [$m,$n] = $matrix->shape();
-        $U = $this->copy($matrix);
-        $V = $this->alloc([$n,$n],$matrix->dtype());
-        $this->zeros($V);
-        $this->copy(
-            $matrix[[0,(int)(min($m,$n)-1)]],
-            $V[[0,(int)(min($m,$n)-1)]]);
+        #echo "--- a ---\n";
+        #$this->print($A);
+        #echo "--- u ---\n";
+        #$this->print($U);
+        #echo "--- v ---\n";
+        #$this->print($V);
 
         $eps = 2.22045e-016;
 
@@ -119,7 +103,7 @@ class PhpLapack
 
         // Householder reduction to bidiagonal form.
         $g = $scale = $anorm = 0.0;
-        for($i = 0; $i < $n; $i++){
+        for($i = 0; $i < $ldU; $i++){
             $l = $i + 2;
             $rv1[$i] = $scale * $g;
             $g = $s = $scale = 0.0;
@@ -135,7 +119,7 @@ class PhpLapack
                     $g = - $this->sameSign(sqrt($s), $f);
                     $h = $f * $g - $s;
                     $U[$i][$i] = $f - $g;
-                    for($j = $l - 1; $j < $n; $j++){
+                    for($j = $l - 1; $j < $ldU; $j++){
                         for($s = 0.0, $k = $i; $k < $m; $k++)
                             $s += $U[$k][$i] * $U[$k][$j];
                         $f = $s / $h;
@@ -148,11 +132,11 @@ class PhpLapack
             }
             $W[$i] = $scale * $g;
             $g = $s = $scale = 0.0;
-            if($i + 1 <= $m && $i + 1 != $n){
-                for ($k= $l - 1; $k < $n; $k++)
+            if($i + 1 <= $m && $i + 1 != $ldU){
+                for ($k= $l - 1; $k < $ldU; $k++)
                     $scale += abs($U[$i][$k]);
                 if($scale != 0.0){
-                    for ($k= $l - 1; $k < $n; $k++){
+                    for ($k= $l - 1; $k < $ldU; $k++){
                         $U[$i][$k] = $U[$i][$k] / $scale;
                         $s += $U[$i][$k] * $U[$i][$k];
                     }
@@ -160,15 +144,15 @@ class PhpLapack
                     $g = - $this->sameSign(sqrt($s), $f);
                     $h = $f * $g - $s;
                     $U[$i][$l - 1] = $f - $g;
-                    for($k = $l - 1; $k < $n; $k++)
+                    for($k = $l - 1; $k < $ldU; $k++)
                         $rv1[$k] = $U[$i][$k] / $h;
                     for($j = $l - 1; $j < $m; $j++){
-                        for($s = 0.0, $k = $l - 1; $k < $n; $k++)
+                        for($s = 0.0, $k = $l - 1; $k < $ldU; $k++)
                             $s += $U[$j][$k] * $U[$i][$k];
-                        for($k = $l - 1; $k < $n; $k++)
+                        for($k = $l - 1; $k < $ldU; $k++)
                             $U[$j][$k] = $U[$j][$k] + $s * $rv1[$k];
                     }
-                    for($k= $l - 1; $k < $n; $k++) $U[$i][$k] *= $scale;
+                    for($k= $l - 1; $k < $ldU; $k++) $U[$i][$k] *= $scale;
                 }
             }
             $anorm = max($anorm, (abs($W[$i]) + abs($rv1[$i])));
@@ -196,14 +180,14 @@ class PhpLapack
         }
 
         // Accumulation of left-hand transformations.
-        for($i = min($m, $n) - 1; $i >= 0; $i--){
+        for($i = min($m, $ldU) - 1; $i >= 0; $i--){
             $l = $i + 1;
             $g = $W[$i];
-            for($j = $l; $j < $n; $j++)
+            for($j = $l; $j < $ldU; $j++)
                 $U[$i][$j] = 0.0;
             if($g != 0.0){
                 $g = 1.0 / $g;
-                for($j = $l; $j < $n; $j++){
+                for($j = $l; $j < $ldU; $j++){
                     for($s = 0.0, $k = $l; $k < $m; $k++)
                         $s += $U[$k][$i] * $U[$k][$j];
                     $f = ($s / $U[$i][$i]) * $g;
@@ -343,15 +327,15 @@ class PhpLapack
             }
         }  while($inc > 1);
 
-        for($k = 0; $k < $n; $k++){
-            $s = 0;
-            for($i = 0; $i < $m; $i++) if ($U[$i][$k] < 0.0) $s++;
-            for($j = 0; $j < $n; $j++) if ($V[$j][$k] < 0.0) $s++;
-            if($s > ($m + $n)/2) {
-                for($i = 0; $i < $m; $i++) $U[$i][$k] = - $U[$i][$k];
-                for($j = 0; $j < $n; $j++) $V[$j][$k] = - $V[$j][$k];
-            }
-        }
+        #for($k = 0; $k < $n; $k++){
+        #    $s = 0;
+        #    for($i = 0; $i < $m; $i++) if ($U[$i][$k] < 0.0) $s++;
+        #    for($j = 0; $j < $n; $j++) if ($V[$j][$k] < 0.0) $s++;
+        #    if($s > ($m + $n)/2) {
+        #        for($i = 0; $i < $m; $i++) $U[$i][$k] = - $U[$i][$k];
+        #        for($j = 0; $j < $n; $j++) $V[$j][$k] = - $V[$j][$k];
+        #    }
+        #}
 
         // calculate the rank
         $rank = 0;
@@ -373,12 +357,16 @@ class PhpLapack
         }   while($clt < $q);
 
         // prepare S matrix as n*n daigonal matrix of singular values
-        $S = $this->alloc([$n],$matrix->dtype());
-        $this->zeros($S);
         for($i = 0; $i < $n; $i++){
             $S[$i] = $W[$i];
         }
 
+        $VT = new NDArrayPhp($VT,$VT->dtype(),[$ldVT,$n],$offsetVT);
+        for($i=0;$i<$ldVT;$i++) {
+            for($j=0;$j<$n;$j++) {
+                $VT[$i][$j] = $V[$j][$i];
+            }
+        }
         //$matrices['U'] = $U;
         //$matrices['S'] = $S;
         //$matrices['W'] = $W;
@@ -386,7 +374,75 @@ class PhpLapack
         //$matrices['Rank'] = $rank;
         //$matrices['K'] = $k;
 
-        return [$U,$S,$this->transpose($V)];
+        #return [$U,$S,$this->transpose($V)];
+    }
+
+    private function print($a)
+    {
+        foreach($a->toArray() as $array)
+            echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$array))."],\n";
+    }
+
+    private function alloc(array $shape, $dtype)
+    {
+        return new NDArrayPhp(null,$dtype,$shape);
+    }
+
+    private function zeros(NDArray $X)
+    {
+        $N = $X->size();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+        $posX = $offX;
+        for($i=0;$i<$N;$i++) {
+            $XX[$posX] = 0;
+            $posX++;
+        }
+    }
+
+    private function copy(NDArray $X, NDArray $Y)
+    {
+        if($X->shape()!=$Y->shape()) {
+            throw new InvalidArgumentException('unmatch shape:');
+        }
+        $N = $X->size();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+        $YY = $Y->buffer();
+        $offY = $Y->offset();
+        $posX = $offX;
+        $posY = $offY;
+        for($i=0;$i<$N;$i++) {
+            $YY[$posY] = $XX[$posX];
+            $posX++;
+            $posY++;
+        }
+    }
+
+    private function sameSign($a, $b)
+    {
+        if($b >= 0){
+            $result = abs($a);
+        } else {
+            $result = - abs($a);
+        }
+        return $result;
+    }
+
+    private function pythag($a, $b)
+    {
+        $absa = abs($a);
+        $absb = abs($b);
+
+        if( $absa > $absb ){
+            return $absa * sqrt( 1.0 + pow( $absb / $absa , 2) );
+        } else {
+            if( $absb > 0.0 ){
+                return $absb * sqrt( 1.0 + pow( $absa / $absb, 2 ) );
+            } else {
+                return 0.0;
+            }
+        }
     }
 
     /**
