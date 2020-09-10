@@ -6,12 +6,15 @@ use InvalidArgumentException;
 use Interop\Polite\Math\Matrix\BLAS;
 use Interop\Polite\Math\Matrix\NDArray;
 use Rindow\OpenBLAS\Blas as OpenBLAS;
+use Rindow\OpenBLAS\Lapack as OpenBLASLapack;
 use Rindow\OpenBLAS\Math as OpenBLASMath;
 
 class MatrixOperator
 {
     protected $blas;
     protected $openblas;
+    protected $lapack;
+    protected $openblaslapack;
     protected $math;
     protected $openblasmath;
     protected $random;
@@ -47,7 +50,7 @@ class MatrixOperator
         NDArray::float32=>11, NDArray::float64=>12,
     ];
 
-    public function __construct($blas=null,$math=null)
+    public function __construct($blas=null,$lapack=null,$math=null)
     {
         if($blas) {
             $this->blas = $blas;
@@ -56,6 +59,14 @@ class MatrixOperator
                 $this->openblas = new OpenBLAS();
             }
             $this->blas = new PhpBlas($this->openblas);
+        }
+        if($lapack) {
+            $this->lapack = $lapack;
+        } else {
+            if(extension_loaded('rindow_openblas')) {
+                $this->openblaslapack = new OpenBLASLapack();
+            }
+            $this->lapack = new PhpLapack($this->openblaslapack);
         }
         if($math) {
             $this->math = $math;
@@ -1106,7 +1117,7 @@ class MatrixOperator
     {
         if($this->la==null) {
             $this->la = new LinearAlgebra(
-                $this->blas,$this->math,$this->defaultFloatType);
+                $this->blas,$this->lapack,$this->math,$this->defaultFloatType);
         }
         return $this->la;
     }
@@ -1118,7 +1129,7 @@ class MatrixOperator
         }
         if($this->laRawMode==null) {
             $this->laRawMode = new LinearAlgebra(
-                $this->openblas,$this->openblasmath);
+                $this->openblas,$this->openblaslapack,$this->openblasmath);
         }
         return $this->laRawMode;
     }
@@ -1129,6 +1140,14 @@ class MatrixOperator
             return $this->openblas;
         }
         return $this->blas;
+    }
+
+    public function lapack($raw=null)
+    {
+        if($raw) {
+            return $this->openblaslapack;
+        }
+        return $this->lapack;
     }
 
     public function math($raw=null)

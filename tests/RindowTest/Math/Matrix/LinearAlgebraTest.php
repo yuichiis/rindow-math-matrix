@@ -17,6 +17,7 @@ class Test extends TestCase
         $mo = new MatrixOperator();
         if(extension_loaded('rindow_openblas')) {
             $mo->blas()->forceBlas(true);
+            $mo->lapack()->forceLapack(true);
             $mo->math()->forceMath(true);
         }
         return $mo;
@@ -31,9 +32,9 @@ class Test extends TestCase
             if($a->shape()!=$b->shape())
                 return false;
             $delta = $mo->zerosLike($b);
-            $this->la->copy($b,$delta);
-            $this->la->axpy($a,$delta,-1.0);
-            $delta = $this->la->asum($delta);
+            $mo->la()->copy($b,$delta);
+            $mo->la()->axpy($a,$delta,-1.0);
+            $delta = $mo->la()->asum($delta);
         } elseif(is_numeric($a)) {
             if(!is_numeric($b))
                 throw new InvalidArgumentException('Values must be of the same type.');
@@ -2243,48 +2244,39 @@ class Test extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $a = $mo->array([
-            [8.79,  6.11, -9.15,  9.57, -3.49,  9.84,],
-            [9.93,  6.91, -7.93,  1.64,  4.02,  0.15,],
-            [9.83,  5.04,  4.86,  8.83,  9.80, -8.99,],
-            [5.45, -0.27,  4.85,  0.74, 10.00, -6.02,],
-            [3.16,  7.98,  3.01,  5.80,  4.27, -5.31,],
+            [ 8.79,  9.93,  9.83,  5.45,  3.16,],
+            [ 6.11,  6.91,  5.04, -0.27,  7.98,],
+            [-9.15, -7.93,  4.86,  4.85,  3.01,],
+            [ 9.57,  1.64,  8.83,  0.74,  5.80,],
+            [-3.49,  4.02,  9.80, 10.00,  4.27,],
+            [ 9.84,  0.15, -8.99, -6.02, -5.31,],
         ]);
-        $a = $mo->transpose($a);
         [$u,$s,$vt] = $mo->la()->svd($a);
-        /*
-        echo "s --------\n";
-        echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$s->toArray()))."],\n";
-        echo "u --------\n";
-        foreach($u->toArray() as $array)
-            echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$array))."],\n";
-        echo "vt --------\n";
-        foreach($vt->toArray() as $array)
-            echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$array))."],\n";
-        */
-    /*
-------- s --------
-[27.47, 0.00, 0.00, 0.00, 0.00],
-[ 0.00,22.64, 0.00, 0.00, 0.00],
-[ 0.00, 0.00, 8.56, 0.00, 0.00],
-[ 0.00, 0.00, 0.00, 5.99, 0.00],
-[ 0.00, 0.00, 0.00, 0.00, 2.01],
-------- u --------
-[ 0.59, 0.26,-0.36, 0.31,-0.23],
-[ 0.40, 0.24, 0.22,-0.75, 0.36],
-[ 0.03,-0.60, 0.45, 0.23, 0.31],
-[ 0.43, 0.24, 0.69, 0.33,-0.16],
-[ 0.47,-0.35,-0.39, 0.16, 0.52],
-[-0.29, 0.58, 0.02, 0.38, 0.65],
--------- vt --------
-[ 0.25, 0.40, 0.69, 0.37, 0.41],
-[ 0.81, 0.36,-0.25,-0.37,-0.10],
-[ 0.26,-0.70, 0.22,-0.39, 0.49],
-[ 0.40,-0.45, 0.25, 0.43,-0.62],
-[ 0.22,-0.14,-0.59, 0.63, 0.44],
-*/
+
+        # ---- u ----
+        $correctU = $mo->array([
+            [-0.59, 0.26, 0.36, 0.31, 0.23, 0.55],
+            [-0.40, 0.24,-0.22,-0.75,-0.36, 0.18],
+            [-0.03,-0.60,-0.45, 0.23,-0.31, 0.54],
+            [-0.43, 0.24,-0.69, 0.33, 0.16,-0.39],
+            [-0.47,-0.35, 0.39, 0.16,-0.52,-0.46],
+            [ 0.29, 0.58,-0.02, 0.38,-0.65, 0.11],
+        ]);
+        $this->assertLessThan(0.01,abs($mo->amax($mo->op($u,'-',$correctU))));
+        # ---- s ----
+        $correctS = $mo->array(
+            [27.47,22.64, 8.56, 5.99, 2.01],
+        );
+        $this->assertLessThan(0.01,abs($mo->amax($mo->op($s,'-',$correctS))));
+        # ---- vt ----
+        $correctVT = $mo->array([
+            [-0.25,-0.40,-0.69,-0.37,-0.41],
+            [ 0.81, 0.36,-0.25,-0.37,-0.10],
+            [-0.26, 0.70,-0.22, 0.39,-0.49],
+            [ 0.40,-0.45, 0.25, 0.43,-0.62],
+            [-0.22, 0.14, 0.59,-0.63,-0.44],
+        ]);
+        $this->assertLessThan(0.01,abs($mo->amax($mo->op($vt,'-',$correctVT))));
         $this->assertTrue(true);
     }
-
-    
 }
-v

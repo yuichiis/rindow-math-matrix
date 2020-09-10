@@ -6,15 +6,21 @@ use Interop\Polite\Math\Matrix\NDArray;
 use InvalidArgumentException;
 use ArrayAccess as Buffer;
 
+define("LAPACK_ROW_MAJOR",101);
+define("LAPACK_COL_MAJOR",102);
+
+
 class LinearAlgebra
 {
     protected $blas;
+    protected $lapack;
     protected $math;
     protected $defaultFloatType = NDArray::float32;
 
-    public function __construct($blas,$math,$defaultFloatType=null)
+    public function __construct($blas,$lapack,$math,$defaultFloatType=null)
     {
         $this->blas = $blas;
+        $this->lapack = $lapack;
         $this->math = $math;
         if($defaultFloatType!==null)
             $this->defaultFloatType = $defaultFloatType;
@@ -2191,359 +2197,58 @@ class LinearAlgebra
         return $B;
     }
 
-    /**
-     * Below is the author of the original code
-     * @author Yehia Abed
-     * @copyright 2010
-     * @see https://github.com/d3veloper/SVD
-     *
-     * **************** CAUTION *********************
-     * OpenBLAS has the DGESVD. But it is difficult to use DGESVD in LAPACKE
-     * on Windows. it is the implement temporarily.
-     *
-     * This implementation uses C language array order.
-     * However, in the actual DGESVD in OpenBLAS, the FORTRAN language array
-     * order is adopted. This is also an issue that remains.
-     */
-     private function sameSign($a, $b)
-     {
-         if($b >= 0){
-             $result = abs($a);
-         } else {
-             $result = - abs($a);
-         }
-         return $result;
-     }
-
-     private function pythag($a, $b)
-     {
-         $absa = abs($a);
-         $absb = abs($b);
-
-         if( $absa > $absb ){
-             return $absa * sqrt( 1.0 + pow( $absb / $absa , 2) );
-         } else {
-             if( $absb > 0.0 ){
-                 return $absb * sqrt( 1.0 + pow( $absa / $absb, 2 ) );
-             } else {
-                 return 0.0;
-             }
-         }
-     }
-
-    public function svd(NDArray $matrix)
+    public function svd(NDArray $matrix,$fullMatrices=null)
     {
+        if($matrix->ndim()!=2) {
+            throw new InvalidArgumentException("input array must be 2D array");
+        }
+        if($fullMatrices===null)
+            $fullMatrices = true;
         [$m,$n] = $matrix->shape();
-        $U = $this->copy($matrix);
-        $V = $this->alloc([$n,$n],$matrix->dtype());
-        $this->zeros($V);
-        $this->copy(
-            $matrix[[0,(int)(min($m,$n)-1)]],
-            $V[[0,(int)(min($m,$n)-1)]]);
-
-        $eps = 2.22045e-016;
-
-        // Decompose Phase
-
-        // Householder reduction to bidiagonal form.
-        $g = $scale = $anorm = 0.0;
-        for($i = 0; $i < $n; $i++){
-            $l = $i + 2;
-            $rv1[$i] = $scale * $g;
-            $g = $s = $scale = 0.0;
-            if($i < $m){
-                for($k = $i; $k < $m; $k++)
-                    $scale += abs($U[$k][$i]);
-                if($scale != 0.0) {
-                    for($k = $i; $k < $m; $k++) {
-                        $U[$k][$i] = $U[$k][$i] / $scale;
-                        $s += $U[$k][$i] * $U[$k][$i];
-                    }
-                    $f = $U[$i][$i];
-                    $g = - $this->sameSign(sqrt($s), $f);
-                    $h = $f * $g - $s;
-                    $U[$i][$i] = $f - $g;
-                    for($j = $l - 1; $j < $n; $j++){
-                        for($s = 0.0, $k = $i; $k < $m; $k++)
-                            $s += $U[$k][$i] * $U[$k][$j];
-                        $f = $s / $h;
-                        for($k = $i; $k < $m; $k++)
-                            $U[$k][$j] = $U[$k][$j] + $f * $U[$k][$i];
-                    }
-                    for($k = $i; $k < $m; $k++)
-                        $U[$k][$i] = $U[$k][$i] * $scale;
-                }
-            }
-            $W[$i] = $scale * $g;
-            $g = $s = $scale = 0.0;
-            if($i + 1 <= $m && $i + 1 != $n){
-                for ($k= $l - 1; $k < $n; $k++)
-                    $scale += abs($U[$i][$k]);
-                if($scale != 0.0){
-                    for ($k= $l - 1; $k < $n; $k++){
-                        $U[$i][$k] = $U[$i][$k] / $scale;
-                        $s += $U[$i][$k] * $U[$i][$k];
-                    }
-                    $f = $U[$i][$l - 1];
-                    $g = - $this->sameSign(sqrt($s), $f);
-                    $h = $f * $g - $s;
-                    $U[$i][$l - 1] = $f - $g;
-                    for($k = $l - 1; $k < $n; $k++)
-                        $rv1[$k] = $U[$i][$k] / $h;
-                    for($j = $l - 1; $j < $m; $j++){
-                        for($s = 0.0, $k = $l - 1; $k < $n; $k++)
-                            $s += $U[$j][$k] * $U[$i][$k];
-                        for($k = $l - 1; $k < $n; $k++)
-                            $U[$j][$k] = $U[$j][$k] + $s * $rv1[$k];
-                    }
-                    for($k= $l - 1; $k < $n; $k++) $U[$i][$k] *= $scale;
-                }
-            }
-            $anorm = max($anorm, (abs($W[$i]) + abs($rv1[$i])));
+        $ldA = $n;
+        if($fullMatrices) {
+            $jobu  = 'A';
+            $jobvt = 'A';
+            $ldU = $m;
+            $ldVT = $n;
+        } else {
+            $jobu  = 'S';
+            $jobvt = 'S';
+            $ldU = min($m,$n);
+            $ldVT = min($m,$n);
         }
 
-        // Accumulation of right-hand transformations.
-        for($i = $n - 1; $i >= 0; $i--){
-            if($i < $n - 1){
-                if($g != 0.0){
-                    for($j = $l; $j < $n; $j++) // Double division to avoid possible underflow.
-                    $V[$j][$i] = ($U[$i][$j] / $U[$i][$l]) / $g;
-                    for($j = $l; $j < $n; $j++){
-                        for($s = 0.0, $k = $l; $k < $n; $k++)
-                            $s += ($U[$i][$k] * $V[$k][$j]);
-                        for($k = $l; $k < $n; $k++)
-                            $V[$k][$j] = $V[$k][$j] + $s * $V[$k][$i];
-                    }
-                }
-                for($j = $l; $j < $n; $j++)
-                    $V[$i][$j] = $V[$j][$i] = 0.0;
-            }
-            $V[$i][$i] = 1.0;
-            $g = $rv1[$i];
-            $l = $i;
-        }
-
-        // Accumulation of left-hand transformations.
-        for($i = min($m, $n) - 1; $i >= 0; $i--){
-            $l = $i + 1;
-            $g = $W[$i];
-            for($j = $l; $j < $n; $j++)
-                $U[$i][$j] = 0.0;
-            if($g != 0.0){
-                $g = 1.0 / $g;
-                for($j = $l; $j < $n; $j++){
-                    for($s = 0.0, $k = $l; $k < $m; $k++)
-                        $s += $U[$k][$i] * $U[$k][$j];
-                    $f = ($s / $U[$i][$i]) * $g;
-                    for($k = $i; $k < $m; $k++)
-                        $U[$k][$j] = $U[$k][$j] + $f * $U[$k][$i];
-                }
-                for($j = $i; $j < $m; $j++)
-                    $U[$j][$i] = $U[$j][$i] * $g;
-            }else {
-                for($j = $i; $j < $m; $j++)
-                    $U[$j][$i] = 0.0;
-            }
-            $U[$i][$i] = $U[$i][$i]+1;
-        }
-
-        // Diagonalization of the bidiagonal form
-        // Loop over singular values, and over allowed iterations.
-        for($k = $n - 1; $k >= 0; $k--){
-            for($its = 0; $its < 30; $its++){
-                $flag = true;
-                for($l = $k; $l >= 0; $l--){
-                    $nm = $l - 1;
-                    if( $l == 0 || abs($rv1[$l]) <= $eps*$anorm){
-                        $flag = false;
-                        break;
-                    }
-                    if(abs($W[$nm]) <= $eps*$anorm) break;
-                }
-                if($flag){
-                    $c = 0.0;  // Cancellation of rv1[l], if l > 0.
-                    $s = 1.0;
-                    for($i = $l; $i < $k + 1; $i++){
-                        $f = $s * $rv1[$i];
-                        $rv1[$i] = $c * $rv1[$i];
-                        if(abs($f) <= $eps*$anorm) break;
-                        $g = $W[$i];
-                        $h = $this->pythag($f,$g);
-                        $W[$i] = $h;
-                        $h = 1.0 / $h;
-                        $c = $g * $h;
-                        $s = -$f * $h;
-                        for($j = 0; $j < $m; $j++){
-                            $y = $U[$j][$nm];
-                            $z = $U[$j][$i];
-                            $U[$j][$nm] = $y * $c + $z * $s;
-                            $U[$j][$i] = $z * $c - $y * $s;
-                        }
-                    }
-                }
-                $z = $W[$k];
-                if($l == $k){
-                    if($z < 0.0){
-                        $W[$k] = -$z; // Singular value is made nonnegative.
-                        for($j = 0; $j < $n; $j++)
-                            $V[$j][$k] = -$V[$j][$k];
-                    }
-                    break;
-                }
-                if($its == 29) print("no convergence in 30 svd iterations");
-                $x = $W[$l]; // Shift from bottom 2-by-2 minor.
-                $nm = $k - 1;
-                $y = $W[$nm];
-                $g = $rv1[$nm];
-                $h = $rv1[$k];
-                $f = (($y - $z) * ($y + $z) + ($g - $h) * ($g + $h)) / (2.0 * $h * $y);
-                $g = $this->pythag($f,1.0);
-                $f = (($x - $z) * ($x + $z) + $h * (($y / ($f + $this->sameSign($g,$f))) - $h)) / $x;
-                $c = $s = 1.0;
-                for($j = $l; $j <= $nm; $j++){
-                    $i = $j + 1;
-                    $g = $rv1[$i];
-                    $y = $W[$i];
-                    $h = $s * $g;
-                    $g = $c * $g;
-                    $z = $this->pythag($f,$h);
-                    $rv1[$j] = $z;
-                    $c = $f / $z;
-                    $s = $h / $z;
-                    $f = $x * $c + $g * $s;
-                    $g = $g * $c - $x * $s;
-                    $h = $y * $s;
-                    $y *= $c;
-                    for($jj = 0; $jj < $n; $jj++){
-                        $x = $V[$jj][$j];
-                        $z = $V[$jj][$i];
-                        $V[$jj][$j] = $x * $c + $z * $s;
-                        $V[$jj][$i] = $z * $c - $x * $s;
-                    }
-                    $z = $this->pythag($f,$h);
-                    $W[$j] = $z;  // Rotation can be arbitrary if z = 0.
-                    if($z){
-                        $z = 1.0 / $z;
-                        $c = $f * $z;
-                        $s = $h * $z;
-                    }
-                    $f = $c * $g + $s * $y;
-                    $x = $c * $y - $s * $g;
-                    for($jj = 0; $jj < $m; $jj++){
-                        $y = $U[$jj][$j];
-                        $z = $U[$jj][$i];
-                        $U[$jj][$j] = $y * $c + $z * $s;
-                        $U[$jj][$i] = $z * $c - $y * $s;
-                    }
-                }
-                $rv1[$l] = 0.0;
-                $rv1[$k] = $f;
-                $W[$k] = $x;
-            }
-        }
-
-        // Reorder Phase
-        // Sort. The method is Shell's sort.
-        // (The work is negligible as compared to that already done in decompose phase.)
-        $inc = 1;
-        do {
-            $inc = (int)($inc * 3);
-            $inc++;
-        }   while($inc <= $n);
-
-        do {
-            $inc = (int)($inc / 3);
-            for($i = $inc; $i < $n; $i++){
-                $sw = $W[$i];
-                for($k = 0; $k < $m; $k++) $su[$k] = $U[$k][$i];
-                for($k = 0; $k < $n; $k++) $sv[$k] = $V[$k][$i];
-                $j = $i;
-                while($W[$j - $inc] < $sw){
-                    $W[$j] = $W[$j - $inc];
-                    for($k = 0; $k < $m; $k++) $U[$k][$j] = $U[$k][$j - $inc];
-                    for($k = 0; $k < $n; $k++) $V[$k][$j] = $V[$k][$j - $inc];
-                    $j -= $inc;
-                    if($j < $inc) break;
-                }
-                $W[$j] = $sw;
-                for($k = 0; $k < $m; $k++) $U[$k][$j] = $su[$k];
-                for($k = 0; $k < $n; $k++) $V[$k][$j] = $sv[$k];
-            }
-        }  while($inc > 1);
-
-        for($k = 0; $k < $n; $k++){
-            $s = 0;
-            for($i = 0; $i < $m; $i++) if ($U[$i][$k] < 0.0) $s++;
-            for($j = 0; $j < $n; $j++) if ($V[$j][$k] < 0.0) $s++;
-            if($s > ($m + $n)/2) {
-                for($i = 0; $i < $m; $i++) $U[$i][$k] = - $U[$i][$k];
-                for($j = 0; $j < $n; $j++) $V[$j][$k] = - $V[$j][$k];
-            }
-        }
-
-        // calculate the rank
-        $rank = 0;
-        for($i = 0; $i < count($W); $i++){
-            if(round($W[$i], 4) > 0){
-                $rank += 1;
-            }
-        }
-
-        // Low-Rank Approximation
-        $q = 0.9;
-        $k = 0;
-        $frobA = $frobAk = 0;
-        for($i = 0; $i < $rank; $i++) $frobA += $W[$i];
-        do{
-            for($i = 0; $i <= $k; $i++) $frobAk += $W[$i];
-            $clt = $frobAk / $frobA;
-            $k++;
-        }   while($clt < $q);
-
-        // prepare S matrix as n*n daigonal matrix of singular values
-        $S = $this->alloc([$n],$matrix->dtype());
+        $S = $this->alloc([min($m,$n)],$matrix->dtype());
         $this->zeros($S);
-        for($i = 0; $i < $n; $i++){
-            $S[$i] = $W[$i];
-        }
+        $U = $this->alloc([$m,$ldU],$matrix->dtype());
+        $this->zeros($U);
+        $VT = $this->alloc([$ldVT,$n],$matrix->dtype());
+        $this->zeros($VT);
+        $SuperB = $this->alloc([min($m,$n)-1],$matrix->dtype());
+        $this->zeros($SuperB);
 
-        //$matrices['U'] = $U;
-        //$matrices['S'] = $S;
-        //$matrices['W'] = $W;
-        //$matrices['V'] = $this->matrixTranspose($V);
-        //$matrices['Rank'] = $rank;
-        //$matrices['K'] = $k;
-
-        return [$U,$S,$this->transpose($V)];
-    }
-
-    /**
-    *   copied from MatrixOperator
-    */
-    public function transpose(NDArray $X) : NDArray
-    {
-        $shape = $X->shape();
-        $newShape = array_reverse($shape);
-        $Y = $this->alloc($newShape, $X->dtype());
-        $w = 1;
-        $posY = 0;
-        $posX = 0;
-        $this->_transpose($newShape, $w, $X->buffer(), $X->offset(), $posX, $Y->buffer(), $posY);
-        return $Y;
-    }
-
-    protected function _transpose($shape, $w, $bufX, $offX, $posX, $bufY, &$posY)
-    {
-        $n=array_shift($shape);
-        $W = $w*$n;
-        $deps = count($shape);
-        for($i=0;$i<$n;$i++) {
-            if($deps) {
-                $this->_transpose($shape, $W, $bufX, $offX, $posX+$w*$i, $bufY, $posY);
-            } else {
-                $bufY[$posY] = $bufX[$offX + $posX+$w*$i];
-                $posY++;
-            }
-        }
+        $AA = $matrix->buffer();
+        $offsetA = $matrix->offset();
+        $SS = $S->buffer();
+        $offsetS = $S->offset();
+        $UU = $U->buffer();
+        $offsetU = $U->offset();
+        $VVT = $VT->buffer();
+        $offsetVT = $VT->offset();
+        $SuperBB = $SuperB->buffer();
+        $offsetSuperB = $SuperB->offset();
+        $this->lapack->gesvd(
+            LAPACK_ROW_MAJOR,
+            ord($jobu),
+            ord($jobvt),
+            $m,
+            $n,
+            $AA,  $offsetA,  $ldA,
+            $SS,  $offsetS,
+            $UU,  $offsetU,  $ldU,
+            $VVT, $offsetVT, $ldVT,
+            $SuperBB,  $offsetSuperB
+        );
+        return [$U,$S,$VT];
     }
 }
