@@ -2205,17 +2205,19 @@ class LinearAlgebra
         if($fullMatrices===null)
             $fullMatrices = true;
         [$m,$n] = $matrix->shape();
-        $ldA = $n;
         if($fullMatrices) {
             $jobu  = 'A';
             $jobvt = 'A';
+            $ldA = $n;
             $ldU = $m;
             $ldVT = $n;
         } else {
             $jobu  = 'S';
             $jobvt = 'S';
+            $ldA = $n;
             $ldU = min($m,$n);
-            $ldVT = min($m,$n);
+            #$ldVT = min($m,$n);
+            $ldVT = $n; // bug in the lapacke ???
         }
 
         $S = $this->alloc([min($m,$n)],$matrix->dtype());
@@ -2249,6 +2251,10 @@ class LinearAlgebra
             $VVT, $offsetVT, $ldVT,
             $SuperBB,  $offsetSuperB
         );
+        if(!$fullMatrices) {
+            // bug in the lapacke ???
+            $VT = $this->copy($VT[[0,min($m,$n)-1]]);
+        }
         return [$U,$S,$VT];
     }
 }

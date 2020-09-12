@@ -699,6 +699,20 @@ class Test extends TestCase
         $this->assertLessThan(1e-5,$mo->asum($mo->op($X2,'-',$Y)));
     }
 
+    public function testTanh()
+    {
+        $mo = $this->newMatrixOperator();
+
+        // X := tanh(X)
+        $X = $mo->array([[0.1,0.2,0.3],[0.4,0.5,0.6]]);
+        $X2 = $mo->copy($X);
+        $mo->la()->tanh($X);
+        $Y = $mo->f(function ($y) {
+            return 1/2 * log((1+$y)/(1-$y));
+        },$X);
+        $this->assertLessThan(1e-5,$mo->asum($mo->op($X2,'-',$Y)));
+    }
+
     public function testDuplicate()
     {
         $mo = $this->newMatrixOperator();
@@ -2240,7 +2254,7 @@ class Test extends TestCase
         ],$y->toArray());
     }
 
-    public function testSvd()
+    public function testSvdFull1()
     {
         $mo = $this->newMatrixOperator();
         $a = $mo->array([
@@ -2251,7 +2265,11 @@ class Test extends TestCase
             [-3.49,  4.02,  9.80, 10.00,  4.27,],
             [ 9.84,  0.15, -8.99, -6.02, -5.31,],
         ]);
+        $this->assertEquals([6,5],$a->shape());
         [$u,$s,$vt] = $mo->la()->svd($a);
+        $this->assertEquals([6,6],$u->shape());
+        $this->assertEquals([5],$s->shape());
+        $this->assertEquals([5,5],$vt->shape());
 
         # echo "---- u ----\n";
         # foreach($u->toArray() as $array)
@@ -2285,6 +2303,163 @@ class Test extends TestCase
             [ 0.40,-0.45, 0.25, 0.43,-0.62],
             [-0.22, 0.14, 0.59,-0.63,-0.44],
         ]);
+        $this->assertLessThan(0.01,abs($mo->amax($mo->op($vt,'-',$correctVT))));
+        $this->assertTrue(true);
+    }
+
+    public function testSvdFull2()
+    {
+        $mo = $this->newMatrixOperator();
+        $a = $mo->array([
+            [ 8.79,  9.93,  9.83,  5.45,  3.16,],
+            [ 6.11,  6.91,  5.04, -0.27,  7.98,],
+            [-9.15, -7.93,  4.86,  4.85,  3.01,],
+            [ 9.57,  1.64,  8.83,  0.74,  5.80,],
+            [-3.49,  4.02,  9.80, 10.00,  4.27,],
+            [ 9.84,  0.15, -8.99, -6.02, -5.31,],
+        ]);
+        $a = $mo->transpose($a);
+        $this->assertEquals([5,6],$a->shape());
+        [$u,$s,$vt] = $mo->la()->svd($a);
+        $this->assertEquals([5,5],$u->shape());
+        $this->assertEquals([5],$s->shape());
+        $this->assertEquals([6,6],$vt->shape());
+
+        # echo "---- u ----\n";
+        # foreach($u->toArray() as $array)
+        #     echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$array))."],\n";
+        # echo "---- s ----\n";
+        # echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$s->toArray()))."],\n";
+        # echo "---- vt ----\n";
+        # foreach($vt->toArray() as $array)
+        #     echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$array))."],\n";
+
+        # ---- u ----
+        $correctU = $mo->array([
+            [ 0.25, 0.40, 0.69, 0.37, 0.41],
+            [ 0.81, 0.36,-0.25,-0.37,-0.10],
+            [-0.26, 0.70,-0.22, 0.39,-0.49],
+            [ 0.40,-0.45, 0.25, 0.43,-0.62],
+            [-0.22, 0.14, 0.59,-0.63,-0.44],
+        ]);
+        $correctU = $mo->transpose($correctU);
+        $this->assertLessThan(0.01,abs($mo->amax($mo->op($u,'-',$correctU))));
+        # ---- s ----
+        $correctS = $mo->array(
+            [27.47,22.64, 8.56, 5.99, 2.01],
+        );
+        $this->assertLessThan(0.01,abs($mo->amax($mo->op($s,'-',$correctS))));
+        # ---- vt ----
+        $correctVT = $mo->array([
+            [ 0.59, 0.26, 0.36, 0.31, 0.23, 0.55],
+            [ 0.40, 0.24,-0.22,-0.75,-0.36, 0.18],
+            [ 0.03,-0.60,-0.45, 0.23,-0.31, 0.54],
+            [ 0.43, 0.24,-0.69, 0.33, 0.16,-0.39],
+            [ 0.47,-0.35, 0.39, 0.16,-0.52,-0.46],
+            [-0.29, 0.58,-0.02, 0.38,-0.65, 0.11],
+        ]);
+        $correctVT = $mo->transpose($correctVT);
+        $this->assertLessThan(0.01,abs($mo->amax($mo->op($vt,'-',$correctVT))));
+        $this->assertTrue(true);
+    }
+
+    public function testSvdSmallU()
+    {
+        $mo = $this->newMatrixOperator();
+        $a = $mo->array([
+            [ 8.79,  9.93,  9.83,  5.45,  3.16,],
+            [ 6.11,  6.91,  5.04, -0.27,  7.98,],
+            [-9.15, -7.93,  4.86,  4.85,  3.01,],
+            [ 9.57,  1.64,  8.83,  0.74,  5.80,],
+            [-3.49,  4.02,  9.80, 10.00,  4.27,],
+            [ 9.84,  0.15, -8.99, -6.02, -5.31,],
+        ]);
+        [$u,$s,$vt] = $mo->la()->svd($a,$full_matrices=false);
+
+        # echo "---- u ----\n";
+        # foreach($u->toArray() as $array)
+        #     echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$array))."],\n";
+        # echo "---- s ----\n";
+        # echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$s->toArray()))."],\n";
+        # echo "---- vt ----\n";
+        # foreach($vt->toArray() as $array)
+        #     echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$array))."],\n";
+
+        # ---- u ----
+        $correctU = $mo->array([
+            [-0.59, 0.26, 0.36, 0.31, 0.23],
+            [-0.40, 0.24,-0.22,-0.75,-0.36],
+            [-0.03,-0.60,-0.45, 0.23,-0.31],
+            [-0.43, 0.24,-0.69, 0.33, 0.16],
+            [-0.47,-0.35, 0.39, 0.16,-0.52],
+            [ 0.29, 0.58,-0.02, 0.38,-0.65],
+        ]);
+        $this->assertLessThan(0.01,abs($mo->amax($mo->op($u,'-',$correctU))));
+        # ---- s ----
+        $correctS = $mo->array(
+            [27.47,22.64, 8.56, 5.99, 2.01],
+        );
+        $this->assertLessThan(0.01,abs($mo->amax($mo->op($s,'-',$correctS))));
+        # ---- vt ----
+        $correctVT = $mo->array([
+            [-0.25,-0.40,-0.69,-0.37,-0.41],
+            [ 0.81, 0.36,-0.25,-0.37,-0.10],
+            [-0.26, 0.70,-0.22, 0.39,-0.49],
+            [ 0.40,-0.45, 0.25, 0.43,-0.62],
+            [-0.22, 0.14, 0.59,-0.63,-0.44],
+        ]);
+        $this->assertLessThan(0.01,abs($mo->amax($mo->op($vt,'-',$correctVT))));
+        $this->assertTrue(true);
+    }
+
+    public function testSvdSmallVT()
+    {
+        $mo = $this->newMatrixOperator();
+        $a = $mo->array([
+            [ 8.79,  9.93,  9.83,  5.45,  3.16,],
+            [ 6.11,  6.91,  5.04, -0.27,  7.98,],
+            [-9.15, -7.93,  4.86,  4.85,  3.01,],
+            [ 9.57,  1.64,  8.83,  0.74,  5.80,],
+            [-3.49,  4.02,  9.80, 10.00,  4.27,],
+            [ 9.84,  0.15, -8.99, -6.02, -5.31,],
+        ]);
+        $a = $mo->transpose($a);
+        [$u,$s,$vt] = $mo->la()->svd($a,$full_matrices=false);
+
+        # echo "---- u ----\n";
+        # foreach($u->toArray() as $array)
+        #  echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$array))."],\n";
+        # echo "---- s ----\n";
+        # echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$s->toArray()))."],\n";
+        # echo "---- vt ----\n";
+        # foreach($vt->toArray() as $array)
+        #  echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$array))."],\n";
+
+        # ---- u ----
+        $correctU = $mo->array([
+            [ 0.25, 0.40, 0.69, 0.37, 0.41],
+            [ 0.81, 0.36,-0.25,-0.37,-0.10],
+            [-0.26, 0.70,-0.22, 0.39,-0.49],
+            [ 0.40,-0.45, 0.25, 0.43,-0.62],
+            [-0.22, 0.14, 0.59,-0.63,-0.44],
+        ]);
+        $correctU = $mo->transpose($correctU);
+        $this->assertLessThan(0.01,abs($mo->amax($mo->op($u,'-',$correctU))));
+        # ---- s ----
+        $correctS = $mo->array(
+            [27.47,22.64, 8.56, 5.99, 2.01],
+        );
+        $this->assertLessThan(0.01,abs($mo->amax($mo->op($s,'-',$correctS))));
+        # ---- vt ----
+        $correctVT = $mo->array([
+            [ 0.59, 0.26, 0.36, 0.31, 0.23,],
+            [ 0.40, 0.24,-0.22,-0.75,-0.36,],
+            [ 0.03,-0.60,-0.45, 0.23,-0.31,],
+            [ 0.43, 0.24,-0.69, 0.33, 0.16,],
+            [ 0.47,-0.35, 0.39, 0.16,-0.52,],
+            [-0.29, 0.58,-0.02, 0.38,-0.65,],
+        ]);
+        $correctVT = $mo->transpose($correctVT);
         $this->assertLessThan(0.01,abs($mo->amax($mo->op($vt,'-',$correctVT))));
         $this->assertTrue(true);
     }

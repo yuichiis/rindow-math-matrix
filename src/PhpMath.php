@@ -505,11 +505,10 @@ class PhpMath
         Buffer $X, int $offsetX, int $incX
         ) : void
     {
-        //if($this->useMath($X)) {
-        //    $this->math->tanh($n,$X,$offsetX,$incX);
-        //    return;
-        //}
-
+        if($this->useMath($X)) {
+            $this->math->tanh($n,$X,$offsetX,$incX);
+            return;
+        }
         if($offsetX+($n-1)*$incX>=count($X))
             throw new RuntimeException('Vector specification too large for buffer.');
 
