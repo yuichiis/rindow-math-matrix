@@ -1038,7 +1038,7 @@ class Test extends TestCase
         $this->assertLessThan(0.01,abs($mo->amax($mo->op($u,'-',$correctU))));
         # ---- s ----
         $correctS = $mo->array(
-            [27.47,22.64, 8.56, 5.99, 2.01],
+            [27.47,22.64, 8.56, 5.99, 2.01]
         );
         $this->assertLessThan(0.01,abs($mo->amax($mo->op($s,'-',$correctS))));
         # ---- vt ----
