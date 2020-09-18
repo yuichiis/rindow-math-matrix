@@ -207,6 +207,19 @@ class Test extends TestCase
         $this->assertEquals([[-1,2,-3],[-4,5,-6]],$y->toArray());
     }
 
+    /**
+    *    Y := sqrt(sum(Xn ** 2))
+    */
+    public function testNrm2()
+    {
+        $mo = $this->newMatrixOperator();
+        $x = $mo->array([[1,2],[3,4]],NDArray::float32);
+        $nrm2 = sqrt(1+2**2+3**2+4**2);
+        $this->assertLessThan(0.00001,abs($nrm2-
+            $mo->la()->nrm2($x)
+        ));
+    }
+
     public function testGemvNormal()
     {
         $mo = $this->newMatrixOperator();

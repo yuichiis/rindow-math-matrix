@@ -209,6 +209,19 @@ class LinearAlgebra
     }
 
     /**
+    *    ret := sqrt(sum(Xn ** 2))
+    */
+    public function nrm2(
+        NDArray $X) : float
+    {
+        $N = $X->size();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+        $ret = $this->blas->nrm2($N,$XX,$offX,1);
+        return $ret;
+    }
+
+    /**
     *    y := alpha * Ax + beta * y
     */
     public function gemv(
@@ -2256,5 +2269,64 @@ class LinearAlgebra
             $VT = $this->copy($VT[[0,min($m,$n)-1]]);
         }
         return [$U,$S,$VT];
+    }
+
+    public function numericalGradient(
+        float $h=null,
+        $f=null,
+        NDArray ...$variables) : array
+    {
+        if($h===null)
+            $h = 1e-4;
+        if(!is_callable($f)) {
+            throw new InvalidArgumentException("f must callable or array of f and h");
+        }
+        $grads = [];
+        $orgVariables = $variables;
+        $variables = [];
+        foreach ($orgVariables as $variable) {
+            $variables[] = $this->copy($variable);
+        }
+        foreach($variables as $x) {
+            $grad = $this->alloc($x->shape(),$x->dtype());
+            $this->zeros($grad);
+            $grads[] = $grad;
+            $size = $x->size();
+            $xx = $x->buffer();
+            $idx = $x->offset();
+            $gg = $grad->buffer();
+            $gidx = $grad->offset();
+            $h2 = $h*2 ;
+            for($i=0;$i<$size;$i++,$idx++,$gidx++) {
+                $value = $xx[$idx];
+                $xx[$idx] = $value + $h;
+                $y1 = $f(...$variables);
+                $xx[$idx] = $value - $h;
+                $y2 = $f(...$variables);
+                $d = $this->axpy($y2,$this->copy($y1),-1);
+                $gg[$gidx] = $this->sum($d)/$h2;
+                $xx[$idx] = $value;
+            }
+        }
+        return $grads;
+    }
+
+    public function isclose(NDArray $a, NDArray $b, $rtol=null, $atol=null)
+    {
+        if($rtol===null)
+            $rtol = 1e-04;
+        if($atol===null)
+            $atol = 1e-07;
+        if($a->shape()!=$b->shape()) {
+            return false;
+        }
+        // diff = b - a
+        $diff = $this->axpy($a,$this->copy($b),-1);
+        // close = atol + rtol * b
+        $close = $atol+abs($this->amax($this->scal($rtol,$this->copy($b))));
+        if(abs($this->amax($diff)) > $close) {
+            return false;
+        }
+        return true;
     }
 }

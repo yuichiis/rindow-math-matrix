@@ -184,6 +184,26 @@ class PhpBlas //implements BLASLevel1
         }
     }
 
+    public function nrm2(
+        int $n,
+        Buffer $X, int $offsetX, int $incX
+        ) : float
+    {
+        if($this->useBlas($X)) {
+            return $this->blas->nrm2($n,$X,$offsetX,$incX);
+        }
+        if($offsetX+($n-1)*$incX>=count($X))
+            throw new RuntimeException('Vector X specification too large for buffer.');
+        $idxX = $offsetX;
+        // Y := sqrt(sum(Xn ** 2))
+        $sum = 0.0;
+        for ($i=0; $i<$n; $i++,$idxX+=$incX,$idxY+=$incY) {
+            $sum += $X[$idxX] ** 2;
+        }
+        $Y = sqrt($sum);
+        return $Y;
+    }
+
     public function gemv(
         int $order,
         int $trans,

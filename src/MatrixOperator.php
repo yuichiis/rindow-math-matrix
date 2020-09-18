@@ -1079,10 +1079,16 @@ class MatrixOperator
         }
         return $this->dtypeToString[$dtype];
     }
-    public function toString(NDArray $array) : string
+    public function toString(
+        NDArray $array,
+        string $format=null,
+        $indent=null) : string
     {
         $shape = $array->shape();
         $n = array_shift($shape);
+        if(!is_numeric($indent) && $indent===true) {
+            $indent=1;
+        }
         if(count($shape)==0) {
             if($array->dtype()==NDArray::bool) {
                 $str = '';
@@ -1093,16 +1099,39 @@ class MatrixOperator
                 $str .= ']';
                 return $str;
             } else {
-                return '['.implode(',',$array->toArray()).']';
+                if($format) {
+                    return '['.implode(',',array_map(function($x) use ($format) {
+                            return sprintf($format,$x);
+                        },$array->toArray())).']';
+                } else {
+                    return '['.implode(',',$array->toArray()).']';
+                }
             }
         }
         $string = '[';
-        for($i=0;$i<$n;$i++) {
-            if($i!=0)
-                $string .= ',';
-            $string .= $this->toString($array[$i]);
+        if($indent) {
+            $string .= "\n";
         }
-        return $string.']';
+        for($i=0;$i<$n;$i++) {
+            if($i!=0) {
+                $string .= ',';
+                if($indent) {
+                    $string .= "\n";
+                }
+            }
+            if($indent) {
+                $string .= str_repeat(' ',$indent);
+                $string .= $this->toString($array[$i],$format,$indent+1);
+            } else {
+                $string .= $this->toString($array[$i],$format,$indent);
+            }
+        }
+        if($indent) {
+            $string .= "\n";
+            $string .= str_repeat(' ',$indent-1);
+        }
+        $string .= ']';
+        return $string;
     }
 
     public function random()
