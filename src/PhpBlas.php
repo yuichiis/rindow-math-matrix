@@ -258,7 +258,7 @@ class PhpBlas //implements BLASLevel1
         $cols = ($trans==BLAS::NoTrans) ? $n : $m;
 
         if($offsetA+($m-1)*$ldA+($n-1)*$incX>=count($A))
-            throw new RuntimeException('Vector specification too large for bufferA.');
+            throw new RuntimeException('Matrix specification too large for bufferA.');
         if($offsetX+($cols-1)*$incX>=count($X))
             throw new RuntimeException('Vector specification too large for bufferX.');
         if($offsetY+($rows-1)*$incY>=count($Y))
@@ -313,11 +313,11 @@ class PhpBlas //implements BLASLevel1
         $rowsB = ($transB==BLAS::NoTrans) ? $k : $n;
         $colsB = ($transB==BLAS::NoTrans) ? $n : $k;
         if($offsetA+($rowsA-1)*$ldA+($colsA-1)>=count($A))
-            throw new RuntimeException('Vector specification too large for bufferA.');
+            throw new RuntimeException('Matrix specification too large for bufferA.');
         if($offsetB+($rowsB-1)*$ldB+($colsB-1)>=count($B))
-            throw new RuntimeException('Vector specification too large for bufferB.');
+            throw new RuntimeException('Matrix specification too large for bufferB.');
         if($offsetC+($m-1)*$ldC+($n-1)>=count($C))
-            throw new RuntimeException('Vector specification too large for bufferC.');
+            throw new RuntimeException('Matrix specification too large for bufferC.');
 
         $ldA_m = ($transA==BLAS::NoTrans) ? $ldA : 1;
         $ldA_k = ($transA==BLAS::NoTrans) ? 1 : $ldA;
