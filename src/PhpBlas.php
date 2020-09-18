@@ -33,6 +33,34 @@ class PhpBlas //implements BLASLevel1
         return $this->forceBlas || in_array($X->dtype(),$this->floatTypes);
     }
 
+    public function getNumThreads() : int
+    {
+        if($this->blas===null)
+            return 1;
+        return $this->blas->getNumThreads();
+    }
+
+    public function getNumProcs() : int
+    {
+        if($this->blas===null)
+            return 1;
+        return $this->blas->getNumProcs();
+    }
+
+    public function getConfig() : string
+    {
+        if($this->blas===null)
+            return 'PhpBlas';
+        return $this->blas->getConfig();
+    }
+
+    public function getCorename()
+    {
+        if($this->blas===null)
+            return 'PHP';
+        return $this->blas->getCorename();
+    }
+
     public function scal(
         int $n,
         float $alpha,

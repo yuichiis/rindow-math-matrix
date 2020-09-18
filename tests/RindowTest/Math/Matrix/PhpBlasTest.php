@@ -13,7 +13,8 @@ class Test extends TestCase
 {
     public function getBlas($mo)
     {
-        $blas = new PhpBlas();
+        #$blas = new PhpBlas();
+        $blas = $mo->blas();
         return $blas;
     }
 
@@ -133,6 +134,51 @@ class Test extends TestCase
             $beta,
             $YY,$offY,1,
         ];
+    }
+
+    public function testGetConfig()
+    {
+        $mo = new MatrixOperator();
+        $blas = $this->getBlas($mo);
+        if(extension_loaded('rindow_openblas')) {
+            $this->assertStringStartsWith('OpenBLAS',$blas->getConfig());
+        } else {
+            $this->assertStringStartsWith('PhpBLAS',$blas->getConfig());
+        }
+        echo $blas->getConfig();
+    }
+
+    public function testGetNumThreads()
+    {
+        $mo = new MatrixOperator();
+        $blas = $this->getBlas($mo);
+        if(extension_loaded('rindow_openblas')) {
+            $this->assertGreaterThanOrEqual(1,$blas->getNumThreads());
+        } else {
+            $this->assertEquals(1,$blas->getNumThreads());
+        }
+    }
+
+    public function testGetNumProcs()
+    {
+        $mo = new MatrixOperator();
+        $blas = $this->getBlas($mo);
+        if(extension_loaded('rindow_openblas')) {
+            $this->assertGreaterThanOrEqual(1,$blas->getNumProcs());
+        } else {
+            $this->assertEquals(1,$blas->getNumProcs());
+        }
+    }
+
+    public function testGetCorename()
+    {
+        $mo = new MatrixOperator();
+        $blas = $this->getBlas($mo);
+        if(extension_loaded('rindow_openblas')) {
+            $this->assertTrue(is_string($blas->getCorename()));
+        } else {
+            $this->assertTrue(is_string($blas->getCorename()));
+        }
     }
 
     public function testGemmNormal()
