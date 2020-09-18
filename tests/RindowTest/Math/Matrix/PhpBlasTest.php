@@ -143,7 +143,7 @@ class Test extends TestCase
         if(extension_loaded('rindow_openblas')) {
             $this->assertStringStartsWith('OpenBLAS',$blas->getConfig());
         } else {
-            $this->assertStringStartsWith('PhpBLAS',$blas->getConfig());
+            $this->assertStringStartsWith('PhpBlas',$blas->getConfig());
         }
         echo $blas->getConfig();
     }
