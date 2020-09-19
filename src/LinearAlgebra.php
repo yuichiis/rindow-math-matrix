@@ -182,7 +182,7 @@ class LinearAlgebra
         if(method_exists($this->blas,'iamin')) {
             return $this->blas->iamin($N,$XX,$offX,1);
         } else {
-            return $this->blas->iaminCompatible($N,$XX,$offX,1);
+            return $this->iaminCompatible($N,$XX,$offX,1);
         }
     }
 
@@ -236,7 +236,7 @@ class LinearAlgebra
         if(method_exists($this->blas,'iamin')) {
             $i = $this->blas->iamin($N,$XX,$offX,1);
         } else {
-            $i = $this->blas->iaminCompatible($N,$XX,$offX,1);
+            $i = $this->iaminCompatible($N,$XX,$offX,1);
         }
         return $XX[$offX+$i];
     }
