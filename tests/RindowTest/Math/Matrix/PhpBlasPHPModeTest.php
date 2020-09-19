@@ -2,7 +2,7 @@
 namespace RindowTest\Math\Matrix\PhpBlasPHPModeTest;
 
 if(!class_exists('RindowTest\Math\Matrix\PhpBlasTest\Test')) {
-    include __DIR__.'./PhpBlasTest.php';
+    include __DIR__.'/PhpBlasTest.php';
 }
 use RindowTest\Math\Matrix\PhpBlasTest\Test as ORGTest;
 use Rindow\Math\Matrix\PhpBlas;
