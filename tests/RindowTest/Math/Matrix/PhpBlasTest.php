@@ -145,7 +145,6 @@ class Test extends TestCase
         } else {
             $this->assertStringStartsWith('PhpBlas',$blas->getConfig());
         }
-        echo $blas->getConfig();
     }
 
     public function testGetNumThreads()

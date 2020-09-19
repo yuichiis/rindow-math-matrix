@@ -12,6 +12,7 @@ define("LAPACK_COL_MAJOR",102);
 
 class LinearAlgebra
 {
+    protected $iaminwarning;
     protected $blas;
     protected $lapack;
     protected $math;
@@ -178,9 +179,37 @@ class LinearAlgebra
         $N = $X->size();
         $XX = $X->buffer();
         $offX = $X->offset();
-        return $this->blas->iamin($N,$XX,$offX,1);
+        if(method_exists($this->blas,'iamin')) {
+            return $this->blas->iamin($N,$XX,$offX,1);
+        } else {
+            return $this->blas->iaminCompatible($N,$XX,$offX,1);
+        }
     }
 
+    /**
+    *   legacy opennblas compatible
+    */
+    protected function iaminCompatible(
+        int $n,
+        Buffer $X, int $offsetX, int $incX ) : int
+    {
+        if($this->iaminwarning) {
+            echo "*iamin* not found. probably OpenBLAS is legacy version.";
+            $this->iaminwarning = true;
+        }
+        if($offsetX+($n-1)*$incX>=count($X))
+            throw new RuntimeException('Vector X specification too large for buffer.');
+        $idxX = $offsetX+$incX;
+        $acc = abs($X[$offsetX]);
+        $idx = 0;
+        for($i=1; $i<$n; $i++,$idxX+=$incX) {
+            if($acc > abs($X[$idxX])) {
+                $acc = abs($X[$idxX]);
+                $idx = $i;
+            }
+        }
+        return $idx;
+    }
 
     /**
     *    ret := max |X(i)|
@@ -204,7 +233,11 @@ class LinearAlgebra
         $N = $X->size();
         $XX = $X->buffer();
         $offX = $X->offset();
-        $i = $this->blas->iamin($N,$XX,$offX,1);
+        if(method_exists($this->blas,'iamin')) {
+            $i = $this->blas->iamin($N,$XX,$offX,1);
+        } else {
+            $i = $this->blas->iaminCompatible($N,$XX,$offX,1);
+        }
         return $XX[$offX+$i];
     }
 

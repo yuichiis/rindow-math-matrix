@@ -22,7 +22,6 @@ class Test extends ORGTest
         $mo = new MatrixOperator();
         $blas = $this->getBlas($mo);
         $this->assertStringStartsWith('PhpBlas',$blas->getConfig());
-        echo $blas->getConfig();
     }
 
     public function testGetNumThreads()
