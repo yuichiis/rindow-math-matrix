@@ -225,7 +225,7 @@ class PhpBlas //implements BLASLevel1
         $idxX = $offsetX;
         // Y := sqrt(sum(Xn ** 2))
         $sum = 0.0;
-        for ($i=0; $i<$n; $i++,$idxX+=$incX,$idxY+=$incY) {
+        for ($i=0; $i<$n; $i++,$idxX+=$incX) {
             $sum += $X[$idxX] ** 2;
         }
         $Y = sqrt($sum);

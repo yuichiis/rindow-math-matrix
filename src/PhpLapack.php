@@ -8,6 +8,7 @@ use Interop\Polite\Math\Matrix\NDArray;
 
 class PhpLapack
 {
+    protected $defaultFloatType = NDArray::float32;
     protected $lapack;
     protected $forceLapack;
     protected $intTypes= [
@@ -44,7 +45,7 @@ class PhpLapack
      *
      * **************** CAUTION *********************
      * OpenBLAS has the DGESVD. But it is difficult to use DGESVD in LAPACKE
-     * on Windows. it is the implement temporarily.
+     * on PHP script. it is the implement temporarily.
      *
      */
     public function gesvd(
@@ -75,10 +76,29 @@ class PhpLapack
             );
             return;
         }
+        if(method_exists($A,'dtype')) {
+            $dtype = $A->dtype();
+        } else {
+            $dtype = $this->defaultFloatType;
+        }
 
-        $A = new NDArrayPhp($A,$A->dtype(),[$m,$n],$offsetA);
-        $U = new NDArrayPhp($U,$U->dtype(),[$m,$ldU],$offsetU);
-        $V = new NDArrayPhp(null,$VT->dtype(),[$n,$ldVT]);
+        $transposed = false;
+        $A = new NDArrayPhp($A,$dtype,[$m,$n],$offsetA);
+        $offsetV = $V = null;
+        //if($m<$n) {
+        //    throw new InvalidArgumentException('unsuppoted shape by PhpLapack. M must be greater than N or equal.');
+        //}
+        if($m<$n) {
+         $transposed = true;
+         $A = $this->transpose($A);
+         [$m,$n] = [$n,$m];
+         [$ldU,$ldVT] = [$ldVT,$ldU];
+         [$U,$V] = [$V,$U];
+         [$offsetU,$offsetV] = [$offsetV,$offsetU];
+        }
+
+        $U = new NDArrayPhp($U,$dtype,[$m,$ldU],$offsetU);
+        $V = new NDArrayPhp($V,$dtype,[$n,$ldVT],$offsetV);
 
         $min_num = min($m,$n);
         for($i=0;$i<$m;$i++) {
@@ -361,10 +381,17 @@ class PhpLapack
             $S[$i] = $W[$i];
         }
 
-        $VT = new NDArrayPhp($VT,$VT->dtype(),[$ldVT,$n],$offsetVT);
-        for($i=0;$i<$ldVT;$i++) {
-            for($j=0;$j<$n;$j++) {
-                $VT[$i][$j] = $V[$j][$i];
+        if($transposed) {
+            $UT = $this->transpose($V);
+            $this->copy($UT,$V);
+            $VT = new NDArrayPhp($VT,$dtype,[$ldU,$m],$offsetVT);
+            $this->copy($U,$VT);
+        } else {
+            $VT = new NDArrayPhp($VT,$dtype,[$ldVT,$n],$offsetVT);
+            for($i=0;$i<$ldVT;$i++) {
+                for($j=0;$j<$n;$j++) {
+                    $VT[$i][$j] = $V[$j][$i];
+                }
             }
         }
         //$matrices['U'] = $U;

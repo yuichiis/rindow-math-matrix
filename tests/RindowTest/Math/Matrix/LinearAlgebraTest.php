@@ -2320,6 +2320,9 @@ class Test extends TestCase
         $this->assertTrue(true);
     }
 
+    /**
+    *   @requires extension rindow_openblas
+    */
     public function testSvdFull2()
     {
         $mo = $this->newMatrixOperator();
@@ -2338,14 +2341,14 @@ class Test extends TestCase
         $this->assertEquals([5],$s->shape());
         $this->assertEquals([6,6],$vt->shape());
 
-        # echo "---- u ----\n";
-        # foreach($u->toArray() as $array)
-        #     echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$array))."],\n";
-        # echo "---- s ----\n";
-        # echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$s->toArray()))."],\n";
-        # echo "---- vt ----\n";
-        # foreach($vt->toArray() as $array)
-        #     echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$array))."],\n";
+         echo "---- u ----\n";
+         foreach($u->toArray() as $array)
+             echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$array))."],\n";
+         echo "---- s ----\n";
+         echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$s->toArray()))."],\n";
+         echo "---- vt ----\n";
+         foreach($vt->toArray() as $array)
+             echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$array))."],\n";
 
         # ---- u ----
         $correctU = $mo->array([
@@ -2425,6 +2428,9 @@ class Test extends TestCase
         $this->assertTrue(true);
     }
 
+    /**
+    *   @requires extension rindow_openblas
+    */
     public function testSvdSmallVT()
     {
         $mo = $this->newMatrixOperator();
