@@ -199,8 +199,10 @@ class NDArrayPhp implements NDArray,Serializable
     public function reshape(array $shape) : NDArray
     {
         $this->assertShape($shape);
-        if($this->size()!=array_product($shape))
-            throw new InvalidArgumentException("Unmatch size");
+        if($this->size()!=array_product($shape)) {
+            throw new InvalidArgumentException("Unmatch size to reshape: ".
+                "[".implode(',',$this->shape())."]=>[".implode(',',$shape)."]");
+        }
         $newArray = new self($this->buffer(),$this->dtype(),$shape,$this->offset());
         return $newArray;
     }
