@@ -318,7 +318,7 @@ class NDArrayPhp implements NDArray,Serializable,Countable,IteratorAggregate
     {
         $count = $this->_shape[0];
         for($i=0;$i<$count;$i++) {
-            yield $this->offsetGet($i);
+            yield $i => $this->offsetGet($i);
         }
     }
 

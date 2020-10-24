@@ -2462,6 +2462,67 @@ class Test extends TestCase
         ],$y->toArray());
     }
 
+    public function testAnytypeSlice()
+    {
+        $mo = $this->newMatrixOperator();
+
+        $dtypes = [NDArray::float32,NDArray::float64,NDArray::uint8,NDArray::int32,NDArray::int64];
+        foreach($dtypes as $dtype) {
+            // forward slice
+            $x = $mo->arange(24,null,null,$dtype)->reshape([2,4,3]);
+            $y = $mo->la()->slice(
+                $x,
+                $start=[0,1],
+                $size=[-1,2]
+                );
+            $this->assertEquals([
+                [[3,4,5],
+                 [6,7,8],],
+                [[15,16,17],
+                 [18,19,20],],
+            ],$y->toArray());
+
+            // reverse slice
+            $x = $mo->arange(12,null,null,$dtype)->reshape([2,2,3]);
+            $y = $mo->zeros([2,4,3],$dtype);
+            $mo->la()->stick(
+                $x,
+                $y,
+                $start=[0,1],
+                $size=[-1,2]
+                );
+            $this->assertEquals([
+                [[0,0,0],
+                 [0,1,2],
+                 [3,4,5],
+                 [0,0,0]],
+                [[0,0,0],
+                 [6,7,8],
+                 [9,10,11],
+                 [0,0,0]],
+            ],$y->toArray());
+
+            // reverse and add
+            $Y = $mo->array([
+                [[1,2,3],[1,2,3]],
+                [[4,5,6],[4,5,6]],
+            ],$dtype);
+            $X = $mo->la()->reduceSumRepeated($Y);
+            $this->assertEquals([2,2,3],$Y->shape());
+            $this->assertEquals([2,3],$X->shape());
+            $this->assertEquals([
+                [[1,2,3],[1,2,3]],
+                [[4,5,6],[4,5,6]],
+            ],$Y->toArray());
+            $this->assertEquals([
+                [2,4,6],
+                [8,10,12]
+            ],$X->toArray());
+
+        }
+    }
+
+
     public function testConcat()
     {
         $mo = $this->newMatrixOperator();

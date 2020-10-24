@@ -27,6 +27,28 @@ class LinearAlgebra
             $this->defaultFloatType = $defaultFloatType;
     }
 
+    protected function printableShapes($values)
+    {
+        if(!is_array($values)) {
+            if($values instanceof NDArray)
+                return '('.implode(',',$values->shape()).')';
+            if(is_object($values))
+                return '"'.get_class($values).'"';
+            if(is_numeric($values) || is_string($values))
+                return strval($values);
+            return gettype($values);
+        }
+        $string = '[';
+        foreach($values as $value) {
+            if($string!='[') {
+                $string .= ',';
+            }
+            $string .= $this->printableShapes($value);
+        }
+        $string .= ']';
+        return $string;
+    }
+
     public function alloc(array $shape,$dtype=null)
     {
         if($dtype===null)
@@ -2199,8 +2221,9 @@ class LinearAlgebra
                 $base = $shape;
             } else {
                 if($m!=$mm||$base!=$shape) {
-                    throw new InvalidArgumentException('Unmatch shape');
-                }
+                    throw new InvalidArgumentException('Unmatch shape: '.
+                        $this->printableShapes($values));
+                    }
             }
             $n += $nn;
             $reshapeValues[] = $value->reshape(array_merge([$mm,$nn],$shape));
