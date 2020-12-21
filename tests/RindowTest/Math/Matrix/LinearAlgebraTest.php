@@ -586,6 +586,35 @@ class Test extends TestCase
         $la->gemm($A,$B,null,null,$C,null,$transB=true);
     }
 
+    public function testGemmSpeed()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        if(!self::$speedtest) {
+            $this->markTestSkipped('Speed measurement');
+            return;
+        }
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        if($la->getConfig()=='PhpBlas') {
+            $this->assertTrue(true);
+            return;
+        }
+
+        $rows = 2000;
+        $cols = 2000;
+        $a = $la->alloc([$rows,$cols],NDArray::float32);
+        $b = $la->alloc([$cols,$rows],NDArray::float32);
+        $la->fill(1.0,$a);
+        $la->fill(1.0,$b);
+        $c = $la->gemm($a,$b);
+        $start = hrtime(true);
+        $c = $la->gemm($a,$b);
+        $end = hrtime(true);
+        echo "\n".(explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+        $this->assertTrue(true);
+    }
+
     public function testMatmulNormal()
     {
         $mo = $this->newMatrixOperator();
@@ -1108,7 +1137,7 @@ class Test extends TestCase
         ,$X->toArray());
     }
 
-    public function testMultiply()
+    public function testMultiplyNormal()
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
@@ -1169,6 +1198,39 @@ class Test extends TestCase
         $la->fill(6,$trues);
         $this->assertLessThan(1e-3,$la->amax($la->axpy(
             $trues,$r,-1)));
+    }
+
+
+    public function testMultiplySpeed()
+    {
+        if(!self::$speedtest) {
+            $this->markTestSkipped('Speed measurement');
+            return;
+        }
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        if($la->getConfig()=='PhpBlas') {
+            $this->assertTrue(true);
+            return;
+        }
+        // large size
+        $rows = 8000000;
+        $cols = 16;
+        $x = $la->alloc([$rows,$cols],NDArray::float32);
+        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        fwrite(STDERR,"fill-x\n");
+        $la->fill(2.0,$x);
+        fwrite(STDERR,"fill-y\n");
+        $la->fill(3.0,$y);
+        fwrite(STDERR,"pre-execute\n");
+        $r = $la->multiply($x,$y);
+        fwrite(STDERR,"execute\n");
+        $start = hrtime(true);
+        $r = $la->multiply($x,$y);
+        $end = hrtime(true);
+        fwrite(STDERR,"done\n");
+        echo "\n".(explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+        $this->assertTrue(true);
     }
 
     public function testAdd()
