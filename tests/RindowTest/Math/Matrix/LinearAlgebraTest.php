@@ -1342,7 +1342,7 @@ class Test extends TestCase
 
         $this->assertLessThan(1e-4,$la->amax($la->axpy(
             $X,
-            $la->array([[10,40],[80,160]]),-1,
+            $la->array([[10,40],[80,160]]),-1
         )));
     }
 

@@ -2972,7 +2972,7 @@ class LinearAlgebraCL
             $XX,$offX,1,
             $low,
             $high,
-            $seed,
+            $seed
         );
         $valueSize = $X->buffer()->value_size();
         $X->buffer()->write(

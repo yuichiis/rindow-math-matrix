@@ -367,7 +367,7 @@ class LinearAlgebra
             $AA,$offA,
             $BB,$offB,
             $CC,$offC,
-            $SS,$offS,
+            $SS,$offS
         );
         return [$R,$Z,$C,$S];
     }
@@ -2794,7 +2794,7 @@ class LinearAlgebra
         $this->math->fill(
             $n,
             $VV, $offV,
-            $XX,$offX,1,
+            $XX,$offX,1
         );
         return $X;
     }

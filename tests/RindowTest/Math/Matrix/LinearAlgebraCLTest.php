@@ -597,7 +597,7 @@ class Test extends ORGTest
                 $stride_h,$stride_w],
             $padding,
             $dilation_rate=[
-                $dilation_h,$dilation_w],
+                $dilation_h,$dilation_w]
             //$channels_first,
             //$cols_channels_first
         );
@@ -826,7 +826,7 @@ class Test extends ORGTest
                 $stride_h,$stride_w],
             $padding,
             $dilation_rate=[
-                $dilation_h,$dilation_w],
+                $dilation_h,$dilation_w]
             //$channels_first,
             //$cols_channels_first
         );
