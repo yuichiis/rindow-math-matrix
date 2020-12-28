@@ -904,6 +904,9 @@ class Test extends TestCase
         ],$C->toArray());
     }
 
+    /**
+    *   @requires extension rindow_clblast
+    */
     public function testTrmmNormal()
     {
         $mo = $this->newMatrixOperator();
@@ -958,6 +961,9 @@ class Test extends TestCase
         ],$trues->toArray());
     }
 
+    /**
+    *   @requires extension rindow_clblast
+    */
     public function testTrmmTranspose()
     {
         $mo = $this->newMatrixOperator();
@@ -1012,6 +1018,9 @@ class Test extends TestCase
         ],$trues->toArray());
     }
 
+    /**
+    *   @requires extension rindow_clblast
+    */
     public function testTrmmUnit()
     {
         $mo = $this->newMatrixOperator();
@@ -1066,6 +1075,9 @@ class Test extends TestCase
         ],$trues->toArray());
     }
 
+    /**
+    *   @requires extension rindow_clblast
+    */
     public function testTrmmRight()
     {
         $mo = $this->newMatrixOperator();
@@ -1124,6 +1136,9 @@ class Test extends TestCase
         ],$trues->toArray());
     }
 
+    /**
+    *   @requires extension rindow_clblast
+    */
     public function testTrsmNormal()
     {
         $mo = $this->newMatrixOperator();
