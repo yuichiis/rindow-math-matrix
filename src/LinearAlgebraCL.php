@@ -23,6 +23,8 @@ class LinearAlgebraCL
     protected $blocking = false;
     protected $scalarNumeric = false;
     protected $autoEvents;
+    protected $profiling;
+    protected $profilingStartTime = [];
 
     public function __construct(
         $context,$queue,$blas,$openclmath,$clblastmath,
@@ -76,6 +78,37 @@ class LinearAlgebraCL
         }
         $this->blocking = $switch;
         return $this->blocking;
+    }
+
+    public function setProfiling($profiling)
+    {
+        $this->profiling = $profiling;
+    }
+
+    protected function profilingStart($name)
+    {
+        if(isset($this->profilingCount[$name])) {
+            $this->profilingCount[$name]++;
+        } else {
+            $this->profilingCount[$name] = 1;
+            $this->profilingTotalTime[$name] = 0;
+        }
+        $this->profilingStartTime[$name] = microtime(true);
+    }
+
+    protected function profilingEnd($name)
+    {
+        $this->profilingTotalTime[$name] =
+            microtime(true) - $this->profilingStartTime[$name];
+    }
+
+    public function profilingReport()
+    {
+        asort($this->profilingTotalTime);
+        foreach($this->profilingTotalTime as $name => $time) {
+            $count = $this->profilingCount[$name];
+            echo sprintf("%16s:total %6e, count:%6d, average %6e\n",$name,$time,$count,$time/$count);
+        }
     }
 
     public function prepareAutoEvent(
@@ -135,6 +168,9 @@ class LinearAlgebraCL
 
     public function array($array, $flags=null)
     {
+        if($this->profiling) {
+            $this->profilingStart("array");
+        }
         if($array instanceof NDArray) {
             $buffer = $array->buffer();
             if($buffer instanceof LinearBuffer) {
@@ -155,26 +191,42 @@ class LinearAlgebraCL
             $flags = OpenCL::CL_MEM_READ_WRITE;
         }
         $flags = $flags | OpenCL::CL_MEM_COPY_HOST_PTR;
-        return new NDArrayCL(
+        $arrayCL = new NDArrayCL(
             $this->context, $this->queue,
             $array->buffer(), $array->dtype(), $array->shape(),
             $array->offset(), $flags);
+        if($this->profiling) {
+            $this->profilingEnd("array");
+        }
+        return $arrayCL;
     }
 
     public function alloc(array $shape,$dtype=null,$flags=null)
     {
+        if($this->profiling) {
+            $this->profilingStart("alloc");
+        }
         if($dtype===null)
             $dtype = $this->defaultFloatType;
-        return new NDArrayCL(
+        $arrayCL = new NDArrayCL(
             $this->context, $this->queue, $buffer=null, $dtype, $shape,
             $offset=null, $flags);
+
+        if($this->profiling) {
+            $this->profilingEnd("alloc");
+        }
+        return $arrayCL;
     }
 
     public function zeros(
         NDArray $X,
         object $events=null, object $waitEvents=null) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("zeros");
+        }
         $pattern = $this->newHostBuffer(1,$X->dtype());
+        $pattern[0] = 0;
         $valueSize = $pattern->value_size();
         $N = $X->size();
         $XX = $X->buffer();
@@ -185,6 +237,17 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("zeros");
+        }
+        return $X;
+    }
+
+    public function ones(
+        NDArray $X,
+        object $events=null, object $waitEvents=null) : NDArray
+    {
+        $this->fill(1.0,$X,$events,$waitEvents);
         return $X;
     }
 
@@ -202,6 +265,9 @@ class LinearAlgebraCL
         NDArray $X,
         object $events=null, object $waitEvents=null) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("fill");
+        }
         if(is_scalar($value)) {
             if(is_string($value)) {
                 $value = ord($value);
@@ -223,6 +289,9 @@ class LinearAlgebraCL
             0, // pattern offset
             $events,$waitEvents
         );
+        if($this->profiling) {
+            $this->profilingEnd("fill");
+        }
         return $X;
     }
 
@@ -236,10 +305,16 @@ class LinearAlgebraCL
     public function zerosHost(
         NDArray $X) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("zerosHost");
+        }
         $N = $X->size();
         $XX = $X->buffer();
         $offX = $X->offset();
         $this->openblasmath->zeros($N,$XX,$offX,1);
+        if($this->profiling) {
+            $this->profilingEnd("zerosHost");
+        }
         return $X;
     }
 
@@ -265,6 +340,9 @@ class LinearAlgebraCL
     public function astype(NDArray $X, $dtype, NDArray $Y=null,
         $events=null,$waitEvents=null) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("astype");
+        }
         if($Y==null) {
             $Y = $this->alloc($X->shape(),$dtype);
         }
@@ -284,6 +362,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("astype");
+        }
         return $Y;
     }
 
@@ -295,6 +376,9 @@ class LinearAlgebraCL
         NDArray $Y=null,
         object $events=null) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("copy");
+        }
         if($Y===null) {
             $Y = $this->alloc($X->shape(),$X->dtype(),OpenCL::CL_MEM_READ_WRITE);
         } else {
@@ -312,6 +396,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("copy");
+        }
         return $Y;
     }
 
@@ -323,6 +410,9 @@ class LinearAlgebraCL
         NDArray $X,
         object $events=null) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("scal");
+        }
         $N = $X->size();
         $XX = $X->buffer();
         $offX = $X->offset();
@@ -332,6 +422,9 @@ class LinearAlgebraCL
         $this->blas->scal($N,$alpha,$XX,$offX,1,$this->queue,$events);
         if($this->blocking) {
             $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("scal");
         }
         return $X;
     }
@@ -345,6 +438,9 @@ class LinearAlgebraCL
         float $alpha=null,
         object $events=null) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("axpy");
+        }
         if($X->shape()!=$Y->shape()) {
             $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
             throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
@@ -361,6 +457,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("axpy");
+        }
         return $Y;
     }
 
@@ -373,6 +472,9 @@ class LinearAlgebraCL
         NDArray $R=null,
         object $events=null)
     {
+        if($this->profiling) {
+            $this->profilingStart("dot");
+        }
         if($X->shape()!=$Y->shape()) {
             $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
             throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
@@ -391,6 +493,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("dot");
+        }
         if($this->scalarNumeric) {
             return $R->toArray();
         }
@@ -405,6 +510,9 @@ class LinearAlgebraCL
         NDArray $R=null,
         object $events=null)
     {
+        if($this->profiling) {
+            $this->profilingStart("asum");
+        }
         if($R==null) {
             $R = $this->alloc([],$X->dtype(),OpenCL::CL_MEM_READ_WRITE);
         }
@@ -416,6 +524,9 @@ class LinearAlgebraCL
         $this->blas->asum($N,$RR,$offR,$XX,$offX,1,$this->queue,$events);
         if($this->blocking) {
             $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("asum");
         }
         if($this->scalarNumeric) {
             return $R->toArray();
@@ -431,6 +542,9 @@ class LinearAlgebraCL
         NDArray $R=null,
         object $events=null)
     {
+        if($this->profiling) {
+            $this->profilingStart("iamax");
+        }
         if($R==null) {
             // *** CAUTION ****
             // Index result is 32bit
@@ -444,6 +558,9 @@ class LinearAlgebraCL
         $this->blas->iamax($N,$RR,$offR,$XX,$offX,1,$this->queue,$events);
         if($this->blocking) {
             $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("iamax");
         }
         if($this->scalarNumeric) {
             return $R->toArray();
@@ -459,6 +576,9 @@ class LinearAlgebraCL
         NDArray $R=null,
         object $events=null)
     {
+        if($this->profiling) {
+            $this->profilingStart("iamin");
+        }
         if($R==null) {
             // *** CAUTION ****
             // Index result is 32bit
@@ -472,6 +592,9 @@ class LinearAlgebraCL
         $this->blas->iamin($N,$RR,$offR,$XX,$offX,1,$this->queue,$events);
         if($this->blocking) {
             $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("iamin");
         }
         if($this->scalarNumeric) {
             return $R->toArray();
@@ -487,6 +610,9 @@ class LinearAlgebraCL
         NDArray $R=null,
         object $events=null)
     {
+        if($this->profiling) {
+            $this->profilingStart("amax");
+        }
         if($R==null) {
             $R = $this->alloc([],$X->dtype(),OpenCL::CL_MEM_READ_WRITE);
         }
@@ -508,6 +634,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("amax");
+        }
         if($this->scalarNumeric) {
             return $R->toArray();
         }
@@ -522,6 +651,9 @@ class LinearAlgebraCL
         NDArray $R=null,
         object $events=null)
     {
+        if($this->profiling) {
+            $this->profilingStart("amax");
+        }
         if($R==null) {
             $R = $this->alloc([],$X->dtype(),OpenCL::CL_MEM_READ_WRITE);
         }
@@ -543,6 +675,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingStart("amax");
+        }
         if($this->scalarNumeric) {
             return $R->toArray();
         }
@@ -557,6 +692,9 @@ class LinearAlgebraCL
         NDArray $R=null,
         object $events=null)
     {
+        if($this->profiling) {
+            $this->profilingStart("nrm2");
+        }
         if($R==null) {
             $R = $this->alloc([],$X->dtype(),OpenCL::CL_MEM_READ_WRITE);
         }
@@ -568,6 +706,9 @@ class LinearAlgebraCL
         $this->blas->nrm2($N,$RR,$offR,$XX,$offX,1,$this->queue,$events);
         if($this->blocking) {
             $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("nrm2");
         }
         if($this->scalarNumeric) {
             return $R->toArray();
@@ -584,6 +725,9 @@ class LinearAlgebraCL
         NDArray $Y,
         object $events=null) : void
     {
+        if($this->profiling) {
+            $this->profilingStart("swap");
+        }
         if($X->shape()!=$Y->shape()) {
             $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
             throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
@@ -596,6 +740,9 @@ class LinearAlgebraCL
         $this->blas->swap($N,$XX,$offX,1,$YY,$offY,1,$this->queue,$events);
         if($this->blocking) {
             $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("swap");
         }
     }
 
@@ -611,6 +758,9 @@ class LinearAlgebraCL
         bool $trans=null,
         object $events=null) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("gemv");
+        }
         if($A->ndim()!=2 || $X->ndim()!=1) {
             throw new InvalidArgumentException('"A" must be 2D-NDArray and "X" must 1D-NDArray.');
         }
@@ -662,6 +812,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("gemv");
+        }
         return $Y;
     }
 
@@ -678,6 +831,9 @@ class LinearAlgebraCL
         bool $transB=null,
         object $events=null) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("gemm");
+        }
         if($A->ndim()!=2 || $B->ndim()!=2) {
             throw new InvalidArgumentException('Dimensions must be 2D-NDArray');
         }
@@ -737,6 +893,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("gemm");
+        }
         return $C;
     }
 
@@ -754,6 +913,9 @@ class LinearAlgebraCL
         object $events=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("matmul");
+        }
         if($A->ndim()<2 || $B->ndim()<2) {
             throw new InvalidArgumentException('Dimensions rank must be greater then 2D or equal:['.
                 implode(',',$A->shape()).']<=>['.implode(',',$B->shape()).']');
@@ -854,6 +1016,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("matmul");
+        }
         return $C;
     }
 
@@ -873,6 +1038,9 @@ class LinearAlgebraCL
         object $events=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("symm");
+        }
         if($A->ndim()!=2 || $B->ndim()!=2) {
             throw new InvalidArgumentException('Dimensions must be 2D-NDArray');
         }
@@ -929,7 +1097,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
-
+        if($this->profiling) {
+            $this->profilingEnd("symm");
+        }
         return $C;
     }
 
@@ -946,6 +1116,9 @@ class LinearAlgebraCL
         bool $trans=null,
         object $events=null) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("syrk");
+        }
         if($A->ndim()!=2) {
             throw new InvalidArgumentException('Dimensions must be 2D-NDArray');
         }
@@ -992,6 +1165,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("syrk");
+        }
 
         return $C;
     }
@@ -1010,6 +1186,9 @@ class LinearAlgebraCL
         bool $trans=null,
         object $events=null) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("syr2k");
+        }
         if($A->ndim()!=2 || $B->ndim()!=2) {
             throw new InvalidArgumentException('Dimensions must be 2D-NDArray');
         }
@@ -1064,6 +1243,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("syr2k");
+        }
 
         return $C;
     }
@@ -1082,6 +1264,9 @@ class LinearAlgebraCL
         bool $unit=null,
         object $events=null) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("trmm");
+        }
         if($A->ndim()!=2 || $B->ndim()!=2) {
             throw new InvalidArgumentException('Dimensions must be 2D-NDArray');
         }
@@ -1125,6 +1310,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("trmm");
+        }
 
         return $B;
     }
@@ -1143,6 +1331,9 @@ class LinearAlgebraCL
         bool $unit=null,
         object $events=null) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("trsm");
+        }
         if($A->ndim()!=2 || $B->ndim()!=2) {
             throw new InvalidArgumentException('Dimensions must be 2D-NDArray');
         }
@@ -1186,6 +1377,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("trsm");
+        }
 
         return $B;
     }
@@ -1201,6 +1395,9 @@ class LinearAlgebraCL
         object $waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("increment");
+        }
         $n = $X->size();
         $XX = $X->buffer();
         $offX = $X->offset();
@@ -1223,6 +1420,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("increment");
+        }
         return $X;
     }
 
@@ -1237,6 +1437,9 @@ class LinearAlgebraCL
         object $waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("reciprocal");
+        }
         $n = $X->size();
         $XX = $X->buffer();
         $offX = $X->offset();
@@ -1259,6 +1462,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("reciprocal");
+        }
         return $X;
     }
 
@@ -1273,6 +1479,9 @@ class LinearAlgebraCL
         object $waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("maximum");
+        }
         $n = $X->size();
         $XX = $X->buffer();
         $offX = $X->offset();
@@ -1286,6 +1495,9 @@ class LinearAlgebraCL
 
         if($this->blocking) {
             $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("maximum");
         }
         return $X;
     }
@@ -1301,6 +1513,9 @@ class LinearAlgebraCL
         object $waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("minimum");
+        }
         $n = $X->size();
         $XX = $X->buffer();
         $offX = $X->offset();
@@ -1314,6 +1529,9 @@ class LinearAlgebraCL
 
         if($this->blocking) {
             $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("minimum");
         }
         return $X;
     }
@@ -1329,6 +1547,9 @@ class LinearAlgebraCL
         object $waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("greater");
+        }
         $n = $X->size();
         $XX = $X->buffer();
         $offX = $X->offset();
@@ -1342,6 +1563,9 @@ class LinearAlgebraCL
 
         if($this->blocking) {
             $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("greater");
         }
         return $X;
     }
@@ -1357,6 +1581,9 @@ class LinearAlgebraCL
         object $waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("less");
+        }
         $n = $X->size();
         $XX = $X->buffer();
         $offX = $X->offset();
@@ -1370,6 +1597,9 @@ class LinearAlgebraCL
 
         if($this->blocking) {
             $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("less");
         }
         return $X;
     }
@@ -1385,6 +1615,9 @@ class LinearAlgebraCL
         object $waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("multiply");
+        }
         if($trans===null)
             $trans = false;
         $shapeX = $X->shape();
@@ -1424,6 +1657,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("multiply");
+        }
         return $A;
     }
 
@@ -1439,6 +1675,9 @@ class LinearAlgebraCL
         object $waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("add");
+        }
         if($trans===null)
             $trans = false;
         if($alpha===null)
@@ -1479,6 +1718,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("add");
+        }
         return $A;
     }
 
@@ -1491,6 +1733,9 @@ class LinearAlgebraCL
         object $waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("square");
+        }
         $n = $X->size();
         $XX = $X->buffer();
         $offX = $X->offset();
@@ -1504,6 +1749,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("square");
+        }
         return $X;
     }
 
@@ -1516,6 +1764,9 @@ class LinearAlgebraCL
         object $waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("sqrt");
+        }
         $n = $X->size();
         $XX = $X->buffer();
         $offX = $X->offset();
@@ -1528,6 +1779,9 @@ class LinearAlgebraCL
 
         if($this->blocking) {
             $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("sqrt");
         }
         return $X;
     }
@@ -1543,6 +1797,9 @@ class LinearAlgebraCL
         object $waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("rsqrt");
+        }
         $n = $X->size();
         $XX = $X->buffer();
         $offX = $X->offset();
@@ -1565,6 +1822,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("rsqrt");
+        }
         return $X;
     }
 
@@ -1578,6 +1838,9 @@ class LinearAlgebraCL
         object $waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("pow");
+        }
         $n = $X->size();
         $XX = $X->buffer();
         $offX = $X->offset();
@@ -1592,6 +1855,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("pow");
+        }
         return $X;
     }
 
@@ -1604,6 +1870,9 @@ class LinearAlgebraCL
         object $waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("exp");
+        }
         $n = $X->size();
         $XX = $X->buffer();
         $offX = $X->offset();
@@ -1617,6 +1886,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("exp");
+        }
         return $X;
     }
 
@@ -1629,6 +1901,9 @@ class LinearAlgebraCL
         object $waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("log");
+        }
         $n = $X->size();
         $XX = $X->buffer();
         $offX = $X->offset();
@@ -1642,6 +1917,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("log");
+        }
         return $X;
     }
 
@@ -1654,6 +1932,9 @@ class LinearAlgebraCL
         object $waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("tanh");
+        }
         $n = $X->size();
         $XX = $X->buffer();
         $offX = $X->offset();
@@ -1666,6 +1947,9 @@ class LinearAlgebraCL
 
         if($this->blocking) {
             $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("tanh");
         }
         return $X;
     }
@@ -1681,6 +1965,9 @@ class LinearAlgebraCL
         object $waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("equal");
+        }
         if($X->shape()!=$Y->shape()) {
             $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
             throw new InvalidArgumentException('Unmatch shape of dimension "X" and "Y" and "numClass": '.$shapeError);
@@ -1702,6 +1989,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("equal");
+        }
         return $Y;
     }
 
@@ -1717,6 +2007,9 @@ class LinearAlgebraCL
         object $waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("duplicate");
+        }
         if($trans===null)
             $trans = false;
         if($A===null) {
@@ -1765,6 +2058,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("duplicate");
+        }
         return $A;
     }
 
@@ -1778,6 +2074,9 @@ class LinearAlgebraCL
         //object $waitEvents=null
         )
     {
+        if($this->profiling) {
+            $this->profilingStart("sum");
+        }
         if($R==null) {
             $R = $this->alloc([],$X->dtype(),OpenCL::CL_MEM_READ_WRITE);
         }
@@ -1795,6 +2094,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("sum");
+        }
         if($this->scalarNumeric) {
             return $R->toArray();
         }
@@ -1809,6 +2111,9 @@ class LinearAlgebraCL
         NDArray $R=null,
         object $events=null)
     {
+        if($this->profiling) {
+            $this->profilingStart("imax");
+        }
         if($R==null) {
             // *** CAUTION ****
             // Index result is 32bit
@@ -1822,6 +2127,9 @@ class LinearAlgebraCL
         $this->math->imax($N,$RR,$offR,$XX,$offX,1,$this->queue,$events);
         if($this->blocking) {
             $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("imax");
         }
         if($this->scalarNumeric) {
             return $R->toArray();
@@ -1837,6 +2145,9 @@ class LinearAlgebraCL
         NDArray $R=null,
         object $events=null)
     {
+        if($this->profiling) {
+            $this->profilingStart("imin");
+        }
         if($R==null) {
             // *** CAUTION ****
             // Index result is 32bit
@@ -1854,6 +2165,9 @@ class LinearAlgebraCL
         if($this->scalarNumeric) {
             return $R->toArray();
         }
+        if($this->profiling) {
+            $this->profilingEnd("imin");
+        }
         return $R;
     }
 
@@ -1865,6 +2179,9 @@ class LinearAlgebraCL
         NDArray $R=null,
         object $events=null)
     {
+        if($this->profiling) {
+            $this->profilingStart("max");
+        }
         if($R==null) {
             $R = $this->alloc([],$X->dtype(),OpenCL::CL_MEM_READ_WRITE);
         }
@@ -1886,6 +2203,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("max");
+        }
         if($this->scalarNumeric) {
             return $R->toArray();
         }
@@ -1901,6 +2221,9 @@ class LinearAlgebraCL
         NDArray $R=null,
         object $events=null)
     {
+        if($this->profiling) {
+            $this->profilingStart("min");
+        }
         if($R==null) {
             $R = $this->alloc([],$X->dtype(),OpenCL::CL_MEM_READ_WRITE);
         }
@@ -1921,6 +2244,9 @@ class LinearAlgebraCL
             1,$N,$XX,$offX,$N,$IRR,$offIR,1,$RR,$offR,1,$events,$imaxEvents);
         if($this->blocking) {
             $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("min");
         }
         if($this->scalarNumeric) {
             return $R->toArray();
@@ -1967,6 +2293,9 @@ class LinearAlgebraCL
         EventList $waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("selectAxis0");
+        }
         if($X->ndim()!=1) {
             throw new InvalidArgumentException('"X" must be 1D-NDArray.');
         }
@@ -2012,6 +2341,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("selectAxis0");
+        }
         return $Y;
     }
 
@@ -2026,6 +2358,9 @@ class LinearAlgebraCL
         EventList $waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("selectAxis1");
+        }
         if($A->ndim()!=2) {
             throw new InvalidArgumentException('"A" must be 2D-NDArray.');
         }
@@ -2066,6 +2401,9 @@ class LinearAlgebraCL
 
         if($this->blocking) {
             $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("selectAxis1");
         }
         return $Y;
     }
@@ -2139,6 +2477,9 @@ class LinearAlgebraCL
         $events=null,$waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("scatterAxis0");
+        }
         if($X->ndim()!=1) {
             throw new InvalidArgumentException('"X" must be 1D-NDArray.');
         }
@@ -2187,6 +2528,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("scatterAxis0");
+        }
         return $A;
     }
 
@@ -2202,6 +2546,9 @@ class LinearAlgebraCL
         $events=null,$waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("scatterAxis1");
+        }
         if($X->ndim()!=1) {
             throw new InvalidArgumentException('"X" must be 1D-NDArray.');
         }
@@ -2249,6 +2596,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("scatterAxis1");
+        }
         return $A;
     }
 
@@ -2260,6 +2610,9 @@ class LinearAlgebraCL
         $events=null,$waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("onehot");
+        }
         if($X->ndim()!=1) {
             throw new InvalidArgumentException('"X" must be 1D-NDArray.');
         }
@@ -2307,6 +2660,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("onehot");
+        }
         return $Y;
     }
 
@@ -2318,6 +2674,9 @@ class LinearAlgebraCL
         $events=null,$waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("softmax");
+        }
         if($X->ndim()!=2) {
             throw new InvalidArgumentException('"X" must be 2-D dimension');
         }
@@ -2336,6 +2695,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("softmax");
+        }
         return $X;
     }
 
@@ -2351,6 +2713,9 @@ class LinearAlgebraCL
         //,$waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("reduceSumCLBlast");
+        }
         if($axis===null)
             $axis = 0;
         if($axis!==0 && $axis!==1 && $axis!==-1)
@@ -2430,6 +2795,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("reduceSumCLBlast");
+        }
         return $X;
     }
 
@@ -2444,6 +2812,9 @@ class LinearAlgebraCL
         $events=null,$waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("reduceSum");
+        }
         if($axis===null)
             $axis = 0;
         if($axis!==0 && $axis!==1 && $axis!==-1)
@@ -2492,6 +2863,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("reduceSum");
+        }
         return $X;
     }
 
@@ -2506,6 +2880,9 @@ class LinearAlgebraCL
         $events=null,$waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("reduceMax");
+        }
         if($axis===null)
             $axis = 0;
         if($axis!==0 && $axis!==1 && $axis!==-1)
@@ -2552,6 +2929,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("reduceMax");
+        }
         return $X;
     }
 
@@ -2566,6 +2946,9 @@ class LinearAlgebraCL
         $events=null,$waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("reduceArgMax");
+        }
         if($axis===null)
             $axis = 0;
         if($axis!==0 && $axis!==1 && $axis!==-1)
@@ -2611,6 +2994,9 @@ class LinearAlgebraCL
 
         if($this->blocking) {
             $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("reduceArgMax");
         }
         return $X;
     }
@@ -2663,6 +3049,9 @@ class LinearAlgebraCL
         $events=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("im2col2dclblast");
+        }
         $ndim = $images->ndim();
         $images_offset = $images->offset();
         $images_size = $images->size();
@@ -2752,59 +3141,68 @@ class LinearAlgebraCL
         $col_buffer = $cols->buffer();
         $col_offset = $cols->offset();
         //$out_size = $cols->size();
+        $image_step = $channels*$im_h*$im_w;
+        $col_step   = $channels*$filter_h*$filter_w*$out_h*$out_w;
         if(!$reverse) {
-            $this->math->im2col(
-                $kernel_mode,
-                $channels,
-                $im_h,
-                $im_w,
-                $filter_h,
-                $filter_w,
-                $padding_h,
-                $padding_w,
-                $stride_h,
-                $stride_w,
-                $dilation_h,
-                $dilation_w,
-                $images_buff,
-                $images_offset,
-                $col_buffer,
-                $col_offset,
-                $this->queue,
-                //$batches,
-                //$channels_first,
-                //$cols_channels_first,
-                $events
-            );
+            for($i=0;$i<$batches;$i++,$images_offset+=$image_step,$col_offset+=$col_step) {
+                $this->math->im2col(
+                    $kernel_mode,
+                    $channels,
+                    $im_h,
+                    $im_w,
+                    $filter_h,
+                    $filter_w,
+                    $padding_h,
+                    $padding_w,
+                    $stride_h,
+                    $stride_w,
+                    $dilation_h,
+                    $dilation_w,
+                    $images_buff,
+                    $images_offset,
+                    $col_buffer,
+                    $col_offset,
+                    $this->queue,
+                    //$batches,
+                    //$channels_first,
+                    //$cols_channels_first,
+                    $events
+                );
+            }
             $result = $cols;
         }  else {
-            $this->math->col2im(
-                $kernel_mode,
-                $channels,
-                $im_h,
-                $im_w,
-                $filter_h,
-                $filter_w,
-                $padding_h,
-                $padding_w,
-                $stride_h,
-                $stride_w,
-                $dilation_h,
-                $dilation_w,
-                $col_buffer,
-                $col_offset,
-                $images_buff,
-                $images_offset,
-                $this->queue,
-                //$batches,
-                //$channels_first,
-                //$cols_channels_first,
-                $events
-            );
+            for($i=0;$i<$batches;$i++,$images_offset+=$image_step,$col_offset+=$col_step) {
+                $this->math->col2im(
+                    $kernel_mode,
+                    $channels,
+                    $im_h,
+                    $im_w,
+                    $filter_h,
+                    $filter_w,
+                    $padding_h,
+                    $padding_w,
+                    $stride_h,
+                    $stride_w,
+                    $dilation_h,
+                    $dilation_w,
+                    $col_buffer,
+                    $col_offset,
+                    $images_buff,
+                    $images_offset,
+                    $this->queue,
+                    //$batches,
+                    //$channels_first,
+                    //$cols_channels_first,
+                    $events
+                );
+            }
             $result = $images;
         }
         if($this->blocking) {
             $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("im2col2dclblast");
         }
         return $result;
     }
@@ -2821,6 +3219,9 @@ class LinearAlgebraCL
         $events=null,$waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("im2col");
+        }
         $ndim = $images->ndim();
         if($ndim==3) {
             $_cols = $this->im2col1d(
@@ -2873,6 +3274,9 @@ class LinearAlgebraCL
         } else {
             throw new InvalidArgumentException('unsuppoted images shape');
         }
+        if($this->profiling) {
+            $this->profilingEnd("im2col");
+        }
         return $cols;
     }
 
@@ -2888,6 +3292,9 @@ class LinearAlgebraCL
         $events=null,$waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("col2im");
+        }
         $ndim = $images->ndim();
         if($ndim==3) {
             $this->im2col1d(
@@ -2930,6 +3337,9 @@ class LinearAlgebraCL
             );
         } else {
             throw new InvalidArgumentException('unsuppoted images shape');
+        }
+        if($this->profiling) {
+            $this->profilingEnd("col2im");
         }
         return $images;
     }
@@ -3276,6 +3686,9 @@ class LinearAlgebraCL
         NDArray $X=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("randomUniform");
+        }
         if($dtype!==null&&$X!==null) {
             if ($X->dtype()!=$dtype) {
                 throw new InvalidArgumentException('Unmatch dtype and dtype of X');
@@ -3320,6 +3733,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("randomUniform");
+        }
         return $X;
     }
 
@@ -3332,6 +3748,9 @@ class LinearAlgebraCL
         NDArray $X=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("randomNormal");
+        }
         if($dtype!==null&&$X!==null) {
             if ($X->dtype()!=$dtype) {
                 throw new InvalidArgumentException('Unmatch dtype and dtype of X');
@@ -3376,6 +3795,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("randomNormal");
+        }
         return $X;
     }
 
@@ -3386,6 +3808,9 @@ class LinearAlgebraCL
         $events=null,$waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("randomSequence");
+        }
         if($size==null) {
             $size = $base;
         }
@@ -3412,6 +3837,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("randomSequence");
+        }
         return $X;
     }
 
@@ -3426,7 +3854,10 @@ class LinearAlgebraCL
         $events=null,$waitEvents=null
         ) : NDArray
     {
-        return $this->doSlice(
+        if($this->profiling) {
+            $this->profilingStart("slice");
+        }
+        $output = $this->doSlice(
             false,
             $input,
             $begin,
@@ -3434,6 +3865,10 @@ class LinearAlgebraCL
             $output,
             $events,$waitEvents
         );
+        if($this->profiling) {
+            $this->profilingEnd("slice");
+        }
+        return $output;
     }
 
     public function stick(
@@ -3444,7 +3879,10 @@ class LinearAlgebraCL
         $events=null,$waitEvents=null
         ) : NDArray
     {
-        return $this->doSlice(
+        if($this->profiling) {
+            $this->profilingStart("stick");
+        }
+        $output = $this->doSlice(
             true,
             $output,
             $begin,
@@ -3452,6 +3890,10 @@ class LinearAlgebraCL
             $input,
             $events,$waitEvents
         );
+        if($this->profiling) {
+            $this->profilingEnd("stick");
+        }
+        return $output;
     }
 
     public function stack(
@@ -3460,6 +3902,9 @@ class LinearAlgebraCL
         $events=null,$waitEvents=null
     )
     {
+        if($this->profiling) {
+            $this->profilingStart("stack");
+        }
         if($axis==null){
             $axis=0;
         }
@@ -3514,6 +3959,9 @@ class LinearAlgebraCL
         } else {
             throw new InvalidArgumentException('unsuppoted axis');
         }
+        if($this->profiling) {
+            $this->profilingEnd("stack");
+        }
         return $output;
     }
 
@@ -3523,6 +3971,9 @@ class LinearAlgebraCL
         $events=null,$waitEvents=null
     ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("concat");
+        }
         if($axis===null) {
             $axis = -1;
         }
@@ -3570,6 +4021,9 @@ class LinearAlgebraCL
             $i += $nn;
         }
         $output = $output->reshape(array_merge($shapePrefix,[$n],$dims));
+        if($this->profiling) {
+            $this->profilingEnd("concat");
+        }
         return $output;
     }
 
@@ -3578,6 +4032,9 @@ class LinearAlgebraCL
         $events=null,$waitEvents=null
         ) : array
     {
+        if($this->profiling) {
+            $this->profilingStart("split");
+        }
         if($axis===null) {
             $axis = -1;
         }
@@ -3603,6 +4060,9 @@ class LinearAlgebraCL
             )->reshape(array_merge($shapePrefix,[$size],$shape));
             $i += $size;
         }
+        if($this->profiling) {
+            $this->profilingEnd("split");
+        }
         return $outputs;
     }
 
@@ -3615,6 +4075,9 @@ class LinearAlgebraCL
         $events=null,$waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("doSlice");
+        }
         if(!$reverse){
             $messageInput='Input';
         } else {
@@ -3744,6 +4207,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("doSlice");
+        }
         return $output;
     }
 
@@ -3756,6 +4222,9 @@ class LinearAlgebraCL
         $events=null,$waitEvents=null
         )
     {
+        if($this->profiling) {
+            $this->profilingStart("repeat");
+        }
         if($repeats<1) {
             throw new InvalidArgumentException('repeats argument must be one or greater.');
         }
@@ -3799,6 +4268,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("repeat");
+        }
         return $B;
     }
 
@@ -3810,6 +4282,9 @@ class LinearAlgebraCL
         $events=null,$waitEvents=null
         )
     {
+        if($this->profiling) {
+            $this->profilingStart("reduceSumRepeated");
+        }
         if($A->ndim()<3) {
             throw new InvalidArgumentException('dimension rank must be two or greater.');
         }
@@ -3858,6 +4333,9 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("reduceSumRepeated");
+        }
         return $B;
     }
 
@@ -3868,6 +4346,9 @@ class LinearAlgebraCL
         object $events=null
         )
     {
+        if($this->profiling) {
+            $this->profilingStart("transpose");
+        }
         if($A->ndim()!=2) {
             throw new InvalidArgumentException('input array must be 2D.');
         }
@@ -3905,11 +4386,17 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
+        if($this->profiling) {
+            $this->profilingEnd("transpose");
+        }
         return $B;
     }
 
     public function svd(NDArray $matrix,$fullMatrices=null)
     {
+        if($this->profiling) {
+            $this->profilingStart("svd");
+        }
         if($matrix->ndim()!=2) {
             throw new InvalidArgumentException("input array must be 2D array");
         }
@@ -3975,6 +4462,9 @@ class LinearAlgebraCL
         }
         if($this->blocking) {
             $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("svd");
         }
         return [$U,$S,$VT];
     }
