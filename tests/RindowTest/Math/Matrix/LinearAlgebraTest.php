@@ -12,7 +12,7 @@ use InvalidArgumentException;
 
 class Test extends TestCase
 {
-    static protected $speedtest = true;
+    static protected $speedtest = false;
     protected $equalEpsilon = 1e-04;
 
     public function newMatrixOperator()
