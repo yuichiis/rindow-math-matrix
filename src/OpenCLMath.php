@@ -1924,7 +1924,8 @@ class OpenCLMath
             $mode2 = $this->predictTimeScatterAddAxis0(2,$bm,$bn,$bk);
             $mode3 = $this->predictTimeScatterAddAxis0(3,$bm,$bn,$bk);
             $mode4 = $this->predictTimeScatterAddAxis0(4,$bm,$bn,$bk);
-            //echo 'mode1='.number_format($mode1)."\n";
+            //echo 'mode0='.number_format($mode0)."\n";
+            ////echo 'mode1='.number_format($mode1)."\n";
             //echo 'mode2='.number_format($mode2)."\n";
             //echo 'mode3='.number_format($mode3)."\n";
             //echo 'mode4='.number_format($mode4)."\n";
@@ -1938,6 +1939,7 @@ class OpenCLMath
             if($mode==2 && $bk<=$small) {
                 $mode=1;
             }
+            //echo "mode=$mode($m,$n,$k)\n";
             switch($mode) {
                 case 0:{
                     $this->scatterAddAxis0_0(

@@ -456,22 +456,22 @@ class OpenCLMathTunner
             foreach($modes as $mode) {
                 $plt->figure();
                 $axes = $plt->getAxes();
-                $this->drawGraphRowsCols3($mo,$mode,$axes,$details,$marker);
+                $this->drawGraphRowsCols3(8,$mo,$mode,$axes,$details,$marker);
                 $plt->figure();
                 $axes = $plt->getAxes();
-                $this->drawGraphColsRows3($mo,$mode,$axes,$details,$marker);
+                $this->drawGraphColsRows3(8,$mo,$mode,$axes,$details,$marker);
                 $plt->figure();
                 $axes = $plt->getAxes();
-                $this->drawGraphNumClassRows3($mo,$mode,$axes,$details,$marker);
+                $this->drawGraphNumClassRows3(8,$mo,$mode,$axes,$details,$marker);
                 $plt->figure();
                 $axes = $plt->getAxes();
-                $this->drawGraphRowsNumClass3($mo,$mode,$axes,$details,$marker);
+                $this->drawGraphRowsNumClass3(8,$mo,$mode,$axes,$details,$marker);
                 $plt->figure();
                 $axes = $plt->getAxes();
-                $this->drawGraphNumClassCols3($mo,$mode,$axes,$details,$marker);
+                $this->drawGraphNumClassCols3(8,$mo,$mode,$axes,$details,$marker);
                 $plt->figure();
                 $axes = $plt->getAxes();
-                $this->drawGraphColsNumClass3($mo,$mode,$axes,$details,$marker);
+                $this->drawGraphColsNumClass3(8,$mo,$mode,$axes,$details,$marker);
             }
         } else {
             [$fig,$axes] = $plt->subplots(3,2);
@@ -481,18 +481,18 @@ class OpenCLMathTunner
                 } else {
                     $marker = $colors[$mode];
                 }
-                $this->drawGraphRowsCols3($mo,$mode,$axes[0],$details,$marker);
-                $this->drawGraphColsRows3($mo,$mode,$axes[1],$details,$marker);
-                $this->drawGraphNumClassRows3($mo,$mode,$axes[2],$details,$marker);
-                $this->drawGraphRowsNumClass3($mo,$mode,$axes[3],$details,$marker);
-                $this->drawGraphNumClassCols3($mo,$mode,$axes[4],$details,$marker);
-                $this->drawGraphColsNumClass3($mo,$mode,$axes[5],$details,$marker);
+                $this->drawGraphRowsCols3(8,$mo,$mode,$axes[0],$details,$marker);
+                $this->drawGraphColsRows3(8,$mo,$mode,$axes[1],$details,$marker);
+                $this->drawGraphNumClassRows3(8,$mo,$mode,$axes[2],$details,$marker);
+                $this->drawGraphRowsNumClass3(8,$mo,$mode,$axes[3],$details,$marker);
+                $this->drawGraphNumClassCols3(8,$mo,$mode,$axes[4],$details,$marker);
+                $this->drawGraphColsNumClass3(8,$mo,$mode,$axes[5],$details,$marker);
             }
         }
         $plt->show();
     }
 
-    protected function drawGraphRowsCols3($mo,$mode,$ax,$details,$marker)
+    public function drawGraphRowsCols3($nc,$mo,$mode,$ax,$details,$marker)
     {
         $times = $this->loadParameter('ScatterAddTimesMode'.$mode.'.php');
         // rows <-> cols
@@ -512,11 +512,13 @@ class OpenCLMathTunner
                 }
             }
         }
-        $numClass = 8;
-        foreach ($graph[$numClass] as $cols => $gr) {
-            if(count($gr)) {
-                $gr = $mo->transpose($mo->array($gr));
-                $ax->plot($gr[0],$gr[1],$marker,'cols='.$cols);
+        $numClass = $nc;
+        if(isset($graph[$numClass])) {
+            foreach ($graph[$numClass] as $cols => $gr) {
+                if(count($gr)) {
+                    $gr = $mo->transpose($mo->array($gr));
+                    $ax->plot($gr[0],$gr[1],$marker,'cols='.$cols);
+                }
             }
         }
         $ax->setYScale('log');
@@ -524,10 +526,11 @@ class OpenCLMathTunner
         if($details) {
             $ax->legend();
             $ax->setXLabel('rows');
+            $ax->setTitle("mode$mode(numClass=$numClass)");
         }
     }
 
-    protected function drawGraphColsRows3($mo,$mode,$ax,$details,$marker)
+    public function drawGraphColsRows3($nc,$mo,$mode,$ax,$details,$marker)
     {
         $times = $this->loadParameter('ScatterAddTimesMode'.$mode.'.php');
         // cols <-> rows
@@ -543,7 +546,7 @@ class OpenCLMathTunner
                     }
                 }
             }
-            $numClass = 8;
+            $numClass = $nc;
             if(isset($graph[$numClass]) && count($graph[$numClass])) {
                 $gr = $mo->transpose($mo->array($graph[$numClass]));
                 $ax->plot($gr[0],$gr[1],$marker,'rows='.$rows);
@@ -554,10 +557,11 @@ class OpenCLMathTunner
         if($details) {
             $ax->legend();
             $ax->setXLabel('cols');
+            $ax->setTitle("mode$mode(numClass=$numClass)");
         }
     }
 
-    protected function drawGraphNumClassRows3($mo,$mode,$ax,$details,$marker)
+    public function drawGraphNumClassRows3($co,$mo,$mode,$ax,$details,$marker)
     {
         $times = $this->loadParameter('ScatterAddTimesMode'.$mode.'.php');
         // numClass <-> rows
@@ -577,11 +581,13 @@ class OpenCLMathTunner
                 }
             }
         }
-        $cols = 8;
-        foreach ($graph[$cols] as $rows => $gr) {
-            if(count($gr)) {
-                $gr = $mo->transpose($mo->array($gr));
-                $ax->plot($gr[0],$gr[1],$marker,'rows='.$rows);
+        $cols = $co;
+        if(isset($graph[$cols])) {
+            foreach ($graph[$cols] as $rows => $gr) {
+                if(count($gr)) {
+                    $gr = $mo->transpose($mo->array($gr));
+                    $ax->plot($gr[0],$gr[1],$marker,'rows='.$rows);
+                }
             }
         }
         $ax->setYScale('log');
@@ -589,10 +595,11 @@ class OpenCLMathTunner
         if($details) {
             $ax->legend();
             $ax->setXLabel('numClass');
+            $ax->setTitle("mode$mode(cols=$cols)");
         }
     }
 
-    protected function drawGraphRowsNumClass3($mo,$mode,$ax,$details,$marker)
+    public function drawGraphRowsNumClass3($co,$mo,$mode,$ax,$details,$marker)
     {
         $times = $this->loadParameter('ScatterAddTimesMode'.$mode.'.php');
         // rows <-> numClass
@@ -612,11 +619,13 @@ class OpenCLMathTunner
                 }
             }
         }
-        $cols = 8;
-        foreach ($graph[$cols] as $numClass => $gr) {
-            if(count($gr)) {
-                $gr = $mo->transpose($mo->array($gr));
-                $ax->plot($gr[0],$gr[1],$marker,'numClass='.$numClass);
+        $cols = $co;
+        if(isset($graph[$cols])) {
+            foreach ($graph[$cols] as $numClass => $gr) {
+                if(count($gr)) {
+                    $gr = $mo->transpose($mo->array($gr));
+                    $ax->plot($gr[0],$gr[1],$marker,'numClass='.$numClass);
+                }
             }
         }
         $ax->setYScale('log');
@@ -624,10 +633,11 @@ class OpenCLMathTunner
         if($details) {
             $ax->legend();
             $ax->setXLabel('rows');
+            $ax->setTitle("mode$mode(cols=$cols)");
         }
     }
 
-    protected function drawGraphNumClassCols3($mo,$mode,$ax,$details,$marker)
+    public function drawGraphNumClassCols3($ro,$mo,$mode,$ax,$details,$marker)
     {
         $times = $this->loadParameter('ScatterAddTimesMode'.$mode.'.php');
         // numClass <-> cols
@@ -647,11 +657,13 @@ class OpenCLMathTunner
                 }
             }
         }
-        $rows = 8;
-        foreach ($graph[$rows] as $cols => $gr) {
-            if(count($gr)) {
-                $gr = $mo->transpose($mo->array($gr));
-                $ax->plot($gr[0],$gr[1],$marker,'cols='.$cols);
+        $rows = $ro;
+        if(isset($graph[$rows])) {
+            foreach ($graph[$rows] as $cols => $gr) {
+                if(count($gr)) {
+                    $gr = $mo->transpose($mo->array($gr));
+                    $ax->plot($gr[0],$gr[1],$marker,'cols='.$cols);
+                }
             }
         }
         $ax->setYScale('log');
@@ -659,10 +671,11 @@ class OpenCLMathTunner
         if($details) {
             $ax->legend();
             $ax->setXLabel('numClass');
+            $ax->setTitle("mode$mode(rows=$rows)");
         }
     }
 
-    protected function drawGraphColsNumClass3($mo,$mode,$ax,$details,$marker)
+    public function drawGraphColsNumClass3($ro,$mo,$mode,$ax,$details,$marker)
     {
         $times = $this->loadParameter('ScatterAddTimesMode'.$mode.'.php');
         // cols <-> numClass
@@ -682,11 +695,13 @@ class OpenCLMathTunner
                 }
             }
         }
-        $rows = 8;
-        foreach ($graph[$rows] as $numClass => $gr) {
-            if(count($gr)) {
-                $gr = $mo->transpose($mo->array($gr));
-                $ax->plot($gr[0],$gr[1],$marker,'numClass='.$numClass);
+        $rows = $ro;
+        if(isset($graph[$rows])) {
+            foreach ($graph[$rows] as $numClass => $gr) {
+                if(count($gr)) {
+                    $gr = $mo->transpose($mo->array($gr));
+                    $ax->plot($gr[0],$gr[1],$marker,'numClass='.$numClass);
+                }
             }
         }
         $ax->setYScale('log');
@@ -694,6 +709,7 @@ class OpenCLMathTunner
         if($details) {
             $ax->legend();
             $ax->setXLabel('cols');
+            $ax->setTitle("mode$mode(rows=$rows)");
         }
     }
 
@@ -766,6 +782,27 @@ class OpenCLMathTunner
         $this->saveParameter('ScatterAddTimesMode'.$mode.'.php',$times);
     }
 
+    public function editGraphScatterAdd($mode,array $data)
+    {
+        echo "mode$mode\n";
+        $times = $this->loadParameter('ScatterAddTimesMode'.$mode.'.php',$default=true);
+        foreach ($data as $rows => $colsData) {
+            if(!array_key_exists($rows,$times)) {
+                throw new \Exception("Invalid rows:[$rows] in mode".$mode);
+            }
+            foreach ($colsData as $cols => $numClassData) {
+                if(!array_key_exists($rows,$times)) {
+                    throw new \Exception("Invalid cols:[$rows][$cols] in mode".$mode);
+                }
+                foreach ($numClassData as $numClass => $value) {
+                    echo "[$rows][$cols][$numClass]: ".$times[$rows][$cols][$numClass]." * $value\n";
+                    $value = (int)($times[$rows][$cols][$numClass]*$value);
+                    $times[$rows][$cols][$numClass] = $value;
+                }
+            }
+        }
+        $this->saveParameter('ScatterAddTimesMode'.$mode.'.php',$times);
+    }
 
     public function tunningReduceSum($mode,$maxTime,$limitTime)
     {
@@ -1200,4 +1237,5 @@ class OpenCLMathTunner
         }
         $this->saveParameter('ReduceSumTimesMode'.$mode.'.php',$times);
     }
+
 }

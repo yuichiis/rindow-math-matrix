@@ -8,6 +8,7 @@ if(!class_exists('RindowTest\Math\Matrix\LinearAlgebraTest\Test')) {
     require_once __DIR__.'/LinearAlgebraTest.php';
 }
 
+use Rindow\Math\Plot\Plot;
 use RindowTest\Math\Matrix\LinearAlgebraTest\Test as ORGTest;
 use InvalidArgumentException;
 use Rindow\Math\Matrix\MatrixOperator;
@@ -2234,7 +2235,49 @@ class Test extends ORGTest
         return;
         $mo = $this->newMatrixOperator();
         $tunner = new OpenCLMathTunner($mo);
-        $tunner->showGraphScatterAdd($mode=4,$details=true);
+        $tunner->showGraphScatterAdd($mode=0,$details=true);
+        $this->assertTrue(true);
+    }
+
+    public function testShowDetailGraphScatterAdd()
+    {
+        $this->markTestSkipped('Tunning only');
+        return;
+        $mo = $this->newMatrixOperator();
+        $plt = new Plot(null,$mo);
+        $tunner = new OpenCLMathTunner($mo);
+        $mode = 4;
+        for($n=8;$n<=1048576;$n<<=1) {
+            $plt->figure();
+            $axes = $plt->getAxes();
+            //$tunner->drawGraphRowsCols3($n,$mo,$mode,$axes,$details=true,$marker=null);
+            $tunner->drawGraphColsRows3($n,$mo,$mode,$axes,$details=true,$marker=null);
+            //$tunner->drawGraphNumClassRows3($n,$mo,$mode,$axes,$details=true,$marker=null);
+            //$tunner->drawGraphRowsNumClass3($n,$mo,$mode,$axes,$details=true,$marker=null);
+            //$tunner->drawGraphNumClassCols3($n,$mo,$mode,$axes,$details=true,$marker=null);
+            //$tunner->drawGraphColsNumClass3($n,$mo,$mode,$axes,$details=true,$marker=null);
+        }
+        //$plt->figure();
+        //$axes = $plt->getAxes();
+        //$tunner->drawGraphRowsCols3($nc=16,$mo,$mode,$axes,$details=true,$marker=null);
+        //$tunner->drawGraphColsRows3($nc=16,$mo,$mode,$axes,$details=true,$marker=null);
+        //$tunner->drawGraphNumClassRows3($co=16,$mo,$mode,$axes,$details=true,$marker=null);
+        //$tunner->drawGraphRowsNumClass3($co=8,$mo,$mode,$axes,$details=true,$marker=null);
+        //$tunner->drawGraphNumClassCols3($ro=8,$mo,$mode,$axes,$details=true,$marker=null);
+        //$tunner->drawGraphColsNumClass3($ro=8,$mo,$mode,$axes,$details=true,$marker=null);
+        $plt->show();
+        $this->assertTrue(true);
+    }
+
+    public function testEditGraphScatterAdd()
+    {
+        $this->markTestSkipped('Tunning only');
+        return;
+        $mo = $this->newMatrixOperator();
+        $tunner = new OpenCLMathTunner($mo);
+        //$times[8][8][8] = 0.3;
+        $tunner->editGraphScatterAdd($mode=4,$times);
+        $this->assertTrue(true);
     }
 
     //public function testEditParams()

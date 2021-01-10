@@ -12,7 +12,7 @@ use InvalidArgumentException;
 
 class Test extends TestCase
 {
-    static protected $speedtest = false;
+    static protected $speedtest = true;
     protected $equalEpsilon = 1e-04;
 
     public function newMatrixOperator()
@@ -2096,7 +2096,7 @@ class Test extends TestCase
         }
     }
 
-    public function testScatterAxis0()
+    public function testScatterAxis0Normal()
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
@@ -2211,6 +2211,167 @@ class Test extends TestCase
             $this->assertEquals(252,$a[0]->toArray());
             $this->assertEquals(254,$a[255]->toArray());
         }
+    }
+
+    public function testScatterAxis0Speed()
+    {
+        if(!self::$speedtest) {
+            $this->markTestSkipped('Speed measurement');
+            return;
+        }
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        if($la->getConfig()=='PhpBlas') {
+            $this->assertTrue(true);
+            return;
+        }
+
+        echo "small rows\n";
+        // small
+        $rows = 256;
+        $cols = 8;
+        $numClass = 8;
+        $x = $la->alloc([$rows],NDArray::int32);
+        $la->fill(1,$x);
+        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $la->fill(1.0,$y);
+        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $la->fill(0.0,$a);
+        $la->scatter($x,$y,$numClass,$axis=0,$a);
+        $start = hrtime(true);
+        $la->scatter($x,$y,$numClass,$axis=0,$a);
+        $end = hrtime(true);
+        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+        echo "\n";
+
+        echo "medium rows\n";
+        // medium
+        $rows = 65536;#131072;
+        $cols = 8;
+        $numClass = 8;
+        $x = $la->alloc([$rows],NDArray::int32);
+        $la->fill(1,$x);
+        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $la->fill(1.0,$y);
+        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $la->fill(0.0,$a);
+        $la->scatter($x,$y,$numClass,$axis=0,$a);
+        $start = hrtime(true);
+        $la->scatter($x,$y,$numClass,$axis=0,$a);
+        $end = hrtime(true);
+        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+        echo "\n";
+
+        echo "large rows\n";
+        // large
+        $rows = 1000000;
+        $cols = 8;
+        $numClass = 8;
+        $x = $la->alloc([$rows],NDArray::int32);
+        $la->fill(1,$x);
+        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $la->fill(1.0,$y);
+        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $la->fill(0.0,$a);
+        $la->scatter($x,$y,$numClass,$axis=0,$a);
+        $start = hrtime(true);
+        $la->scatter($x,$y,$numClass,$axis=0,$a);
+        $end = hrtime(true);
+        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+        echo "\n";
+
+        echo "medium cols\n";
+        // medium cols
+        $rows = 8;
+        $cols = 65536;
+        $numClass = 8;
+        $x = $la->alloc([$rows],NDArray::int32);
+        $la->fill(1,$x);
+        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $la->fill(1.0,$y);
+        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $la->fill(0.0,$a);
+        $la->scatter($x,$y,$numClass,$axis=0,$a);
+        $start = hrtime(true);
+        $la->scatter($x,$y,$numClass,$axis=0,$a);
+        $end = hrtime(true);
+        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+        echo "\n";
+
+        echo "large cols\n";
+        // large cols
+        $rows = 8;
+        $cols = 1000000;
+        $numClass = 8;
+        $x = $la->alloc([$rows],NDArray::int32);
+        $la->fill(1,$x);
+        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $la->fill(1.0,$y);
+        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $la->fill(0.0,$a);
+        $la->scatter($x,$y,$numClass,$axis=0,$a);
+        $start = hrtime(true);
+        $la->scatter($x,$y,$numClass,$axis=0,$a);
+        $end = hrtime(true);
+        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+        echo "\n";
+
+        echo "medium class\n";
+        // medium class
+        $rows = 8;
+        $cols = 8;
+        $numClass = 131072;
+        $x = $la->alloc([$rows],NDArray::int32);
+        $la->fill(1,$x);
+        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $la->fill(1.0,$y);
+        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $la->fill(0.0,$a);
+        $la->scatter($x,$y,$numClass,$axis=0,$a);
+        $start = hrtime(true);
+        $la->scatter($x,$y,$numClass,$axis=0,$a);
+        $end = hrtime(true);
+        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+        echo "\n";
+
+        echo "large class\n";
+        // large class
+        $rows = 8;
+        $cols = 8;
+        $numClass = 1000000;
+        $x = $la->alloc([$rows],NDArray::int32);
+        $la->fill(1,$x);
+        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $la->fill(1.0,$y);
+        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $la->fill(0.0,$a);
+        $la->scatter($x,$y,$numClass,$axis=0,$a);
+        $start = hrtime(true);
+        $la->scatter($x,$y,$numClass,$axis=0,$a);
+        $end = hrtime(true);
+        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+        echo "\n";
+
+        //echo "mode4\n";
+        // small
+        //
+        //$rows = 131072;
+        //$cols = 8;
+        //$numClass = 8;
+        //$x = $la->alloc([$rows],NDArray::int32);
+        //$la->fill(1,$x);
+        //$y = $la->alloc([$rows,$cols],NDArray::float32);
+        //$la->fill(1.0,$y);
+        //$a = $la->alloc([$numClass,$cols],NDArray::float32);
+        //$la->fill(0.0,$a);
+        //$la->scatterTest($x,$y,$numClass,$axis=0,$a,null,null,$mode=4);
+        //$start = hrtime(true);
+        //$la->scatterTest($x,$y,$numClass,$axis=0,$a,null,null,$mode=4);
+        //$end = hrtime(true);
+        //echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+        //echo "\n";
+
+        $this->assertTrue(true);
     }
 
     public function testScatterAxis1()
