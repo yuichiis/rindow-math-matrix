@@ -2077,12 +2077,14 @@ class OpenCLMath
                 "{\n".
                 "    const uint row = get_global_id(0);\n".  // A row id
                 "    const uint col = get_global_id(1);\n".  // A col id
+                "    uint pos_x = offset_x;\n".  // A col id
+                "    uint pos_b = col+offset_b;\n".  // A col id
                 "    ${type} sum = 0;\n".
                 //"    if(row<rows && col<cols) {\n".
-                "        for(int i=0;i<total_local_items;i++) {\n".
-                "            uint label = x[i*incx+offset_x];\n".
+                "        for(int i=0;i<total_local_items;i++,pos_x+=incx,pos_b+=ldb) {\n".
+                "            uint label = x[pos_x];\n".
                 "            if(label==row) {\n".
-                "                sum += b[i*ldb+col+offset_b];\n".
+                "                sum += b[pos_b];\n".
                 "            }\n".
                 "        }\n".
                 "        a[row*lda+col+offset_a] += sum;\n".
@@ -2103,6 +2105,13 @@ class OpenCLMath
         $kernel->setArg(9,$ldB,NDArray::uint32);
         $kernel->setArg(10,$m,NDArray::uint32);
         $kernel->setArg(11,$n,NDArray::uint32);
+        //$multiple = $this->kernelMultiple($kernel);
+        //$global_work_size = [$this->ceil($m,$multiple),$n];
+        //$local_work_size = [$multiple,1];
+        //$global_work_size = [$m,$this->ceil($n,$multiple)];
+        //$local_work_size = [1,$multiple];
+        //$global_work_size = [$this->ceil($m,8),$this->ceil($n,4)];
+        //$local_work_size = [8,4];
         $global_work_size = [$m,$n];
         $local_work_size = null;
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -2405,14 +2414,15 @@ class OpenCLMath
         EventList $events=null, EventList $waitEvents=null
         ) : void
     {
-//echo "mode=4\n";
+        //echo "mode=4($m,$n,$k)\n";
         $type = $this->dtypeToOpenCLType[$B->dtype()];
         $kernel_name = "scatterAxis0_4_${type}_add";
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void ${kernel_name}(\n".
-                "    const        uint k,\n".
                 "    const        uint m,\n".
+                "    const        uint n,\n".
+                "    const        uint k,\n".
                 "        __global ${type} * a,\n".
                 "    const        uint offset_a,\n".
                 "    const        uint lda,\n".
@@ -2423,32 +2433,39 @@ class OpenCLMath
                 "    const        uint offset_b,\n".
                 "    const        uint ldb)\n".
                 "{\n".
-                "    const uint grid = get_group_id(0);\n".
-                "    uint xpos = offset_x;\n".
-                "    uint bpos = offset_b;\n".
-                "    for(uint i=0;i<k;i++,xpos+=incx,bpos+=ldb) {\n".
-                "        uint label = x[xpos];\n".
-                "        if(label<m) {\n".
-                "            a[label*lda+grid+offset_a] += b[bpos+grid];\n".
+                "    const uint gid = get_global_id(0);\n".
+                //"    if(gid<n) {\n".
+                "        uint pos_x = offset_x;\n".
+                "        uint pos_b = offset_b;\n".
+                "        uint pos_a = gid+offset_a;\n".
+                "        for(uint i=0;i<k;i++,pos_x+=incx,pos_b+=ldb) {\n".
+                "            uint label = x[pos_x];\n".
+                "            if(label<m) {\n".
+                "                a[label*lda+pos_a] += b[pos_b+gid];\n".
+                "            }\n".
                 "        }\n".
-                "    }\n".
+                //"    }\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
 
-        $kernel->setArg(0,$k,NDArray::uint32);
-        $kernel->setArg(1,$m,NDArray::uint32);
-        $kernel->setArg(2,$A);
-        $kernel->setArg(3,$offsetA,NDArray::uint32);
-        $kernel->setArg(4,$ldA,NDArray::uint32);
-        $kernel->setArg(5,$X);
-        $kernel->setArg(6,$offsetX,NDArray::uint32);
-        $kernel->setArg(7,$incX,NDArray::uint32);
-        $kernel->setArg(8,$B);
-        $kernel->setArg(9,$offsetB,NDArray::uint32);
-        $kernel->setArg(10,$ldB,NDArray::uint32);
+        $kernel->setArg(0,$m,NDArray::uint32);
+        $kernel->setArg(1,$n,NDArray::uint32);
+        $kernel->setArg(2,$k,NDArray::uint32);
+        $kernel->setArg(3,$A);
+        $kernel->setArg(4,$offsetA,NDArray::uint32);
+        $kernel->setArg(5,$ldA,NDArray::uint32);
+        $kernel->setArg(6,$X);
+        $kernel->setArg(7,$offsetX,NDArray::uint32);
+        $kernel->setArg(8,$incX,NDArray::uint32);
+        $kernel->setArg(9,$B);
+        $kernel->setArg(10,$offsetB,NDArray::uint32);
+        $kernel->setArg(11,$ldB,NDArray::uint32);
+        //$multiple = $this->kernelMultiple($kernel);
+        //$global_work_size = [$this->ceil($n,$multiple)];
+        //$local_work_size = [$multiple];
         $global_work_size = [$n];
-        $local_work_size = [1];
+        $local_work_size = null;
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
             $events,$waitEvents);
     }
@@ -2603,18 +2620,18 @@ class OpenCLMath
      * X(m) := sum( A(m,n) )
      */
     public function reduceSum(
-        bool $trans,
         int $m,
         int $n,
-        Buffer $A, int $offsetA, int $ldA,
-        Buffer $X, int $offsetX, int $incX,
+        int $k,
+        Buffer $A, int $offsetA,
+        Buffer $B, int $offsetB,
         EventList $events=null, EventList $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
-        if($dtype!=$X->dtype()) {
-            throw new InvalidArgumentException("Unmatch data type A and X:".
-            $this->dtypeToString($dtype).",".$this->dtypeToString($X->dtype()));
+        if($dtype!=$B->dtype()) {
+            throw new InvalidArgumentException("Unmatch data type A and B:".
+            $this->dtypeToString($dtype).",".$this->dtypeToString($B->dtype()));
         }
         if($dtype!=NDArray::float64 && $dtype!=NDArray::float32) {
             throw new InvalidArgumentException("Unsuppored data type:".
@@ -2623,15 +2640,9 @@ class OpenCLMath
         if($dtype==NDArray::float64) {
             $this->assertFP64();
         }
-        if($trans) {
-            $rows = $n;
-            $cols = $m;
-        } else {
-            $rows = $m;
-            $cols = $n;
-        }
-        for($bm=8; $bm<$rows;$bm<<=1) { ; }
-        for($bn=8; $bn<$cols;$bn<<=1) { ; }
+        $mk = $m*$k;
+        for($bm=8; $bm<$mk;$bm<<=1) { ; }
+        for($bn=8; $bn<$n;$bn<<=1) { ; }
         $mode0 = $this->predictTimeReduceSum(0,$bm,$bn);
         $mode2 = $this->predictTimeReduceSum(2,$bm,$bn);
         $mode3 = $this->predictTimeReduceSum(3,$bm,$bn);
@@ -2641,37 +2652,51 @@ class OpenCLMath
         $imin1 = ($mode2 < $mode0) ? 2 : 0;
         $min2 =  ($mode3 < $min1)  ? $mode3 : $min1;
         $mode =  ($mode3 < $min1)  ? 3 : $imin1;
+        if($mode==2 && $n<=256) {
+            $mode = 1;
+        }
         //echo "mode=$mode\n";
         switch($mode) {
             case 0: {
                 $this->reduceSum0(
-                    $trans,
                     $m,
                     $n,
-                    $A,$offsetA,$ldA,
-                    $X,$offsetX,$incX,
+                    $k,
+                    $A,$offsetA,
+                    $B,$offsetB,
+                    $events,$waitEvents
+                );
+                break;
+            }
+            case 1: {
+                $this->reduceSum1(
+                    $m,
+                    $n,
+                    $k,
+                    $A,$offsetA,
+                    $B,$offsetB,
                     $events,$waitEvents
                 );
                 break;
             }
             case 2: {
                 $this->reduceSum2(
-                    $trans,
                     $m,
                     $n,
-                    $A,$offsetA,$ldA,
-                    $X,$offsetX,$incX,
+                    $k,
+                    $A,$offsetA,
+                    $B,$offsetB,
                     $events,$waitEvents
                 );
                 break;
             }
             case 3: {
                 $this->reduceSum3(
-                    $trans,
                     $m,
                     $n,
-                    $A,$offsetA,$ldA,
-                    $X,$offsetX,$incX,
+                    $k,
+                    $A,$offsetA,
+                    $B,$offsetB,
                     $events,$waitEvents
                 );
             }
@@ -2682,51 +2707,46 @@ class OpenCLMath
      * X(m) := sum( A(m,n) )
      */
     public function reduceSum0(
-        bool $trans,
         int $m,
         int $n,
-        Buffer $A, int $offsetA, int $ldA,
-        Buffer $X, int $offsetX, int $incX,
+        int $k,
+        Buffer $A, int $offsetA,
+        Buffer $B, int $offsetB,
         EventList $events=null, EventList $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
-        if($trans) {
-            $trans = 'trans';
-            $rows = $n;
-            $cols = $m;
-        } else {
-            $trans = 'norm';
-            $rows = $m;
-            $cols = $n;
-        }
-        $total_local_items = $cols;
+        $total_local_items = $n;
+        $rows = $m;
+        $ldA = $n*$k;
+        $ldB = $k;
         $type = $this->dtypeToOpenCLType[$dtype];
-        $kernel_name = "reduceSum_0_${type}_${trans}";
+        $kernel_name = "reduceSum_0_${type}";
         if(!isset($this->sources[$kernel_name])) {
-            if($trans=='trans') {
-                $index_a = 'i*lda+gid+offset_a';
-            } else {
-                $index_a = 'gid*lda+i+offset_a';
-            }
+            $index_a = 'gid0*lda+gid1+offset_a';
+            $index_b = 'gid0*ldb+gid1+offset_b';
             $this->sources[$kernel_name] =
                 "__kernel void ${kernel_name}(\n".
                 "    const        uint rows,\n".
                 "    const        uint total_local_items,\n".
-                "        __global ${type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
+                "    const        uint k,\n".
                 "    const global ${type} * a,\n".
                 "    const        uint offset_a,\n".
-                "    const        uint lda)\n".
+                "    const        uint lda,\n".
+                "          global ${type} * b,\n".
+                "    const        uint offset_b,\n".
+                "    const        uint ldb)\n".
                 "{\n".
                 "    const uint gid = get_global_id(0);\n".
+                "    const uint gid0 = gid/k;\n".
+                "    const uint gid1 = gid%k;\n".
                 "    ${type} sum = 0;\n".
-                //"    if(gid<rows) {\n".
-                "        for(uint i=0;i<total_local_items;i++) {\n".
-                "            sum += a[${index_a}];\n".
+                //"    if(gid0<rows) {\n".
+                "        uint pos = ${index_a};\n".
+                "        for(uint i=total_local_items; i>0; i--,pos+=k) {\n".
+                "            sum += a[pos];\n".
                 "        }\n".
-                "        x[gid*incx+offset_x] = sum;\n".
+                "        b[${index_b}] = sum;\n".
                 //"    }\n".
                 "}\n";
         }
@@ -2734,16 +2754,17 @@ class OpenCLMath
 
         $kernel->setArg(0,$rows,NDArray::uint32);
         $kernel->setArg(1,$total_local_items,NDArray::uint32);
-        $kernel->setArg(2,$X);
-        $kernel->setArg(3,$offsetX,NDArray::uint32);
-        $kernel->setArg(4,$incX,NDArray::uint32);
-        $kernel->setArg(5,$A);
-        $kernel->setArg(6,$offsetA,NDArray::uint32);
-        $kernel->setArg(7,$ldA,NDArray::uint32);
-        //$multiple = $this->kernelMultiple($kernel);
-        //$global_work_size = [$this->ceil($rows,$multiple)];
+        $kernel->setArg(2,$k,NDArray::uint32);
+        $kernel->setArg(3,$A);
+        $kernel->setArg(4,$offsetA,NDArray::uint32);
+        $kernel->setArg(5,$ldA,NDArray::uint32);
+        $kernel->setArg(6,$B);
+        $kernel->setArg(7,$offsetB,NDArray::uint32);
+        $kernel->setArg(8,$ldB,NDArray::uint32);
+        $multiple = $this->kernelMultiple($kernel);
+        //$global_work_size = [$this->ceil($rows*$k,$multiple)];
         //$local_work_size = [$multiple];
-        $global_work_size = [$rows];
+        $global_work_size = [$rows*$k];
         $local_work_size = null;
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
                 $events,$waitEvents);
@@ -2753,25 +2774,19 @@ class OpenCLMath
      * X(m) := sum( A(m,n) )
      */
     public function reduceSum1(
-        bool $trans,
         int $m,
         int $n,
-        Buffer $A, int $offsetA, int $ldA,
-        Buffer $X, int $offsetX, int $incX,
+        int $k,
+        Buffer $A, int $offsetA,
+        Buffer $B, int $offsetB,
         EventList $events=null, EventList $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
-        if($trans) {
-            $trans = 'trans';
-            $rows = $n;
-            $cols = $m;
-        } else {
-            $trans = 'norm';
-            $rows = $m;
-            $cols = $n;
-        }
-        $total_local_items = $cols;
+        $total_local_items = $n;
+        $rows = $m;
+        $ldA = $n*$k;
+        $ldB = $k;
         $max_work_items = $this->maxWorkItem[0];
         if($total_local_items>$max_work_items) {
             throw new InvalidArgumentException('too many cols');
@@ -2782,42 +2797,43 @@ class OpenCLMath
         }
         $value_size = $A->value_size();
         $type = $this->dtypeToOpenCLType[$dtype];
-        $kernel_name = "reduceSum_S_${type}_${trans}";
+        $kernel_name = "reduceSum_S_${type}";
         if(!isset($this->sources[$kernel_name])) {
-            if($trans=='trans') {
-                $index_a = 'lid*lda+grid+offset_a';
-            } else {
-                $index_a = 'grid*lda+lid+offset_a';
-            }
             $this->sources[$kernel_name] =
                 "__kernel void ${kernel_name}(\n".
                 "    const        uint total_local_items,\n".
-                "        __global ${type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
+                "    const        uint k,\n".
                 "    const global ${type} * a,\n".
                 "    const        uint offset_a,\n".
                 "    const        uint lda,\n".
+                "        __global ${type} * b,\n".
+                "    const        uint offset_b,\n".
+                "    const        uint ldb,\n".
                 "         __local ${type} * local_work)\n".
                 "{\n".
                 "    const uint grid = get_group_id(0);\n".
+                "    const uint gid_l = grid/k;\n".
+                "    const uint gid_r = grid%k;\n".
+                "    const uint pos_a = gid_l*lda+gid_r+offset_a;\n".
+                "    const uint pos_b = gid_l*ldb+gid_r+offset_b;\n".
                      $this->kernelTemplateSSum(
-                         "local_work[lid] = a[${index_a}];\n",
-                         "x[grid*incx+offset_x] = local_work[0];\n"
+                         "local_work[lid] = a[pos_a+lid*k];\n",
+                         "b[pos_b] = local_work[0];\n"
                      ).
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
 
         $kernel->setArg(0,$total_local_items,NDArray::uint32);
-        $kernel->setArg(1,$X);
-        $kernel->setArg(2,$offsetX,NDArray::uint32);
-        $kernel->setArg(3,$incX,NDArray::uint32);
-        $kernel->setArg(4,$A);
-        $kernel->setArg(5,$offsetA,NDArray::uint32);
-        $kernel->setArg(6,$ldA,NDArray::uint32);
-        $kernel->setArg(7,null,$max_work_items*$value_size);
-        $global_work_size = [$max_work_items*$rows];
+        $kernel->setArg(1,$k,NDArray::uint32);
+        $kernel->setArg(2,$A);
+        $kernel->setArg(3,$offsetA,NDArray::uint32);
+        $kernel->setArg(4,$ldA,NDArray::uint32);
+        $kernel->setArg(5,$B);
+        $kernel->setArg(6,$offsetB,NDArray::uint32);
+        $kernel->setArg(7,$ldB,NDArray::uint32);
+        $kernel->setArg(8,null,$max_work_items*$value_size);
+        $global_work_size = [$max_work_items*$k*$rows];
         $local_work_size = [$max_work_items];
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
                 $events,$waitEvents);
@@ -2827,25 +2843,19 @@ class OpenCLMath
      * X(m) := sum( A(m,n) )
      */
     public function reduceSum2(
-        bool $trans,
         int $m,
         int $n,
-        Buffer $A, int $offsetA, int $ldA,
-        Buffer $X, int $offsetX, int $incX,
+        int $k,
+        Buffer $A, int $offsetA,
+        Buffer $B, int $offsetB,
         EventList $events=null, EventList $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
-        if($trans) {
-            $trans = 'trans';
-            $rows = $n;
-            $cols = $m;
-        } else {
-            $trans = 'norm';
-            $rows = $m;
-            $cols = $n;
-        }
-        $total_local_items = $cols;
+        $total_local_items = $n;
+        $rows = $m;
+        $ldA = $n*$k;
+        $ldB = $k;
         $max_work_items = $this->maxWorkItem[0];
         if($total_local_items>$max_work_items) {
             $segments = (int)ceil($total_local_items/$max_work_items); // round up float
@@ -2859,31 +2869,31 @@ class OpenCLMath
         }
         $value_size = $A->value_size();
         $type = $this->dtypeToOpenCLType[$dtype];
-        $kernel_name = "reduceSum_M_${type}_${trans}";
+        $kernel_name = "reduceSum_M_${type}";
         if(!isset($this->sources[$kernel_name])) {
-            if($trans=='trans') {
-                $index_a = '(seg*lws+lid)*lda+grid+offset_a';
-            } else {
-                $index_a = 'grid*lda+(seg*lws+lid)+offset_a';
-            }
             $this->sources[$kernel_name] =
                 "__kernel void ${kernel_name}(\n".
                 "    const        uint total_local_items,\n".
                 "    const        uint segments,\n".
-                "        __global ${type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
+                "    const        uint k,\n".
                 "    const global ${type} * a,\n".
                 "    const        uint offset_a,\n".
                 "    const        uint lda,\n".
+                "        __global ${type} * b,\n".
+                "    const        uint offset_b,\n".
+                "    const        uint ldb,\n".
                 "         __local ${type} * local_work,\n".
                 "         __local ${type} * seg_work,\n".
                 "    const        uint work_items)\n".
                 "{\n".
                 "    const uint grid = get_group_id(0);\n".
+                "    const uint gid_l = grid/k;\n".
+                "    const uint gid_r = grid%k;\n".
+                "    const uint pos_a = gid_l*lda+gid_r+offset_a;\n".
+                "    const uint pos_b = gid_l*ldb+gid_r+offset_b;\n".
                      $this->kernelTemplateQSum(
-                         "local_work[lid] = a[${index_a}];\n",
-                         "x[grid*incx+offset_x] = seg_work[0];\n"
+                         "local_work[lid] = a[pos_a+(seg*lws+lid)*k];\n",
+                         "b[pos_b] = seg_work[0];\n"
                      ).
                 "}\n";
         }
@@ -2891,17 +2901,18 @@ class OpenCLMath
 
         $kernel->setArg(0,$total_local_items,NDArray::uint32);
         $kernel->setArg(1,$segments,NDArray::uint32);
-        $kernel->setArg(2,$X);
-        $kernel->setArg(3,$offsetX,NDArray::uint32);
-        $kernel->setArg(4,$incX,NDArray::uint32);
-        $kernel->setArg(5,$A);
-        $kernel->setArg(6,$offsetA,NDArray::uint32);
-        $kernel->setArg(7,$ldA,NDArray::uint32);
+        $kernel->setArg(2,$k,NDArray::uint32);
+        $kernel->setArg(3,$A);
+        $kernel->setArg(4,$offsetA,NDArray::uint32);
+        $kernel->setArg(5,$ldA,NDArray::uint32);
+        $kernel->setArg(6,$B);
+        $kernel->setArg(7,$offsetB,NDArray::uint32);
+        $kernel->setArg(8,$ldB,NDArray::uint32);
 
-        $kernel->setArg(8,null,$max_work_items*$value_size);
-        $kernel->setArg(9,null,$segments*$value_size);
-        $kernel->setArg(10,$work_items,NDArray::uint32);
-        $global_work_size = [$max_work_items*$rows];
+        $kernel->setArg(9,null,$max_work_items*$value_size);
+        $kernel->setArg(10,null,$segments*$value_size);
+        $kernel->setArg(11,$work_items,NDArray::uint32);
+        $global_work_size = [$max_work_items*$k*$rows];
         $local_work_size = [$max_work_items];
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
                 $events,$waitEvents);
@@ -2911,25 +2922,19 @@ class OpenCLMath
      * X(m) := sum( A(m,n) )
      */
     public function reduceSum3(
-        bool $trans,
         int $m,
         int $n,
-        Buffer $A, int $offsetA, int $ldA,
-        Buffer $X, int $offsetX, int $incX,
+        int $k,
+        Buffer $A, int $offsetA,
+        Buffer $B, int $offsetB,
         EventList $events=null, EventList $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
-        if($trans) {
-            $trans = 'trans';
-            $rows = $n;
-            $cols = $m;
-        } else {
-            $trans = 'norm';
-            $rows = $m;
-            $cols = $n;
-        }
-        $total_local_items = $cols;
+        $total_local_items = $n;
+        $rows = $m;
+        $ldA = $n*$k;
+        $ldB = $k;
         $work_items1 = $this->maxWorkItem[0];
         $work_items2 = $this->maxWorkItem[0];
         if($total_local_items<$work_items1) {
@@ -2945,21 +2950,17 @@ class OpenCLMath
         $value_size = $A->value_size();
         $temp_size = 2*$work_items2;
         $temp_buffer = $this->newBuffer(
-            $value_size*$temp_size*$rows,
+            $value_size*$temp_size*$rows*$k,
             OpenCL::CL_MEM_READ_WRITE,null,null,$dtype);
 
         $type = $this->dtypeToOpenCLType[$dtype];
-        $kernel_name1 = "reduceSum_L1_${type}_${trans}";
-        $kernel_name2 = "reduceSum_L2_${type}_${trans}";
+        $kernel_name1 = "reduceSum_L1_${type}";
+        $kernel_name2 = "reduceSum_L2_${type}";
         if(!isset($this->sources[$kernel_name1])) {
-            if($trans=='trans') {
-                $index_a = 'local_item_id*lda + parallel_item_id + offset_a';
-            } else {
-                $index_a = 'parallel_item_id*lda + local_item_id + offset_a';
-            }
             $this->sources[$kernel_name1] =
                 "__kernel void ${kernel_name1}(\n".
                 "    const        uint total_local_items,\n".
+                "    const        uint k,\n".
                 "    const __global ${type} * a,\n".
                 "    const        uint offset_a,\n".
                 "    const        uint lda,\n".
@@ -2967,8 +2968,11 @@ class OpenCLMath
                 "         __local ${type} * local_work)\n".
                 "{\n".
                 "    const uint parallel_item_id = get_global_id(1);\n".
+                "    const uint gid_l = parallel_item_id/k;\n".
+                "    const uint gid_r = parallel_item_id%k;\n".
+                "    const uint pos_a = gid_l*lda+gid_r+offset_a;\n".
                     $this->kernelTemplateLSum1(
-                        "${type} input = a[${index_a}];",
+                        "${type} input = a[pos_a+local_item_id*k];",
                         $dtype
                     ).
                 "}\n";
@@ -2978,59 +2982,65 @@ class OpenCLMath
         if(!isset($this->sources[$kernel_name2])) {
             $this->sources[$kernel_name2] =
                 "__kernel void ${kernel_name2}(\n".
+                "    const        uint k,\n".
                 "    const __global ${type} * temp_buffer,\n".
-                "        __global ${type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
+                "        __global ${type} * b,\n".
+                "    const        uint offset_b,\n".
+                "    const        uint ldb,\n".
                 "         __local ${type} * local_work)\n".
                 "{\n".
                 "    const uint parallel_item_id = get_global_id(1);\n".
+                "    const uint gid_l = parallel_item_id/k;\n".
+                "    const uint gid_r = parallel_item_id%k;\n".
+                "    const uint pos_b = gid_l*ldb+gid_r+offset_b;\n".
                     $this->kernelTemplateLSum2(
-                        "x[parallel_item_id*incx+offset_x] = local_work[0];"
+                        "b[pos_b] = local_work[0];"
                     ).
                 "}\n";
         }
         $kernel2 = $this->createKernel($kernel_name2);
 
-        $kernel->setArg(0,$cols,NDArray::uint32);
-        $kernel->setArg(1,$A);
-        $kernel->setArg(2,$offsetA,NDArray::uint32);
-        $kernel->setArg(3,$ldA,NDArray::uint32);
-        $kernel->setArg(4,$temp_buffer);
-        $kernel->setArg(5,null,$work_items1*$value_size);
-        $global_work_size = [$work_items1*$temp_size,$rows];
-        $local_work_size = [$work_items1,1];
+        $kernel->setArg(0,$total_local_items,NDArray::uint32);
+        $kernel->setArg(1,$k,NDArray::uint32);
+        $kernel->setArg(2,$A);
+        $kernel->setArg(3,$offsetA,NDArray::uint32);
+        $kernel->setArg(4,$ldA,NDArray::uint32);
+        $kernel->setArg(5,$temp_buffer);
+        $kernel->setArg(6,null,$work_items1*$value_size);
+        $global_work_size = [$work_items1*$temp_size,$rows*$k];
+        $local_work_size  = [$work_items1,1];
         $phase1Events = $this->newEventList();
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
                 $phase1Events,$waitEvents);
 
-        $kernel2->setArg(0,$temp_buffer);
-        $kernel2->setArg(1,$X);
-        $kernel2->setArg(2,$offsetX,NDArray::uint32);
-        $kernel2->setArg(3,$incX,NDArray::uint32);
-        $kernel2->setArg(4,null,$work_items2*$value_size);
-        $global_work_size = [$work_items2,$rows];
+        $kernel2->setArg(0,$k,NDArray::uint32);
+        $kernel2->setArg(1,$temp_buffer);
+        $kernel2->setArg(2,$B);
+        $kernel2->setArg(3,$offsetB,NDArray::uint32);
+        $kernel2->setArg(4,$ldB,NDArray::uint32);
+        $kernel2->setArg(5,null,$work_items2*$value_size);
+        $global_work_size = [$work_items2,$rows*$k];
         $local_work_size = [$work_items2,1];
         $kernel2->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
                 $events,$phase1Events);
     }
 
     /**
-     * X(m) := max( A(m,n) )
+     * X(m) := sum( A(m,n) )
      */
     public function reduceMax(
-        bool $trans,
         int $m,
         int $n,
-        Buffer $A, int $offsetA, int $ldA,
-        Buffer $X, int $offsetX, int $incX,
+        int $k,
+        Buffer $A, int $offsetA,
+        Buffer $B, int $offsetB,
         EventList $events=null, EventList $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
-        if($dtype!=$X->dtype()) {
-            throw new InvalidArgumentException("Unmatch data type A and X:".
-            $this->dtypeToString($dtype).",".$this->dtypeToString($X->dtype()));
+        if($dtype!=$B->dtype()) {
+            throw new InvalidArgumentException("Unmatch data type A and B:".
+            $this->dtypeToString($dtype).",".$this->dtypeToString($B->dtype()));
         }
         if($dtype!=NDArray::float64 && $dtype!=NDArray::float32) {
             throw new InvalidArgumentException("Unsuppored data type:".
@@ -3039,15 +3049,9 @@ class OpenCLMath
         if($dtype==NDArray::float64) {
             $this->assertFP64();
         }
-        if($trans) {
-            $rows = $n;
-            $cols = $m;
-        } else {
-            $rows = $m;
-            $cols = $n;
-        }
-        for($bm=8; $bm<$rows;$bm<<=1) { ; }
-        for($bn=8; $bn<$cols;$bn<<=1) { ; }
+        $mk = $m*$k;
+        for($bm=8; $bm<$mk;$bm<<=1) { ; }
+        for($bn=8; $bn<$n;$bn<<=1) { ; }
         $mode0 = $this->predictTimeReduceSum(0,$bm,$bn);
         $mode2 = $this->predictTimeReduceSum(2,$bm,$bn);
         $mode3 = $this->predictTimeReduceSum(3,$bm,$bn);
@@ -3057,37 +3061,51 @@ class OpenCLMath
         $imin1 = ($mode2 < $mode0) ? 2 : 0;
         $min2 =  ($mode3 < $min1)  ? $mode3 : $min1;
         $mode =  ($mode3 < $min1)  ? 3 : $imin1;
+        if($mode==2 && $n<=256) {
+            $mode = 1;
+        }
         //echo "mode=$mode\n";
         switch($mode) {
             case 0: {
                 $this->reduceMax0(
-                    $trans,
                     $m,
                     $n,
-                    $A,$offsetA,$ldA,
-                    $X,$offsetX,$incX,
+                    $k,
+                    $A,$offsetA,
+                    $B,$offsetB,
+                    $events,$waitEvents
+                );
+                break;
+            }
+            case 1: {
+                $this->reduceMax1(
+                    $m,
+                    $n,
+                    $k,
+                    $A,$offsetA,
+                    $B,$offsetB,
                     $events,$waitEvents
                 );
                 break;
             }
             case 2: {
                 $this->reduceMax2(
-                    $trans,
                     $m,
                     $n,
-                    $A,$offsetA,$ldA,
-                    $X,$offsetX,$incX,
+                    $k,
+                    $A,$offsetA,
+                    $B,$offsetB,
                     $events,$waitEvents
                 );
                 break;
             }
             case 3: {
                 $this->reduceMax3(
-                    $trans,
                     $m,
                     $n,
-                    $A,$offsetA,$ldA,
-                    $X,$offsetX,$incX,
+                    $k,
+                    $A,$offsetA,
+                    $B,$offsetB,
                     $events,$waitEvents
                 );
             }
@@ -3095,59 +3113,54 @@ class OpenCLMath
     }
 
     /**
-    * X(m) := max( A(m,n) )
-    */
+     * X(m) := sum( A(m,n) )
+     */
     public function reduceMax0(
-        bool $trans,
         int $m,
         int $n,
-        Buffer $A, int $offsetA, int $ldA,
-        Buffer $X, int $offsetX, int $incX,
+        int $k,
+        Buffer $A, int $offsetA,
+        Buffer $B, int $offsetB,
         EventList $events=null, EventList $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
-        if($trans) {
-            $trans = 'trans';
-            $rows = $n;
-            $cols = $m;
-        } else {
-            $trans = 'norm';
-            $rows = $m;
-            $cols = $n;
-        }
-        $total_local_items = $cols;
+        $total_local_items = $n;
+        $rows = $m;
+        $ldA = $n*$k;
+        $ldB = $k;
         $type = $this->dtypeToOpenCLType[$dtype];
-        $kernel_name = "reduceMax_0_${type}_${trans}";
+        $kernel_name = "reduceMax_0_${type}";
         if(!isset($this->sources[$kernel_name])) {
-            if($trans=='trans') {
-                $index_a = 'i*lda+gid+offset_a';
-            } else {
-                $index_a = 'gid*lda+i+offset_a';
-            }
+            $index_a = 'gid0*lda+gid1+offset_a';
+            $index_b = 'gid0*ldb+gid1+offset_b';
             $this->sources[$kernel_name] =
                 "__kernel void ${kernel_name}(\n".
                 "    const        uint rows,\n".
                 "    const        uint total_local_items,\n".
-                "        __global ${type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
+                "    const        uint k,\n".
                 "    const global ${type} * a,\n".
                 "    const        uint offset_a,\n".
-                "    const        uint lda)\n".
+                "    const        uint lda,\n".
+                "          global ${type} * b,\n".
+                "    const        uint offset_b,\n".
+                "    const        uint ldb)\n".
                 "{\n".
                 "    const uint gid = get_global_id(0);\n".
-                "    uint i=0;\n".
-                "    ${type} value;\n".
-                "    ${type} max = a[${index_a}];\n".
-                //"    if(gid<rows) {\n".
-                "        for(i=1;i<total_local_items;i++) {\n".
-                "           value = a[${index_a}];\n".
-                "           if(value>max) {\n".
-                "               max = value;\n".
-                "           }\n".
+                "    const uint gid0 = gid/k;\n".
+                "    const uint gid1 = gid%k;\n".
+                //"    if(gid0<rows) {\n".
+                "        uint i=0;\n".
+                "        uint pos = ${index_a};\n".
+                "        ${type} max = a[pos];\n".
+                "        pos += k;\n".
+                "        for(uint i=1; i<total_local_items; i++,pos+=k) {\n".
+                "            ${type} value = a[pos];\n".
+                "            if(value>max) {\n".
+                "                max = value;\n".
+                "            }\n".
                 "        }\n".
-                "        x[gid*incx+offset_x] = max;\n".
+                "        b[${index_b}] = max;\n".
                 //"    }\n".
                 "}\n";
         }
@@ -3155,44 +3168,39 @@ class OpenCLMath
 
         $kernel->setArg(0,$rows,NDArray::uint32);
         $kernel->setArg(1,$total_local_items,NDArray::uint32);
-        $kernel->setArg(2,$X);
-        $kernel->setArg(3,$offsetX,NDArray::uint32);
-        $kernel->setArg(4,$incX,NDArray::uint32);
-        $kernel->setArg(5,$A);
-        $kernel->setArg(6,$offsetA,NDArray::uint32);
-        $kernel->setArg(7,$ldA,NDArray::uint32);
-        $global_work_size = [$rows];
-        $local_work_size = null;
-        //$multiple = $this->kernelMultiple($kernel);
-        //$global_work_size = [$this->ceil($rows,$multiple)];
+        $kernel->setArg(2,$k,NDArray::uint32);
+        $kernel->setArg(3,$A);
+        $kernel->setArg(4,$offsetA,NDArray::uint32);
+        $kernel->setArg(5,$ldA,NDArray::uint32);
+        $kernel->setArg(6,$B);
+        $kernel->setArg(7,$offsetB,NDArray::uint32);
+        $kernel->setArg(8,$ldB,NDArray::uint32);
+        $multiple = $this->kernelMultiple($kernel);
+        //$global_work_size = [$this->ceil($rows*$k,$multiple)];
         //$local_work_size = [$multiple];
+        $global_work_size = [$rows*$k];
+        $local_work_size = null;
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
                 $events,$waitEvents);
     }
 
     /**
-    * X(m) := max( A(m,n) )
-    */
+     * X(m) := sum( A(m,n) )
+     */
     public function reduceMax1(
-        bool $trans,
         int $m,
         int $n,
-        Buffer $A, int $offsetA, int $ldA,
-        Buffer $X, int $offsetX, int $incX,
+        int $k,
+        Buffer $A, int $offsetA,
+        Buffer $B, int $offsetB,
         EventList $events=null, EventList $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
-        if($trans) {
-            $trans = 'trans';
-            $rows = $n;
-            $cols = $m;
-        } else {
-            $trans = 'norm';
-            $rows = $m;
-            $cols = $n;
-        }
-        $total_local_items = $cols;
+        $total_local_items = $n;
+        $rows = $m;
+        $ldA = $n*$k;
+        $ldB = $k;
         $max_work_items = $this->maxWorkItem[0];
         if($total_local_items>$max_work_items) {
             throw new InvalidArgumentException('too many cols');
@@ -3203,28 +3211,28 @@ class OpenCLMath
         }
         $value_size = $A->value_size();
         $type = $this->dtypeToOpenCLType[$dtype];
-        $kernel_name = "reduceMax_S_${type}_${trans}";
+        $kernel_name = "reduceMax_S_${type}";
         if(!isset($this->sources[$kernel_name])) {
-            if($trans=='trans') {
-                $index_a = 'lid*lda+grid+offset_a';
-            } else {
-                $index_a = 'grid*lda+lid+offset_a';
-            }
             $this->sources[$kernel_name] =
                 "__kernel void ${kernel_name}(\n".
                 "    const        uint total_local_items,\n".
-                "        __global ${type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
+                "    const        uint k,\n".
                 "    const global ${type} * a,\n".
                 "    const        uint offset_a,\n".
                 "    const        uint lda,\n".
+                "        __global ${type} * b,\n".
+                "    const        uint offset_b,\n".
+                "    const        uint ldb,\n".
                 "         __local ${type} * local_work)\n".
                 "{\n".
                 "    const uint grid = get_group_id(0);\n".
+                "    const uint gid_l = grid/k;\n".
+                "    const uint gid_r = grid%k;\n".
+                "    const uint pos_a = gid_l*lda+gid_r+offset_a;\n".
+                "    const uint pos_b = gid_l*ldb+gid_r+offset_b;\n".
                      $this->kernelTemplateSMax(
-                         "local_work[lid] = a[${index_a}];",
-                         "x[grid*incx+offset_x] = local_work[0];",
+                         "local_work[lid] = a[pos_a+lid*k];\n",
+                         "b[pos_b] = local_work[0];\n",
                          $dtype
                      ).
                 "}\n";
@@ -3232,42 +3240,37 @@ class OpenCLMath
         $kernel = $this->createKernel($kernel_name);
 
         $kernel->setArg(0,$total_local_items,NDArray::uint32);
-        $kernel->setArg(1,$X);
-        $kernel->setArg(2,$offsetX,NDArray::uint32);
-        $kernel->setArg(3,$incX,NDArray::uint32);
-        $kernel->setArg(4,$A);
-        $kernel->setArg(5,$offsetA,NDArray::uint32);
-        $kernel->setArg(6,$ldA,NDArray::uint32);
-        $kernel->setArg(7,null,$max_work_items*$value_size);
-        $global_work_size = [$max_work_items*$rows];
+        $kernel->setArg(1,$k,NDArray::uint32);
+        $kernel->setArg(2,$A);
+        $kernel->setArg(3,$offsetA,NDArray::uint32);
+        $kernel->setArg(4,$ldA,NDArray::uint32);
+        $kernel->setArg(5,$B);
+        $kernel->setArg(6,$offsetB,NDArray::uint32);
+        $kernel->setArg(7,$ldB,NDArray::uint32);
+        $kernel->setArg(8,null,$max_work_items*$value_size);
+        $global_work_size = [$max_work_items*$k*$rows];
         $local_work_size = [$max_work_items];
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
                 $events,$waitEvents);
     }
 
     /**
-     * X(m) := max( A(m,n) )
+     * X(m) := sum( A(m,n) )
      */
     public function reduceMax2(
-        bool $trans,
         int $m,
         int $n,
-        Buffer $A, int $offsetA, int $ldA,
-        Buffer $X, int $offsetX, int $incX,
+        int $k,
+        Buffer $A, int $offsetA,
+        Buffer $B, int $offsetB,
         EventList $events=null, EventList $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
-        if($trans) {
-            $trans = 'trans';
-            $rows = $n;
-            $cols = $m;
-        } else {
-            $trans = 'norm';
-            $rows = $m;
-            $cols = $n;
-        }
-        $total_local_items = $cols;
+        $total_local_items = $n;
+        $rows = $m;
+        $ldA = $n*$k;
+        $ldB = $k;
         $max_work_items = $this->maxWorkItem[0];
         if($total_local_items>$max_work_items) {
             $segments = (int)ceil($total_local_items/$max_work_items); // round up float
@@ -3281,31 +3284,31 @@ class OpenCLMath
         }
         $value_size = $A->value_size();
         $type = $this->dtypeToOpenCLType[$dtype];
-        $kernel_name = "reduceMax_M_${type}_${trans}";
+        $kernel_name = "reduceMax_M_${type}";
         if(!isset($this->sources[$kernel_name])) {
-            if($trans=='trans') {
-                $index_a = '(seg*lws+lid)*lda+grid+offset_a';
-            } else {
-                $index_a = 'grid*lda+(seg*lws+lid)+offset_a';
-            }
             $this->sources[$kernel_name] =
                 "__kernel void ${kernel_name}(\n".
                 "    const        uint total_local_items,\n".
                 "    const        uint segments,\n".
-                "        __global ${type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
+                "    const        uint k,\n".
                 "    const global ${type} * a,\n".
                 "    const        uint offset_a,\n".
                 "    const        uint lda,\n".
+                "        __global ${type} * b,\n".
+                "    const        uint offset_b,\n".
+                "    const        uint ldb,\n".
                 "         __local ${type} * local_work,\n".
                 "         __local ${type} * seg_work,\n".
                 "    const        uint work_items)\n".
                 "{\n".
                 "    const uint grid = get_group_id(0);\n".
+                "    const uint gid_l = grid/k;\n".
+                "    const uint gid_r = grid%k;\n".
+                "    const uint pos_a = gid_l*lda+gid_r+offset_a;\n".
+                "    const uint pos_b = gid_l*ldb+gid_r+offset_b;\n".
                      $this->kernelTemplateQMax(
-                         "local_work[lid] = a[${index_a}];\n",
-                         "x[grid*incx+offset_x] = seg_work[0];\n",
+                         "local_work[lid] = a[pos_a+(seg*lws+lid)*k];\n",
+                         "b[pos_b] = seg_work[0];\n",
                          $dtype
                      ).
                 "}\n";
@@ -3314,45 +3317,40 @@ class OpenCLMath
 
         $kernel->setArg(0,$total_local_items,NDArray::uint32);
         $kernel->setArg(1,$segments,NDArray::uint32);
-        $kernel->setArg(2,$X);
-        $kernel->setArg(3,$offsetX,NDArray::uint32);
-        $kernel->setArg(4,$incX,NDArray::uint32);
-        $kernel->setArg(5,$A);
-        $kernel->setArg(6,$offsetA,NDArray::uint32);
-        $kernel->setArg(7,$ldA,NDArray::uint32);
+        $kernel->setArg(2,$k,NDArray::uint32);
+        $kernel->setArg(3,$A);
+        $kernel->setArg(4,$offsetA,NDArray::uint32);
+        $kernel->setArg(5,$ldA,NDArray::uint32);
+        $kernel->setArg(6,$B);
+        $kernel->setArg(7,$offsetB,NDArray::uint32);
+        $kernel->setArg(8,$ldB,NDArray::uint32);
 
-        $kernel->setArg(8,null,$max_work_items*$value_size);
-        $kernel->setArg(9,null,$segments*$value_size);
-        $kernel->setArg(10,$work_items,NDArray::uint32);
-        $global_work_size = [$max_work_items*$rows];
+        $kernel->setArg(9,null,$max_work_items*$value_size);
+        $kernel->setArg(10,null,$segments*$value_size);
+        $kernel->setArg(11,$work_items,NDArray::uint32);
+        $global_work_size = [$max_work_items*$k*$rows];
         $local_work_size = [$max_work_items];
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
                 $events,$waitEvents);
     }
 
     /**
-     * X(m) := max( A(m,n) )
+     * X(m) := sum( A(m,n) )
      */
     public function reduceMax3(
-        bool $trans,
         int $m,
         int $n,
-        Buffer $A, int $offsetA, int $ldA,
-        Buffer $X, int $offsetX, int $incX,
+        int $k,
+        Buffer $A, int $offsetA,
+        Buffer $B, int $offsetB,
         EventList $events=null, EventList $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
-        if($trans) {
-            $trans = 'trans';
-            $rows = $n;
-            $cols = $m;
-        } else {
-            $trans = 'norm';
-            $rows = $m;
-            $cols = $n;
-        }
-        $total_local_items = $cols;
+        $total_local_items = $n;
+        $rows = $m;
+        $ldA = $n*$k;
+        $ldB = $k;
         $work_items1 = $this->maxWorkItem[0];
         $work_items2 = $this->maxWorkItem[0];
         if($total_local_items<$work_items1) {
@@ -3368,21 +3366,17 @@ class OpenCLMath
         $value_size = $A->value_size();
         $temp_size = 2*$work_items2;
         $temp_buffer = $this->newBuffer(
-            $value_size*$temp_size*$rows,
+            $value_size*$temp_size*$rows*$k,
             OpenCL::CL_MEM_READ_WRITE,null,null,$dtype);
 
         $type = $this->dtypeToOpenCLType[$dtype];
-        $kernel_name1 = "reduceMax_L1_${type}_${trans}";
-        $kernel_name2 = "reduceMax_L2_${type}_${trans}";
+        $kernel_name1 = "reduceMax_L1_${type}";
+        $kernel_name2 = "reduceMax_L2_${type}";
         if(!isset($this->sources[$kernel_name1])) {
-            if($trans=='trans') {
-                $index_a = 'local_item_id*lda + parallel_item_id + offset_a';
-            } else {
-                $index_a = 'parallel_item_id*lda + local_item_id + offset_a';
-            }
             $this->sources[$kernel_name1] =
                 "__kernel void ${kernel_name1}(\n".
                 "    const        uint total_local_items,\n".
+                "    const        uint k,\n".
                 "    const __global ${type} * a,\n".
                 "    const        uint offset_a,\n".
                 "    const        uint lda,\n".
@@ -3390,8 +3384,11 @@ class OpenCLMath
                 "         __local ${type} * local_work)\n".
                 "{\n".
                 "    const uint parallel_item_id = get_global_id(1);\n".
+                "    const uint gid_l = parallel_item_id/k;\n".
+                "    const uint gid_r = parallel_item_id%k;\n".
+                "    const uint pos_a = gid_l*lda+gid_r+offset_a;\n".
                     $this->kernelTemplateLMax1(
-                        "${type} input = a[${index_a}];",
+                        "${type} input = a[pos_a+local_item_id*k];",
                         $dtype
                     ).
                 "}\n";
@@ -3401,75 +3398,76 @@ class OpenCLMath
         if(!isset($this->sources[$kernel_name2])) {
             $this->sources[$kernel_name2] =
                 "__kernel void ${kernel_name2}(\n".
+                "    const        uint k,\n".
                 "    const __global ${type} * temp_buffer,\n".
-                "        __global ${type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
+                "        __global ${type} * b,\n".
+                "    const        uint offset_b,\n".
+                "    const        uint ldb,\n".
                 "         __local ${type} * local_work)\n".
                 "{\n".
                 "    const uint parallel_item_id = get_global_id(1);\n".
+                "    const uint gid_l = parallel_item_id/k;\n".
+                "    const uint gid_r = parallel_item_id%k;\n".
+                "    const uint pos_b = gid_l*ldb+gid_r+offset_b;\n".
                     $this->kernelTemplateLMax2(
-                        "x[parallel_item_id*incx+offset_x] = local_work[0];"
+                        "b[pos_b] = local_work[0];"
                     ).
                 "}\n";
         }
         $kernel2 = $this->createKernel($kernel_name2);
 
         $kernel->setArg(0,$total_local_items,NDArray::uint32);
-        $kernel->setArg(1,$A);
-        $kernel->setArg(2,$offsetA,NDArray::uint32);
-        $kernel->setArg(3,$ldA,NDArray::uint32);
-        $kernel->setArg(4,$temp_buffer);
-        $kernel->setArg(5,null,$work_items1*$value_size);
-        $global_work_size = [$work_items1*$temp_size,$rows];
-        $local_work_size = [$work_items1,1];
+        $kernel->setArg(1,$k,NDArray::uint32);
+        $kernel->setArg(2,$A);
+        $kernel->setArg(3,$offsetA,NDArray::uint32);
+        $kernel->setArg(4,$ldA,NDArray::uint32);
+        $kernel->setArg(5,$temp_buffer);
+        $kernel->setArg(6,null,$work_items1*$value_size);
+        $global_work_size = [$work_items1*$temp_size,$rows*$k];
+        $local_work_size  = [$work_items1,1];
         $phase1Events = $this->newEventList();
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
                 $phase1Events,$waitEvents);
 
-        $kernel2->setArg(0,$temp_buffer);
-        $kernel2->setArg(1,$X);
-        $kernel2->setArg(2,$offsetX,NDArray::uint32);
-        $kernel2->setArg(3,$incX,NDArray::uint32);
-        $kernel2->setArg(4,null,$work_items2*$value_size);
-        $global_work_size = [$work_items2,$rows];
+        $kernel2->setArg(0,$k,NDArray::uint32);
+        $kernel2->setArg(1,$temp_buffer);
+        $kernel2->setArg(2,$B);
+        $kernel2->setArg(3,$offsetB,NDArray::uint32);
+        $kernel2->setArg(4,$ldB,NDArray::uint32);
+        $kernel2->setArg(5,null,$work_items2*$value_size);
+        $global_work_size = [$work_items2,$rows*$k];
         $local_work_size = [$work_items2,1];
         $kernel2->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
                 $events,$phase1Events);
     }
 
     /**
-    * X(m) := argMax( A(m,n) )
-    */
+     * X(m) := argMax( A(m,n) )
+     */
     public function reduceArgMax(
-        bool $trans,
         int $m,
         int $n,
-        Buffer $A, int $offsetA, int $ldA,
-        Buffer $X, int $offsetX, int $incX,
+        int $k,
+        Buffer $A, int $offsetA,
+        Buffer $B, int $offsetB,
         EventList $events=null, EventList $waitEvents=null
         ) : void
     {
-        if($X->dtype()!=NDArray::int32 && $X->dtype()!=NDArray::uint32) {
-            throw new InvalidArgumentException("X must be 32bit integer:".
-                                            $this->dtypeToString($X->dtype()));
+        $dtype = $A->dtype();
+        if($B->dtype()!=NDArray::int32 && $B->dtype()!=NDArray::uint32) {
+            throw new InvalidArgumentException("B must be 32bit integer:".
+                                            $this->dtypeToString($B->dtype()));
         }
-        if($A->dtype()!=NDArray::float64 && $A->dtype()!=NDArray::float32) {
+        if($dtype!=NDArray::float64 && $dtype!=NDArray::float32) {
             throw new InvalidArgumentException("Unsuppored data type:".
-                                            $this->dtypeToString($A->dtype()));
+                                            $this->dtypeToString($dtype));
         }
-        if($A->dtype()==NDArray::float64) {
+        if($dtype==NDArray::float64) {
             $this->assertFP64();
         }
-        if($trans) {
-            $rows = $n;
-            $cols = $m;
-        } else {
-            $rows = $m;
-            $cols = $n;
-        }
-        for($bm=8; $bm<$rows;$bm<<=1) { ; }
-        for($bn=8; $bn<$cols;$bn<<=1) { ; }
+        $mk = $m*$k;
+        for($bm=8; $bm<$mk;$bm<<=1) { ; }
+        for($bn=8; $bn<$n;$bn<<=1) { ; }
         $mode0 = $this->predictTimeReduceSum(0,$bm,$bn);
         $mode2 = $this->predictTimeReduceSum(2,$bm,$bn);
         $mode3 = $this->predictTimeReduceSum(3,$bm,$bn);
@@ -3479,37 +3477,51 @@ class OpenCLMath
         $imin1 = ($mode2 < $mode0) ? 2 : 0;
         $min2 =  ($mode3 < $min1)  ? $mode3 : $min1;
         $mode =  ($mode3 < $min1)  ? 3 : $imin1;
+        if($mode==2 && $n<=256) {
+            $mode = 1;
+        }
         //echo "mode=$mode\n";
         switch($mode) {
             case 0: {
                 $this->reduceArgMax0(
-                    $trans,
                     $m,
                     $n,
-                    $A,$offsetA,$ldA,
-                    $X,$offsetX,$incX,
+                    $k,
+                    $A,$offsetA,
+                    $B,$offsetB,
+                    $events,$waitEvents
+                );
+                break;
+            }
+            case 1: {
+                $this->reduceArgMax1(
+                    $m,
+                    $n,
+                    $k,
+                    $A,$offsetA,
+                    $B,$offsetB,
                     $events,$waitEvents
                 );
                 break;
             }
             case 2: {
                 $this->reduceArgMax2(
-                    $trans,
                     $m,
                     $n,
-                    $A,$offsetA,$ldA,
-                    $X,$offsetX,$incX,
+                    $k,
+                    $A,$offsetA,
+                    $B,$offsetB,
                     $events,$waitEvents
                 );
                 break;
             }
             case 3: {
                 $this->reduceArgMax3(
-                    $trans,
                     $m,
                     $n,
-                    $A,$offsetA,$ldA,
-                    $X,$offsetX,$incX,
+                    $k,
+                    $A,$offsetA,
+                    $B,$offsetB,
                     $events,$waitEvents
                 );
             }
@@ -3517,62 +3529,56 @@ class OpenCLMath
     }
 
     /**
-    * X(m) := argmax( A(m,n) )
-    */
+     * X(m) := sum( A(m,n) )
+     */
     public function reduceArgMax0(
-        bool $trans,
         int $m,
         int $n,
-        Buffer $A, int $offsetA, int $ldA,
-        Buffer $X, int $offsetX, int $incX,
+        int $k,
+        Buffer $A, int $offsetA,
+        Buffer $B, int $offsetB,
         EventList $events=null, EventList $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
-        if($trans) {
-            $trans = 'trans';
-            $rows = $n;
-            $cols = $m;
-        } else {
-            $trans = 'norm';
-            $rows = $m;
-            $cols = $n;
-        }
-        $total_local_items = $cols;
+        $total_local_items = $n;
+        $rows = $m;
+        $ldA = $n*$k;
+        $ldB = $k;
         $type = $this->dtypeToOpenCLType[$dtype];
-        $kernel_name = "reduceArgMax_0_${type}_${trans}";
+        $kernel_name = "reduceArgMax_0_${type}";
         if(!isset($this->sources[$kernel_name])) {
-            if($trans=='trans') {
-                $index_a = 'i*lda+gid+offset_a';
-            } else {
-                $index_a = 'gid*lda+i+offset_a';
-            }
+            $index_a = 'gid0*lda+gid1+offset_a';
+            $index_b = 'gid0*ldb+gid1+offset_b';
             $this->sources[$kernel_name] =
                 "__kernel void ${kernel_name}(\n".
                 "    const        uint rows,\n".
                 "    const        uint total_local_items,\n".
-                "        __global uint * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
+                "    const        uint k,\n".
                 "    const global ${type} * a,\n".
                 "    const        uint offset_a,\n".
-                "    const        uint lda)\n".
+                "    const        uint lda,\n".
+                "          global uint * b,\n".
+                "    const        uint offset_b,\n".
+                "    const        uint ldb)\n".
                 "{\n".
                 "    const uint gid = get_global_id(0);\n".
-                "    uint i=0;\n".
-                "    uint index;\n".
-                "    ${type} value;\n".
-                "    uint imax = i;\n".
-                "    ${type} max = a[${index_a}];\n".
-                //"    if(gid<rows) {\n".
-                "        for(i=1;i<total_local_items;i++) {\n".
-                "           value = a[${index_a}];\n".
-                "           if(value>max) {\n".
-                "               imax = i;\n".
-                "               max = value;\n".
-                "           }\n".
+                "    const uint gid0 = gid/k;\n".
+                "    const uint gid1 = gid%k;\n".
+                //"    if(gid0<rows) {\n".
+                "        uint i=0;\n".
+                "        uint pos = ${index_a};\n".
+                "        ${type} max = a[pos];\n".
+                "        uint imax = i;\n".
+                "        pos += k;\n".
+                "        for(uint i=1; i<total_local_items; i++,pos+=k) {\n".
+                "            ${type} value = a[pos];\n".
+                "            if(value>max) {\n".
+                "                max = value;\n".
+                "                imax = i;\n".
+                "            }\n".
                 "        }\n".
-                "        x[gid*incx+offset_x] = imax;\n".
+                "        b[${index_b}] = imax;\n".
                 //"    }\n".
                 "}\n";
         }
@@ -3580,44 +3586,39 @@ class OpenCLMath
 
         $kernel->setArg(0,$rows,NDArray::uint32);
         $kernel->setArg(1,$total_local_items,NDArray::uint32);
-        $kernel->setArg(2,$X);
-        $kernel->setArg(3,$offsetX,NDArray::uint32);
-        $kernel->setArg(4,$incX,NDArray::uint32);
-        $kernel->setArg(5,$A);
-        $kernel->setArg(6,$offsetA,NDArray::uint32);
-        $kernel->setArg(7,$ldA,NDArray::uint32);
-        $global_work_size = [$rows];
-        $local_work_size = null;
-        //$multiple = $this->kernelMultiple($kernel);
-        //$global_work_size = [$this->ceil($rows,$multiple)];
+        $kernel->setArg(2,$k,NDArray::uint32);
+        $kernel->setArg(3,$A);
+        $kernel->setArg(4,$offsetA,NDArray::uint32);
+        $kernel->setArg(5,$ldA,NDArray::uint32);
+        $kernel->setArg(6,$B);
+        $kernel->setArg(7,$offsetB,NDArray::uint32);
+        $kernel->setArg(8,$ldB,NDArray::uint32);
+        $multiple = $this->kernelMultiple($kernel);
+        //$global_work_size = [$this->ceil($rows*$k,$multiple)];
         //$local_work_size = [$multiple];
+        $global_work_size = [$rows*$k];
+        $local_work_size = null;
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
                 $events,$waitEvents);
     }
 
     /**
-    * X(m) := argmax( A(m,n) )
-    */
+     * X(m) := sum( A(m,n) )
+     */
     public function reduceArgMax1(
-        bool $trans,
         int $m,
         int $n,
-        Buffer $A, int $offsetA, int $ldA,
-        Buffer $X, int $offsetX, int $incX,
+        int $k,
+        Buffer $A, int $offsetA,
+        Buffer $B, int $offsetB,
         EventList $events=null, EventList $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
-        if($trans) {
-            $trans = 'trans';
-            $rows = $n;
-            $cols = $m;
-        } else {
-            $trans = 'norm';
-            $rows = $m;
-            $cols = $n;
-        }
-        $total_local_items = $cols;
+        $total_local_items = $n;
+        $rows = $m;
+        $ldA = $n*$k;
+        $ldB = $k;
         $max_work_items = $this->maxWorkItem[0];
         if($total_local_items>$max_work_items) {
             throw new InvalidArgumentException('too many cols');
@@ -3627,76 +3628,71 @@ class OpenCLMath
             }
         }
         $value_size = $A->value_size();
-        $index_value_size = $X->value_size();
+        $index_value_size = $B->value_size();
         $type = $this->dtypeToOpenCLType[$dtype];
-        $kernel_name = "reduceArgMax_S_${type}_${trans}";
+        $kernel_name = "reduceArgMax_S_${type}";
         if(!isset($this->sources[$kernel_name])) {
-            if($trans=='trans') {
-                $index_a = 'lid*lda+grid+offset_a';
-            } else {
-                $index_a = 'grid*lda+lid+offset_a';
-            }
             $this->sources[$kernel_name] =
                 "__kernel void ${kernel_name}(\n".
                 "    const        uint total_local_items,\n".
-                "        __global uint * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
+                "    const        uint k,\n".
                 "    const global ${type} * a,\n".
                 "    const        uint offset_a,\n".
                 "    const        uint lda,\n".
+                "        __global uint * b,\n".
+                "    const        uint offset_b,\n".
+                "    const        uint ldb,\n".
                 "         __local ${type} * local_work,\n".
                 "         __local uint * local_iwork)\n".
                 "{\n".
                 "    const uint grid = get_group_id(0);\n".
+                "    const uint gid_l = grid/k;\n".
+                "    const uint gid_r = grid%k;\n".
+                "    const uint pos_a = gid_l*lda+gid_r+offset_a;\n".
+                "    const uint pos_b = gid_l*ldb+gid_r+offset_b;\n".
                      $this->kernelTemplateSiMax(
-                         "local_work[lid] = a[${index_a}];\n".
+                         "local_work[lid] = a[pos_a+lid*k];\n".
                          "local_iwork[lid] = lid;",
-                         "x[grid*incx+offset_x] = local_iwork[0];",
+                         "b[pos_b] = local_iwork[0];\n",
                          $dtype
-                         ).
+                     ).
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
 
         $kernel->setArg(0,$total_local_items,NDArray::uint32);
-        $kernel->setArg(1,$X);
-        $kernel->setArg(2,$offsetX,NDArray::uint32);
-        $kernel->setArg(3,$incX,NDArray::uint32);
-        $kernel->setArg(4,$A);
-        $kernel->setArg(5,$offsetA,NDArray::uint32);
-        $kernel->setArg(6,$ldA,NDArray::uint32);
-        $kernel->setArg(7,null,$max_work_items*$value_size);
-        $kernel->setArg(8,null,$max_work_items*$index_value_size);
-        $global_work_size = [$max_work_items*$rows];
+        $kernel->setArg(1,$k,NDArray::uint32);
+        $kernel->setArg(2,$A);
+        $kernel->setArg(3,$offsetA,NDArray::uint32);
+        $kernel->setArg(4,$ldA,NDArray::uint32);
+        $kernel->setArg(5,$B);
+        $kernel->setArg(6,$offsetB,NDArray::uint32);
+        $kernel->setArg(7,$ldB,NDArray::uint32);
+        $kernel->setArg(8,null,$max_work_items*$value_size);
+        $kernel->setArg(9,null,$max_work_items*$index_value_size);
+        $global_work_size = [$max_work_items*$k*$rows];
         $local_work_size = [$max_work_items];
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
                 $events,$waitEvents);
     }
 
     /**
-     * X(m) := max( A(m,n) )
+     * X(m) := sum( A(m,n) )
      */
     public function reduceArgMax2(
-        bool $trans,
         int $m,
         int $n,
-        Buffer $A, int $offsetA, int $ldA,
-        Buffer $X, int $offsetX, int $incX,
+        int $k,
+        Buffer $A, int $offsetA,
+        Buffer $B, int $offsetB,
         EventList $events=null, EventList $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
-        if($trans) {
-            $trans = 'trans';
-            $rows = $n;
-            $cols = $m;
-        } else {
-            $trans = 'norm';
-            $rows = $m;
-            $cols = $n;
-        }
-        $total_local_items = $cols;
+        $total_local_items = $n;
+        $rows = $m;
+        $ldA = $n*$k;
+        $ldB = $k;
         $max_work_items = $this->maxWorkItem[0];
         if($total_local_items>$max_work_items) {
             $segments = (int)ceil($total_local_items/$max_work_items); // round up float
@@ -3709,25 +3705,21 @@ class OpenCLMath
             $work_items = $total_local_items;
         }
         $value_size = $A->value_size();
-        $index_value_size = $X->value_size();
+        $index_value_size = $B->value_size();
         $type = $this->dtypeToOpenCLType[$dtype];
-        $kernel_name = "reduceArgMax_M_${type}_${trans}";
+        $kernel_name = "reduceArgMax_M_${type}";
         if(!isset($this->sources[$kernel_name])) {
-            if($trans=='trans') {
-                $index_a = '(seg*lws+lid)*lda+grid+offset_a';
-            } else {
-                $index_a = 'grid*lda+(seg*lws+lid)+offset_a';
-            }
             $this->sources[$kernel_name] =
                 "__kernel void ${kernel_name}(\n".
                 "    const        uint total_local_items,\n".
                 "    const        uint segments,\n".
-                "        __global uint * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
+                "    const        uint k,\n".
                 "    const global ${type} * a,\n".
                 "    const        uint offset_a,\n".
                 "    const        uint lda,\n".
+                "        __global uint * b,\n".
+                "    const        uint offset_b,\n".
+                "    const        uint ldb,\n".
                 "         __local ${type} * local_work,\n".
                 "         __local ${type} * seg_work,\n".
                 "         __local uint * local_iwork,\n".
@@ -3735,10 +3727,14 @@ class OpenCLMath
                 "    const        uint work_items)\n".
                 "{\n".
                 "    const uint grid = get_group_id(0);\n".
+                "    const uint gid_l = grid/k;\n".
+                "    const uint gid_r = grid%k;\n".
+                "    const uint pos_a = gid_l*lda+gid_r+offset_a;\n".
+                "    const uint pos_b = gid_l*ldb+gid_r+offset_b;\n".
                      $this->kernelTemplateQiMax(
-                         "local_work[lid] = a[${index_a}];\n".
+                         "local_work[lid] = a[pos_a+(seg*lws+lid)*k];\n".
                          "local_iwork[lid] = seg*lws+lid;\n",
-                         "x[grid*incx+offset_x] = seg_iwork[0];\n",
+                         "b[pos_b] = seg_iwork[0];\n",
                          $dtype
                      ).
                 "}\n";
@@ -3747,47 +3743,42 @@ class OpenCLMath
 
         $kernel->setArg(0,$total_local_items,NDArray::uint32);
         $kernel->setArg(1,$segments,NDArray::uint32);
-        $kernel->setArg(2,$X);
-        $kernel->setArg(3,$offsetX,NDArray::uint32);
-        $kernel->setArg(4,$incX,NDArray::uint32);
-        $kernel->setArg(5,$A);
-        $kernel->setArg(6,$offsetA,NDArray::uint32);
-        $kernel->setArg(7,$ldA,NDArray::uint32);
+        $kernel->setArg(2,$k,NDArray::uint32);
+        $kernel->setArg(3,$A);
+        $kernel->setArg(4,$offsetA,NDArray::uint32);
+        $kernel->setArg(5,$ldA,NDArray::uint32);
+        $kernel->setArg(6,$B);
+        $kernel->setArg(7,$offsetB,NDArray::uint32);
+        $kernel->setArg(8,$ldB,NDArray::uint32);
 
-        $kernel->setArg(8,null,$max_work_items*$value_size);
-        $kernel->setArg(9,null,$segments*$value_size);
-        $kernel->setArg(10,null,$max_work_items*$index_value_size);
-        $kernel->setArg(11,null,$segments*$index_value_size);
-        $kernel->setArg(12,$work_items,NDArray::uint32);
-        $global_work_size = [$max_work_items*$rows];
+        $kernel->setArg(9,null,$max_work_items*$value_size);
+        $kernel->setArg(10,null,$segments*$value_size);
+        $kernel->setArg(11,null,$max_work_items*$index_value_size);
+        $kernel->setArg(12,null,$segments*$index_value_size);
+        $kernel->setArg(13,$work_items,NDArray::uint32);
+        $global_work_size = [$max_work_items*$k*$rows];
         $local_work_size = [$max_work_items];
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
                 $events,$waitEvents);
     }
 
     /**
-     * X(m) := max( A(m,n) )
+     * X(m) := sum( A(m,n) )
      */
     public function reduceArgMax3(
-        bool $trans,
         int $m,
         int $n,
-        Buffer $A, int $offsetA, int $ldA,
-        Buffer $X, int $offsetX, int $incX,
+        int $k,
+        Buffer $A, int $offsetA,
+        Buffer $B, int $offsetB,
         EventList $events=null, EventList $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
-        if($trans) {
-            $trans = 'trans';
-            $rows = $n;
-            $cols = $m;
-        } else {
-            $trans = 'norm';
-            $rows = $m;
-            $cols = $n;
-        }
-        $total_local_items = $cols;
+        $total_local_items = $n;
+        $rows = $m;
+        $ldA = $n*$k;
+        $ldB = $k;
         $work_items1 = $this->maxWorkItem[0];
         $work_items2 = $this->maxWorkItem[0];
         if($total_local_items<$work_items1) {
@@ -3801,26 +3792,22 @@ class OpenCLMath
             }
         }
         $value_size = $A->value_size();
-        $index_value_size = $X->value_size();
+        $index_value_size = $B->value_size();
         $temp_size = 2*$work_items2;
         $temp_buffer = $this->newBuffer(
-            $value_size*$temp_size*$rows,
+            $value_size*$temp_size*$rows*$k,
             OpenCL::CL_MEM_READ_WRITE,null,null,$dtype);
         $temp_ibuffer = $this->newBuffer(
-            $index_value_size*$temp_size*$rows,
-            OpenCL::CL_MEM_READ_WRITE,null,null,$X->dtype());
+            $index_value_size*$temp_size*$rows*$k,
+            OpenCL::CL_MEM_READ_WRITE,null,null,$B->dtype());
         $type = $this->dtypeToOpenCLType[$dtype];
-        $kernel_name1 = "reduceArgMax_L1_${type}_${trans}";
-        $kernel_name2 = "reduceArgMax_L2_${type}_${trans}";
+        $kernel_name1 = "reduceArgMax_L1_${type}";
+        $kernel_name2 = "reduceArgMax_L2_${type}";
         if(!isset($this->sources[$kernel_name1])) {
-            if($trans=='trans') {
-                $index_a = 'local_item_id*lda + parallel_item_id + offset_a';
-            } else {
-                $index_a = 'parallel_item_id*lda + local_item_id + offset_a';
-            }
             $this->sources[$kernel_name1] =
                 "__kernel void ${kernel_name1}(\n".
                 "    const        uint total_local_items,\n".
+                "    const        uint k,\n".
                 "    const __global ${type} * a,\n".
                 "    const        uint offset_a,\n".
                 "    const        uint lda,\n".
@@ -3830,8 +3817,11 @@ class OpenCLMath
                 "         __local uint * local_iwork)\n".
                 "{\n".
                 "    const uint parallel_item_id = get_global_id(1);\n".
+                "    const uint gid_l = parallel_item_id/k;\n".
+                "    const uint gid_r = parallel_item_id%k;\n".
+                "    const uint pos_a = gid_l*lda+gid_r+offset_a;\n".
                     $this->kernelTemplateLiMax1(
-                        "${type} input = a[${index_a}];\n".
+                        "${type} input = a[pos_a+local_item_id*k];".
                         "uint input_index = local_item_id;\n",
                         $dtype
                     ).
@@ -3842,44 +3832,50 @@ class OpenCLMath
         if(!isset($this->sources[$kernel_name2])) {
             $this->sources[$kernel_name2] =
                 "__kernel void ${kernel_name2}(\n".
+                "    const        uint k,\n".
                 "    const __global ${type} * temp_buffer,\n".
                 "    const __global uint * temp_ibuffer,\n".
-                "        __global uint * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
+                "        __global uint * b,\n".
+                "    const        uint offset_b,\n".
+                "    const        uint ldb,\n".
                 "         __local ${type} * local_work,\n".
                 "         __local uint * local_iwork)\n".
                 "{\n".
                 "    const uint parallel_item_id = get_global_id(1);\n".
+                "    const uint gid_l = parallel_item_id/k;\n".
+                "    const uint gid_r = parallel_item_id%k;\n".
+                "    const uint pos_b = gid_l*ldb+gid_r+offset_b;\n".
                     $this->kernelTemplateLiMax2(
-                        "x[parallel_item_id*incx+offset_x] = local_iwork[0];"
+                        "b[pos_b] = local_iwork[0];"
                     ).
                 "}\n";
         }
         $kernel2 = $this->createKernel($kernel_name2);
 
         $kernel->setArg(0,$total_local_items,NDArray::uint32);
-        $kernel->setArg(1,$A);
-        $kernel->setArg(2,$offsetA,NDArray::uint32);
-        $kernel->setArg(3,$ldA,NDArray::uint32);
-        $kernel->setArg(4,$temp_buffer);
-        $kernel->setArg(5,null,$work_items1*$value_size);
-        $kernel->setArg(6,$temp_ibuffer);
-        $kernel->setArg(7,null,$work_items1*$index_value_size);
-        $global_work_size = [$work_items1*$temp_size,$rows];
-        $local_work_size = [$work_items1,1];
+        $kernel->setArg(1,$k,NDArray::uint32);
+        $kernel->setArg(2,$A);
+        $kernel->setArg(3,$offsetA,NDArray::uint32);
+        $kernel->setArg(4,$ldA,NDArray::uint32);
+        $kernel->setArg(5,$temp_buffer);
+        $kernel->setArg(6,null,$work_items1*$value_size);
+        $kernel->setArg(7,$temp_ibuffer);
+        $kernel->setArg(8,null,$work_items1*$index_value_size);
+        $global_work_size = [$work_items1*$temp_size,$rows*$k];
+        $local_work_size  = [$work_items1,1];
         $phase1Events = $this->newEventList();
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
                 $phase1Events,$waitEvents);
 
-        $kernel2->setArg(0,$temp_buffer);
-        $kernel2->setArg(1,$temp_ibuffer);
-        $kernel2->setArg(2,$X);
-        $kernel2->setArg(3,$offsetX,NDArray::uint32);
-        $kernel2->setArg(4,$incX,NDArray::uint32);
-        $kernel2->setArg(5,null,$work_items2*$value_size);
-        $kernel2->setArg(6,null,$work_items2*$index_value_size);
-        $global_work_size = [$work_items2,$rows];
+        $kernel2->setArg(0,$k,NDArray::uint32);
+        $kernel2->setArg(1,$temp_buffer);
+        $kernel2->setArg(2,$temp_ibuffer);
+        $kernel2->setArg(3,$B);
+        $kernel2->setArg(4,$offsetB,NDArray::uint32);
+        $kernel2->setArg(5,$ldB,NDArray::uint32);
+        $kernel2->setArg(6,null,$work_items2*$value_size);
+        $kernel2->setArg(7,null,$work_items2*$index_value_size);
+        $global_work_size = [$work_items2,$rows*$k];
         $local_work_size = [$work_items2,1];
         $kernel2->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
                 $events,$phase1Events);
@@ -4289,214 +4285,6 @@ class OpenCLMath
     * data_format:
     * output:(n,ow,kw,c)
     */
-/*
-    public function im2col1d2(
-        bool $reverse,
-        Buffer $images,
-        int $images_offset,
-        int $images_size,
-        int $batches,
-        int $im_w,
-        int $channels,
-        int $kernel_w,
-        int $stride_w,
-        bool $padding,
-        bool $channels_first,
-        int $dilation_w,
-        bool $cols_channels_first,
-        Buffer $cols,
-        int $cols_offset,
-        int $cols_size,
-        EventList $events=null, EventList $waitEvents=null
-        )
-    {
-        $dtype = $images->dtype();
-        if($dtype!=$cols->dtype()) {
-            throw new InvalidArgumentException("Unmatch data type images and cols:".
-            $this->dtypeToString($dtype).",".$this->dtypeToString($cols->dtype()));
-        }
-        if($dtype==NDArray::float64) {
-            $this->assertFP64();
-        }
-
-        $output_w = intval(floor(($im_w-($kernel_w-1)*$dilation_w-1)/$stride_w)+1);
-        if($padding) {
-            $pad_w = (int)floor((($im_w-1)*$stride_w-$im_w+($kernel_w-1)*$dilation_w+1)/2);
-            $output_w = $im_w;
-        } else {
-            $pad_w = 0;
-        }
-        if($channels_first) {
-            $channel_mode = 'cf';
-        } else {
-            $channel_mode = 'cl';
-        }
-        if($cols_channels_first) {
-            $cols_mode = 'cf';
-        } else {
-            $cols_mode = 'cl';
-        }
-        if($reverse) {
-            $total_local_items = $kernel_w;
-            $max_work_items = $this->maxWorkItem[0];
-            if($total_local_items <= $max_work_items) {
-                $tmode = 'S';
-                for($max_work_items=1; $max_work_items<$total_local_items;$max_work_items<<=1) {
-                    ;
-                }
-            } else {
-                $tmode = 'M';
-                $segments = (int)floor(($total_local_items+$max_work_items-1)/$max_work_items); // round up float
-                $work_items = $max_work_items;
-            }
-            $value_size = $images->value_size();
-        } else {
-            $tmode = 'F';
-        }
-        $type = $this->dtypeToOpenCLType[$dtype];
-        $kernel_name = "im2col1d_${tmode}_${type}_${channel_mode}_${cols_mode}";
-        if(!isset($this->sources[$kernel_name])) {
-            if($reverse) {
-                $col_arg_type = 'const global';
-                $im_arg_type = '__global';
-            } else {
-                $im_arg_type = 'const global';
-                $col_arg_type = '__global';
-            }
-            if($channels_first) {
-                $input_id = '((batch_id*channels+channel_id)*im_w+input_x)';
-            } else {
-                $input_id = '((batch_id*im_w+input_x)*channels+channel_id)';
-            }
-            if($cols_channels_first) {
-                $cols_id = '(((batch_id*output_w+im_x)'.
-                            '*channels+channel_id)*kernel_w+kernel_x)';
-            } else {
-                $cols_id = '(((batch_id*output_w+im_x)'.
-                            '*kernel_w+kernel_x)*channels+channel_id)';
-            }
-            $input_x = '(im_x*stride_w+kernel_x*dilation_w-pad_w)';
-            if($reverse) {
-                if($tmode=='S'){
-                    $kernelTemplateSum = 'kernelTemplateSSum';
-                    $kernel_idx = 'lid';
-                    $sum_output = 'local_work';
-                } else {
-                    $kernelTemplateSum = 'kernelTemplateQSum';
-                    $kernel_idx = 'seg*lws+lid';
-                    $sum_output = 'seg_work';
-                }
-                $this->sources[$kernel_name] =
-                    "__kernel void ${kernel_name}(\n".
-                    "    $im_arg_type ${type} * images,\n".
-                    "    const        uint offset_images,\n".
-                    "    $col_arg_type ${type} * cols,\n".
-                    "    const        uint offset_cols,\n".
-                    "    const        uint batches,\n".
-                    "    const        uint im_w,\n".
-                    "    const        uint channels,\n".
-                    "    const        uint kernel_w,\n".
-                    "    const        uint stride_w,\n".
-                    "    const        uint pad_w,\n".
-                    "    const        uint dilation_w,\n".
-                    "    const        uint output_w,\n".
-                    "    const        uint total_local_items,\n".
-                    (($tmode=='S') ? (
-                    "         __local ${type} * local_work)\n"
-                    ) : (
-                    "    const        uint segments,\n".
-                    "         __local ${type} * local_work,\n".
-                    "         __local ${type} * seg_work,\n".
-                    "    const        uint work_items)\n"
-                    )).
-                    "{\n".
-                    "    const uint grid = get_group_id(0);\n".  // A row id
-                    "    const int input_x = grid;\n".
-                    "    const uint batch_id   = get_global_id(1)/channels;\n".
-                    "    const uint channel_id = get_global_id(1)%channels;\n".
-                         $this->$kernelTemplateSum(
-                             "const uint kernel_x = ${kernel_idx};\n".
-                             "const int tmp_x = input_x-kernel_x*dilation_w+pad_w;\n".
-                             "const int im_x = tmp_x/stride_w;\n".
-                             "if(tmp_x%stride_w==0 &&
-                                im_x>=0 && im_x<output_w) {\n".
-                             "    local_work[lid] = cols[${cols_id}];\n".
-                             "} else {\n".
-                             "    local_work[lid] = 0;\n".
-                             "}\n",
-                             "images[${input_id}] += ${sum_output}[0];\n"
-                         ).
-                    "}\n";
-            } else {
-                $this->sources[$kernel_name] =
-                    "__kernel void ${kernel_name}(\n".
-                    "    $im_arg_type ${type} * images,\n".
-                    "    const        uint offset_images,\n".
-                    "    $col_arg_type ${type} * cols,\n".
-                    "    const        uint offset_cols,\n".
-                    "    const        uint batches,\n".
-                    "    const        uint im_w,\n".
-                    "    const        uint channels,\n".
-                    "    const        uint kernel_w,\n".
-                    "    const        uint stride_w,\n".
-                    "    const        uint pad_w,\n".
-                    "    const        uint dilation_w,\n".
-                    "    const        uint output_w)\n".
-                    "{\n".
-                    "    uint batch_id = get_global_id(0)/channels;\n".
-                    "    uint im_x = get_global_id(1);\n".
-                    "    uint channel_id = get_global_id(0)%channels;\n".
-                    "    uint kernel_x = get_global_id(2);\n".
-                    "    int input_x = ${input_x};\n".
-                    "    ${type} value;\n".
-                    "    if(input_x>=0 && input_x<im_w) {\n".
-                    "        uint input_id = ${input_id};\n".
-                    "        value = images[input_id];\n".
-                    "    } else {\n".
-                    "        value = 0;\n".
-                    "    }\n".
-                    "    uint cols_id = ${cols_id};\n".
-                    "    cols[cols_id] = value;\n".
-                    "}\n";
-            }
-        }
-
-        $kernel = $this->createKernel($kernel_name);
-        $kernel->setArg(0,$images);
-        $kernel->setArg(1,$images_offset,NDArray::uint32);
-        $kernel->setArg(2,$cols);
-        $kernel->setArg(3,$cols_offset,NDArray::uint32);
-        $kernel->setArg(4,$batches,NDArray::uint32);
-        $kernel->setArg(5,$im_w,NDArray::uint32);
-        $kernel->setArg(6,$channels,NDArray::uint32);
-        $kernel->setArg(7,$kernel_w,NDArray::uint32);
-        $kernel->setArg(8,$stride_w,NDArray::uint32);
-        $kernel->setArg(9,$pad_w,NDArray::uint32);
-        $kernel->setArg(10,$dilation_w,NDArray::uint32);
-        $kernel->setArg(11,$output_w,NDArray::uint32);
-        if($reverse) {
-            if($tmode=='S') {
-                $kernel->setArg(12,$total_local_items,NDArray::uint32);
-                $kernel->setArg(13,null,$max_work_items*$value_size);
-                $global_work_size = [$max_work_items*$im_w,$batches*$channels];
-                $local_work_size = [$max_work_items,1];
-            } else {
-                $kernel->setArg(12,$total_local_items,NDArray::uint32);
-                $kernel->setArg(13,$segments,NDArray::uint32);
-                $kernel->setArg(14,null,$max_work_items*$value_size);
-                $kernel->setArg(15,null,$segments*$value_size);
-                $kernel->setArg(16,$work_items,NDArray::uint32);
-                $global_work_size = [$max_work_items*$im_w,$batches*$channels];
-                $local_work_size = [$max_work_items,1];
-            }
-        } else {
-            $global_work_size = [$batches*$channels,$output_w,$kernel_w];
-            $local_work_size=null;
-        }
-        $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
-            $events,$waitEvents);
-    }
-*/
     public function im2col1d(
         bool $reverse,
         Buffer $images,
@@ -4677,244 +4465,6 @@ class OpenCLMath
     * data_format:
     * output:(n,oh,ow,kh,kw,c)
     */
-/*
-    public function im2col2d2(
-        bool $reverse,
-        Buffer $images,
-        int $images_offset,
-        int $images_size,
-        int $batches,
-        int $im_h,
-        int $im_w,
-        int $channels,
-        int $kernel_h,
-        int $kernel_w,
-        int $stride_h,
-        int $stride_w,
-        bool $padding,
-        bool $channels_first,
-        int $dilation_h,
-        int $dilation_w,
-        bool $cols_channels_first,
-        Buffer $cols,
-        int $cols_offset,
-        int $cols_size,
-        EventList $events=null, EventList $waitEvents=null
-        )
-    {
-        $dtype = $images->dtype();
-        if($dtype!=$cols->dtype()) {
-            throw new InvalidArgumentException("Unmatch data type images and cols:".
-            $this->dtypeToString($dtype).",".$this->dtypeToString($cols->dtype()));
-        }
-        if($dtype==NDArray::float64) {
-            $this->assertFP64();
-        }
-
-        $output_h = intval(floor(($im_h-($kernel_h-1)*$dilation_h-1)/$stride_h)+1);
-        $output_w = intval(floor(($im_w-($kernel_w-1)*$dilation_w-1)/$stride_w)+1);
-        if($padding) {
-            $pad_h = (int)floor((($im_h-1)*$stride_h-$im_h+($kernel_h-1)*$dilation_h+1)/2);
-            $pad_w = (int)floor((($im_w-1)*$stride_w-$im_w+($kernel_w-1)*$dilation_w+1)/2);
-            $output_h = $im_h;
-            $output_w = $im_w;
-        } else {
-            $pad_h = $pad_w = 0;
-        }
-        if($channels_first) {
-            $channel_mode = 'cf';
-        } else {
-            $channel_mode = 'cl';
-        }
-        if($cols_channels_first) {
-            $cols_mode = 'cf';
-        } else {
-            $cols_mode = 'cl';
-        }
-        if($reverse) {
-            $value_size = $images->value_size();
-            $total_local_items = $kernel_h*$kernel_w;
-            $max_work_items = $this->maxWorkItem[0];
-            if($total_local_items <= $max_work_items) {
-                $tmode = 'S';
-                for($max_work_items=1; $max_work_items<$total_local_items;$max_work_items<<=1) {
-                    ;
-                }
-            } else {
-                $tmode = 'M';
-                $segments = (int)floor(($total_local_items+$max_work_items-1)/$max_work_items); // round up float
-                $work_items = $max_work_items;
-            }
-        } else {
-            $tmode = 'F';
-        }
-        $type = $this->dtypeToOpenCLType[$dtype];
-        $kernel_name = "im2col2d_${tmode}_${type}_${channel_mode}_${cols_mode}";
-        if(!isset($this->sources[$kernel_name])) {
-            if($channels_first) {
-                $input_id = '(((batch_id*channels+channel_id)*im_h+input_y)*im_w+input_x)';
-            } else {
-                $input_id = '(((batch_id*im_h+input_y)*im_w+input_x)*channels+channel_id)';
-            }
-            if($cols_channels_first) {
-                $cols_id = '(((((batch_id*output_h+im_y)*output_w+im_x)'.
-                            '*channels+channel_id)*kernel_h+kernel_y)*kernel_w+kernel_x)';
-            } else {
-                $cols_id = '(((((batch_id*output_h+im_y)*output_w+im_x)'.
-                            '*kernel_h+kernel_y)*kernel_w+kernel_x)*channels+channel_id)';
-            }
-            $input_y = '(im_y*stride_h+kernel_y*dilation_h-pad_h)';
-            $input_x = '(im_x*stride_w+kernel_x*dilation_w-pad_w)';
-            if($reverse) {
-                $col_arg_type = 'const global';
-                $im_arg_type = '__global';
-                if($tmode=='S') {
-                    $kernelTemplateSum = 'kernelTemplateSSum';
-                    $kernel_idx = 'lid';
-                    $sum_output = 'local_work';
-                } else {
-                    $kernelTemplateSum = 'kernelTemplateQSum';
-                    $kernel_idx = 'seg*lws+lid';
-                    $sum_output = 'seg_work';
-                }
-                $this->sources[$kernel_name] =
-                    "__kernel void ${kernel_name}(\n".
-                    "    $im_arg_type ${type} * images,\n".
-                    "    const        uint offset_images,\n".
-                    "    $col_arg_type ${type} * cols,\n".
-                    "    const        uint offset_cols,\n".
-                    "    const        uint batches,\n".
-                    "    const        uint im_h,\n".
-                    "    const        uint im_w,\n".
-                    "    const        uint channels,\n".
-                    "    const        uint kernel_h,\n".
-                    "    const        uint kernel_w,\n".
-                    "    const        uint stride_h,\n".
-                    "    const        uint stride_w,\n".
-                    "    const        uint pad_h,\n".
-                    "    const        uint pad_w,\n".
-                    "    const        uint dilation_h,\n".
-                    "    const        uint dilation_w,\n".
-                    "    const        uint output_h,\n".
-                    "    const        uint output_w,\n".
-                    "    const        uint total_local_items,\n".
-                    (($tmode=='S') ? (
-                    "         __local ${type} * local_work)\n"
-                    ) : (
-                    "    const        uint segments,\n".
-                    "         __local ${type} * local_work,\n".
-                    "         __local ${type} * seg_work,\n".
-                    "    const        uint work_items)\n"
-                    )).
-                    "{\n".
-                    "    const uint grid = get_group_id(0);\n".
-                    "    const int input_y = grid/im_w;\n".
-                    "    const int input_x = grid%im_w;\n".
-                    "    const uint batch_id   = get_global_id(1)/channels;\n".
-                    "    const uint channel_id = get_global_id(1)%channels;\n".
-                         $this->$kernelTemplateSum(
-                             "const uint kernel_idx = ${kernel_idx};\n".
-                             "const uint kernel_y = kernel_idx/kernel_w;\n".
-                             "const uint kernel_x = kernel_idx%kernel_w;\n".
-                             "const int tmp_y = input_y-kernel_y*dilation_h+pad_h;\n".
-                             "const int tmp_x = input_x-kernel_x*dilation_w+pad_w;\n".
-                             "const int im_y = tmp_y/stride_h;\n".
-                             "const int im_x = tmp_x/stride_w;\n".
-                             "if(tmp_y%stride_h==0 && tmp_x%stride_w==0 &&
-                                im_y>=0 && im_y<output_h && im_x>=0 && im_x<output_w) {\n".
-                             "    local_work[lid] = cols[${cols_id}];\n".
-                             "} else {\n".
-                             "    local_work[lid] = 0;\n".
-                             "}\n",
-                             "images[${input_id}] += ${sum_output}[0];\n"
-                         ).
-                    "}\n";
-            } else {
-                $im_arg_type = 'const global';
-                $col_arg_type = '__global';
-                $this->sources[$kernel_name] =
-                    "__kernel void ${kernel_name}(\n".
-                    "    $im_arg_type ${type} * images,\n".
-                    "    const        uint offset_images,\n".
-                    "    $col_arg_type ${type} * cols,\n".
-                    "    const        uint offset_cols,\n".
-                    "    const        uint batches,\n".
-                    "    const        uint im_h,\n".
-                    "    const        uint im_w,\n".
-                    "    const        uint channels,\n".
-                    "    const        uint kernel_h,\n".
-                    "    const        uint kernel_w,\n".
-                    "    const        uint stride_h,\n".
-                    "    const        uint stride_w,\n".
-                    "    const        uint pad_h,\n".
-                    "    const        uint pad_w,\n".
-                    "    const        uint dilation_h,\n".
-                    "    const        uint dilation_w,\n".
-                    "    const        uint output_h,\n".
-                    "    const        uint output_w)\n".
-                    "{\n".
-                    "    uint batch_id = get_global_id(0)/channels;\n".
-                    "    uint im_y = get_global_id(1)/output_w;\n".
-                    "    uint im_x = get_global_id(1)%output_w;\n".
-                    "    uint channel_id = get_global_id(0)%channels;\n".
-                    "    uint kernel_y = get_global_id(2)/kernel_w;\n".
-                    "    uint kernel_x = get_global_id(2)%kernel_w;\n".
-                    "    int input_y = ${input_y};\n".
-                    "    int input_x = ${input_x};\n".
-                    "    ${type} value;\n".
-                    "    if(input_y>=0 && input_y<im_h && input_x>=0 && input_x<im_w) {\n".
-                    "        uint input_id = ${input_id};\n".
-                    "        value = images[input_id];\n".
-                    "    } else {\n".
-                    "        value = 0;\n".
-                    "    }\n".
-                    "    uint cols_id = ${cols_id};\n".
-                    "    cols[cols_id] = value;\n".
-                    "}\n";
-            }
-        }
-        $kernel = $this->createKernel($kernel_name);
-        $kernel->setArg(0,$images);
-        $kernel->setArg(1,$images_offset,NDArray::uint32);
-        $kernel->setArg(2,$cols);
-        $kernel->setArg(3,$cols_offset,NDArray::uint32);
-        $kernel->setArg(4,$batches,NDArray::uint32);
-        $kernel->setArg(5,$im_h,NDArray::uint32);
-        $kernel->setArg(6,$im_w,NDArray::uint32);
-        $kernel->setArg(7,$channels,NDArray::uint32);
-        $kernel->setArg(8,$kernel_h,NDArray::uint32);
-        $kernel->setArg(9,$kernel_w,NDArray::uint32);
-        $kernel->setArg(10,$stride_h,NDArray::uint32);
-        $kernel->setArg(11,$stride_w,NDArray::uint32);
-        $kernel->setArg(12,$pad_h,NDArray::uint32);
-        $kernel->setArg(13,$pad_w,NDArray::uint32);
-        $kernel->setArg(14,$dilation_h,NDArray::uint32);
-        $kernel->setArg(15,$dilation_w,NDArray::uint32);
-        $kernel->setArg(16,$output_h,NDArray::uint32);
-        $kernel->setArg(17,$output_w,NDArray::uint32);
-        if($reverse) {
-            if($tmode=='S') {
-                $kernel->setArg(18,$total_local_items,NDArray::uint32);
-                $kernel->setArg(19,null,$max_work_items*$value_size);
-                $global_work_size = [$max_work_items*$im_h*$im_w,$batches*$channels];
-                $local_work_size = [$max_work_items,1];
-            } else {
-                $kernel->setArg(18,$total_local_items,NDArray::uint32);
-                $kernel->setArg(19,$segments,NDArray::uint32);
-                $kernel->setArg(20,null,$max_work_items*$value_size);
-                $kernel->setArg(21,null,$segments*$value_size);
-                $kernel->setArg(22,$work_items,NDArray::uint32);
-                $global_work_size = [$max_work_items*$im_h*$im_w,$batches*$channels];
-                $local_work_size = [$max_work_items,1];
-            }
-        } else {
-            $global_work_size = [$batches*$channels,$output_h*$output_w,$kernel_h*$kernel_w];
-            $local_work_size=null;
-        }
-        $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
-            $events,$waitEvents);
-    }
-*/
     public function im2col2d(
         bool $reverse,
         Buffer $images,

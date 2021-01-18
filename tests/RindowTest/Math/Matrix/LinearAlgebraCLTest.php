@@ -100,7 +100,7 @@ class TestLinearAlgebraCL extends LinearAlgebraCL
         }
         return $R;
     }
-
+/*
     public function reduceSumTest(
         NDArray $A,
         int $axis=null,
@@ -200,7 +200,104 @@ class TestLinearAlgebraCL extends LinearAlgebraCL
         }
         return $X;
     }
+*/
+    public function reduceSumTest( //reducesumex
+        NDArray $A,
+        int $axis=null,
+        NDArray $B=null,
+        $dtype=null,
+        $events=null,$waitEvents=null,
+        $mode = null
+        ) : NDArray
+    {
+        $ndim = $A->ndim();
+        if($axis<0) {
+            $axis = $ndim+$axis;
+        }
+        if($axis<0 || $axis>$ndim-1) {
+            throw new InvalidArgumentException("Invalid axis");
+        }
+        $postfixShape = $A->shape();
+        $prefixShape = [];
+        for($i=0;$i<$axis;$i++) {
+            $prefixShape[] = array_shift($postfixShape);
+        }
+        $n = array_shift($postfixShape);
+        $m = array_product($prefixShape);
+        $k = array_product($postfixShape);
+        $outputShape = array_merge($prefixShape,$postfixShape);
+        if($dtype===null) {
+            $dtype = $A->dtype();
+        }
+        if($B==null) {
+            $B = $this->alloc($outputShape,$dtype);
+        } else {
+            if($B->shape()!=$outputShape) {
+                $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$B->shape()).')';
+                throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
+            }
+        }
 
+        $AA = $A->buffer();
+        $offA = $A->offset();
+        $BB = $B->buffer();
+        $offB = $B->offset();
+
+        switch($mode) {
+            case 0: {
+                $this->openclmath->reduceSum0(
+                    $m,
+                    $n,
+                    $k,
+                    $AA,$offA,
+                    $BB,$offB,
+                    $events,$waitEvents
+                );
+                break;
+            }
+            case 1: {
+                $this->openclmath->reduceSum1(
+                    $m,
+                    $n,
+                    $k,
+                    $AA,$offA,
+                    $BB,$offB,
+                    $events,$waitEvents
+                );
+                break;
+            }
+            case 2: {
+                $this->openclmath->reduceSum2(
+                    $m,
+                    $n,
+                    $k,
+                    $AA,$offA,
+                    $BB,$offB,
+                    $events,$waitEvents
+                );
+                break;
+            }
+            case 3: {
+                $this->openclmath->reduceSum3(
+                    $m,
+                    $n,
+                    $k,
+                    $AA,$offA,
+                    $BB,$offB,
+                    $events,$waitEvents
+                );
+                break;
+            }
+            default:
+                throw new InvalidArgumentException("invalid mode: ".$mode);
+        }
+
+        if($this->blocking) {
+            $this->finish();
+        }
+        return $B;
+    }
+/*
     public function reduceMaxTest(
         NDArray $A,
         int $axis=null,
@@ -300,7 +397,105 @@ class TestLinearAlgebraCL extends LinearAlgebraCL
         }
         return $X;
     }
+*/
+    public function reduceMaxTest( //reducemaxex
+        NDArray $A,
+        int $axis=null,
+        NDArray $B=null,
+        $dtype=null,
+        $events=null,$waitEvents=null,
+        $mode = null
+        ) : NDArray
+    {
+        $ndim = $A->ndim();
+        $orgaxis = $axis;
+        if($axis<0) {
+            $axis = $ndim+$axis;
+        }
+        if($axis<0 || $axis>$ndim-1) {
+            throw new InvalidArgumentException("Invalid axis: ".$orgaxis);
+        }
+        $postfixShape = $A->shape();
+        $prefixShape = [];
+        for($i=0;$i<$axis;$i++) {
+            $prefixShape[] = array_shift($postfixShape);
+        }
+        $n = array_shift($postfixShape);
+        $m = array_product($prefixShape);
+        $k = array_product($postfixShape);
+        $outputShape = array_merge($prefixShape,$postfixShape);
+        if($dtype===null) {
+            $dtype = $A->dtype();
+        }
+        if($B==null) {
+            $B = $this->alloc($outputShape,$dtype);
+        } else {
+            if($B->shape()!=$outputShape) {
+                $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$B->shape()).')';
+                throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
+            }
+        }
 
+        $AA = $A->buffer();
+        $offA = $A->offset();
+        $BB = $B->buffer();
+        $offB = $B->offset();
+
+        switch($mode) {
+            case 0: {
+                $this->openclmath->reduceMax0(
+                    $m,
+                    $n,
+                    $k,
+                    $AA,$offA,
+                    $BB,$offB,
+                    $events,$waitEvents
+                );
+                break;
+            }
+            case 1: {
+                $this->openclmath->reduceMax1(
+                    $m,
+                    $n,
+                    $k,
+                    $AA,$offA,
+                    $BB,$offB,
+                    $events,$waitEvents
+                );
+                break;
+            }
+            case 2: {
+                $this->openclmath->reduceMax2(
+                    $m,
+                    $n,
+                    $k,
+                    $AA,$offA,
+                    $BB,$offB,
+                    $events,$waitEvents
+                );
+                break;
+            }
+            case 3: {
+                $this->openclmath->reduceMax3(
+                    $m,
+                    $n,
+                    $k,
+                    $AA,$offA,
+                    $BB,$offB,
+                    $events,$waitEvents
+                );
+                break;
+            }
+            default:
+                throw new InvalidArgumentException("invalid mode: ".$mode);
+        }
+
+        if($this->blocking) {
+            $this->finish();
+        }
+        return $B;
+    }
+/*
     public function reduceArgMaxTest(
         NDArray $A,
         int $axis,
@@ -398,7 +593,103 @@ class TestLinearAlgebraCL extends LinearAlgebraCL
         }
         return $X;
     }
+*/
+    public function reduceArgMaxTest( //reduceargmaxex
+        NDArray $A,
+        int $axis=null,
+        NDArray $B=null,
+        $dtype=null,
+        $events=null,$waitEvents=null,
+        $mode = null
+        ) : NDArray
+    {
+        $ndim = $A->ndim();
+        if($axis<0) {
+            $axis = $ndim+$axis;
+        }
+        if($axis<0 || $axis>$ndim-1) {
+            throw new InvalidArgumentException("Invalid axis");
+        }
+        $postfixShape = $A->shape();
+        $prefixShape = [];
+        for($i=0;$i<$axis;$i++) {
+            $prefixShape[] = array_shift($postfixShape);
+        }
+        $n = array_shift($postfixShape);
+        $m = array_product($prefixShape);
+        $k = array_product($postfixShape);
+        $outputShape = array_merge($prefixShape,$postfixShape);
+        if($dtype===null) {
+            $dtype = NDArray::uint32;
+        }
+        if($B==null) {
+            $B = $this->alloc($outputShape,$dtype);
+        } else {
+            if($B->shape()!=$outputShape) {
+                $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$B->shape()).')';
+                throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
+            }
+        }
 
+        $AA = $A->buffer();
+        $offA = $A->offset();
+        $BB = $B->buffer();
+        $offB = $B->offset();
+
+        switch($mode) {
+            case 0: {
+                $this->openclmath->reduceArgMax0(
+                    $m,
+                    $n,
+                    $k,
+                    $AA,$offA,
+                    $BB,$offB,
+                    $events,$waitEvents
+                );
+                break;
+            }
+            case 1: {
+                $this->openclmath->reduceArgMax1(
+                    $m,
+                    $n,
+                    $k,
+                    $AA,$offA,
+                    $BB,$offB,
+                    $events,$waitEvents
+                );
+                break;
+            }
+            case 2: {
+                $this->openclmath->reduceArgMax2(
+                    $m,
+                    $n,
+                    $k,
+                    $AA,$offA,
+                    $BB,$offB,
+                    $events,$waitEvents
+                );
+                break;
+            }
+            case 3: {
+                $this->openclmath->reduceArgMax3(
+                    $m,
+                    $n,
+                    $k,
+                    $AA,$offA,
+                    $BB,$offB,
+                    $events,$waitEvents
+                );
+                break;
+            }
+            default:
+                throw new InvalidArgumentException("invalid mode: ".$mode);
+        }
+
+        if($this->blocking) {
+            $this->finish();
+        }
+        return $B;
+    }
     /**
      * A(X) := Y
      */
@@ -999,7 +1290,7 @@ class Test extends ORGTest
             $padding,
             //$channels_first,
             $dilation_rate=[
-                $dilation_h,$dilation_w],
+                $dilation_h,$dilation_w]
             //$cols_channels_first
         );
         $start = hrtime(true);
@@ -1014,7 +1305,7 @@ class Test extends ORGTest
             $padding,
             //$channels_first,
             $dilation_rate=[
-                $dilation_h,$dilation_w],
+                $dilation_h,$dilation_w]
             //$cols_channels_first
         );
         $end = hrtime(true);
@@ -1034,7 +1325,7 @@ class Test extends ORGTest
             $dilation_rate=[
                 $dilation_h,$dilation_w],
             //$cols_channels_first
-            $cols,
+            $cols
         );
         $start = hrtime(true);
         $la->im2col2dclblast(
@@ -1050,7 +1341,7 @@ class Test extends ORGTest
             $dilation_rate=[
                 $dilation_h,$dilation_w],
             //$cols_channels_first
-            $cols,
+            $cols
         );
         $end = hrtime(true);
         echo (explode(' ',$la->getConfig()))[0].'CL='.number_format($end-$start)."\n";
@@ -1085,7 +1376,7 @@ class Test extends ORGTest
             $padding,
             //$channels_first,
             $dilation_rate=[
-                $dilation_h,$dilation_w],
+                $dilation_h,$dilation_w]
             //$cols_channels_first
         );
         $start = hrtime(true);
@@ -1100,7 +1391,7 @@ class Test extends ORGTest
             $padding,
             //$channels_first,
             $dilation_rate=[
-                $dilation_h,$dilation_w],
+                $dilation_h,$dilation_w]
             //$cols_channels_first
         );
         $end = hrtime(true);
@@ -1120,7 +1411,7 @@ class Test extends ORGTest
             $dilation_rate=[
                 $dilation_h,$dilation_w],
             //$cols_channels_first
-            $cols,
+            $cols
         );
         $start = hrtime(true);
         $la->im2col2dclblast(
@@ -1136,7 +1427,7 @@ class Test extends ORGTest
             $dilation_rate=[
                 $dilation_h,$dilation_w],
             //$cols_channels_first
-            $cols,
+            $cols
         );
         $end = hrtime(true);
         echo (explode(' ',$la->getConfig()))[0].'CL='.number_format($end-$start)."\n";
@@ -1220,8 +1511,9 @@ class Test extends ORGTest
     }
 
     /**
-    * @dataProvider modeProvider
+    * dataProvider modeProvider
     */
+/*
     public function testReduceSumOpenCL($mode)
     {
         $mo = $this->newMatrixOperator();
@@ -1278,7 +1570,66 @@ class Test extends ORGTest
             $this->assertEquals(65537,$la->asum($ret));
         }
     }
+*/
+    /**
+    * @dataProvider modeProvider
+    */
+    public function testReduceSumOpenCL($mode)  // reducesumex
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        $x = $la->array([[1,2,3],[4,5,6]]);
+        $y = $la->reduceSumTest($x,$axis=0,null,null,null,null,$mode);
+        $this->assertEquals([5,7,9],$y->toArray());
+        $y = $la->reduceSumTest($x,$axis=1,null,null,null,null,$mode);
+        $this->assertEquals([6,15],$y->toArray());
 
+        // ***** CAUTION ******
+        // 3d array
+        $x = $la->array([[[1,2],[3,4]],[[5,6],[7,8]]]);
+        $y = $la->reduceSumTest($x,$axis=0);
+        $this->assertEquals([[6,8],[10,12]],$y->toArray());
+        $x = $la->array([[[1,2],[3,4]],[[5,6],[7,8]]]);
+        $y = $la->reduceSumTest($x,$axis=1);
+        $this->assertEquals([[4,6],[12,14]],$y->toArray());
+
+        // with offset
+        $x = $la->array([[[9,9,9],[9,9,9]],[[1,2,3],[4,5,6]]]);
+        $x = $x[1];
+        $this->assertEquals([5,7,9],$la->reduceSumTest($x,$axis=0,null,null,null,null,$mode)->toArray());
+        $this->assertEquals([6,15],$la->reduceSumTest($x,$axis=1,null,null,null,null,$mode)->toArray());
+
+        // ceil thread
+        $x = $la->alloc([33,33]);
+        $la->ones($x);
+        $trues = $mo->full([33],33)->toArray();
+        $this->assertEquals($trues,$la->reduceSumTest($x,$axis=0,null,null,null,null,$mode)->toArray());
+        $this->assertEquals($trues,$la->reduceSumTest($x,$axis=1,null,null,null,null,$mode)->toArray());
+
+
+        if($mode!=1) {
+            // 257
+            $x = $la->alloc([1,257],NDArray::float32);
+            $la->fill(1,$x);
+            $ret = $la->reduceSumTest($x,$axis=1,null,null,null,null,$mode);
+            $this->assertEquals(257,$la->asum($ret));
+            // 65535
+            $x = $la->alloc([1,65535],NDArray::float32);
+            $la->fill(1,$x);
+            $ret = $la->reduceSumTest($x,$axis=1,null,null,null,null,$mode);
+            $this->assertEquals(65535,$la->asum($ret));
+            // 65536
+            $x = $la->alloc([1,65536],NDArray::float32);
+            $la->fill(1,$x);
+            $ret = $la->reduceSumTest($x,$axis=1,null,null,null,null,$mode);
+            $this->assertEquals(65536,$la->asum($ret));
+            // 65537
+            $x = $la->alloc([1,65537],NDArray::float32);
+            $la->fill(1,$x);
+            $ret = $la->reduceSumTest($x,$axis=1,null,null,null,null,$mode);
+            $this->assertEquals(65537,$la->asum($ret));
+        }
+    }
 
     /**
     * @dataProvider modeProvider
@@ -1298,13 +1649,13 @@ class Test extends ORGTest
         $this->assertEquals([-1,-4],$la->reduceMax($x,$axis=1)->toArray());
 
         // ***** CAUTION ******
-        // 3d array as 2d array
+        // 3d array
         $x = $la->array([[[1,2],[3,4]],[[5,6],[7,8]]]);
         $y = $la->reduceMaxTest($x,$axis=0,null,null,null,null,$mode);
-        $this->assertEquals([5,6,7,8],$y->toArray());
+        $this->assertEquals([[5,6],[7,8]],$y->toArray());
         $x = $la->array([[[1,2],[3,4]],[[5,6],[7,8]]]);
         $y = $la->reduceMaxTest($x,$axis=1,null,null,null,null,$mode);
-        $this->assertEquals([2,4,6,8],$y->toArray());
+        $this->assertEquals([[3,4],[7,8]],$y->toArray());
 
         // with offset
         $x = $la->array([[[9,9,9],[9,9,9]],[[1,2,3],[4,5,6]]]);
@@ -1314,22 +1665,22 @@ class Test extends ORGTest
 
         if($mode>1) {
             // 257
-            $x = $la->alloc([257],NDArray::float32);
+            $x = $la->alloc([1,257],NDArray::float32);
             $la->fill(1,$x);
             $ret = $la->reduceMaxTest($x,$axis=1,null,null,null,null,$mode);
             $this->assertEquals(1,$la->amax($ret));
             // 65535
-            $x = $la->alloc([65535],NDArray::float32);
+            $x = $la->alloc([1,65535],NDArray::float32);
             $la->fill(1,$x);
             $ret = $la->reduceMaxTest($x,$axis=1,null,null,null,null,$mode);
             $this->assertEquals(1,$la->amax($ret));
             // 65536
-            $x = $la->alloc([65536],NDArray::float32);
+            $x = $la->alloc([1,65536],NDArray::float32);
             $la->fill(1,$x);
             $ret = $la->reduceMaxTest($x,$axis=1,null,null,null,null,$mode);
             $this->assertEquals(1,$la->amax($ret));
             // 65537
-            $x = $la->alloc([65537],NDArray::float32);
+            $x = $la->alloc([1,65537],NDArray::float32);
             $la->fill(1,$x);
             $ret = $la->reduceMaxTest($x,$axis=1,null,null,null,null,$mode);
             $this->assertEquals(1,$la->amax($ret));
@@ -1351,10 +1702,10 @@ class Test extends ORGTest
         // 3d array as 2d array
         $x = $la->array([[[1,2],[3,4]],[[5,6],[7,8]]]);
         $y = $la->reduceArgMaxTest($x,$axis=0,null,null,null,null,$mode);
-        $this->assertEquals([1,1,1,1],$y->toArray());
+        $this->assertEquals([[1,1],[1,1]],$y->toArray());
         $x = $la->array([[[1,2],[3,4]],[[5,6],[7,8]]]);
         $y = $la->reduceArgMaxTest($x,$axis=1,null,null,null,null,$mode);
-        $this->assertEquals([1,1,1,1],$y->toArray());
+        $this->assertEquals([[1,1],[1,1]],$y->toArray());
 
         // with offset
         $x = $la->array([[[9,9,9],[9,9,9]],[[1,2,3],[4,5,6]]]);
@@ -1582,7 +1933,7 @@ class Test extends ORGTest
         }
         $this->assertLessThan(1e-3,$size-$sum);
     }
-
+/*
     public function testReduceSumCompareSpeed()
     {
         // Comment out when compare speed
@@ -1745,7 +2096,7 @@ class Test extends ORGTest
         $this->assertEquals($trues->toArray(),$sum->toArray());
         echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
 
-        $colsize = 65536;//256*256-1
+        $colsize = 65536/2;//256*256-1
         $rowsize = 512;#0;
         echo "==midle rows,cols($rowsize,$colsize)==\n";
         $trues = $mo->full([$rowsize],$colsize);
@@ -1771,7 +2122,7 @@ class Test extends ORGTest
         $this->assertEquals($trues->toArray(),$sum->toArray());
         echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
 
-        $colsize = 65535;//256*256-1
+        $colsize = 65536/2-1;//256*256-1
         $rowsize = 800;#0;
         echo "==midle rows,cols($rowsize,$colsize)==\n";
         $trues = $mo->full([$rowsize],$colsize);
@@ -1797,7 +2148,7 @@ class Test extends ORGTest
         $this->assertEquals($trues->toArray(),$sum->toArray());
         echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
 
-        $colsize = 65536;//256*256-1
+        $colsize = 65536/2;//256*256-1
         $rowsize = 800;#0;
         echo "==midle rows,cols($rowsize,$colsize)==\n";
         $trues = $mo->full([$rowsize],$colsize);
@@ -1823,7 +2174,7 @@ class Test extends ORGTest
         $this->assertEquals($trues->toArray(),$sum->toArray());
         echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
 
-        $colsize = 65535;//256*256-1
+        $colsize = 65536/2-1;//256*256-1
         $rowsize = 1023;#0;
         echo "==midle rows,cols($rowsize,$colsize)==\n";
         $trues = $mo->full([$rowsize],$colsize);
@@ -1849,7 +2200,7 @@ class Test extends ORGTest
         $this->assertEquals($trues->toArray(),$sum->toArray());
         echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
 
-        $colsize = 65536;//256*256
+        $colsize = 65536/2;//256*256
         $rowsize = 1023;#0;
         echo "==midle rows,cols($rowsize,$colsize)==\n";
         $trues = $mo->full([$rowsize],$colsize);
@@ -1875,7 +2226,7 @@ class Test extends ORGTest
         $this->assertEquals($trues->toArray(),$sum->toArray());
         echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
 
-        $colsize = (int)(32768/2-1);//256*256
+        $colsize = (int)(32768/4-1);//256*256
         $rowsize = 2048*2;#0;
         echo "==midle rows,cols($rowsize,$colsize)==\n";
         $trues = $mo->full([$rowsize],$colsize);
@@ -1901,7 +2252,7 @@ class Test extends ORGTest
         $this->assertEquals($trues->toArray(),$sum->toArray());
         echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
 
-        $colsize = (int)(32768/2);//256*256
+        $colsize = (int)(32768/4);//256*256
         $rowsize = 2048*2;#0;
         echo "==midle rows,cols($rowsize,$colsize)==\n";
         $trues = $mo->full([$rowsize],$colsize);
@@ -1951,6 +2302,143 @@ class Test extends ORGTest
         $sum = $la->reduceSumTest($x,$axis=1,null,null,null,null,3);
         $end = hrtime(true);
         $this->assertEquals($trues->toArray(),$sum->toArray());
+        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+
+    }
+*/
+    public function testReduceSumCompareSpeed() // reducesumex
+    {
+        // Comment out when compare speed
+        if(!self::$speedtest) {
+            $this->markTestSkipped('Speed measurement');
+            return;
+        }
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        if($la->getConfig()=='PhpBlas') {
+            $this->assertTrue(true);
+            return;
+        }
+        echo "\n";
+        $depth = 8;
+        $rowsize = 800000;
+        $colsize = 8;
+        echo "==large rows($depth,$rowsize,$colsize)==\n";
+        fwrite(STDERR,"*");
+        $mode = 0;
+        echo "mode=$mode\n";
+        $x = $la->alloc([$depth,$rowsize,$colsize],NDArray::float32);
+        $la->fill(1.0,$x);
+        $sum = $la->reduceSumTest($x,$axis=1,null,null,null,null,$mode);
+        $start = hrtime(true);
+        $sum = $la->reduceSumTest($x,$axis=1,null,null,null,null,$mode);
+        $end = hrtime(true);
+        $this->assertEquals($x->size(),$la->asum($sum));
+        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+
+        fwrite(STDERR,"*");
+        $mode = 2;
+        echo "mode=$mode\n";
+        $x = $la->alloc([$depth,$rowsize,$colsize],NDArray::float32);
+        $la->fill(1.0,$x);
+        $sum = $la->reduceSumTest($x,$axis=1,null,null,null,null,$mode);
+        $start = hrtime(true);
+        $sum = $la->reduceSumTest($x,$axis=1,null,null,null,null,$mode);
+        $end = hrtime(true);
+        $this->assertEquals($x->size(),$la->asum($sum));
+        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+
+        fwrite(STDERR,"*");
+        $mode = 3;
+        echo "mode=$mode\n";
+        $x = $la->alloc([$depth,$rowsize,$colsize],NDArray::float32);
+        $la->fill(1.0,$x);
+        $sum = $la->reduceSumTest($x,$axis=1,null,null,null,null,$mode);
+        $start = hrtime(true);
+        $sum = $la->reduceSumTest($x,$axis=1,null,null,null,null,$mode);
+        $end = hrtime(true);
+        $this->assertEquals($x->size(),$la->asum($sum));
+        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+
+        $depth = 800000;
+        $rowsize = 8;
+        $colsize = 8;
+        echo "==large depth($depth,$rowsize,$colsize)==\n";
+        fwrite(STDERR,"*");
+        $mode = 0;
+        echo "mode=$mode\n";
+        $x = $la->alloc([$depth,$rowsize,$colsize],NDArray::float32);
+        $la->fill(1.0,$x);
+        $sum = $la->reduceSumTest($x,$axis=1,null,null,null,null,$mode);
+        $start = hrtime(true);
+        $sum = $la->reduceSumTest($x,$axis=1,null,null,null,null,$mode);
+        $end = hrtime(true);
+        $this->assertEquals($x->size(),$la->asum($sum));
+        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+
+        fwrite(STDERR,"*");
+        $mode = 1;
+        echo "mode=$mode\n";
+        $x = $la->alloc([$depth,$rowsize,$colsize],NDArray::float32);
+        $la->fill(1.0,$x);
+        $sum = $la->reduceSumTest($x,$axis=1,null,null,null,null,$mode);
+        $start = hrtime(true);
+        $sum = $la->reduceSumTest($x,$axis=1,null,null,null,null,$mode);
+        $end = hrtime(true);
+        $this->assertEquals($x->size(),$la->asum($sum));
+        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+
+        fwrite(STDERR,"*");
+        $mode = 2;
+        echo "mode=$mode\n";
+        $x = $la->alloc([$depth,$rowsize,$colsize],NDArray::float32);
+        $la->fill(1.0,$x);
+        $sum = $la->reduceSumTest($x,$axis=1,null,null,null,null,$mode);
+        $start = hrtime(true);
+        $sum = $la->reduceSumTest($x,$axis=1,null,null,null,null,$mode);
+        $end = hrtime(true);
+        $this->assertEquals($x->size(),$la->asum($sum));
+        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+
+        $depth = 8;
+        $rowsize = 8;#0;
+        $colsize = 800000;
+        echo "==large cols($depth,$rowsize,$colsize)==\n";
+        $trues = $mo->full([$rowsize,$depth],$colsize);
+        fwrite(STDERR,"*");
+        $mode = 0;
+        echo "mode=$mode\n";
+        $x = $la->alloc([$depth,$rowsize,$colsize],NDArray::float32);
+        $la->fill(1.0,$x);
+        $sum = $la->reduceSumTest($x,$axis=1,null,null,null,null,$mode);
+        $start = hrtime(true);
+        $sum = $la->reduceSumTest($x,$axis=1,null,null,null,null,$mode);
+        $end = hrtime(true);
+        $this->assertEquals($x->size(),$la->asum($sum));
+        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+
+        fwrite(STDERR,"*");
+        $mode = 1;
+        echo "mode=$mode\n";
+        $x = $la->alloc([$depth,$rowsize,$colsize],NDArray::float32);
+        $la->fill(1.0,$x);
+        $sum = $la->reduceSumTest($x,$axis=1,null,null,null,null,$mode);
+        $start = hrtime(true);
+        $sum = $la->reduceSumTest($x,$axis=1,null,null,null,null,$mode);
+        $end = hrtime(true);
+        $this->assertEquals($x->size(),$la->asum($sum));
+        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+
+        fwrite(STDERR,"*");
+        $mode = 2;
+        echo "mode=$mode\n";
+        $x = $la->alloc([$depth,$rowsize,$colsize],NDArray::float32);
+        $la->fill(1.0,$x);
+        $sum = $la->reduceSumTest($x,$axis=1,null,null,null,null,$mode);
+        $start = hrtime(true);
+        $sum = $la->reduceSumTest($x,$axis=1,null,null,null,null,$mode);
+        $end = hrtime(true);
+        $this->assertEquals($x->size(),$la->asum($sum));
         echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
 
     }
@@ -2210,6 +2698,184 @@ class Test extends ORGTest
         echo (explode(' ',$la->getConfig()))[0].'2='.number_format($end-$start)."\n";
     }
 
+    public function testScatterAddAxis0CompareSpeed()
+    {
+        // Comment out when compare speed
+        if(!self::$speedtest) {
+            $this->markTestSkipped('Speed measurement');
+            return;
+        }
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        if($la->getConfig()=='PhpBlas') {
+            $this->assertTrue(true);
+            return;
+        }
+        echo "\n";
+        $rows = 8;
+        $cols = 8;
+        $numClass = 800000;#65536;
+        echo "==large cols($rows,$cols,$numClass)==\n";
+        fwrite(STDERR,"*");
+        $mode = 0;
+        echo "mode=$mode\n";
+        $x = $la->alloc([$rows],NDArray::int32);
+        $la->fill(1,$x);
+        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $la->fill(1.0,$y);
+        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $la->fill(0.0,$a);
+        $la->scatterAddTest($x,$y,$a,$axis=0,null,null,$mode);
+        $start = hrtime(true);
+        $la->scatterAddTest($x,$y,$a,$axis=0,null,null,$mode);
+        $end = hrtime(true);
+        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+
+        fwrite(STDERR,"*");
+        $mode = 2;
+        echo "mode=$mode\n";
+        $x = $la->alloc([$rows],NDArray::int32);
+        $la->fill(1,$x);
+        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $la->fill(1.0,$y);
+        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $la->fill(0.0,$a);
+        $la->scatterAddTest($x,$y,$a,$axis=0,null,null,$mode);
+        $start = hrtime(true);
+        $la->scatterAddTest($x,$y,$a,$axis=0,null,null,$mode);
+        $end = hrtime(true);
+        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+
+        fwrite(STDERR,"*");
+        $mode = 4;
+        echo "mode=$mode\n";
+        $x = $la->alloc([$rows],NDArray::int32);
+        $la->fill(1,$x);
+        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $la->fill(1.0,$y);
+        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $la->fill(0.0,$a);
+        $la->scatterAddTest($x,$y,$a,$axis=0,null,null,$mode);
+        $start = hrtime(true);
+        $la->scatterAddTest($x,$y,$a,$axis=0,null,null,$mode);
+        $end = hrtime(true);
+        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+
+        $rows = 800000;
+        $cols = 8;
+        $numClass = 8;#65536;
+        echo "==large cols($rows,$cols,$numClass)==\n";
+        fwrite(STDERR,"*");
+        $mode = 0;
+        echo "mode=$mode\n";
+        $x = $la->alloc([$rows],NDArray::int32);
+        $la->fill(1,$x);
+        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $la->fill(1.0,$y);
+        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $la->fill(0.0,$a);
+        $la->scatterAddTest($x,$y,$a,$axis=0,null,null,$mode);
+        $start = hrtime(true);
+        $la->scatterAddTest($x,$y,$a,$axis=0,null,null,$mode);
+        $end = hrtime(true);
+        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+
+        fwrite(STDERR,"*");
+        $mode = 2;
+        echo "mode=$mode\n";
+        $x = $la->alloc([$rows],NDArray::int32);
+        $la->fill(1,$x);
+        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $la->fill(1.0,$y);
+        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $la->fill(0.0,$a);
+        $la->scatterAddTest($x,$y,$a,$axis=0,null,null,$mode);
+        $start = hrtime(true);
+        $la->scatterAddTest($x,$y,$a,$axis=0,null,null,$mode);
+        $end = hrtime(true);
+        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+
+        fwrite(STDERR,"*");
+        $mode = 3;
+        echo "mode=$mode\n";
+        $x = $la->alloc([$rows],NDArray::int32);
+        $la->fill(1,$x);
+        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $la->fill(1.0,$y);
+        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $la->fill(0.0,$a);
+        $la->scatterAddTest($x,$y,$a,$axis=0,null,null,$mode);
+        $start = hrtime(true);
+        $la->scatterAddTest($x,$y,$a,$axis=0,null,null,$mode);
+        $end = hrtime(true);
+        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+
+        fwrite(STDERR,"*");
+        $mode = 4;
+        echo "mode=$mode\n";
+        $x = $la->alloc([$rows],NDArray::int32);
+        $la->fill(1,$x);
+        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $la->fill(1.0,$y);
+        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $la->fill(0.0,$a);
+        $la->scatterAddTest($x,$y,$a,$axis=0,null,null,$mode);
+        $start = hrtime(true);
+        $la->scatterAddTest($x,$y,$a,$axis=0,null,null,$mode);
+        $end = hrtime(true);
+        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+
+        $rows = 8;
+        $cols = 800000;
+        $numClass = 8;#65536;
+        echo "==large cols($rows,$cols,$numClass)==\n";
+        fwrite(STDERR,"*");
+        $mode = 0;
+        echo "mode=$mode\n";
+        $x = $la->alloc([$rows],NDArray::int32);
+        $la->fill(1,$x);
+        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $la->fill(1.0,$y);
+        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $la->fill(0.0,$a);
+        $la->scatterAddTest($x,$y,$a,$axis=0,null,null,$mode);
+        $start = hrtime(true);
+        $la->scatterAddTest($x,$y,$a,$axis=0,null,null,$mode);
+        $end = hrtime(true);
+        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+
+        fwrite(STDERR,"*");
+        $mode = 2;
+        echo "mode=$mode\n";
+        $x = $la->alloc([$rows],NDArray::int32);
+        $la->fill(1,$x);
+        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $la->fill(1.0,$y);
+        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $la->fill(0.0,$a);
+        $la->scatterAddTest($x,$y,$a,$axis=0,null,null,$mode);
+        $start = hrtime(true);
+        $la->scatterAddTest($x,$y,$a,$axis=0,null,null,$mode);
+        $end = hrtime(true);
+        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+
+        fwrite(STDERR,"*");
+        $mode = 4;
+        echo "mode=$mode\n";
+        $x = $la->alloc([$rows],NDArray::int32);
+        $la->fill(1,$x);
+        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $la->fill(1.0,$y);
+        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $la->fill(0.0,$a);
+        $la->scatterAddTest($x,$y,$a,$axis=0,null,null,$mode);
+        $start = hrtime(true);
+        $la->scatterAddTest($x,$y,$a,$axis=0,null,null,$mode);
+        $end = hrtime(true);
+        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+
+        $this->assertTrue(true);
+    }
 
     public function testSolve()
     {
@@ -2296,7 +2962,7 @@ class Test extends ORGTest
         //$tunner->tunningReduceSum($mode=0,$maxTime=10**9.5,$limitTime=10**9.7);
         //$tunner->tunningReduceSum($mode=1,$maxTime=10**9.5,$limitTime=10**9.7);
         //$tunner->tunningReduceSum($mode=2,$maxTime=10**9.5,$limitTime=10**9.7);
-        $tunner->tunningReduceSum($mode=0,$maxTime=10**9.5,$limitTime=10**9.7);
+        $tunner->tunningReduceSum($mode=3,$maxTime=10**9.5,$limitTime=10**9.7);
     }
 
     public function testShowGraphReduceSum()
@@ -2305,7 +2971,7 @@ class Test extends ORGTest
         return;
         $mo = $this->newMatrixOperator();
         $tunner = new OpenCLMathTunner($mo);
-        $tunner->showGraphReduceSum($mode=[0,2,3],$details=true);
+        $tunner->showGraphReduceSum($mode=3,$details=true);
         $this->assertTrue(true);
     }
 
@@ -2315,7 +2981,7 @@ class Test extends ORGTest
         return;
         $mo = $this->newMatrixOperator();
         $tunner = new OpenCLMathTunner($mo);
-        //$times[8][2048] = 0.8;
+        $times[8][8] = 1.0;
         $tunner->EditGraphReduceSum($mode=3,$times);
         $tunner->showGraphReduceSum($mode=3,$details=true);
         $this->assertTrue(true);

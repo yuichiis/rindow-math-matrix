@@ -2744,8 +2744,8 @@ class Test extends TestCase
             [-1, 1, 1],
         ],$la->onehot($x,3,-2,$y)->toArray());
     }
-
-    public function testReduceSumNormal()
+/*
+    public function testReduceSumOLDNormal()
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
@@ -2770,8 +2770,35 @@ class Test extends TestCase
         $this->assertEquals([5,7,9],$la->reduceSum($x,$axis=0)->toArray());
         $this->assertEquals([6,15],$la->reduceSum($x,$axis=1)->toArray());
     }
+*/
+    public function testReduceSumNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        $x = $la->array([[1,2,3],[4,5,6]]);
+        $y = $la->reduceSum($x,$axis=0);
+        $this->assertEquals([5,7,9],$y->toArray());
+        $y = $la->reduceSum($x,$axis=1);
+        $this->assertEquals([6,15],$y->toArray());
+        $y = $la->reduceSum($x,$axis=-1);
+        $this->assertEquals([6,15],$y->toArray());
 
-    public function testReduceSumLarge()
+        // 3d array
+        $x = $la->array([[[1,2],[3,4]],[[5,6],[7,8]]]);
+        $y = $la->reduceSum($x,$axis=0);
+        $this->assertEquals([[6,8],[10,12]],$y->toArray());
+        $x = $la->array([[[1,2],[3,4]],[[5,6],[7,8]]]);
+        $y = $la->reduceSum($x,$axis=1);
+        $this->assertEquals([[4,6],[12,14]],$y->toArray());
+
+        // with offset
+        $x = $la->array([[[9,9,9],[9,9,9]],[[1,2,3],[4,5,6]]]);
+        $x = $x[1];
+        $this->assertEquals([5,7,9],$la->reduceSum($x,$axis=0)->toArray());
+        $this->assertEquals([6,15],$la->reduceSum($x,$axis=1)->toArray());
+    }
+/*
+    public function testReduceSumOLDLarge()
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
@@ -2801,8 +2828,39 @@ class Test extends TestCase
         $this->assertLessThan(1e-3,$la->amax($la->axpy(
             $trues,$sum,-1)));
     }
+*/
+    public function testReduceSumLarge()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        if(!$la->accelerated()) {
+            $this->markTestSkipped('Skip due to high load');
+            return;
+        }
+        // large size
+        $colsize = 800000;
+        $rowsize = 64;
+        $x = $la->alloc([$rowsize,$colsize],NDArray::float32);
+        $la->fill(1.0,$x);
+        $sum = $la->reduceSum($x,$axis=1);
+        $trues = $la->alloc([$rowsize],NDArray::float32);
+        $la->fill($colsize,$trues);
+        $this->assertLessThan(1e-3,$la->amax($la->axpy(
+            $trues,$sum,-1)));
 
-    public function testReduceSumSpeed()
+        // large size
+        $colsize = 64;
+        $rowsize = 10000;#00;
+        $x = $la->alloc([$rowsize,$colsize],NDArray::float32);
+        $la->fill(1.0,$x);
+        $sum = $la->reduceSum($x,$axis=1);
+        $trues = $la->alloc([$rowsize],NDArray::float32);
+        $la->fill($colsize,$trues);
+        $this->assertLessThan(1e-3,$la->amax($la->axpy(
+            $trues,$sum,-1)));
+    }
+/*
+    public function testReduceSumOLDSpeed()
     {
         if(!self::$speedtest) {
             $this->markTestSkipped('Speed measurement');
@@ -2862,6 +2920,67 @@ class Test extends TestCase
         $this->assertEquals($x->size(),$la->asum($sum));
         echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
     }
+*/
+    public function testReduceSumSpeed()
+    {
+        if(!self::$speedtest) {
+            $this->markTestSkipped('Speed measurement');
+            return;
+        }
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        if($la->getConfig()=='PhpBlas') {
+            $this->assertTrue(true);
+            return;
+        }
+
+        echo "\n";
+
+        $colsize = 1000000;
+        $rowsize = 64;
+        $x = $la->alloc([$rowsize,$colsize],NDArray::float32);
+        fwrite(STDERR,"Start fill1\n");
+        $la->fill(1.0,$x);
+        fwrite(STDERR,"End fill1\n");
+        fwrite(STDERR,"Start prepare1\n");
+        $sum = $la->reduceSum($x,$axis=1);
+        fwrite(STDERR,"End prepare1\n");
+        $start = hrtime(true);
+        $sum = $la->reduceSum($x,$axis=1);
+        $end = hrtime(true);
+        $this->assertEquals($x->size(),$la->asum($sum));
+        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+
+        $colsize = 64;
+        $rowsize = 1000000;
+        $x = $la->alloc([$rowsize,$colsize],NDArray::float32);
+        fwrite(STDERR,"Start fill2\n");
+        $la->fill(1.0,$x);
+        fwrite(STDERR,"End fill2\n");
+        fwrite(STDERR,"Start prepare2\n");
+        $sum = $la->reduceSum($x,$axis=1);
+        fwrite(STDERR,"End prepare2\n");
+        $start = hrtime(true);
+        $sum = $la->reduceSum($x,$axis=1);
+        $end = hrtime(true);
+        $this->assertEquals($x->size(),$la->asum($sum));
+        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+
+        $colsize = 4096;
+        $rowsize = 8000;#0;
+        $x = $la->alloc([$rowsize,$colsize],NDArray::float32);
+        fwrite(STDERR,"Start fill3\n");
+        $la->fill(1.0,$x);
+        fwrite(STDERR,"End fill3\n");
+        fwrite(STDERR,"Start prepare3\n");
+        $sum = $la->reduceSum($x,$axis=1);
+        fwrite(STDERR,"End prepare3\n");
+        $start = hrtime(true);
+        $sum = $la->reduceSum($x,$axis=1);
+        $end = hrtime(true);
+        $this->assertEquals($x->size(),$la->asum($sum));
+        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
+    }
 
     public function testReduceMaxNormal()
     {
@@ -2879,13 +2998,13 @@ class Test extends TestCase
 
 
         // ***** CAUTION ******
-        // 3d array as 2d array
+        // 3d array
         $x = $la->array([[[1,2],[3,4]],[[5,6],[7,8]]]);
         $y = $la->reduceMax($x,$axis=0);
-        $this->assertEquals([5,6,7,8],$y->toArray());
+        $this->assertEquals([[5,6],[7,8]],$y->toArray());
         $x = $la->array([[[1,2],[3,4]],[[5,6],[7,8]]]);
         $y = $la->reduceMax($x,$axis=1);
-        $this->assertEquals([2,4,6,8],$y->toArray());
+        $this->assertEquals([[3,4],[7,8]],$y->toArray());
 
         // with offset
         $x = $la->array([[[9,9,9],[9,9,9]],[[1,2,3],[4,5,6]]]);
@@ -2971,13 +3090,13 @@ class Test extends TestCase
         $this->assertEquals([2,2],$la->reduceArgMax($x,$axis=1)->toArray());
 
         // ***** CAUTION ******
-        // 3d array as 2d array
+        // 3d array
         $x = $la->array([[[1,2],[3,4]],[[5,6],[7,8]]]);
         $y = $la->reduceArgMax($x,$axis=0);
-        $this->assertEquals([1,1,1,1],$y->toArray());
+        $this->assertEquals([[1,1],[1,1]],$y->toArray());
         $x = $la->array([[[1,2],[3,4]],[[5,6],[7,8]]]);
         $y = $la->reduceArgMax($x,$axis=1);
-        $this->assertEquals([1,1,1,1],$y->toArray());
+        $this->assertEquals([[1,1],[1,1]],$y->toArray());
 
         // with offset
         $x = $la->array([[[9,9,9],[9,9,9]],[[1,2,3],[4,5,6]]]);
@@ -6331,21 +6450,21 @@ class Test extends TestCase
             ],$y->toArray());
 
             // reverse and add
-            $Y = $la->array([
-                [[1,2,3],[1,2,3]],
-                [[4,5,6],[4,5,6]],
-            ],$dtype);
-            $X = $la->reduceSumRepeated($Y);
-            $this->assertEquals([2,2,3],$Y->shape());
-            $this->assertEquals([2,3],$X->shape());
-            $this->assertEquals([
-                [[1,2,3],[1,2,3]],
-                [[4,5,6],[4,5,6]],
-            ],$Y->toArray());
-            $this->assertEquals([
-                [2,4,6],
-                [8,10,12]
-            ],$X->toArray());
+            // $Y = $la->array([
+            //     [[1,2,3],[1,2,3]],
+            //     [[4,5,6],[4,5,6]],
+            // ],$dtype);
+            // $X = $la->reduceSumRepeated($Y);
+            // $this->assertEquals([2,2,3],$Y->shape());
+            // $this->assertEquals([2,3],$X->shape());
+            // $this->assertEquals([
+            //     [[1,2,3],[1,2,3]],
+            //     [[4,5,6],[4,5,6]],
+            // ],$Y->toArray());
+            // $this->assertEquals([
+            //     [2,4,6],
+            //     [8,10,12]
+            // ],$X->toArray());
 
         }
     }
@@ -6408,7 +6527,7 @@ class Test extends TestCase
         ],$Y->toArray());
     }
 
-    public function testReduceSumRepeated()
+    public function testReduceSum3d()
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
@@ -6418,7 +6537,7 @@ class Test extends TestCase
             [[1,2,3],[1,2,3]],
             [[4,5,6],[4,5,6]],
         ]);
-        $X = $la->reduceSumRepeated($Y);
+        $X = $la->reduceSum($Y,$axis=1);
         $this->assertEquals([2,2,3],$Y->shape());
         $this->assertEquals([2,3],$X->shape());
         $this->assertEquals([
@@ -6435,7 +6554,7 @@ class Test extends TestCase
             [[1,2,3]],
             [[4,5,6]]
         ]);
-        $X = $la->reduceSumRepeated($Y);
+        $X = $la->reduceSum($Y,$axis=1);
         $this->assertEquals([2,1,3],$Y->shape());
         $this->assertEquals([2,3],$X->shape());
         $this->assertEquals([
@@ -6457,7 +6576,7 @@ class Test extends TestCase
              [[7,8,9],[10,11,12]],
              [[7,8,9],[10,11,12]]],
         ]);
-        $X = $la->reduceSumRepeated($Y);
+        $X = $la->reduceSum($Y,$axis=1);
         $this->assertEquals([2,4,2,3],$Y->shape());
         $this->assertEquals([2,2,3],$X->shape());
         $this->assertEquals([

@@ -25,6 +25,8 @@ class LinearAlgebraCL
     protected $autoEvents;
     protected $profiling;
     protected $profilingStartTime = [];
+    protected $profilingCount = [];
+    protected $profilingTotalTime = [];
 
     public function __construct(
         $context,$queue,$blas,$openclmath,$clblastmath,
@@ -107,7 +109,7 @@ class LinearAlgebraCL
         asort($this->profilingTotalTime);
         foreach($this->profilingTotalTime as $name => $time) {
             $count = $this->profilingCount[$name];
-            echo sprintf("%16s:total %6e, count:%6d, average %6e\n",$name,$time,$count,$time/$count);
+            echo sprintf("%17s:total %6e, count:%6d, average %6e\n",$name,$time,$count,$time/$count);
         }
     }
 
@@ -2478,7 +2480,8 @@ class LinearAlgebraCL
         ) : NDArray
     {
         if($this->profiling) {
-            $this->profilingStart("scatterAxis0");
+            $profiling = $addMode ? "scatterAddAxis0" : "scatterAxis0";
+            $this->profilingStart($profiling);
         }
         if($X->ndim()!=1) {
             throw new InvalidArgumentException('"X" must be 1D-NDArray.');
@@ -2529,7 +2532,7 @@ class LinearAlgebraCL
             $this->finish();
         }
         if($this->profiling) {
-            $this->profilingEnd("scatterAxis0");
+            $this->profilingEnd($profiling);
         }
         return $A;
     }
@@ -2547,7 +2550,8 @@ class LinearAlgebraCL
         ) : NDArray
     {
         if($this->profiling) {
-            $this->profilingStart("scatterAxis1");
+            $profiling = $addMode ? "scatterAddAxis1" : "scatterAxis1";
+            $this->profilingStart($profiling);
         }
         if($X->ndim()!=1) {
             throw new InvalidArgumentException('"X" must be 1D-NDArray.');
@@ -2597,7 +2601,7 @@ class LinearAlgebraCL
             $this->finish();
         }
         if($this->profiling) {
-            $this->profilingEnd("scatterAxis1");
+            $this->profilingEnd($profiling);
         }
         return $A;
     }
@@ -2704,161 +2708,57 @@ class LinearAlgebraCL
     /**
      *    X(m) := sum( A(m,n) )
      */
-    public function reduceSumCLBlast(
+    public function reduceSum(//reduceSumEx
         NDArray $A,
         int $axis=null,
-        NDArray $X=null,
-        $dtypeX=null,
-        $events=null
-        //,$waitEvents=null
-        ) : NDArray
-    {
-        if($this->profiling) {
-            $this->profilingStart("reduceSumCLBlast");
-        }
-        if($axis===null)
-            $axis = 0;
-        if($axis!==0 && $axis!==1 && $axis!==-1)
-            throw new InvalidArgumentException('"axis" must be 0 or 1 or -1.');
-        $shapeA = $A->shape();
-        if($axis==0) {
-            $trans = true;
-            $m = array_shift($shapeA);
-            $n = (int)array_product($shapeA);
-            $rows = $n;
-            $cols = $m;
-        } else {
-            $trans = false;
-            $n = array_pop($shapeA);
-            $m = (int)array_product($shapeA);
-            $rows = $m;
-            $cols = $n;
-        }
-
-        if($dtypeX===null) {
-            $dtypeX = $A->dtype();
-        }
-        if($X==null) {
-            $X = $this->alloc([$rows],$dtypeX);
-        } else {
-            if($X->shape()!=[$rows]) {
-                $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$X->shape()).')';
-                throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
-            }
-        }
-
-        $AA = $A->buffer();
-        $offA = $A->offset();
-        $XX = $X->buffer();
-        $offX = $X->offset();
-
-        //$this->openclmath->reduceSum(
-        //    $trans,
-        //    $m,
-        //    $n,
-        //    $AA,$offA,$n,
-        //    $XX,$offX,1,
-        //    $events,$waitEvents
-        //);
-        if($trans) {
-            $incA = $n;
-            $ldA  = 1;
-        } else {
-            $incA = 1;
-            $ldA  = $n;
-        }
-
-        //echo "rows=$rows\n";
-        //echo "cols=$cols\n";
-        // /$segsize = 65536;
-        $segsize = 8192;
-        $batches = $rows % $segsize;
-        if($batches) {
-            $sumEvents = $this->newEventList();
-            //echo "ph1-batches=$batches\n";
-            for($i=0; $i<$batches; $i++,$offX++,$offA+=$ldA) {
-                $this->math->sum($cols,$XX,$offX,$AA,$offA,$incA,$this->queue,$sumEvents);
-            }
-            $sumEvents->wait();
-        }
-        $batches = (int)floor($rows / $segsize);
-        //echo "ph2-batches=$batches\n";
-        for($j=0;$j<$batches;$j++) {
-            $sumEvents = $this->newEventList();
-            for($i=0; $i<$segsize; $i++,$offX++,$offA+=$ldA) {
-                $this->math->sum($cols,$XX,$offX,$AA,$offA,$incA,$this->queue,$sumEvents);
-            }
-            $sumEvents->wait();
-            fwrite(STDERR, "+");
-        }
-
-        if($this->blocking) {
-            $this->finish();
-        }
-        if($this->profiling) {
-            $this->profilingEnd("reduceSumCLBlast");
-        }
-        return $X;
-    }
-
-    /**
-     *    X(m) := sum( A(m,n) )
-     */
-    public function reduceSum(
-        NDArray $A,
-        int $axis=null,
-        NDArray $X=null,
-        $dtypeX=null,
+        NDArray $B=null,
+        $dtype=null,
         $events=null,$waitEvents=null
         ) : NDArray
     {
         if($this->profiling) {
             $this->profilingStart("reduceSum");
         }
-        if($axis===null)
-            $axis = 0;
-        if($axis!==0 && $axis!==1 && $axis!==-1)
-            throw new InvalidArgumentException('"axis" must be 0 or 1 or -1.');
-        $shapeA = $A->shape();
-        if($axis==0) {
-            $trans = true;
-            $m = array_shift($shapeA);
-            $n = (int)array_product($shapeA);
-            $cols = $m;
-            $rows = $n;
-        } else {
-            $trans = false;
-            $n = array_pop($shapeA);
-            $m = (int)array_product($shapeA);
-            $cols = $n;
-            $rows = $m;
+        $ndim = $A->ndim();
+        if($axis<0) {
+            $axis = $ndim+$axis;
         }
-
-        if($dtypeX===null) {
-            $dtypeX = $A->dtype();
+        if($axis<0 || $axis>$ndim-1) {
+            throw new InvalidArgumentException("Invalid axis");
         }
-        if($X==null) {
-            $X = $this->alloc([$rows],$dtypeX);
+        $postfixShape = $A->shape();
+        $prefixShape = [];
+        for($i=0;$i<$axis;$i++) {
+            $prefixShape[] = array_shift($postfixShape);
+        }
+        $n = array_shift($postfixShape);
+        $m = array_product($prefixShape);
+        $k = array_product($postfixShape);
+        $outputShape = array_merge($prefixShape,$postfixShape);
+        if($dtype===null) {
+            $dtype = $A->dtype();
+        }
+        if($B==null) {
+            $B = $this->alloc($outputShape,$dtype);
         } else {
-            if($X->shape()!=[$rows]) {
-                $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$X->shape()).')';
+            if($B->shape()!=$outputShape) {
+                $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$B->shape()).')';
                 throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
             }
         }
 
         $AA = $A->buffer();
         $offA = $A->offset();
-        $XX = $X->buffer();
-        $offX = $X->offset();
+        $BB = $B->buffer();
+        $offB = $B->offset();
 
         $this->openclmath->reduceSum(
-            $trans,
             $m,
             $n,
-            $AA,$offA,$n,
-            $XX,$offX,1,
-            $events,$waitEvents
-        );
+            $k,
+            $AA,$offA,
+            $BB,$offB,
+            $events,$waitEvents);
 
         if($this->blocking) {
             $this->finish();
@@ -2866,65 +2766,63 @@ class LinearAlgebraCL
         if($this->profiling) {
             $this->profilingEnd("reduceSum");
         }
-        return $X;
+        return $B;
     }
 
     /**
      *    X(m) := max( A(m,n) )
      */
-    public function reduceMax(
+    public function reduceMax(//reduceMaxEx
         NDArray $A,
-        int $axis,
-        NDArray $X=null,
-        $dtypeX=null,
+        int $axis=null,
+        NDArray $B=null,
+        $dtype=null,
         $events=null,$waitEvents=null
         ) : NDArray
     {
         if($this->profiling) {
             $this->profilingStart("reduceMax");
         }
-        if($axis===null)
-            $axis = 0;
-        if($axis!==0 && $axis!==1 && $axis!==-1)
-            throw new InvalidArgumentException('"axis" must be 0 or 1 or -1.');
-        $shapeA = $A->shape();
-        if($axis==0) {
-            $trans = true;
-            $m = array_shift($shapeA);
-            $n = (int)array_product($shapeA);
-            $rows = $n;
-        } else {
-            $trans = false;
-            $n = array_pop($shapeA);
-            $m = (int)array_product($shapeA);
-            $rows = $m;
+        $ndim = $A->ndim();
+        if($axis<0) {
+            $axis = $ndim+$axis;
         }
-
-        if($dtypeX===null) {
-            $dtypeX = $A->dtype();
+        if($axis<0 || $axis>$ndim-1) {
+            throw new InvalidArgumentException("Invalid axis");
         }
-        if($X==null) {
-            $X = $this->alloc([$rows],$dtypeX);
+        $postfixShape = $A->shape();
+        $prefixShape = [];
+        for($i=0;$i<$axis;$i++) {
+            $prefixShape[] = array_shift($postfixShape);
+        }
+        $n = array_shift($postfixShape);
+        $m = array_product($prefixShape);
+        $k = array_product($postfixShape);
+        $outputShape = array_merge($prefixShape,$postfixShape);
+        if($dtype===null) {
+            $dtype = $A->dtype();
+        }
+        if($B==null) {
+            $B = $this->alloc($outputShape,$dtype);
         } else {
-            if($X->shape()!=[$rows]) {
-                $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$X->shape()).')';
+            if($B->shape()!=$outputShape) {
+                $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$B->shape()).')';
                 throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
             }
         }
 
         $AA = $A->buffer();
         $offA = $A->offset();
-        $XX = $X->buffer();
-        $offX = $X->offset();
+        $BB = $B->buffer();
+        $offB = $B->offset();
 
         $this->openclmath->reduceMax(
-            $trans,
             $m,
             $n,
-            $AA,$offA,$n,
-            $XX,$offX,1,
-            $events,$waitEvents
-        );
+            $k,
+            $AA,$offA,
+            $BB,$offB,
+            $events,$waitEvents);
 
         if($this->blocking) {
             $this->finish();
@@ -2932,65 +2830,63 @@ class LinearAlgebraCL
         if($this->profiling) {
             $this->profilingEnd("reduceMax");
         }
-        return $X;
+        return $B;
     }
 
     /**
      *    X(m) := imax( A(m,n) )
      */
-    public function reduceArgMax(
+    public function reduceArgMax(//reduceArgMaxEx
         NDArray $A,
-        int $axis,
-        NDArray $X=null,
-        $dtypeX=null,
+        int $axis=null,
+        NDArray $B=null,
+        $dtypeB=null,
         $events=null,$waitEvents=null
         ) : NDArray
     {
         if($this->profiling) {
             $this->profilingStart("reduceArgMax");
         }
-        if($axis===null)
-            $axis = 0;
-        if($axis!==0 && $axis!==1 && $axis!==-1)
-            throw new InvalidArgumentException('"axis" must be 0 or 1 or -1.');
-        $shapeA = $A->shape();
-        if($axis==0) {
-            $trans = true;
-            $m = array_shift($shapeA);
-            $n = (int)array_product($shapeA);
-            $rows = $n;
-        } else {
-            $trans = false;
-            $n = array_pop($shapeA);
-            $m = (int)array_product($shapeA);
-            $rows = $m;
+        $ndim = $A->ndim();
+        if($axis<0) {
+            $axis = $ndim+$axis;
         }
-
-        if($dtypeX==null) {
-            $dtypeX = NDArray::int32;
+        if($axis<0 || $axis>$ndim-1) {
+            throw new InvalidArgumentException("Invalid axis");
         }
-        if($X==null) {
-            $X = $this->alloc([$rows],$dtypeX);
+        $postfixShape = $A->shape();
+        $prefixShape = [];
+        for($i=0;$i<$axis;$i++) {
+            $prefixShape[] = array_shift($postfixShape);
+        }
+        $n = array_shift($postfixShape);
+        $m = array_product($prefixShape);
+        $k = array_product($postfixShape);
+        $outputShape = array_merge($prefixShape,$postfixShape);
+        if($dtypeB===null) {
+            $dtypeB = NDArray::uint32;
+        }
+        if($B==null) {
+            $B = $this->alloc($outputShape,$dtypeB);
         } else {
-            if($X->shape()!=[$rows]) {
-                $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$X->shape()).')';
+            if($B->shape()!=$outputShape) {
+                $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$B->shape()).')';
                 throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
             }
         }
 
         $AA = $A->buffer();
         $offA = $A->offset();
-        $XX = $X->buffer();
-        $offX = $X->offset();
+        $BB = $B->buffer();
+        $offB = $B->offset();
 
         $this->openclmath->reduceArgMax(
-            $trans,
             $m,
             $n,
-            $AA,$offA,$n,
-            $XX,$offX,1,
-            $events,$waitEvents
-        );
+            $k,
+            $AA,$offA,
+            $BB,$offB,
+            $events,$waitEvents);
 
         if($this->blocking) {
             $this->finish();
@@ -2998,7 +2894,7 @@ class LinearAlgebraCL
         if($this->profiling) {
             $this->profilingEnd("reduceArgMax");
         }
-        return $X;
+        return $B;
     }
 
     /**
@@ -3865,6 +3761,9 @@ class LinearAlgebraCL
             $output,
             $events,$waitEvents
         );
+        if($this->blocking) {
+            $this->finish();
+        }
         if($this->profiling) {
             $this->profilingEnd("slice");
         }
@@ -3890,6 +3789,9 @@ class LinearAlgebraCL
             $input,
             $events,$waitEvents
         );
+        if($this->blocking) {
+            $this->finish();
+        }
         if($this->profiling) {
             $this->profilingEnd("stick");
         }
@@ -3959,6 +3861,9 @@ class LinearAlgebraCL
         } else {
             throw new InvalidArgumentException('unsuppoted axis');
         }
+        if($this->blocking) {
+            $this->finish();
+        }
         if($this->profiling) {
             $this->profilingEnd("stack");
         }
@@ -4021,6 +3926,9 @@ class LinearAlgebraCL
             $i += $nn;
         }
         $output = $output->reshape(array_merge($shapePrefix,[$n],$dims));
+        if($this->blocking) {
+            $this->finish();
+        }
         if($this->profiling) {
             $this->profilingEnd("concat");
         }
@@ -4051,14 +3959,28 @@ class LinearAlgebraCL
         }
         $n = array_shift($shape);
         $input = $input->reshape(array_merge([$m,$n],$shape));
+        $outputs = [];
+        $dtype = $input->dtype();
+        foreach($sizeSplits as $size) {
+            $outputs[] = $this->alloc(array_merge($shapePrefix,[$size],$shape),$dtype);
+        }
         $i = 0;
-        foreach ($sizeSplits as $size) {
-            $outputs[] = $this->doSlice(false,
+        $outidx = 0;
+        foreach($sizeSplits as $size) {
+            $this->doSlice(false,
                 $input,
                 [0,$i],[-1,$size],
+                $outputs[$outidx]->reshape(array_merge(
+                    [(int)array_product($shapePrefix)],
+                    array_merge([$size],$shape)
+                )),
                 $events,$waitEvents
-            )->reshape(array_merge($shapePrefix,[$size],$shape));
+            );//->reshape(array_merge($shapePrefix,[$size],$shape));
             $i += $size;
+            $outidx++;
+        }
+        if($this->blocking) {
+            $this->finish();
         }
         if($this->profiling) {
             $this->profilingEnd("split");
@@ -4204,15 +4126,11 @@ class LinearAlgebraCL
             $startAxis2,$sizeAxis2,
             $events,$waitEvents
         );
-        if($this->blocking) {
-            $this->finish();
-        }
         if($this->profiling) {
             $this->profilingEnd("doSlice");
         }
         return $output;
     }
-
 
     /*
     * repeat
@@ -4270,71 +4188,6 @@ class LinearAlgebraCL
         }
         if($this->profiling) {
             $this->profilingEnd("repeat");
-        }
-        return $B;
-    }
-
-    /**
-    * reduceSumRepeated
-    */
-    public function reduceSumRepeated(
-        NDArray $A,
-        $events=null,$waitEvents=null
-        )
-    {
-        if($this->profiling) {
-            $this->profilingStart("reduceSumRepeated");
-        }
-        if($A->ndim()<3) {
-            throw new InvalidArgumentException('dimension rank must be two or greater.');
-        }
-        $shapeCell = $A->shape();
-        $s1 = array_shift($shapeCell);
-        $repeats = array_shift($shapeCell);
-        $shape = array_merge([$s1],$shapeCell);
-        $B = $this->alloc($shape,$A->dtype());
-        $this->zeros($B);
-        $m = $s1;
-        $n = $repeats;
-        $k = 1;
-        $size = (int)array_product($shapeCell);
-        $AA = $A->buffer();
-        $offA = $A->offset();
-        $BB = $B->buffer();
-        $offB = $B->offset();
-        $startAxis0 = 0;
-        $sizeAxis0 = $m;
-        $startAxis2 = 0;
-        $sizeAxis2 = 1;
-        for($i=0;$i<$repeats;$i++) {
-            if($i<$repeats-1) {
-                $waitSlice = $this->newEventList();
-            } else {
-                $waitSlice = $events;
-            }
-            $startAxis1 = $i;
-            $sizeAxis1 = 1;
-            $this->openclmath->slice(
-                $reverse=false,
-                $addMode=true,
-                $m,
-                $n,
-                $k,
-                $size,
-                $AA,$offA,1,
-                $BB,$offB,1,
-                $startAxis0,$sizeAxis0,
-                $startAxis1,$sizeAxis1,
-                $startAxis2,$sizeAxis2,
-                $waitSlice,$waitEvents
-            );
-            $waitEvents = $waitSlice;
-        }
-        if($this->blocking) {
-            $this->finish();
-        }
-        if($this->profiling) {
-            $this->profilingEnd("reduceSumRepeated");
         }
         return $B;
     }

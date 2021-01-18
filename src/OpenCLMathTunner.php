@@ -808,9 +808,9 @@ class OpenCLMathTunner
     {
         fwrite(STDERR,"\n");
         $la = $this;
-        $rowMax = 1048576;
-        $colMax = 1048576;
-        $classMax = 1048576;
+        $rowMax = 1048576*256;
+        $colMax = 1048576*256;
+        //$classMax = 1048576;
         $times = $this->loadParameter('TempRedSumTimesMode'.$mode.'.php');
         //$times['pointer'] = [131072,8];
         //$times['prevTime'] = 0;//$times[32768][16][256];
@@ -981,11 +981,11 @@ class OpenCLMathTunner
 
         $this->la->fill(0.0,$a);
         $this->la->fill(1,$x);
-        $this->reduceSumTest($a,$axis=0,$x,null,null,null,$mode);
+        $this->reduceSumExTest($a,$axis=0,$x,null,null,null,$mode);
         $time = 0;
         for($i=0;$i<$try;$i++) {
             $start = hrtime(true);
-            $this->reduceSumTest($a,$axis=0,$x,null,null,null,$mode);
+            $this->reduceSumExTest($a,$axis=0,$x,null,null,null,$mode);
             $end = hrtime(true);
             $time += $end-$start;
         }
@@ -1091,6 +1091,102 @@ class OpenCLMathTunner
         return $X;
     }
 
+    public function reduceSumExTest(
+        NDArray $A,
+        int $axis=null,
+        NDArray $B=null,
+        $dtype=null,
+        $events=null,$waitEvents=null,
+        $mode = null
+        ) : NDArray
+    {
+        $ndim = $A->ndim();
+        if($axis<0) {
+            $axis = $ndim+$axis;
+        }
+        if($axis<0 || $axis>$ndim-1) {
+            throw new InvalidArgumentException("Invalid axis");
+        }
+        $postfixShape = $A->shape();
+        $prefixShape = [];
+        for($i=0;$i<$axis;$i++) {
+            $prefixShape[] = array_shift($postfixShape);
+        }
+        $n = array_shift($postfixShape);
+        $m = array_product($prefixShape);
+        $k = array_product($postfixShape);
+        $outputShape = array_merge($prefixShape,$postfixShape);
+        if($dtype===null) {
+            $dtype = $A->dtype();
+        }
+        if($B==null) {
+            $B = $this->alloc($outputShape,$dtype);
+        } else {
+            if($B->shape()!=$outputShape) {
+                $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$B->shape()).')';
+                throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
+            }
+        }
+
+        $AA = $A->buffer();
+        $offA = $A->offset();
+        $BB = $B->buffer();
+        $offB = $B->offset();
+
+        $math = $this->la->getOpenCLMath();
+        switch($mode) {
+            case 0: {
+                $math->reduceSumEx0(
+                    $m,
+                    $n,
+                    $k,
+                    $AA,$offA,
+                    $BB,$offB,
+                    $events,$waitEvents
+                );
+                break;
+            }
+            case 1: {
+                $math->reduceSumEx1(
+                    $m,
+                    $n,
+                    $k,
+                    $AA,$offA,
+                    $BB,$offB,
+                    $events,$waitEvents
+                );
+                break;
+            }
+            case 2: {
+                $math->reduceSumEx2(
+                    $m,
+                    $n,
+                    $k,
+                    $AA,$offA,
+                    $BB,$offB,
+                    $events,$waitEvents
+                );
+                break;
+            }
+            case 3: {
+                $math->reduceSumEx3(
+                    $m,
+                    $n,
+                    $k,
+                    $AA,$offA,
+                    $BB,$offB,
+                    $events,$waitEvents
+                );
+                break;
+            }
+            default:
+                throw new InvalidArgumentException("invalid mode: ".$mode);
+        }
+
+        $this->la->finish();
+        return $B;
+    }
+
     public function showGraphReduceSum($mode=null,$details=null)
     {
         $marker = null;
@@ -1156,7 +1252,7 @@ class OpenCLMathTunner
 
     protected function drawGraphRowsCols2($mo,$mode,$ax,$details,$marker,$legend)
     {
-        $times = $this->loadParameter('ReduceSumTimesMode'.$mode.'.php');
+        $times = $this->loadParameter('ReduceSumExTimesMode'.$mode.'.php');
         // rows <-> cols
         $graph = [];
         foreach ($times as $rows => $colsData) {
@@ -1189,7 +1285,7 @@ class OpenCLMathTunner
 
     protected function drawGraphColsRows2($mo,$mode,$ax,$details,$marker,$legend)
     {
-        $times = $this->loadParameter('ReduceSumTimesMode'.$mode.'.php');
+        $times = $this->loadParameter('ReduceSumExTimesMode'.$mode.'.php');
         // cols <-> rows
         $artists = [];
         foreach ($times as $rows => $colsData) {
@@ -1202,7 +1298,7 @@ class OpenCLMathTunner
                     $graph[$rows][] = [$cols,$value];
                 }
             }
-            if(count($graph[$rows])) {
+            if(isset($graph[$rows]) && count($graph[$rows])) {
                 $gr = $mo->transpose($mo->array($graph[$rows]));
                 $artists = array_merge($artists,$ax->plot($gr[0],$gr[1],$marker,'rows='.$rows));
             }
@@ -1221,7 +1317,7 @@ class OpenCLMathTunner
     public function editGraphReduceSum($mode,array $data)
     {
         echo "mode$mode\n";
-        $times = $this->loadParameter('ReduceSumTimesMode'.$mode.'.php',$default=true);
+        $times = $this->loadParameter('ReduceSumExTimesMode'.$mode.'.php',$default=true);
         foreach ($data as $rows => $colsData) {
             if(!array_key_exists($rows,$times)) {
                 throw new \Exception("Invalid rows:[$rows] in mode".$mode);
@@ -1235,7 +1331,7 @@ class OpenCLMathTunner
                 $times[$rows][$cols] = $value;
             }
         }
-        $this->saveParameter('ReduceSumTimesMode'.$mode.'.php',$times);
+        $this->saveParameter('ReduceSumExTimesMode'.$mode.'.php',$times);
     }
 
 }
