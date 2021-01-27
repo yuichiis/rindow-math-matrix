@@ -3579,7 +3579,8 @@ class LinearAlgebraCL
         $high,
         $dtype=null,
         int $seed=null,
-        NDArray $X=null
+        NDArray $X=null,
+        object $events=null, object $waitEvents=null
         ) : NDArray
     {
         if($this->profiling) {
@@ -3600,30 +3601,21 @@ class LinearAlgebraCL
                 throw new InvalidArgumentException('low and high must be integer or float');
             }
         }
-        $hostX = $this->allocHost($X->shape(),$X->dtype());
         if($seed===null) {
             $seed = random_int(~PHP_INT_MAX,PHP_INT_MAX);
         }
 
-        $n = $hostX->size();
-        $XX = $hostX->buffer();
-        $offX = $hostX->offset();
+        $n = $X->size();
+        $XX = $X->buffer();
+        $offX = $X->offset();
 
-        $this->openblasmath->randomUniform(
+        $this->openclmath->randomUniform(
             $n,
             $XX,$offX,1,
             $low,
             $high,
-            $seed
-        );
-        $valueSize = $X->buffer()->value_size();
-        $X->buffer()->write(
-            $this->queue,
-            $XX,
-            $X->size()*$valueSize,
-            $X->offset()*$valueSize,
-            $offX,
-            $blocking_write=true
+            $seed,
+            $events, $waitEvents
         );
 
         if($this->blocking) {
@@ -3641,7 +3633,8 @@ class LinearAlgebraCL
         $scale,
         $dtype=null,
         int $seed=null,
-        NDArray $X=null
+        NDArray $X=null,
+        object $events=null, object $waitEvents=null
         ) : NDArray
     {
         if($this->profiling) {
@@ -3665,27 +3658,18 @@ class LinearAlgebraCL
         if($seed===null) {
             $seed = random_int(~PHP_INT_MAX,PHP_INT_MAX);
         }
-        $hostX = $this->allocHost($shape,$dtype);
 
-        $n = $hostX->size();
-        $XX = $hostX->buffer();
-        $offX = $hostX->offset();
+        $n = $X->size();
+        $XX = $X->buffer();
+        $offX = $X->offset();
 
-        $this->openblasmath->randomNormal(
+        $this->openclmath->randomNormal(
             $n,
             $XX,$offX,1,
             $mean,
             $scale,
-            $seed);
-
-        $valueSize = $X->buffer()->value_size();
-        $X->buffer()->write(
-            $this->queue,
-            $XX,
-            $X->size()*$valueSize,
-            $X->offset()*$valueSize,
-            $offX,
-            $blocking_write=true
+            $seed,
+            $events, $waitEvents
         );
 
         if($this->blocking) {
@@ -4321,5 +4305,4 @@ class LinearAlgebraCL
         }
         return [$U,$S,$VT];
     }
-
 }

@@ -6127,8 +6127,8 @@ class Test extends TestCase
             $x->toArray(),
             $y->toArray());
         $x = $la->astype($x,NDArray::float32);
-        $this->assertLessThanOrEqual(1,$la->max($x));
-        $this->assertGreaterThanOrEqual(-1,$la->min($x));
+        $this->assertEquals(1,$la->max($x));
+        $this->assertEquals(-1,$la->min($x));
     }
 
     public function testRandomNormal()
@@ -6151,7 +6151,6 @@ class Test extends TestCase
             $y->toArray());
         $this->assertLessThanOrEqual(5,$la->max($x));
         $this->assertGreaterThanOrEqual(-5,$la->min($x));
-
     }
 
     public function testRandomSequence()
@@ -6186,7 +6185,16 @@ class Test extends TestCase
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
 
-        $x = $la->array($mo->arange(24,null,null,NDArray::float32)->reshape([2,4,3]));
+        $x = $la->array([
+            [[0,1,2],
+             [3,4,5],
+             [6,7,8],
+             [9,10,11]],
+            [[12,13,14],
+             [15,16,17],
+             [18,19,20],
+             [21,22,23]],
+        ]);
         $y = $la->slice(
             $x,
             $start=[0,1],
@@ -6232,6 +6240,10 @@ class Test extends TestCase
         ],$y->toArray());
 
         $x = $la->array($mo->arange(8,null,null,NDArray::float32)->reshape([2,4]));
+        $x = $la->array([
+            [0,1,2,3],
+            [4,5,6,7],
+        ]);
         $y = $la->slice(
             $x,
             $start=[0,1],
@@ -6240,6 +6252,16 @@ class Test extends TestCase
         $this->assertEquals([
             [1,2],
             [5,6]
+        ],$y->toArray());
+
+        $y = $la->slice(
+            $x,
+            $start=[0,0],
+            $size=[2,4]
+            );
+        $this->assertEquals([
+            [0,1,2,3],
+            [4,5,6,7],
         ],$y->toArray());
     }
 
