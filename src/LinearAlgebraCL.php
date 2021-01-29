@@ -3842,6 +3842,36 @@ class LinearAlgebraCL
                 );
                 $i++;
             }
+        } elseif($axis==2){
+            $k = count($values);
+            $shape = $values[0]->shape();
+            $m = array_shift($shape);
+            $n = array_shift($shape);
+            array_unshift($shape,$k);
+            array_unshift($shape,$n);
+            array_unshift($shape,$m);
+            $output = $this->alloc($shape,$values[0]->dtype());
+            $i = 0;
+            foreach($values as $value){
+                if(!($value instanceof NDArray)) {
+                    throw new InvalidArgumentException('values must be array of NDArray');
+                }
+                $shape = $value->shape();
+                $m = array_shift($shape);
+                $n = array_shift($shape);
+                array_unshift($shape,1);
+                array_unshift($shape,$n);
+                array_unshift($shape,$m);
+                $value = $value->reshape(
+                    $shape);
+                $this->doSlice(true,
+                    $output,
+                    [0,0,$i],[-1,-1,1],
+                    $value,
+                    $events,$waitEvents
+                );
+                $i++;
+            }
         } else {
             throw new InvalidArgumentException('unsuppoted axis');
         }
@@ -3876,12 +3906,10 @@ class LinearAlgebraCL
         foreach ($values as $value) {
             $shapePrefix = [];
             $shape = $value->shape();
-            $mm = 1;
             for($j=0;$j<$axis;$j++) {
-                $mmm = array_shift($shape);
-                $shapePrefix[] = $mmm;
-                $mm *= $mmm;
+                $shapePrefix[] = array_shift($shape);
             }
+            $mm = (int)array_product($shapePrefix);
             $nn = array_shift($shape);
             if($base===null) {
                 $m = $mm;
@@ -3935,12 +3963,10 @@ class LinearAlgebraCL
         }
         $shapePrefix = [];
         $shape = $input->shape();
-        $m = 1;
         for($j=0;$j<$axis;$j++) {
-            $mmm = array_shift($shape);
-            $shapePrefix[] = $mmm;
-            $m *= $mmm;
+            $shapePrefix[] = array_shift($shape);
         }
+        $m = (int)array_product($shapePrefix);
         $n = array_shift($shape);
         $input = $input->reshape(array_merge([$m,$n],$shape));
         $outputs = [];
@@ -4066,7 +4092,7 @@ class LinearAlgebraCL
             if($sizeAxis2<0){
                 $sizeAxis2 = $k-$startAxis2+$sizeAxis2+1;
             }
-            if($sizeAxis2<1||$startAxis2+$sizeAxis2>$n){
+            if($sizeAxis2<1||$startAxis2+$sizeAxis2>$k){
                 throw new InvalidArgumentException('size of axis 2 is invalid value.');
             }
         }
@@ -4086,7 +4112,9 @@ class LinearAlgebraCL
             $output = $this->alloc($outputShape,$input->dtype());
         }else{
             if($outputShape!=$output->shape()){
-                throw new InvalidArgumentException('Unmatch output shape');
+                throw new InvalidArgumentException('Unmatch output shape: '.
+                    $this->printableShapes($output->shape()).'<=>'.
+                    $this->printableShapes($outputShape));
             }
         }
 
