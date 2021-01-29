@@ -6127,8 +6127,13 @@ class Test extends TestCase
             $x->toArray(),
             $y->toArray());
         $x = $la->astype($x,NDArray::float32);
-        $this->assertEquals(1,$la->max($x));
-        $this->assertEquals(-1,$la->min($x));
+        if(extension_loaded('rindow_openblas')) {
+            $this->assertEquals(1,$la->max($x));
+            $this->assertEquals(-1,$la->min($x));
+        } else {
+            $this->assertEquals(1,round($la->max($x)));
+            $this->assertEquals(-1,round($la->min($x)));
+        }
     }
 
     public function testRandomNormal()
