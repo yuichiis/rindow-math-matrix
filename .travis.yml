@@ -1,6 +1,6 @@
 os: linux
 language: php
-dist: bionic
+dist: focal
 
 php:
     - '7.2'
