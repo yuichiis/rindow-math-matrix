@@ -81,7 +81,10 @@ class PhpMath
         $idxX += $incX;
         for ($i=1; $i<$n; $i++,$idxX+=$incX) {
             $value = $X[$idxX];
-            if($value>$max) {
+            // *** CAUTION ***
+            // if NaN set NaN
+            // Compatible with reduce_max of tensorflow 2.6
+            if(!($value<=$max)) {
                 $max = $value;
             }
         }
@@ -144,7 +147,7 @@ class PhpMath
         $acc = $X[$offsetX];
         $idx = 0;
         for($i=1; $i<$n; $i++,$idxX+=$incX) {
-            if($acc < $X[$idxX]) {
+            if($acc < $X[$idxX]||is_nan($acc)) {
                 $acc = $X[$idxX];
                 $idx = $i;
             }
@@ -221,9 +224,11 @@ class PhpMath
         for ($i=0; $i<$n; $i++,$idx+=$incX) {
             $t = $alpha*$X[$idx] + $beta;
             if($t==0.0) {
-                throw new RuntimeException('Zero divide.');
+                $r = INF;
+            } else {
+                $r = 1 / $t;
             }
-            $X[$idx] = 1 / $t;
+            $X[$idx] = $r;
         }
     }
 
@@ -233,12 +238,12 @@ class PhpMath
      */
     public function maximum(
         int $n,
-        float $alpha,
-        Buffer $X, int $offsetX, int $incX
+        Buffer $X, int $offsetX, int $incX,
+        float $alpha
         ) : void
     {
         if($this->useMath($X)) {
-            $this->math->maximum($n,$alpha,$X,$offsetX,$incX);
+            $this->math->maximum($n,$X,$offsetX,$incX,$alpha);
             return;
         }
 
@@ -246,9 +251,19 @@ class PhpMath
             throw new RuntimeException('Vector specification too large for buffer.');
 
         $idx = $offsetX;
-        for ($i=0; $i<$n; $i++,$idx+=$incX) {
-            if($X[$idx] < $alpha) {
+        if(is_nan($alpha)) {
+            // *** CAUTION ***
+            // if NaN set Nan
+            for ($i=0; $i<$n; $i++,$idx+=$incX) {
                 $X[$idx] = $alpha;
+            }
+        } else {
+            for ($i=0; $i<$n; $i++,$idx+=$incX) {
+                // *** CAUTION ***
+                // if NaN then don't set alpha
+                if($X[$idx] < $alpha) {
+                    $X[$idx] = $alpha;
+                }
             }
         }
     }
@@ -259,12 +274,12 @@ class PhpMath
      */
     public function minimum(
         int $n,
-        float $alpha,
-        Buffer $X, int $offsetX, int $incX
+        Buffer $X, int $offsetX, int $incX,
+        float $alpha
         ) : void
     {
         if($this->useMath($X)) {
-            $this->math->minimum($n,$alpha,$X,$offsetX,$incX);
+            $this->math->minimum($n,$X,$offsetX,$incX,$alpha);
             return;
         }
 
@@ -272,25 +287,35 @@ class PhpMath
             throw new RuntimeException('Vector specification too large for buffer.');
 
         $idx = $offsetX;
-        for ($i=0; $i<$n; $i++,$idx+=$incX) {
-            if($X[$idx] > $alpha) {
+        if(is_nan($alpha)) {
+            // *** CAUTION ***
+            // if NaN set NaN
+            for ($i=0; $i<$n; $i++,$idx+=$incX) {
                 $X[$idx] = $alpha;
+            }
+        } else {
+            for ($i=0; $i<$n; $i++,$idx+=$incX) {
+                // *** CAUTION ***
+                // if NaN don't set alpha
+                if($X[$idx] > $alpha) {
+                    $X[$idx] = $alpha;
+                }
             }
         }
     }
 
     /**
-     *     X := 1  (X > a)
+     *     X := 1  (X >  a)
      *     X := 0  (X <= a)
      */
     public function greater(
         int $n,
-        float $alpha,
-        Buffer $X, int $offsetX, int $incX
+        Buffer $X, int $offsetX, int $incX,
+        float $alpha
         ) : void
     {
         if($this->useMath($X)) {
-            $this->math->greater($n,$alpha,$X,$offsetX,$incX);
+            $this->math->greater($n,$X,$offsetX,$incX,$alpha);
             return;
         }
 
@@ -299,26 +324,31 @@ class PhpMath
 
         $idx = $offsetX;
         for ($i=0; $i<$n; $i++,$idx+=$incX) {
-            if($X[$idx] > $alpha) {
-                $X[$idx] = 1.0;
+            $tmp = $X[$idx];
+            // *** CAUTION ***
+            // if NaN set 0.0
+            // if equal set 0.0
+            if($tmp > $alpha) {
+                $tmp = 1.0;
             } else {
-                $X[$idx] = 0.0;
+                $tmp = 0.0;
             }
+            $X[$idx] = $tmp;
         }
     }
 
     /**
-     *     X := 1  (X < a)
-     *     X := 0  (X >= a)
+     *     X := 1  (X >= a)
+     *     X := 0  (X <  a)
      */
-    public function less(
+    public function greaterEqual(
         int $n,
-        float $alpha,
-        Buffer $X, int $offsetX, int $incX
+        Buffer $X, int $offsetX, int $incX,
+        float $alpha
         ) : void
     {
         if($this->useMath($X)) {
-            $this->math->less($n,$alpha,$X,$offsetX,$incX);
+            $this->math->greaterEqual($n,$X,$offsetX,$incX,$alpha);
             return;
         }
 
@@ -327,11 +357,82 @@ class PhpMath
 
         $idx = $offsetX;
         for ($i=0; $i<$n; $i++,$idx+=$incX) {
-            if($X[$idx] < $alpha) {
-                $X[$idx] = 1.0;
+            $tmp = $X[$idx];
+            // *** CAUTION ***
+            // if NaN set 0.0
+            // if equal set 1.0
+            if($tmp >= $alpha) {
+                $tmp = 1.0;
             } else {
-                $X[$idx] = 0.0;
+                $tmp = 0.0;
             }
+            $X[$idx] = $tmp;
+        }
+    }
+
+    /**
+     *     X := 1  (X <  a)
+     *     X := 0  (X >= a)
+     */
+    public function less(
+        int $n,
+        Buffer $X, int $offsetX, int $incX,
+        float $alpha
+        ) : void
+    {
+        if($this->useMath($X)) {
+            $this->math->less($n,$X,$offsetX,$incX,$alpha);
+            return;
+        }
+
+        if($offsetX+($n-1)*$incX>=count($X))
+            throw new RuntimeException('Vector specification too large for buffer.');
+
+        $idx = $offsetX;
+        for ($i=0; $i<$n; $i++,$idx+=$incX) {
+            $tmp = $X[$idx];
+            // *** CAUTION ***
+            // if NaN set 0.0
+            // if equal set 1.0
+            if($tmp < $alpha) {
+                $tmp = 1.0;
+            } else {
+                $tmp = 0.0;
+            }
+            $X[$idx] = $tmp;
+        }
+    }
+
+    /**
+     *     X := 1  (X <= a)
+     *     X := 0  (X >  a)
+     */
+    public function lessEqual(
+        int $n,
+        Buffer $X, int $offsetX, int $incX,
+        float $alpha
+        ) : void
+    {
+        if($this->useMath($X)) {
+            $this->math->lessEqual($n,$X,$offsetX,$incX,$alpha);
+            return;
+        }
+
+        if($offsetX+($n-1)*$incX>=count($X))
+            throw new RuntimeException('Vector specification too large for buffer.');
+
+        $idx = $offsetX;
+        for ($i=0; $i<$n; $i++,$idx+=$incX) {
+            $tmp = $X[$idx];
+            // *** CAUTION ***
+            // if NaN set 0.0
+            // if equal set 1.0
+            if($tmp <= $alpha) {
+                $tmp = 1.0;
+            } else {
+                $tmp = 0.0;
+            }
+            $X[$idx] = $tmp;
         }
     }
 
@@ -458,9 +559,6 @@ class PhpMath
         $idx = $offsetX;
         for ($i=0; $i<$n; $i++,$idx+=$incX) {
             $t = $X[$idx];
-            if($t<0.0) {
-                throw new RuntimeException('Invalid value in sqrt.');
-            }
             $X[$idx] = sqrt($t);
         }
     }
@@ -485,14 +583,13 @@ class PhpMath
         $idx = $offsetX;
         for ($i=0; $i<$n; $i++,$idx+=$incX) {
             $t = $X[$idx];
-            if($t<0.0) {
-                throw new RuntimeException('Invalid value in sqrt.');
-            }
             $t = $alpha*sqrt($t) + $beta;
-            if($t==0.0) {
-                throw new RuntimeException('Zero divide.');
+            if($t!=0.0) {
+                $r = 1 / $t;
+            } else {
+                $r = INF;
             }
-            $X[$idx] = 1 / $t;
+            $X[$idx] = $r;
         }
     }
 
@@ -501,12 +598,12 @@ class PhpMath
      */
     public function pow(
         int $n,
-        float $alpha,
-        Buffer $X, int $offsetX, int $incX
+        Buffer $X, int $offsetX, int $incX,
+        float $alpha
         ) : void
     {
         if($this->useMath($X)) {
-            $this->math->pow($n,$alpha,$X,$offsetX,$incX);
+            $this->math->pow($n,$X,$offsetX,$incX,$alpha);
             return;
         }
 
@@ -560,9 +657,6 @@ class PhpMath
         $idx = $offsetX;
         for ($i=0; $i<$n; $i++,$idx+=$incX) {
             $t = $X[$idx];
-            if($t<0.0) {
-                throw new RuntimeException('Invalid value in log.');
-            }
             $X[$idx] = log($t);
         }
     }
@@ -586,6 +680,72 @@ class PhpMath
         for ($i=0; $i<$n; $i++,$idx+=$incX) {
             $t = $X[$idx];
             $X[$idx] = tanh($t);
+        }
+    }
+
+    /**
+     *     X := sin(X)
+     */
+    public function sin(
+        int $n,
+        Buffer $X, int $offsetX, int $incX
+        ) : void
+    {
+        if($this->useMath($X)) {
+            $this->math->sin($n,$X,$offsetX,$incX);
+            return;
+        }
+        if($offsetX+($n-1)*$incX>=count($X))
+            throw new RuntimeException('Vector specification too large for buffer.');
+
+        $idx = $offsetX;
+        for ($i=0; $i<$n; $i++,$idx+=$incX) {
+            $t = $X[$idx];
+            $X[$idx] = sin($t);
+        }
+    }
+
+    /**
+     *     X := cos(X)
+     */
+    public function cos(
+        int $n,
+        Buffer $X, int $offsetX, int $incX
+        ) : void
+    {
+        if($this->useMath($X)) {
+            $this->math->cos($n,$X,$offsetX,$incX);
+            return;
+        }
+        if($offsetX+($n-1)*$incX>=count($X))
+            throw new RuntimeException('Vector specification too large for buffer.');
+
+        $idx = $offsetX;
+        for ($i=0; $i<$n; $i++,$idx+=$incX) {
+            $t = $X[$idx];
+            $X[$idx] = cos($t);
+        }
+    }
+
+    /**
+     *     X := tan(X)
+     */
+    public function tan(
+        int $n,
+        Buffer $X, int $offsetX, int $incX
+        ) : void
+    {
+        if($this->useMath($X)) {
+            $this->math->tan($n,$X,$offsetX,$incX);
+            return;
+        }
+        if($offsetX+($n-1)*$incX>=count($X))
+            throw new RuntimeException('Vector specification too large for buffer.');
+
+        $idx = $offsetX;
+        for ($i=0; $i<$n; $i++,$idx+=$incX) {
+            $t = $X[$idx];
+            $X[$idx] = tan($t);
         }
     }
 
@@ -1127,6 +1287,85 @@ class PhpMath
                         $Y[$idy] = (int)($X[$idx]);
                     }
                 }
+            }
+        }
+    }
+
+    public function searchsorted(
+        int $m,
+        Buffer $A, int $offsetA, int $incA, // float
+        int $n,
+        Buffer $X, int $offsetX, int $incX, // float
+        bool $right,
+        Buffer $Y, int $offsetY, int $incY, // int
+        ) : void
+    {
+        if($this->math) {
+            $this->math->searchsorted($m,$A,$offsetA,$incA,$n,$X,$offsetX,$incX,$right,$Y,$offsetY,$incY);
+            return;
+        }
+
+        $idx = $offsetX;
+        $idy = $offsetY;
+        for($i=0;$i<$n;$i++) {
+            $v = $X[$idx];
+            $ida = $offsetA;
+            if($right) {
+                for($j=0;$j<$m;$j++) {
+                    if(!($v>=$A[$ida])) {
+                        break;
+                    }
+                    $ida += $incA;
+                }
+            } else {
+                for($j=0;$j<$m;$j++) {
+                    if(!($v>$A[$ida])) {
+                        break;
+                    }
+                    $ida += $incA;
+                }
+            }
+            $Y[$idy] = $j;
+            $idx+=$incX;
+            $idy+=$incY;
+        }
+    }
+
+    public function cumsum(
+        int $n,
+        Buffer $X, int $offsetX, int $incX, // float
+        bool $exclusive,
+        bool $reverse,
+        Buffer $Y, int $offsetY, int $incY, // int
+        ) : void
+    {
+        if($this->math) {
+            $this->math->cumsum($n,$X,$offsetX,$incX,$exclusive,$reverse,$Y,$offsetY,$incY);
+            return;
+        }
+
+        if($reverse) {
+            $idx = $offsetX;
+            $idy = $offsetY+$incY*($n-1);
+            $incY = -$incY;
+        } else {
+            $idx = $offsetX;
+            $idy = $offsetY;
+        }
+        $value = 0.0;
+        if($exclusive) {
+            for($i=0;$i<$n;$i++) {
+                $Y[$idy] = $value;
+                $value += $X[$idx];
+                $idx+=$incX;
+                $idy+=$incY;
+            }
+        } else {
+            for($i=0;$i<$n;$i++) {
+                $value += $X[$idx];
+                $Y[$idy] = $value;
+                $idx+=$incX;
+                $idy+=$incY;
             }
         }
     }
@@ -2019,6 +2258,7 @@ class PhpMath
                 $alpha,
                 $A, $offsetA, $ldA,
                 $B, $offsetB, $ldB);
+            return;
         }
         if(!$trans) {
             for($i=0;$i<$m;$i++) {
@@ -2045,11 +2285,59 @@ class PhpMath
                 $n,
                 $V, $offsetV,
                 $X, $offsetX, $incX);
+            return;
         }
         $idX = $offsetX;
         $value = $V[$offsetV];
         for($i=0;$i<$n;$i++,$idX+=$incX) {
             $X[$idX] = $value;
+        }
+    }
+
+    public function nan2num(
+        int $n,
+        Buffer $X, int $offsetX, int $incX,
+        float $alpha
+        ) : void
+    {
+        if($this->useMath($X)) {
+            $this->math->nan2num($n,$X,$offsetX,$incX,$alpha);
+            return;
+        }
+
+        if($offsetX+($n-1)*$incX>=count($X))
+            throw new RuntimeException('Vector specification too large for buffer.');
+
+        $idx = $offsetX;
+         for ($i=0; $i<$n; $i++,$idx+=$incX) {
+            $t = $X[$idx];
+            if(is_nan($t)) {
+                $X[$idx] = $alpha;
+            }
+        }
+    }
+
+    public function isnan(
+        int $n,
+        Buffer $X, int $offsetX, int $incX
+        ) : void
+    {
+        if($this->useMath($X)) {
+            $this->math->isnan($n,$X,$offsetX,$incX);
+            return;
+        }
+
+        if($offsetX+($n-1)*$incX>=count($X))
+            throw new RuntimeException('Vector specification too large for buffer.');
+
+        $idx = $offsetX;
+         for ($i=0; $i<$n; $i++,$idx+=$incX) {
+            $t = $X[$idx];
+            if(is_nan($t)) {
+                $X[$idx] = 1.0;
+            } else {
+                $X[$idx] = 0.0;
+            }
         }
     }
 
@@ -2063,7 +2351,8 @@ class PhpMath
         int $heightShift,
         int $widthShift,
         bool $verticalFlip,
-        bool $horizontalFlip
+        bool $horizontalFlip,
+        bool $rgbFlip
         )
     {
         if($this->math) {
@@ -2077,8 +2366,10 @@ class PhpMath
                     $heightShift,
                     $widthShift,
                     $verticalFlip,
-                    $horizontalFlip
+                    $horizontalFlip,
+                    $rgbFlip
                   );
+            return;
         }
 
         if($width*$height*$channels+$offsetA>count ($A)) {
@@ -2124,8 +2415,9 @@ class PhpMath
                     } elseif($sx>=$width) {
                         $sx = $width-1;
                     }
+                    $srcC = ($rgbFlip&&$c<3)?(2-$c):$c;
                     $B[$y*$ldY+$x*$ldX+$c*$ldC+$offsetB] =
-                        $A[$sy*$ldY+$sx*$ldX+$c*$ldC+$offsetA];
+                        $A[$sy*$ldY+$sx*$ldX+$srcC*$ldC+$offsetA];
                 }
             }
         }

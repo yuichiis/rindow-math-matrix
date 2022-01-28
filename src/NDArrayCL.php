@@ -344,4 +344,21 @@ class NDArrayCL implements NDArray,Serializable,Countable,IteratorAggregate
     {
         return $this->events = $events;
     }
+
+    public function __clone()
+    {
+        if(!($this->buffer instanceof OpenCLBuffer)) {
+            throw new RuntimeException('Unknown buffer type is uncloneable:'.get_class($this->_buffer));
+        }
+        $bytes = $this->buffer->bytes();
+        $dtype = $this->buffer->dtype();
+        $flags = $this->flags & ~OpenCL::CL_MEM_COPY_HOST_PTR;
+        $newBuffer = new OpenCLBuffer($this->context,$bytes,
+                $flags,null,0,$dtype);
+        $events = new \Rindow\OpenCL\EventList();
+        $this->buffer->copy($this->queue,$newBuffer,0,0,0,$events);
+        $events->wait();
+        $this->flags = $flags;
+        $this->buffer = $newBuffer;
+    }
 }

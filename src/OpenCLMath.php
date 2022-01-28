@@ -58,7 +58,10 @@ class OpenCLMath
         'qmax' =>
             "i >>= 1;\n".
             "if(lid < i) {\n".
-            "    if(local_work[lid] < local_work[lid + i]) {\n".
+            //   *** CAUTION ***
+            //   if NaN set NaN
+            //   Compatible with reduce_max of tensorflow 2.6
+            "    if((local_work[lid] < local_work[lid + i])||isnan(local_work[lid + i])) {\n".
             "        local_work[lid] = local_work[lid + i];\n".
             "    }\n".
             "}\n".
@@ -66,7 +69,10 @@ class OpenCLMath
         'qimax' =>
             "i >>= 1;\n".
             "if(lid < i) {\n".
-            "    if(local_work[lid] < local_work[lid + i]) {\n".
+            //   *** CAUTION ***
+            //   if NaN set NaN
+            //   Compatible with reduce_max of tensorflow 2.6
+            "    if(!(local_work[lid] >= local_work[lid + i])) {\n".
             "        local_work[lid]  = local_work[lid + i];\n".
             "        local_iwork[lid] = local_iwork[lid + i];\n".
             "    }\n".
@@ -92,17 +98,17 @@ class OpenCLMath
             "local_work[lid] = temp_buffer[parallel_item_id*lws*2 + lid] + temp_buffer[parallel_item_id*lws*2 + lws+lid];\n",
 
         'lrmax-1' =>
-            "if(value < input) {\n".
+            "if(value < input||isnan(input)) {\n".
             "    value = input;\n".
             "}\n",
         'lrmax-2' =>
-            "if(local_work[lid] < local_work[lid + i]) {\n".
+            "if(local_work[lid] < local_work[lid + i] || isnan(local_work[lid + i])) {\n".
             "    local_work[lid] = local_work[lid + i];\n".
             "}\n",
         'lrmax-3' =>
             "temp_buffer[parallel_item_id*grs+grid] = local_work[0];\n",
         'lrmax-4' =>
-            "if(temp_buffer[parallel_item_id*lws*2 + lid] < temp_buffer[parallel_item_id*lws*2 + lws+lid]) {\n".
+            "if((temp_buffer[parallel_item_id*lws*2 + lid] < temp_buffer[parallel_item_id*lws*2 + lws+lid]) ||isnan(temp_buffer[parallel_item_id*lws*2 + lws+lid])) {\n".
             "    local_work[lid] = temp_buffer[parallel_item_id*lws*2 + lws+lid];\n".
             "} else {\n".
             "    local_work[lid] = temp_buffer[parallel_item_id*lws*2 + lid];\n".
@@ -943,8 +949,8 @@ class OpenCLMath
      */
     public function maximum(
         int $n,
-        float $alpha,
         Buffer $X, int $offsetX, int $incX,
+        float $alpha,
         EventList $events=null, EventList $waitEvents=null
         ) : void
     {
@@ -964,8 +970,12 @@ class OpenCLMath
                 "{\n".
                 "    uint idx = get_global_id(0)*incx+offset_x;\n".
                 "    ${type} tmp = x[idx];\n".
-                "    if(tmp < alpha) {\n".
+                "    if(isnan(alpha)) {\n".
                 "        x[idx] = alpha;\n".
+                "    } else {\n".
+                "        if(tmp < alpha) {\n".
+                "            x[idx] = alpha;\n".
+                "        }\n".
                 "    }\n".
                 "}\n";
         }
@@ -985,8 +995,8 @@ class OpenCLMath
      */
     public function minimum(
         int $n,
-        float $alpha,
         Buffer $X, int $offsetX, int $incX,
+        float $alpha,
         EventList $events=null, EventList $waitEvents=null
         ) : void
     {
@@ -1006,8 +1016,12 @@ class OpenCLMath
                 "{\n".
                 "    uint idx = get_global_id(0)*incx+offset_x;\n".
                 "    ${type} tmp = x[idx];\n".
-                "    if(tmp > alpha) {\n".
+                "    if(isnan(alpha)) {\n".
                 "        x[idx] = alpha;\n".
+                "    } else {\n".
+                "        if(tmp > alpha) {\n".
+                "            x[idx] = alpha;\n".
+                "        }\n".
                 "    }\n".
                 "}\n";
         }
@@ -1022,13 +1036,13 @@ class OpenCLMath
     }
 
     /**
-     *     X := 1  (X > a)
+     *     X := 1  (X >  a)
      *     X := 0  (X <= a)
      */
     public function greater(
         int $n,
-        float $alpha,
         Buffer $X, int $offsetX, int $incX,
+        float $alpha,
         EventList $events=null, EventList $waitEvents=null
         ) : void
     {
@@ -1052,6 +1066,8 @@ class OpenCLMath
                 "    uint gid = get_global_id(0);\n".
                 "    uint idx = gid*incx+offset_x;\n".
                 "    ${type} value;\n".
+                //   if NaN set 0.0
+                //   if equal set 0.0
                 "    if(x[idx] > alpha) {\n".
                 "        value = 1.0;\n".
                 "    } else {\n".
@@ -1137,14 +1153,69 @@ class OpenCLMath
             $events,$waitEvents);
     }
 */
+
     /**
-     *     X := 1  (X < a)
+     *     X := 1  (X >= a)
+     *     X := 0  (X < a)
+     */
+    public function greaterEqual(
+        int $n,
+        Buffer $X, int $offsetX, int $incX,
+        float $alpha,
+        EventList $events=null, EventList $waitEvents=null
+        ) : void
+    {
+        $dtypeX = $X->dtype();
+        if($dtypeX==NDArray::float64) {
+            $this->assertFP64();
+        }
+        $segment_size = 2**9;
+        $segments = (int)ceil($n/$segment_size);
+        $fraction = (int)($n%$segment_size);
+        $type = $this->dtypeToOpenCLType[$dtypeX];
+        $kernel_name = "greater_equal_${type}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+                "__kernel void ${kernel_name}(\n".
+                "    const        ${type} alpha,\n".
+                "        __global ${type} * x,\n".
+                "    const        uint offset_x,\n".
+                "    const        uint incx)\n".
+                "{\n".
+                "    uint gid = get_global_id(0);\n".
+                "    uint idx = gid*incx+offset_x;\n".
+                "    ${type} value;\n".
+                //   if NaN set 0.0
+                //   if equal set 0.0
+                "    if(x[idx] >= alpha) {\n".
+                "        value = 1.0;\n".
+                "    } else {\n".
+                "        value = 0.0;\n".
+                "    }\n".
+                "    x[idx] = value;\n".
+                "}\n";
+        }
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$alpha,NDArray::float32);
+        $kernel->setArg(1,$X);
+        $kernel->setArg(2,$offsetX,NDArray::uint32);
+        $kernel->setArg(3,$incX,NDArray::uint32);
+        $global_work_size = [$n];
+        $local_work_size = null;
+        //$multiple = $this->kernelMultiple($kernel);
+        //$global_work_size = [$this->ceil($n,$multiple)];
+        //$local_work_size = [$multiple];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
+            $events,$waitEvents);
+    }
+    /**
+     *     X := 1  (X <  a)
      *     X := 0  (X >= a)
      */
     public function less(
         int $n,
-        float $alpha,
         Buffer $X, int $offsetX, int $incX,
+        float $alpha,
         EventList $events=null, EventList $waitEvents=null
         ) : void
     {
@@ -1163,7 +1234,56 @@ class OpenCLMath
                 "    const        uint incx)\n".
                 "{\n".
                 "    uint idx = get_global_id(0)*incx+offset_x;\n".
+                //   *** CAUTION ***
+                //   if NaN set 0.0
+                //   if equal set 0.0
                 "    if(x[idx] < alpha) {\n".
+                "        x[idx] = 1.0;\n".
+                "    } else {\n".
+                "        x[idx] = 0.0;\n".
+                "    }\n".
+                "}\n";
+        }
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$alpha,NDArray::float32);
+        $kernel->setArg(1,$X);
+        $kernel->setArg(2,$offsetX,NDArray::uint32);
+        $kernel->setArg(3,$incX,NDArray::uint32);
+        $global_work_size = [$n];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
+            $events,$waitEvents);
+    }
+
+    /**
+     *     X := 1  (X <= a)
+     *     X := 0  (X >  a)
+     */
+    public function lessEqual(
+        int $n,
+        Buffer $X, int $offsetX, int $incX,
+        float $alpha,
+        EventList $events=null, EventList $waitEvents=null
+        ) : void
+    {
+        $dtypeX = $X->dtype();
+        if($dtypeX==NDArray::float64) {
+            $this->assertFP64();
+        }
+        $type = $this->dtypeToOpenCLType[$dtypeX];
+        $kernel_name = "less_${type}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+                "__kernel void ${kernel_name}(\n".
+                "    const        ${type} alpha,\n".
+                "        __global ${type} * x,\n".
+                "    const        uint offset_x,\n".
+                "    const        uint incx)\n".
+                "{\n".
+                "    uint idx = get_global_id(0)*incx+offset_x;\n".
+                //   *** CAUTION ***
+                //   if Nan set 0.0
+                //   if equal set 1.0
+                "    if(x[idx] <= alpha) {\n".
                 "        x[idx] = 1.0;\n".
                 "    } else {\n".
                 "        x[idx] = 0.0;\n".
@@ -1430,8 +1550,8 @@ class OpenCLMath
      */
     public function pow(
         int $n,
-        float $alpha,
         Buffer $X, int $offsetX, int $incX,
+        float $alpha,
         EventList $events=null, EventList $waitEvents=null
         ) : void
     {
@@ -1557,6 +1677,111 @@ class OpenCLMath
                 "{\n".
                 "    uint idx = get_global_id(0)*incx+offset_x;\n".
                 "    x[idx] = tanh(x[idx]);\n".
+                "}\n";
+        }
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$X);
+        $kernel->setArg(1,$offsetX,NDArray::uint32);
+        $kernel->setArg(2,$incX,NDArray::uint32);
+        $global_work_size = [$n];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
+            $events,$waitEvents);
+    }
+
+    /**
+     *     X := sin(X)
+     */
+    public function sin(
+        int $n,
+        Buffer $X, int $offsetX, int $incX,
+        EventList $events=null, EventList $waitEvents=null
+        ) : void
+    {
+        $dtypeX = $X->dtype();
+        if($dtypeX==NDArray::float64) {
+            $this->assertFP64();
+        }
+        $type = $this->dtypeToOpenCLType[$dtypeX];
+        $kernel_name = "sin_${type}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+                "__kernel void ${kernel_name}(\n".
+                "        __global ${type} * x,\n".
+                "    const        uint offset_x,\n".
+                "    const        uint incx)\n".
+                "{\n".
+                "    uint idx = get_global_id(0)*incx+offset_x;\n".
+                "    x[idx] = sin(x[idx]);\n".
+                "}\n";
+        }
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$X);
+        $kernel->setArg(1,$offsetX,NDArray::uint32);
+        $kernel->setArg(2,$incX,NDArray::uint32);
+        $global_work_size = [$n];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
+            $events,$waitEvents);
+    }
+
+    /**
+     *     X := cos(X)
+     */
+    public function cos(
+        int $n,
+        Buffer $X, int $offsetX, int $incX,
+        EventList $events=null, EventList $waitEvents=null
+        ) : void
+    {
+        $dtypeX = $X->dtype();
+        if($dtypeX==NDArray::float64) {
+            $this->assertFP64();
+        }
+        $type = $this->dtypeToOpenCLType[$dtypeX];
+        $kernel_name = "cos_${type}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+                "__kernel void ${kernel_name}(\n".
+                "        __global ${type} * x,\n".
+                "    const        uint offset_x,\n".
+                "    const        uint incx)\n".
+                "{\n".
+                "    uint idx = get_global_id(0)*incx+offset_x;\n".
+                "    x[idx] = cos(x[idx]);\n".
+                "}\n";
+        }
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$X);
+        $kernel->setArg(1,$offsetX,NDArray::uint32);
+        $kernel->setArg(2,$incX,NDArray::uint32);
+        $global_work_size = [$n];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
+            $events,$waitEvents);
+    }
+
+    /**
+     *     X := tan(X)
+     */
+    public function tan(
+        int $n,
+        Buffer $X, int $offsetX, int $incX,
+        EventList $events=null, EventList $waitEvents=null
+        ) : void
+    {
+        $dtypeX = $X->dtype();
+        if($dtypeX==NDArray::float64) {
+            $this->assertFP64();
+        }
+        $type = $this->dtypeToOpenCLType[$dtypeX];
+        $kernel_name = "tan_${type}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+                "__kernel void ${kernel_name}(\n".
+                "        __global ${type} * x,\n".
+                "    const        uint offset_x,\n".
+                "    const        uint incx)\n".
+                "{\n".
+                "    uint idx = get_global_id(0)*incx+offset_x;\n".
+                "    x[idx] = tan(x[idx]);\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
@@ -3157,7 +3382,9 @@ class OpenCLMath
                 "        pos += k;\n".
                 "        for(uint i=1; i<total_local_items; i++,pos+=k) {\n".
                 "            ${type} value = a[pos];\n".
-                "            if(value>max) {\n".
+                //           if NaN set NaN
+                //           Compatible with reduce_max of tensorflow 2.6
+                "            if(max<value||isnan(value)) {\n".
                 "                max = value;\n".
                 "            }\n".
                 "        }\n".
@@ -4288,6 +4515,231 @@ class OpenCLMath
     }
 
     /**
+     *     X := searchsorted(A,X)
+     */
+    public function searchsorted(
+        int $m,
+        Buffer $A, int $offsetA, int $incA, // float
+        int $n,
+        Buffer $X, int $offsetX, int $incX, // float
+        bool $right,
+        Buffer $Y, int $offsetY, int $incY, // int
+        EventList $events=null, EventList $waitEvents=null
+        ) : void
+    {
+        $dtypeX = $X->dtype();
+        $dtypeY = $Y->dtype();
+        if($dtypeX==NDArray::float64) {
+            $this->assertFP64();
+        }
+        if($dtypeY!=NDArray::int32&&$dtypeY!=NDArray::uint32) {
+            throw new InvalidArgumentException('dtype of Y must be int32.');
+        }
+        if($A->dtype()!=$X->dtype()) {
+            throw new InvalidArgumentException('dtype of A and X must be same.');
+        }
+        if($right) {
+            $subname = 'r';
+            $cmp = ">=";
+        } else {
+            $subname = 'l';
+            $cmp = ">";
+        }
+        $type = $this->dtypeToOpenCLType[$dtypeX];
+        $kernel_name = "searchsorted_${type}_${subname}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+                "__kernel void ${kernel_name}(\n".
+                "    const        uint m,\n".
+                "        __global ${type} * a,\n".
+                "    const        uint offset_a,\n".
+                "    const        uint inca,\n".
+                "        __global ${type} * x,\n".
+                "    const        uint offset_x,\n".
+                "    const        uint incx,\n".
+                "        __global uint * y,\n".
+                "    const        uint offset_y,\n".
+                "    const        uint incy)\n".
+                "{\n".
+                "    uint idx = get_global_id(0)*incx+offset_x;\n".
+                "    uint idy = get_global_id(0)*incy+offset_y;\n".
+                "    uint i;\n".
+                "    ${type} v = x[idx];\n".
+                "    for(i=0;i<m;i++) {\n".
+                "        if(!(v ${cmp} a[offset_a+i*inca])) {\n".
+                "            break;\n".
+                "        }\n".
+                "    }\n".
+                "    y[idy] = i;\n".
+                "}\n";
+        }
+
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$m,NDArray::uint32);
+        $kernel->setArg(1,$A);
+        $kernel->setArg(2,$offsetA,NDArray::uint32);
+        $kernel->setArg(3,$incA,NDArray::uint32);
+        $kernel->setArg(4,$X);
+        $kernel->setArg(5,$offsetX,NDArray::uint32);
+        $kernel->setArg(6,$incX,NDArray::uint32);
+        $kernel->setArg(7,$Y);
+        $kernel->setArg(8,$offsetY,NDArray::uint32);
+        $kernel->setArg(9,$incY,NDArray::uint32);
+        $global_work_size = [$n];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
+            $events,$waitEvents);
+    }
+
+    /**
+     *     Y(n) := X(n) + Y(n-1)
+     */
+    public function cumsum(
+        int $n,
+        Buffer $X, int $offsetX, int $incX, // float
+        bool $exclusive,
+        bool $reverse,
+        Buffer $Y, int $offsetY, int $incY, // float
+        EventList $events=null, EventList $waitEvents=null
+        ) : void
+    {
+        $dtypeX = $X->dtype();
+        $dtypeY = $Y->dtype();
+        if($dtypeX==NDArray::float64) {
+            $this->assertFP64();
+        }
+        if($X->dtype()!=$Y->dtype()) {
+            throw new InvalidArgumentException('dtype of X and Y must be same.');
+        }
+        if($reverse) {
+            $offsetY = $offsetY+$incY*($n-1);
+            $incY = -$incY;
+        }
+        if($exclusive) {
+            $execute =
+            "        y[idy] = value;\n".
+            "        value += x[idx];\n";
+            $subname = 'e';
+        } else {
+            $execute =
+            "        value += x[idx];\n".
+            "        y[idy] = value;\n";
+            $subname = 'n';
+        }
+        $type = $this->dtypeToOpenCLType[$dtypeX];
+        $kernel_name = "cumsum_${type}_${subname}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+                "__kernel void ${kernel_name}(\n".
+                "    const        int n,\n".
+                "        __global ${type} * x,\n".
+                "    const        int offset_x,\n".
+                "    const        int incx,\n".
+                "        __global ${type} * y,\n".
+                "    const        int offset_y,\n".
+                "    const        int incy)\n".
+                "{\n".
+                "    int idx = offset_x;\n".
+                "    int idy = offset_y;\n".
+                "    ${type} value = 0;\n".
+                "    for(int i=0;i<n;i++,idx+=incx,idy+=incy) {\n".
+                        $execute.
+                "    }\n".
+                "}\n";
+        }
+
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$n,NDArray::int32);
+        $kernel->setArg(1,$X);
+        $kernel->setArg(2,$offsetX,NDArray::int32);
+        $kernel->setArg(3,$incX,NDArray::int32);
+        $kernel->setArg(4,$Y);
+        $kernel->setArg(5,$offsetY,NDArray::int32);
+        $kernel->setArg(6,$incY,NDArray::int32);
+        $global_work_size = [1];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
+            $events,$waitEvents);
+    }
+
+    /**
+     *     X := nan2num(X)
+     */
+    public function nan2num(
+        int $n,
+        Buffer $X, int $offsetX, int $incX,
+        float $alpha,
+        EventList $events=null, EventList $waitEvents=null
+        ) : void
+    {
+        $dtypeX = $X->dtype();
+        if($dtypeX==NDArray::float64) {
+            $this->assertFP64();
+        }
+        $type = $this->dtypeToOpenCLType[$dtypeX];
+        $kernel_name = "nan2num_${type}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+                "__kernel void ${kernel_name}(\n".
+                "    const        ${type} alpha,\n".
+                "        __global ${type} * x,\n".
+                "    const        uint offset_x,\n".
+                "    const        uint incx)\n".
+                "{\n".
+                "    uint idx = get_global_id(0)*incx+offset_x;\n".
+                "    if(isnan(x[idx])) {\n".
+                "        x[idx] = alpha;\n".
+                "    }\n".
+                "}\n";
+        }
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$alpha,NDArray::float32);
+        $kernel->setArg(1,$X);
+        $kernel->setArg(2,$offsetX,NDArray::uint32);
+        $kernel->setArg(3,$incX,NDArray::uint32);
+        $global_work_size = [$n];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
+            $events,$waitEvents);
+    }
+
+    /**
+     *     X := isnan(X)
+     */
+    public function isnan(
+        int $n,
+        Buffer $X, int $offsetX, int $incX,
+        EventList $events=null, EventList $waitEvents=null
+        ) : void
+    {
+        $dtypeX = $X->dtype();
+        if($dtypeX==NDArray::float64) {
+            $this->assertFP64();
+        }
+        $type = $this->dtypeToOpenCLType[$dtypeX];
+        $kernel_name = "isnan_${type}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+                "__kernel void ${kernel_name}(\n".
+                "        __global ${type} * x,\n".
+                "    const        uint offset_x,\n".
+                "    const        uint incx)\n".
+                "{\n".
+                "    uint idx = get_global_id(0)*incx+offset_x;\n".
+                "    if(isnan(x[idx])) {\n".
+                "        x[idx] = 1.0;\n".
+                "    } else {\n".
+                "        x[idx] = 0.0;\n".
+                "    }\n".
+                "}\n";
+        }
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$X);
+        $kernel->setArg(1,$offsetX,NDArray::uint32);
+        $kernel->setArg(2,$incX,NDArray::uint32);
+        $global_work_size = [$n];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
+            $events,$waitEvents);
+    }
+
+    /**
     * imagecopy
     */
     public function imagecopy(
@@ -4301,6 +4753,7 @@ class OpenCLMath
         int $widthShift,
         bool $verticalFlip,
         bool $horizontalFlip,
+        bool $rgbFlip,
         EventList $events=null, EventList $waitEvents=null
         )
     {
@@ -4331,6 +4784,11 @@ class OpenCLMath
             $directionX = -$directionX;
             $biasX = $width-1;
         }
+        if($rgbFlip) {
+            $rgbFlip = 1;
+        } else {
+            $rgbFlip = 0;
+        }
         $biasY -= $heightShift*$directionY;
         $biasX -= $widthShift*$directionX;
 
@@ -4348,6 +4806,7 @@ class OpenCLMath
                 "    const        int ldY,\n".
                 "    const        int ldX,\n".
                 "    const        int ldC,\n".
+                "    const        int rgbFlip,\n".
                 "    const global ${type} * a,\n".
                 "    const        uint offset_a,\n".
                 "        __global ${type} * b,\n".
@@ -4370,8 +4829,9 @@ class OpenCLMath
                 "    } else if(sx>=width) {\n".
                 "        sx = width-1;\n".
                 "    }\n".
+                "    int srcC = (rgbFlip&&c<3)?(2-c):c;\n".
                 "    b[y*ldY+x*ldX+c*ldC+offset_b] =\n".
-                "        a[sy*ldY+sx*ldX+c*ldC+offset_a];\n".
+                "        a[sy*ldY+sx*ldX+srcC*ldC+offset_a];\n".
                 "}\n";
         }
 
@@ -4385,10 +4845,11 @@ class OpenCLMath
         $kernel->setArg(6,$ldY,NDArray::int32);
         $kernel->setArg(7,$ldX,NDArray::int32);
         $kernel->setArg(8,$ldC,NDArray::int32);
-        $kernel->setArg(9,$A);
-        $kernel->setArg(10,$offsetA,NDArray::uint32);
-        $kernel->setArg(11,$B);
-        $kernel->setArg(12,$offsetB,NDArray::uint32);
+        $kernel->setArg(9,$rgbFlip,NDArray::int32);
+        $kernel->setArg(10,$A);
+        $kernel->setArg(11,$offsetA,NDArray::uint32);
+        $kernel->setArg(12,$B);
+        $kernel->setArg(13,$offsetB,NDArray::uint32);
         $global_work_size = [$channels,$width*$height];
         $local_work_size=null;
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,

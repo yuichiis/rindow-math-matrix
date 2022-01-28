@@ -1093,6 +1093,7 @@ class MatrixOperator
         }
         return $this->dtypeToString[$dtype];
     }
+
     public function toString(
         NDArray $array,
         string $format=null,

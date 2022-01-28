@@ -395,4 +395,16 @@ class Test extends TestCase
             'a[1][1]=4',
         ],$r);
     }
+
+    public function testClone()
+    {
+        $array = new NDArrayPhp([1,2],NDArray::int32);
+        $array2 = clone $array;
+        $array[0] = 0;
+        $array[1] = 0;
+        $this->assertEquals(NDArray::int32,$array2->dtype());
+        $this->assertEquals(NDArray::int32,$array2->buffer()->dtype());
+        $this->assertEquals(1,$array2[0]);
+        $this->assertEquals(2,$array2[1]);
+    }
 }

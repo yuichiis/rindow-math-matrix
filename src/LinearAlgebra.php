@@ -16,6 +16,10 @@ class LinearAlgebra
     protected $lapack;
     protected $math;
     protected $defaultFloatType = NDArray::float32;
+    protected $intTypes= [
+        NDArray::int8,NDArray::int16,NDArray::int32,NDArray::int64,
+        NDArray::uint8,NDArray::uint16,NDArray::uint32,NDArray::uint64,
+    ];
 
     public function __construct($blas,$lapack,$math,$defaultFloatType=null)
     {
@@ -77,6 +81,11 @@ class LinearAlgebra
         return $string;
     }
 
+    public function isInt(NDArray $value)
+    {
+        return in_array($value->dtype(),$this->intTypes);
+    }
+
     public function array($array,$dtype=null) : NDArray
     {
         if($array instanceof NDArray) {
@@ -86,6 +95,83 @@ class LinearAlgebra
         } else {
             throw new InvalidArgumentException('input value must be NDArray or array');
         }
+    }
+
+    public function toNDArray(NDArray $ndarray) : NDArray
+    {
+        if(!($ndarray instanceof NDArrayPhp)) {
+            throw new InvalidArgumentException('input value must be NDArrayPhp');
+        }
+        return $ndarray;
+    }
+
+    public function scalar($array)
+    {
+        if($array instanceof NDArray) {
+            return $array->toArray();
+        }
+        return $array;
+    }
+
+    public function expandDims(NDArray $x, int $axis)
+    {
+        $shape = $x->shape();
+        $ndim = count($shape);
+        $orgAxis = $axis;
+        if($axis<0) {
+            $axis = $ndim + $axis + 1;
+        }
+        if($axis<0||$axis>$ndim) {
+            throw new InvalidArgumentException('axis is out of range: '.$orgAxis);
+        }
+        $newShape = [];
+        $i = 0;
+        foreach ($shape as $n) {
+            if($i==$axis) {
+                $newShape[] = 1;
+            }
+            $newShape[] = $n;
+            $i++;
+        }
+        if($i==$axis) {
+            $newShape[] = 1;
+        }
+        return $x->reshape($newShape);
+    }
+
+    public function squeeze(NDArray $x, int $axis=null)
+    {
+        $shape = $x->shape();
+        if($axis===null) {
+            $newShape = [];
+            foreach ($shape as $n) {
+                if($n!=1) {
+                    $newShape[] = $n;
+                }
+            }
+            return $x->reshape($newShape);
+        }
+        $ndim = count($shape);
+        $orgAxis = $axis;
+        if($axis<0) {
+            $axis = $ndim + $axis;
+        }
+        if($axis<0||$axis>=$ndim) {
+            throw new InvalidArgumentException('axis is out of range: '.$orgAxis);
+        }
+        $newShape = [];
+        $i = 0;
+        foreach ($shape as $n) {
+            if($i!=$axis) {
+                $newShape[] = $n;
+            } else {
+                if($n!=1) {
+                    throw new InvalidArgumentException('Can not squeeze dim['.$axis.']');
+                }
+            }
+            $i++;
+        }
+        return $x->reshape($newShape);
     }
 
     public function alloc(array $shape,$dtype=null) : NDArray
@@ -1084,8 +1170,8 @@ class LinearAlgebra
      *     X := a  (X <= a)
      */
     public function maximum(
-        float $alpha,
-        NDArray $X
+        NDArray $X,
+        float $alpha
         ) : NDArray
     {
         $n = $X->size();
@@ -1094,8 +1180,8 @@ class LinearAlgebra
 
         $this->math->maximum(
             $n,
-            $alpha,
-            $XX,$offX,1);
+            $XX,$offX,1,
+            $alpha);
 
         return $X;
     }
@@ -1105,8 +1191,8 @@ class LinearAlgebra
      *     X := a  (X >= a)
      */
     public function minimum(
-        float $alpha,
-        NDArray $X
+        NDArray $X,
+        float $alpha
         ) : NDArray
     {
         $n = $X->size();
@@ -1115,19 +1201,19 @@ class LinearAlgebra
 
         $this->math->minimum(
             $n,
-            $alpha,
-            $XX,$offX,1);
+            $XX,$offX,1,
+            $alpha);
 
         return $X;
     }
 
     /**
-     *     X := 1  (X > a)
+     *     X := 1  (X >  a)
      *     X := 0  (X <= a)
      */
     public function greater(
-        float $alpha,
-        NDArray $X
+        NDArray $X,
+        float $alpha
         ) : NDArray
     {
         $n = $X->size();
@@ -1136,19 +1222,40 @@ class LinearAlgebra
 
         $this->math->greater(
             $n,
-            $alpha,
-            $XX,$offX,1);
+            $XX,$offX,1,
+            $alpha);
 
         return $X;
     }
 
     /**
-     *     X := 1  (X < a)
+     *     X := 1  (X >= a)
+     *     X := 0  (X <  a)
+     */
+    public function greaterEqual(
+        NDArray $X,
+        float $alpha
+        ) : NDArray
+    {
+        $n = $X->size();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+
+        $this->math->greaterEqual(
+            $n,
+            $XX,$offX,1,
+            $alpha);
+
+        return $X;
+    }
+
+    /**
+     *     X := 1  (X <  a)
      *     X := 0  (X >= a)
      */
     public function less(
-        float $alpha,
-        NDArray $X
+        NDArray $X,
+        float $alpha
         ) : NDArray
     {
         $n = $X->size();
@@ -1157,8 +1264,29 @@ class LinearAlgebra
 
         $this->math->less(
             $n,
-            $alpha,
-            $XX,$offX,1);
+            $XX,$offX,1,
+            $alpha);
+
+        return $X;
+    }
+
+    /**
+     *     X := 1  (X <= a)
+     *     X := 0  (X >  a)
+     */
+    public function lessEqual(
+        NDArray $X,
+        float $alpha
+        ) : NDArray
+    {
+        $n = $X->size();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+
+        $this->math->lessEqual(
+            $n,
+            $XX,$offX,1,
+            $alpha);
 
         return $X;
     }
@@ -1210,7 +1338,7 @@ class LinearAlgebra
     }
 
     /**
-     *    A(m,n) := X(n) * A(m,n)
+     *    A(m,n) := X(n) + A(m,n)
      */
      public function add(
         NDArray $X,
@@ -1335,8 +1463,8 @@ class LinearAlgebra
 
         $this->math->pow(
             $n,
-            $alpha,
-            $XX,$offX,1);
+            $XX,$offX,1,
+            $alpha);
 
         return $X;
     }
@@ -1396,6 +1524,60 @@ class LinearAlgebra
     }
 
     /**
+     *     X := sin(X)
+     */
+    public function sin(
+        NDArray $X
+        ) : NDArray
+    {
+        $n = $X->size();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+
+        $this->math->sin(
+            $n,
+            $XX,$offX,1);
+
+        return $X;
+    }
+
+    /**
+     *     X := cos(X)
+     */
+    public function cos(
+        NDArray $X
+        ) : NDArray
+    {
+        $n = $X->size();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+
+        $this->math->cos(
+            $n,
+            $XX,$offX,1);
+
+        return $X;
+    }
+
+    /**
+     *     X := tan(X)
+     */
+    public function tan(
+        NDArray $X
+        ) : NDArray
+    {
+        $n = $X->size();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+
+        $this->math->tan(
+            $n,
+            $XX,$offX,1);
+
+        return $X;
+    }
+
+    /**
      *     Y(i) := 1 (X(i) = Y(i))
      *     Y(i) := 0 (X(i) = Y(i))
      */
@@ -1415,6 +1597,16 @@ class LinearAlgebra
         $this->math->equal($N,$XX,$offX,$incX,$YY,$offY,$incY);
 
         return $Y;
+    }
+
+    /**
+     *     X(i) := 1 (X(i)  = 0)
+     *     X(i) := 0 (X(i) != 0)
+     */
+    public function not(NDArray $x)
+    {
+        $zeros = $this->zerosLike($x);
+        return $this->equal($zeros,$x);
     }
 
     /**
@@ -1646,7 +1838,7 @@ class LinearAlgebra
             $postfixShape = $A->shape();
             $postfixX = $X->shape();
             if($postfixShape!=$postfixX) {
-                throw new InvalidArgumentException('Unmatch Shape:'.
+                throw new InvalidArgumentException('Unmatch Shape X and A:'.
                                         $this->printableShapes([$X,$A]));
             }
             $prefixShape = [];
@@ -2978,7 +3170,8 @@ class LinearAlgebra
         int $heightShift=null,
         int $widthShift=null,
         bool $verticalFlip=null,
-        bool $horizontalFlip=null
+        bool $horizontalFlip=null,
+        bool $rgbFlip=null
         ) : NDArray
     {
         if($A->ndim()!=3) {
@@ -3008,6 +3201,9 @@ class LinearAlgebra
         if($horizontalFlip==null) {
             $horizontalFlip=false;
         }
+        if($rgbFlip==null) {
+            $rgbFlip=false;
+        }
         if($channels_first==null) {
             $channels_first=false;
             $height = $shape[0];
@@ -3033,7 +3229,8 @@ class LinearAlgebra
             $heightShift,
             $widthShift,
             $verticalFlip,
-            $horizontalFlip
+            $horizontalFlip,
+            $rgbFlip
         );
         return $B;
     }
@@ -3065,6 +3262,148 @@ class LinearAlgebra
             $XX,$offX,1
         );
         return $X;
+    }
+
+    public function searchsorted(
+        NDArray $A,
+        NDArray $X,
+        bool $right=null,
+        $dtype=null,
+        NDArray $Y=null
+        ) : NDArray
+    {
+        if($A->ndim()!=1) {
+            throw new InvalidArgumentException('A must be 1D NDArray.');
+        }
+        if($right===null) {
+            $right = false;
+        }
+        if($dtype===null) {
+            $dtype = NDArray::uint32;
+        }
+        if($Y===null) {
+            $Y = $this->alloc($X->shape(),$dtype);
+        }
+        $dtype = $Y->dtype();
+        if($dtype!=NDArray::uint32&&$dtype!=NDArray::int32&&
+            $dtype!=NDArray::uint64&&$dtype!=NDArray::int64) {
+            throw new InvalidArgumentException('dtype of Y must be int32 or int64');
+        }
+        if($X->shape()!=$Y->shape()) {
+            $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
+            throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
+        }
+        $m = $A->size();
+        $AA = $A->buffer();
+        $offA = $A->offset();
+        $n = $X->size();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+        $YY = $Y->buffer();
+        $offY = $Y->offset();
+
+        $this->math->searchsorted(
+            $m,
+            $AA,$offA,1,
+            $n,
+            $XX,$offX,1,
+            $right,
+            $YY,$offY,1
+        );
+
+        return $Y;
+    }
+
+    public function cumsum(
+        NDArray $X,
+        bool $exclusive=null,
+        bool $reverse=null,
+        NDArray $Y=null
+        ) : NDArray
+    {
+        if($exclusive===null) {
+            $exclusive = false;
+        }
+        if($reverse===null) {
+            $reverse = false;
+        }
+        if($Y===null) {
+            $Y = $this->alloc($X->shape(),$X->dtype());
+        }
+        if($X->shape()!=$Y->shape()) {
+            $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
+            throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
+        }
+        $n = $X->size();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+        $YY = $Y->buffer();
+        $offY = $Y->offset();
+
+        $this->math->cumsum(
+            $n,
+            $XX,$offX,1,
+            $exclusive,
+            $reverse,
+            $YY,$offY,1
+        );
+
+        return $Y;
+    }
+
+    /**
+     *     X := nan2num(X)
+     */
+    public function nan2num(
+        NDArray $X,
+        float $alpha=null
+        ) : NDArray
+    {
+        $n = $X->size();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+
+        if($alpha===null) {
+            $alpha = 0.0;
+        }
+        $this->math->nan2num(
+            $n,
+            $XX,$offX,1,
+            $alpha);
+
+        return $X;
+    }
+
+    /**
+     *     X := isnan(X)
+     */
+    public function isnan(
+        NDArray $X
+        ) : NDArray
+    {
+        $n = $X->size();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+
+        $this->math->isnan(
+            $n,
+            $XX,$offX,1);
+
+        return $X;
+    }
+
+    public function linspace(float $start, float $stop, int $num, $dtype=null) : NDArray
+    {
+        if($num<=0) {
+            throw new InvalidArgumentException('num must be greater than or equal zero.');
+        }
+        $array = $this->alloc([$num],$dtype);
+        $step = ($stop-$start)/($num-1);
+        $value = $start;
+        for($i=0;$i<$num;$i++) {
+            $array[$i] = min($start+$step*$i,$stop);
+        }
+        return $array;
     }
 
     public function numericalGradient(

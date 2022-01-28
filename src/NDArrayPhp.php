@@ -405,4 +405,18 @@ class NDArrayPhp implements NDArray,Serializable,Countable,IteratorAggregate
             throw new RuntimeException('Illegal save mode: '.$mode);
         }
     }
+
+    public function __clone()
+    {
+        if($this->_buffer instanceof OpenBlasBuffer) {
+            $newBuffer =  new OpenBlasBuffer(
+                count($this->_buffer),$this->_buffer->dtype());
+            $newBuffer->load($this->_buffer->dump());
+            $this->_buffer = $newBuffer;
+        } elseif($this->_buffer instanceof SplFixedArray) {
+            $this->_buffer = clone $this->_buffer;
+        } else {
+            throw new RuntimeException('Unknown buffer type is uncloneable:'.get_class($this->_buffer));
+        }
+    }
 }
