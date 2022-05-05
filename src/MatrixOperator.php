@@ -3,6 +3,7 @@ namespace Rindow\Math\Matrix;
 
 use ArrayObject;
 use InvalidArgumentException;
+use LogicException;
 use Interop\Polite\Math\Matrix\BLAS;
 use Interop\Polite\Math\Matrix\NDArray;
 use Interop\Polite\Math\Matrix\OpenCL;
@@ -16,6 +17,9 @@ use Rindow\OpenCL\CommandQueue;
 
 class MatrixOperator
 {
+    const LOWEST_RINDOW_OPENBLAS_VERSION = '0.3.0';
+    const OVER_RINDOW_OPENBLAS_VERSION = '0.4.0';
+    
     protected $blas;
     protected $openblas;
     protected $lapack;
@@ -62,6 +66,7 @@ class MatrixOperator
             $this->blas = $blas;
         } else {
             if(extension_loaded('rindow_openblas')) {
+                $this->assertOpenBlasExtensionVersion();
                 $this->openblas = new OpenBLAS();
             }
             $this->blas = new PhpBlas($this->openblas);
@@ -70,6 +75,7 @@ class MatrixOperator
             $this->lapack = $lapack;
         } else {
             if(extension_loaded('rindow_openblas')) {
+                $this->assertOpenBlasExtensionVersion();
                 $this->openblaslapack = new OpenBLASLapack();
             }
             $this->lapack = new PhpLapack($this->openblaslapack);
@@ -78,6 +84,7 @@ class MatrixOperator
             $this->math = $math;
         } else {
             if(extension_loaded('rindow_openblas')) {
+                $this->assertOpenBlasExtensionVersion();
                 $this->openblasmath = new OpenBLASMath();
             }
             $this->math = new PhpMath($this->openblasmath);
@@ -108,6 +115,17 @@ class MatrixOperator
           '**=' => [null, 'assign_pow'], // function($x,$y) { return $x ** $y; }],
       ];
       $this->operatorFunctions = new MatrixOpelatorFunctions();
+    }
+
+    protected function assertOpenBlasExtensionVersion()
+    {
+        $blasVersion = phpversion('rindow_openblas');
+        if(version_compare($blasVersion,self::LOWEST_RINDOW_OPENBLAS_VERSION)<0||
+            version_compare($blasVersion,self::OVER_RINDOW_OPENBLAS_VERSION)>=0 ) {
+                throw new LogicException('rindow_openblas '.$blasVersion.' is an unsupported version. '.
+                'Supported versions are greater than or equal to '.self::LOWEST_RINDOW_OPENBLAS_VERSION.
+                ' and less than '.self::OVER_RINDOW_OPENBLAS_VERSION.'.');
+        }
     }
 
     //public function close()
