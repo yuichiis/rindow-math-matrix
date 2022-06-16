@@ -18,5 +18,5 @@ jobs:
         with:
           bootstrap: vendor/autoload.php
           configuration: tests/phpunit.xml
-          phpunit_version: 8.5
+          version: 8.5
 
