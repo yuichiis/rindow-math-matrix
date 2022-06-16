@@ -9,3 +9,12 @@ jobs:
     steps:
       - name: Checkout codes
         uses: "actions/checkout@v2"
+
+      - name: Composer
+        uses: php-actions/composer@v5
+
+      - name: PHPUnit Tests
+        uses: php-actions/phpunit@v2
+        with:
+          bootstrap: vendor/autoload.php
+          configuration: test/phpunit.xml
