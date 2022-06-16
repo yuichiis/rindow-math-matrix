@@ -240,7 +240,7 @@ class PhpMath
         int $m,
         int $n,
         Buffer $A, int $offsetA, int $ldA,
-        Buffer $X, int $offsetX, int $incX,
+        Buffer $X, int $offsetX, int $incX
         ) : void
     {
         if($this->useMath($X)) {
@@ -284,7 +284,7 @@ class PhpMath
         int $m,
         int $n,
         Buffer $A, int $offsetA, int $ldA,
-        Buffer $X, int $offsetX, int $incX,
+        Buffer $X, int $offsetX, int $incX
         ) : void
     {
         if($this->useMath($X)) {
@@ -328,7 +328,7 @@ class PhpMath
         int $m,
         int $n,
         Buffer $A, int $offsetA, int $ldA,
-        Buffer $X, int $offsetX, int $incX,
+        Buffer $X, int $offsetX, int $incX
         ) : void
     {
         if($this->useMath($X)) {
@@ -370,7 +370,7 @@ class PhpMath
         int $m,
         int $n,
         Buffer $A, int $offsetA, int $ldA,
-        Buffer $X, int $offsetX, int $incX,
+        Buffer $X, int $offsetX, int $incX
         ) : void
     {
         if($this->useMath($X)) {
@@ -412,7 +412,7 @@ class PhpMath
         int $m,
         int $n,
         Buffer $A, int $offsetA, int $ldA,
-        Buffer $X, int $offsetX, int $incX,
+        Buffer $X, int $offsetX, int $incX
         ) : void
     {
         if($this->useMath($X)) {
@@ -454,7 +454,7 @@ class PhpMath
         int $m,
         int $n,
         Buffer $A, int $offsetA, int $ldA,
-        Buffer $X, int $offsetX, int $incX,
+        Buffer $X, int $offsetX, int $incX
         ) : void
     {
         if($this->useMath($X)) {
