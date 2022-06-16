@@ -24,5 +24,5 @@ jobs:
           bootstrap: vendor/autoload.php
           configuration: tests/phpunit.xml
           version: 8.5
-          php-version: ${{ matrix.php }}
+          php_version: ${{ matrix.php }}
 
