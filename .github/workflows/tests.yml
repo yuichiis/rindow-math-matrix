@@ -16,10 +16,10 @@ jobs:
 
     - uses: php-actions/composer@v5
 
-    - name: PHPUnit Tests
-        uses: php-actions/phpunit@v2
-        env:
-          TEST_NAME: 
-        with:
-          bootstrap: vendor/autoload.php
-          configuration: tests/phpunit.xml
+    - name: "PHPUnit Tests"
+      uses: php-actions/phpunit@v2
+      env:
+        TEST_NAME: test
+      with:
+        bootstrap: vendor/autoload.php
+        configuration: tests/phpunit.xml
