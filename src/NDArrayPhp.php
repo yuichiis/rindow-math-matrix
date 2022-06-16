@@ -24,7 +24,7 @@ class NDArrayPhp implements NDArray,Serializable,Countable,IteratorAggregate
 
     public function __construct($array = null, $dtype=null ,array $shape = null,$offset=null)
     {
-        if($dtype==null) {
+        if($dtype===null) {
             $dtype = NDArray::float32;
         } else {
             $dtype = $dtype;
@@ -38,14 +38,14 @@ class NDArrayPhp implements NDArray,Serializable,Countable,IteratorAggregate
             $idx = 0;
             $this->array2Flat($array,$this->_buffer,$idx,$prepare=false);
             $this->_offset = 0;
-            if($shape==null) {
+            if($shape===null) {
                 $shape = $this->genShape($array);
             }
         } elseif(is_numeric($array)) {
             $this->_buffer = $this->newBuffer(1,$dtype);
             $this->_buffer[0] = $array;
             $this->_offset = 0;
-            if($shape==null) {
+            if($shape===null) {
                 $shape = [];
             }
             $this->assertShape($shape);
@@ -59,7 +59,7 @@ class NDArrayPhp implements NDArray,Serializable,Countable,IteratorAggregate
         } elseif($this->isBuffer($array)) {
             if($offset===null||!is_int($offset))
                 throw new InvalidArgumentException("Must specify offset with the buffer");
-            if($shape==null)
+            if($shape===null)
                 throw new InvalidArgumentException("Invalid dimension size");
             $this->_buffer = $array;
             $this->_offset = $offset;

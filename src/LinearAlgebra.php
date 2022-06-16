@@ -1165,130 +1165,202 @@ class LinearAlgebra
         return $X;
     }
 
+    protected function calcBroadcastFormat($A,$X)
+    {
+        if(is_numeric($X)) {
+            $X = $this->array($X,$A->dtype());
+        }
+        if(!($X instanceof NDArray)) {
+            throw new InvalidArgumentException('X must be NDArray or float');;
+        }
+        $ndimX = $X->ndim();
+        $ndimA = $A->ndim();
+        if($ndimX==0) {
+            $X = $X->reshape([$X->size()]);
+            $ndimX = 1;
+            $size = $A->size();
+            $A = $A->reshape([$size,1]);
+            $ndimA = 2;
+            $m = $size;
+            $n = 1;
+        } else {
+            $shapeA = $A->shape();
+            $shapeX = $X->shape();
+            if($shapeA==$shapeX) {
+                $m = 1;
+                $n = $A->size();
+            } else {
+                $n = 1;
+                while(true) {
+                    $tmpX = array_pop($shapeX);
+                    if($tmpX===null) {
+                        break;
+                    }
+                    $tmpA = array_pop($shapeA);
+                    if($tmpA!=$tmpX) {
+                        throw new InvalidArgumentException('A and X is unmatched for broadcast');
+                    }
+                    $n *= $tmpX;
+                }
+                $m = array_product($shapeA);
+            }
+        }
+        if($A->dtype()!=$X->dtype()) {
+            throw new InvalidArgumentException('A and X must be same data type');
+        }
+        $m = (int)$m;
+        $n = (int)$n;
+        return [$m,$n,$A,$X];
+    }
+
     /**
-     *     X := X  (X > a)
-     *     X := a  (X <= a)
+     *     A[m,n] := A[m,n] (A[m,n] >  X[n])
+     *     A[m,n] := X[n]   (A[m,n] <= X[n])
      */
     public function maximum(
-        NDArray $X,
-        float $alpha
+        NDArray $A,
+        $X,
         ) : NDArray
     {
-        $n = $X->size();
+        [$m,$n,$dmy,$X] = $this->calcBroadcastFormat($A,$X);
+        $AA   = $A->buffer();
+        $offA = $A->offset();
         $XX = $X->buffer();
         $offX = $X->offset();
 
         $this->math->maximum(
+            $m,
             $n,
+            $AA,$offA,$n,
             $XX,$offX,1,
-            $alpha);
+        );
 
-        return $X;
+        return $A;
     }
 
     /**
-     *     X := X  (X < a)
-     *     X := a  (X >= a)
+     *     A[m,n] := A[m,n] (A[m,n] <  X[n])
+     *     A[m,n] := X[n]   (A[m,n] >= X[n])
      */
     public function minimum(
-        NDArray $X,
-        float $alpha
+        NDArray $A,
+        $X,
         ) : NDArray
     {
-        $n = $X->size();
+        [$m,$n,$dmy,$X] = $this->calcBroadcastFormat($A,$X);
+        $AA   = $A->buffer();
+        $offA = $A->offset();
         $XX = $X->buffer();
         $offX = $X->offset();
 
         $this->math->minimum(
+            $m,
             $n,
+            $AA,$offA,$n,
             $XX,$offX,1,
-            $alpha);
+        );
 
-        return $X;
+        return $A;
     }
 
     /**
-     *     X := 1  (X >  a)
-     *     X := 0  (X <= a)
+     *     A[m,n] := 1 (A[m,n] >  X[n])
+     *     A[m,n] := 0 (A[m,n] <= X[n])
      */
     public function greater(
-        NDArray $X,
-        float $alpha
+        NDArray $A,
+        $X,
         ) : NDArray
     {
-        $n = $X->size();
+        [$m,$n,$dmy,$X] = $this->calcBroadcastFormat($A,$X);
+        $AA   = $A->buffer();
+        $offA = $A->offset();
         $XX = $X->buffer();
         $offX = $X->offset();
 
         $this->math->greater(
+            $m,
             $n,
+            $AA,$offA,$n,
             $XX,$offX,1,
-            $alpha);
+        );
 
-        return $X;
+        return $A;
     }
 
     /**
-     *     X := 1  (X >= a)
-     *     X := 0  (X <  a)
+     *     A[m,n] := 1 (A[m,n] >= X[n])
+     *     A[m,n] := 0 (A[m,n] <  X[n])
      */
     public function greaterEqual(
-        NDArray $X,
-        float $alpha
+        NDArray $A,
+        $X,
         ) : NDArray
     {
-        $n = $X->size();
+        [$m,$n,$dmy,$X] = $this->calcBroadcastFormat($A,$X);
+        $AA   = $A->buffer();
+        $offA = $A->offset();
         $XX = $X->buffer();
         $offX = $X->offset();
 
         $this->math->greaterEqual(
+            $m,
             $n,
+            $AA,$offA,$n,
             $XX,$offX,1,
-            $alpha);
+        );
 
-        return $X;
+        return $A;
     }
 
     /**
-     *     X := 1  (X <  a)
-     *     X := 0  (X >= a)
+     *     A[m,n] := 1 (A[m,n] <  X[n])
+     *     A[m,n] := 0 (A[m,n] >= X[n])
      */
     public function less(
-        NDArray $X,
-        float $alpha
+        NDArray $A,
+        $X,
         ) : NDArray
     {
-        $n = $X->size();
+        [$m,$n,$dmy,$X] = $this->calcBroadcastFormat($A,$X);
+        $AA   = $A->buffer();
+        $offA = $A->offset();
         $XX = $X->buffer();
         $offX = $X->offset();
 
         $this->math->less(
+            $m,
             $n,
+            $AA,$offA,$n,
             $XX,$offX,1,
-            $alpha);
+        );
 
-        return $X;
+        return $A;
     }
 
     /**
-     *     X := 1  (X <= a)
-     *     X := 0  (X >  a)
+     *     A[m,n] := 1 (A[m,n] <= X[n])
+     *     A[m,n] := 0 (A[m,n] >  X[n])
      */
     public function lessEqual(
-        NDArray $X,
-        float $alpha
+        NDArray $A,
+        $X,
         ) : NDArray
     {
-        $n = $X->size();
+        [$m,$n,$dmy,$X] = $this->calcBroadcastFormat($A,$X);
+        $AA   = $A->buffer();
+        $offA = $A->offset();
         $XX = $X->buffer();
         $offX = $X->offset();
 
         $this->math->lessEqual(
+            $m,
             $n,
+            $AA,$offA,$n,
             $XX,$offX,1,
-            $alpha);
+        );
 
-        return $X;
+        return $A;
     }
 
     /**
@@ -2121,12 +2193,19 @@ class LinearAlgebra
         return $B;
     }
 
-    public function reduceMean(NDArray $A,int $axis,NDArray $X=null,$dtypeX=null) : NDArray
+    public function reduceMean(NDArray $A,int $axis=null,NDArray $X=null,$dtypeX=null) : NDArray
     {
+        if($axis===null) {
+            $axis = 0;
+        }
         $X = $this->reduceSum(
             $A,$axis,$X,$dtypeX
         );
-        if($A->ndim()<=$axis) {
+        $ndim = $A->ndim();
+        if($axis<0) {
+            $axis = $ndim+$axis;
+        }
+        if($ndim<=$axis) {
             throw new InvalidException('axis must be less then num of dimension');
         }
         $shapeA = $A->shape();
@@ -3032,8 +3111,10 @@ class LinearAlgebra
         }
         $innerShape = $A->shape();
         $outerShape = [];
-        for($i=0;$i<$axis;$i++) {
-            $outerShape[] = array_shift($innerShape);
+        if($axis!==null) {
+            for($i=0;$i<$axis;$i++) {
+                $outerShape[] = array_shift($innerShape);
+            }
         }
         if($axis===null) {
             $outputShape = [(int)array_product(

@@ -944,105 +944,142 @@ class OpenCLMath
     }
 
     /**
-     *     X := X  (X > a)
-     *     X := a  (X <= a)
+     *     A[m,n] := A[m,n] (A[m,n] >  X[n])
+     *     A[m,n] := X[n]   (A[m,n] <= X[n])
      */
     public function maximum(
+        int $m,
         int $n,
+        Buffer $A, int $offsetA, int $ldA,
         Buffer $X, int $offsetX, int $incX,
-        float $alpha,
         EventList $events=null, EventList $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
         if($dtypeX==NDArray::float64) {
             $this->assertFP64();
+        }
+        if($m<=0 || $n<=0) {
+            throw new InvalidArgumentException("m and n must be greater than 0");
+        }
+        if(($m-1)*$ldA+($n-1)+$offsetA>=count($A)) {
+            throw new InvalidArgumentException("Matrix A is too small");
+        }
+        if(($n-1)*$incX+$offsetX>=count($X)) {
+            throw new InvalidArgumentException("Buffer X is too small");
         }
         $type = $this->dtypeToOpenCLType[$dtypeX];
         $kernel_name = "maximum_${type}";
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void ${kernel_name}(\n".
-                "    const        ${type} alpha,\n".
+                "        __global ${type} * a,\n".
+                "    const        uint offset_a,\n".
+                "    const        uint lda,\n".
                 "        __global ${type} * x,\n".
                 "    const        uint offset_x,\n".
                 "    const        uint incx)\n".
                 "{\n".
-                "    uint idx = get_global_id(0)*incx+offset_x;\n".
-                "    ${type} tmp = x[idx];\n".
-                "    if(isnan(alpha)) {\n".
-                "        x[idx] = alpha;\n".
+                "    uint row_id = get_global_id(0);\n".
+                "    uint col_id = get_global_id(1);\n".
+                "    uint ida = row_id*lda+col_id+offset_a;\n".
+                "    uint idx = col_id*incx+offset_x;\n".
+                "    ${type} tmp_a = a[ida];\n".
+                "    ${type} tmp_x = x[idx];\n".
+                "    if(isnan(tmp_x)) {\n".
+                "        a[ida] = tmp_x;\n".
                 "    } else {\n".
-                "        if(tmp < alpha) {\n".
-                "            x[idx] = alpha;\n".
+                "        if(tmp_a < tmp_x) {\n".
+                "            a[ida] = tmp_x;\n".
                 "        }\n".
                 "    }\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
-        $kernel->setArg(0,$alpha,NDArray::float32);
-        $kernel->setArg(1,$X);
-        $kernel->setArg(2,$offsetX,NDArray::uint32);
-        $kernel->setArg(3,$incX,NDArray::uint32);
-        $global_work_size = [$n];
+        $kernel->setArg(0,$A);
+        $kernel->setArg(1,$offsetA,NDArray::uint32);
+        $kernel->setArg(2,$ldA,NDArray::uint32);
+        $kernel->setArg(3,$X);
+        $kernel->setArg(4,$offsetX,NDArray::uint32);
+        $kernel->setArg(5,$incX,NDArray::uint32);
+        $global_work_size = [$m,$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
     }
 
     /**
-     *     X := X  (X < a)
-     *     X := a  (X >= a)
+     *     A[m,n] := A[m,n] (A[m,n] <  X[n])
+     *     A[m,n] := X[n]   (A[m,n] >= X[n])
      */
     public function minimum(
+        int $m,
         int $n,
+        Buffer $A, int $offsetA, int $ldA,
         Buffer $X, int $offsetX, int $incX,
-        float $alpha,
         EventList $events=null, EventList $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
         if($dtypeX==NDArray::float64) {
             $this->assertFP64();
+        }
+        if($m<=0 || $n<=0) {
+            throw new InvalidArgumentException("m and n must be greater than 0");
+        }
+        if(($m-1)*$ldA+($n-1)+$offsetA>=count($A)) {
+            throw new InvalidArgumentException("Matrix A is too small");
+        }
+        if(($n-1)*$incX+$offsetX>=count($X)) {
+            throw new InvalidArgumentException("Buffer X is too small");
         }
         $type = $this->dtypeToOpenCLType[$dtypeX];
         $kernel_name = "minimum_${type}";
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void ${kernel_name}(\n".
-                "    const        ${type} alpha,\n".
+                "        __global ${type} * a,\n".
+                "    const        uint offset_a,\n".
+                "    const        uint lda,\n".
                 "        __global ${type} * x,\n".
                 "    const        uint offset_x,\n".
                 "    const        uint incx)\n".
                 "{\n".
-                "    uint idx = get_global_id(0)*incx+offset_x;\n".
-                "    ${type} tmp = x[idx];\n".
-                "    if(isnan(alpha)) {\n".
-                "        x[idx] = alpha;\n".
+                "    uint row_id = get_global_id(0);\n".
+                "    uint col_id = get_global_id(1);\n".
+                "    uint ida = row_id*lda+col_id+offset_a;\n".
+                "    uint idx = col_id*incx+offset_x;\n".
+                "    ${type} tmp_a = a[ida];\n".
+                "    ${type} tmp_x = x[idx];\n".
+                "    if(isnan(tmp_x)) {\n".
+                "        a[ida] = tmp_x;\n".
                 "    } else {\n".
-                "        if(tmp > alpha) {\n".
-                "            x[idx] = alpha;\n".
+                "        if(tmp_a > tmp_x) {\n".
+                "            a[ida] = tmp_x;\n".
                 "        }\n".
                 "    }\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
-        $kernel->setArg(0,$alpha,NDArray::float32);
-        $kernel->setArg(1,$X);
-        $kernel->setArg(2,$offsetX,NDArray::uint32);
-        $kernel->setArg(3,$incX,NDArray::uint32);
-        $global_work_size = [$n];
+        $kernel->setArg(0,$A);
+        $kernel->setArg(1,$offsetA,NDArray::uint32);
+        $kernel->setArg(2,$ldA,NDArray::uint32);
+        $kernel->setArg(3,$X);
+        $kernel->setArg(4,$offsetX,NDArray::uint32);
+        $kernel->setArg(5,$incX,NDArray::uint32);
+        $global_work_size = [$m,$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
     }
 
     /**
-     *     X := 1  (X >  a)
-     *     X := 0  (X <= a)
+     *     A[m,n] := 1 (A[m,n] >  X[n])
+     *     A[m,n] := 0 (A[m,n] <= X[n])
      */
     public function greater(
+        int $m,
         int $n,
+        Buffer $A, int $offsetA, int $ldA,
         Buffer $X, int $offsetX, int $incX,
-        float $alpha,
         EventList $events=null, EventList $waitEvents=null
         ) : void
     {
@@ -1050,38 +1087,53 @@ class OpenCLMath
         if($dtypeX==NDArray::float64) {
             $this->assertFP64();
         }
-        $segment_size = 2**9;
-        $segments = (int)ceil($n/$segment_size);
-        $fraction = (int)($n%$segment_size);
+        if($m<=0 || $n<=0) {
+            throw new InvalidArgumentException("m and n must be greater than 0");
+        }
+        if(($m-1)*$ldA+($n-1)+$offsetA>=count($A)) {
+            throw new InvalidArgumentException("Matrix A is too small");
+        }
+        if(($n-1)*$incX+$offsetX>=count($X)) {
+            throw new InvalidArgumentException("Buffer X is too small");
+        }
+        //$segment_size = 2**9;
+        //$segments = (int)ceil($n/$segment_size);
+        //$fraction = (int)($n%$segment_size);
         $type = $this->dtypeToOpenCLType[$dtypeX];
         $kernel_name = "greater_${type}";
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void ${kernel_name}(\n".
-                "    const        ${type} alpha,\n".
+                "        __global ${type} * a,\n".
+                "    const        uint offset_a,\n".
+                "    const        uint lda,\n".
                 "        __global ${type} * x,\n".
                 "    const        uint offset_x,\n".
                 "    const        uint incx)\n".
                 "{\n".
-                "    uint gid = get_global_id(0);\n".
-                "    uint idx = gid*incx+offset_x;\n".
+                "    uint row_id = get_global_id(0);\n".
+                "    uint col_id = get_global_id(1);\n".
+                "    uint ida = row_id*lda+col_id+offset_a;\n".
+                "    uint idx = col_id*incx+offset_x;\n".
                 "    ${type} value;\n".
                 //   if NaN set 0.0
                 //   if equal set 0.0
-                "    if(x[idx] > alpha) {\n".
+                "    if(a[ida] > x[idx]) {\n".
                 "        value = 1.0;\n".
                 "    } else {\n".
                 "        value = 0.0;\n".
                 "    }\n".
-                "    x[idx] = value;\n".
+                "    a[ida] = value;\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
-        $kernel->setArg(0,$alpha,NDArray::float32);
-        $kernel->setArg(1,$X);
-        $kernel->setArg(2,$offsetX,NDArray::uint32);
-        $kernel->setArg(3,$incX,NDArray::uint32);
-        $global_work_size = [$n];
+        $kernel->setArg(0,$A);
+        $kernel->setArg(1,$offsetA,NDArray::uint32);
+        $kernel->setArg(2,$ldA,NDArray::uint32);
+        $kernel->setArg(3,$X);
+        $kernel->setArg(4,$offsetX,NDArray::uint32);
+        $kernel->setArg(5,$incX,NDArray::uint32);
+        $global_work_size = [$m,$n];
         $local_work_size = null;
         //$multiple = $this->kernelMultiple($kernel);
         //$global_work_size = [$this->ceil($n,$multiple)];
@@ -1089,79 +1141,16 @@ class OpenCLMath
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
             $events,$waitEvents);
     }
-/*
-    public function greater2(
-        int $n,
-        float $alpha,
-        Buffer $X, int $offsetX, int $incX,
-        EventList $events=null, EventList $waitEvents=null
-        ) : void
-    {
-        $dtypeX = $X->dtype();
-        if($dtypeX==NDArray::float64) {
-            $this->assertFP64();
-        }
-        $segment_size = 2**6;
-        $segments = (int)ceil($n/$segment_size);
-        $fraction = (int)($n%$segment_size);
-        $type = $this->dtypeToOpenCLType[$dtypeX];
-        $kernel_name = "greater_${type}";
-        if(!isset($this->sources[$kernel_name])) {
-            $this->sources[$kernel_name] =
-                "__kernel void ${kernel_name}(\n".
-                "    const        ${type} alpha,\n".
-                "        __global ${type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
-                "    const        uint fraction,\n".
-                "    const        uint segments)\n".
-                "{\n".
-                "    uint gid = get_global_id(0);\n".
-                "    uint items;\n".
-                "    if(gid < segments-1) {\n".
-                "        items = ${segment_size};\n".
-                "    } else if(gid == segments-1) {\n".
-                "        items = fraction;\n".
-                "    } else {\n".
-                "        items = 0;\n".
-                "    }\n".
-                "    uint idx = gid*${segment_size}*incx+offset_x;\n".
-                "    for(uint i=0;i<items;i++,idx+=incx) {\n".
-                "        ${type} value;\n".
-                "        if(x[idx] > alpha) {\n".
-                "            value = 1.0;\n".
-                "        } else {\n".
-                "            value = 0.0;\n".
-                "        }\n".
-                "        x[idx] = value;\n".
-                "    }\n".
-                "}\n";
-        }
-        $kernel = $this->createKernel($kernel_name);
-        $kernel->setArg(0,$alpha,NDArray::float32);
-        $kernel->setArg(1,$X);
-        $kernel->setArg(2,$offsetX,NDArray::uint32);
-        $kernel->setArg(3,$incX,NDArray::uint32);
-        $kernel->setArg(4,$fraction,NDArray::uint32);
-        $kernel->setArg(5,$segments,NDArray::uint32);
-        //$global_work_size = [$n];
-        //$local_work_size = null;
-        $multiple = $this->kernelMultiple($kernel);
-        $global_work_size = [$this->ceil($n,$multiple)];
-        $local_work_size = [$multiple];
-        $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
-            $events,$waitEvents);
-    }
-*/
 
     /**
-     *     X := 1  (X >= a)
-     *     X := 0  (X < a)
+     *     A[m,n] := 1 (A[m,n] >= X[n])
+     *     A[m,n] := 0 (A[m,n] <  X[n])
      */
     public function greaterEqual(
+        int $m,
         int $n,
+        Buffer $A, int $offsetA, int $ldA,
         Buffer $X, int $offsetX, int $incX,
-        float $alpha,
         EventList $events=null, EventList $waitEvents=null
         ) : void
     {
@@ -1169,38 +1158,53 @@ class OpenCLMath
         if($dtypeX==NDArray::float64) {
             $this->assertFP64();
         }
-        $segment_size = 2**9;
-        $segments = (int)ceil($n/$segment_size);
-        $fraction = (int)($n%$segment_size);
+        if($m<=0 || $n<=0) {
+            throw new InvalidArgumentException("m and n must be greater than 0");
+        }
+        if(($m-1)*$ldA+($n-1)+$offsetA>=count($A)) {
+            throw new InvalidArgumentException("Matrix A is too small");
+        }
+        if(($n-1)*$incX+$offsetX>=count($X)) {
+            throw new InvalidArgumentException("Buffer X is too small");
+        }
+        //$segment_size = 2**9;
+        //$segments = (int)ceil($n/$segment_size);
+        //$fraction = (int)($n%$segment_size);
         $type = $this->dtypeToOpenCLType[$dtypeX];
         $kernel_name = "greater_equal_${type}";
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void ${kernel_name}(\n".
-                "    const        ${type} alpha,\n".
+                "        __global ${type} * a,\n".
+                "    const        uint offset_a,\n".
+                "    const        uint lda,\n".
                 "        __global ${type} * x,\n".
                 "    const        uint offset_x,\n".
                 "    const        uint incx)\n".
                 "{\n".
-                "    uint gid = get_global_id(0);\n".
-                "    uint idx = gid*incx+offset_x;\n".
+                "    uint row_id = get_global_id(0);\n".
+                "    uint col_id = get_global_id(1);\n".
+                "    uint ida = row_id*lda+col_id+offset_a;\n".
+                "    uint idx = col_id*incx+offset_x;\n".
                 "    ${type} value;\n".
                 //   if NaN set 0.0
-                //   if equal set 0.0
-                "    if(x[idx] >= alpha) {\n".
+                //   if equal set 1.0
+                "    if(a[ida] >= x[idx]) {\n".
                 "        value = 1.0;\n".
                 "    } else {\n".
                 "        value = 0.0;\n".
                 "    }\n".
-                "    x[idx] = value;\n".
+                "    a[ida] = value;\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
-        $kernel->setArg(0,$alpha,NDArray::float32);
-        $kernel->setArg(1,$X);
-        $kernel->setArg(2,$offsetX,NDArray::uint32);
-        $kernel->setArg(3,$incX,NDArray::uint32);
-        $global_work_size = [$n];
+        $kernel->setArg(0,$A);
+        $kernel->setArg(1,$offsetA,NDArray::uint32);
+        $kernel->setArg(2,$ldA,NDArray::uint32);
+        $kernel->setArg(3,$X);
+        $kernel->setArg(4,$offsetX,NDArray::uint32);
+        $kernel->setArg(5,$incX,NDArray::uint32);
+        $global_work_size = [$m,$n];
         $local_work_size = null;
         //$multiple = $this->kernelMultiple($kernel);
         //$global_work_size = [$this->ceil($n,$multiple)];
@@ -1209,13 +1213,14 @@ class OpenCLMath
             $events,$waitEvents);
     }
     /**
-     *     X := 1  (X <  a)
-     *     X := 0  (X >= a)
+     *     A[m,n] := 1 (A[m,n] <  X[n])
+     *     A[m,n] := 0 (A[m,n] >= X[n])
      */
     public function less(
+        int $m,
         int $n,
+        Buffer $A, int $offsetA, int $ldA,
         Buffer $X, int $offsetX, int $incX,
-        float $alpha,
         EventList $events=null, EventList $waitEvents=null
         ) : void
     {
@@ -1223,45 +1228,63 @@ class OpenCLMath
         if($dtypeX==NDArray::float64) {
             $this->assertFP64();
         }
+        if($m<=0 || $n<=0) {
+            throw new InvalidArgumentException("m and n must be greater than 0");
+        }
+        if(($m-1)*$ldA+($n-1)+$offsetA>=count($A)) {
+            throw new InvalidArgumentException("Matrix A is too small");
+        }
+        if(($n-1)*$incX+$offsetX>=count($X)) {
+            throw new InvalidArgumentException("Buffer X is too small");
+        }
         $type = $this->dtypeToOpenCLType[$dtypeX];
         $kernel_name = "less_${type}";
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void ${kernel_name}(\n".
-                "    const        ${type} alpha,\n".
+                "        __global ${type} * a,\n".
+                "    const        uint offset_a,\n".
+                "    const        uint lda,\n".
                 "        __global ${type} * x,\n".
                 "    const        uint offset_x,\n".
                 "    const        uint incx)\n".
                 "{\n".
-                "    uint idx = get_global_id(0)*incx+offset_x;\n".
-                //   *** CAUTION ***
+                "    uint row_id = get_global_id(0);\n".
+                "    uint col_id = get_global_id(1);\n".
+                "    uint ida = row_id*lda+col_id+offset_a;\n".
+                "    uint idx = col_id*incx+offset_x;\n".
+                "    ${type} value;\n".
                 //   if NaN set 0.0
                 //   if equal set 0.0
-                "    if(x[idx] < alpha) {\n".
-                "        x[idx] = 1.0;\n".
+                "    if(a[ida] < x[idx]) {\n".
+                "        value = 1.0;\n".
                 "    } else {\n".
-                "        x[idx] = 0.0;\n".
+                "        value = 0.0;\n".
                 "    }\n".
+                "    a[ida] = value;\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
-        $kernel->setArg(0,$alpha,NDArray::float32);
-        $kernel->setArg(1,$X);
-        $kernel->setArg(2,$offsetX,NDArray::uint32);
-        $kernel->setArg(3,$incX,NDArray::uint32);
-        $global_work_size = [$n];
+        $kernel->setArg(0,$A);
+        $kernel->setArg(1,$offsetA,NDArray::uint32);
+        $kernel->setArg(2,$ldA,NDArray::uint32);
+        $kernel->setArg(3,$X);
+        $kernel->setArg(4,$offsetX,NDArray::uint32);
+        $kernel->setArg(5,$incX,NDArray::uint32);
+        $global_work_size = [$m,$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
     }
 
     /**
-     *     X := 1  (X <= a)
-     *     X := 0  (X >  a)
+     *     A[m,n] := 1 (A[m,n] <= X[n])
+     *     A[m,n] := 0 (A[m,n] >  X[n])
      */
     public function lessEqual(
+        int $m,
         int $n,
+        Buffer $A, int $offsetA, int $ldA,
         Buffer $X, int $offsetX, int $incX,
-        float $alpha,
         EventList $events=null, EventList $waitEvents=null
         ) : void
     {
@@ -1269,33 +1292,50 @@ class OpenCLMath
         if($dtypeX==NDArray::float64) {
             $this->assertFP64();
         }
+        if($m<=0 || $n<=0) {
+            throw new InvalidArgumentException("m and n must be greater than 0");
+        }
+        if(($m-1)*$ldA+($n-1)+$offsetA>=count($A)) {
+            throw new InvalidArgumentException("Matrix A is too small");
+        }
+        if(($n-1)*$incX+$offsetX>=count($X)) {
+            throw new InvalidArgumentException("Buffer X is too small");
+        }
         $type = $this->dtypeToOpenCLType[$dtypeX];
         $kernel_name = "less_${type}";
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void ${kernel_name}(\n".
-                "    const        ${type} alpha,\n".
+                "        __global ${type} * a,\n".
+                "    const        uint offset_a,\n".
+                "    const        uint lda,\n".
                 "        __global ${type} * x,\n".
                 "    const        uint offset_x,\n".
                 "    const        uint incx)\n".
                 "{\n".
-                "    uint idx = get_global_id(0)*incx+offset_x;\n".
-                //   *** CAUTION ***
-                //   if Nan set 0.0
+                "    uint row_id = get_global_id(0);\n".
+                "    uint col_id = get_global_id(1);\n".
+                "    uint ida = row_id*lda+col_id+offset_a;\n".
+                "    uint idx = col_id*incx+offset_x;\n".
+                "    ${type} value;\n".
+                //   if NaN set 0.0
                 //   if equal set 1.0
-                "    if(x[idx] <= alpha) {\n".
-                "        x[idx] = 1.0;\n".
+                "    if(a[ida] <= x[idx]) {\n".
+                "        value = 1.0;\n".
                 "    } else {\n".
-                "        x[idx] = 0.0;\n".
+                "        value = 0.0;\n".
                 "    }\n".
+                "    a[ida] = value;\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
-        $kernel->setArg(0,$alpha,NDArray::float32);
-        $kernel->setArg(1,$X);
-        $kernel->setArg(2,$offsetX,NDArray::uint32);
-        $kernel->setArg(3,$incX,NDArray::uint32);
-        $global_work_size = [$n];
+        $kernel->setArg(0,$A);
+        $kernel->setArg(1,$offsetA,NDArray::uint32);
+        $kernel->setArg(2,$ldA,NDArray::uint32);
+        $kernel->setArg(3,$X);
+        $kernel->setArg(4,$offsetX,NDArray::uint32);
+        $kernel->setArg(5,$incX,NDArray::uint32);
+        $global_work_size = [$m,$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
     }

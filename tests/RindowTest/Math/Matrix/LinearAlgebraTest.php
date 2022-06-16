@@ -1689,7 +1689,7 @@ class Test extends TestCase
         $this->assertTrue(is_nan($X[5]));
     }
 
-    public function testMaximum()
+    public function testMaximumFloat()
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
@@ -1724,7 +1724,29 @@ class Test extends TestCase
         $this->assertTrue(is_nan($X[5]));
     }
 
-    public function testMinimum()
+    public function testMaximumCompDim()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // Same dim
+        $X = $la->array([[-1,0,1], [2,3,4]]);
+        $Y = $la->array([[-2,-1,2],[4,3,2]]);
+        $la->maximum($X,$Y);
+        $this->assertEquals(
+            [[-1,0,2],[4,3,4]]
+        ,$X->toArray());
+
+        // Broadcast
+        $X = $la->array([[-1,0,4], [2,4,1]]);
+        $Y = $la->array([-2,1,2]);
+        $la->maximum($X,$Y);
+        $this->assertEquals(
+            [[-1,1,4],[2,4,2]]
+        ,$X->toArray());
+    }
+
+    public function testMinimumFloat()
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
@@ -1759,7 +1781,29 @@ class Test extends TestCase
         $this->assertTrue(is_nan($X[5]));
     }
 
-    public function testGreaterNormal()
+    public function testMinimumCompDim()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // Same dim
+        $X = $la->array([[-1,0,1], [2,3,4]]);
+        $Y = $la->array([[-2,-1,2],[4,3,2]]);
+        $la->minimum($X,$Y);
+        $this->assertEquals(
+            [[-2,-1,1],[2,3,2]]
+        ,$X->toArray());
+
+        // Broadcast
+        $X = $la->array([[-1,0,4], [2,4,1]]);
+        $Y = $la->array([-2,1,2]);
+        $la->minimum($X,$Y);
+        $this->assertEquals(
+            [[-2,0,2],[-2,1,1]]
+        ,$X->toArray());
+    }
+
+    public function testGreaterFloat()
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
@@ -1789,6 +1833,28 @@ class Test extends TestCase
         $this->assertEquals(0.0, $X[3]);
     }
 
+    public function testGreaterCompDim()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // Same dim
+        $X = $la->array([[-1,0,1], [2,3,4]]);
+        $Y = $la->array([[-2,-1,2],[4,3,2]]);
+        $la->greater($X,$Y);
+        $this->assertEquals(
+            [[1,1,0],[0,0,1]]
+        ,$X->toArray());
+
+        // Broadcast
+        $X = $la->array([[-1,0,4], [2,4,1]]);
+        $Y = $la->array([-2,1,2]);
+        $la->greater($X,$Y);
+        $this->assertEquals(
+            [[1,0,1],[1,1,0]]
+        ,$X->toArray());
+    }
+
     public function testGreaterSpeed()
     {
         $mo = $this->newMatrixOperator();
@@ -1816,7 +1882,7 @@ class Test extends TestCase
         $this->assertTrue(true);
     }
 
-    public function testGreaterEqualNormal()
+    public function testGreaterEqualFloat()
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
@@ -1846,7 +1912,29 @@ class Test extends TestCase
         $this->assertEquals(0.0, $X[3]);
     }
 
-    public function testLessNormal()
+    public function testGreaterEqualCompDim()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // Same dim
+        $X = $la->array([[-1,0,1], [2,3,4]]);
+        $Y = $la->array([[-2,-1,2],[4,3,2]]);
+        $la->greaterEqual($X,$Y);
+        $this->assertEquals(
+            [[1,1,0],[0,1,1]]
+        ,$X->toArray());
+
+        // Broadcast
+        $X = $la->array([[-1,0,4], [2,0,2]]);
+        $Y = $la->array([-2,1,2]);
+        $la->greaterEqual($X,$Y);
+        $this->assertEquals(
+            [[1,0,1],[1,0,1]]
+        ,$X->toArray());
+    }
+
+    public function testLessFloat()
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
@@ -1876,7 +1964,29 @@ class Test extends TestCase
         $this->assertEquals(0.0, $X[3]);
     }
 
-    public function testLessEqualNormal()
+    public function testLessCompDim()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // Same dim
+        $X = $la->array([[-1,0,1], [2,3,4]]);
+        $Y = $la->array([[-2,-1,2],[4,3,2]]);
+        $la->less($X,$Y);
+        $this->assertEquals(
+            [[0,0,1],[1,0,0]]
+        ,$X->toArray());
+
+        // Broadcast
+        $X = $la->array([[-1,0,4], [2,0,2]]);
+        $Y = $la->array([-2,1,2]);
+        $la->less($X,$Y);
+        $this->assertEquals(
+            [[0,1,0],[0,1,0]]
+        ,$X->toArray());
+    }
+
+    public function testLessEqualFloat()
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
@@ -1904,6 +2014,28 @@ class Test extends TestCase
         $this->assertEquals(0.0, $X[1]);
         $this->assertEquals(0.0, $X[2]);
         $this->assertEquals(0.0, $X[3]);
+    }
+
+    public function testLessEqualCompDim()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // Same dim
+        $X = $la->array([[-1,0,1], [2,3,4]]);
+        $Y = $la->array([[-2,-1,2],[4,3,2]]);
+        $la->lessEqual($X,$Y);
+        $this->assertEquals(
+            [[0,0,1],[1,1,0]]
+        ,$X->toArray());
+
+        // Broadcast
+        $X = $la->array([[-1,0,4], [2,0,2]]);
+        $Y = $la->array([-2,1,2]);
+        $la->lessEqual($X,$Y);
+        $this->assertEquals(
+            [[0,1,0],[0,1,1]]
+        ,$X->toArray());
     }
 
     public function testMultiplyNormal()
@@ -3802,6 +3934,8 @@ class Test extends TestCase
         $this->assertEquals([6,15],$y->toArray());
         $y = $la->reduceSum($x,$axis=-1);
         $this->assertEquals([6,15],$y->toArray());
+        $y = $la->reduceSum($x,$axis=null); // ** CAUTION null is 0
+        $this->assertEquals([5,7,9],$y->toArray());
 
         // 3d array
         $x = $la->array([[[1,2],[3,4]],[[5,6],[7,8]]]);

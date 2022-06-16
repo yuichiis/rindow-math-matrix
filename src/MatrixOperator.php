@@ -19,6 +19,12 @@ class MatrixOperator
 {
     const LOWEST_RINDOW_OPENBLAS_VERSION = '0.3.0';
     const OVER_RINDOW_OPENBLAS_VERSION = '0.4.0';
+
+    const LOWEST_RINDOW_OPENCL_VERSION = '0.1.3';
+    const OVER_RINDOW_OPENCL_VERSION = '0.2.0';
+    
+    const LOWEST_RINDOW_CLBLAST_VERSION = '0.1.2';
+    const OVER_RINDOW_CLBLAST_VERSION = '0.2.0';
     
     protected $blas;
     protected $openblas;
@@ -117,15 +123,36 @@ class MatrixOperator
       $this->operatorFunctions = new MatrixOpelatorFunctions();
     }
 
+    protected function assertExtensionVersion($name,$lowestVersion,$overVersion)
+    {
+        $currentVersion = phpversion($name);
+        if(version_compare($currentVersion,$lowestVersion)<0||
+            version_compare($currentVersion,$overVersion)>=0 ) {
+                throw new LogicException($name.' '.$currentVersion.' is an unsupported version. '.
+                'Supported versions are greater than or equal to '.$lowestVersion.
+                ' and less than '.$overVersion.'.');
+        }
+    }
+
     protected function assertOpenBlasExtensionVersion()
     {
-        $blasVersion = phpversion('rindow_openblas');
-        if(version_compare($blasVersion,self::LOWEST_RINDOW_OPENBLAS_VERSION)<0||
-            version_compare($blasVersion,self::OVER_RINDOW_OPENBLAS_VERSION)>=0 ) {
-                throw new LogicException('rindow_openblas '.$blasVersion.' is an unsupported version. '.
-                'Supported versions are greater than or equal to '.self::LOWEST_RINDOW_OPENBLAS_VERSION.
-                ' and less than '.self::OVER_RINDOW_OPENBLAS_VERSION.'.');
-        }
+        $this->assertExtensionVersion('rindow_openblas',
+            self::LOWEST_RINDOW_OPENBLAS_VERSION,
+            self::OVER_RINDOW_OPENBLAS_VERSION);
+    }
+
+    protected function assertOpenCLExtensionVersion()
+    {
+        $this->assertExtensionVersion('rindow_opencl',
+            self::LOWEST_RINDOW_OPENCL_VERSION,
+            self::OVER_RINDOW_OPENCL_VERSION);
+    }
+
+    protected function assertCLBlastExtensionVersion()
+    {
+        $this->assertExtensionVersion('rindow_clblast',
+            self::LOWEST_RINDOW_CLBLAST_VERSION,
+            self::OVER_RINDOW_CLBLAST_VERSION);
     }
 
     //public function close()
@@ -1211,13 +1238,18 @@ class MatrixOperator
                 return $this->clblastLA;
             }
             if(!extension_loaded('rindow_clblast')) {
-                throw new InvalidArgumentException('extension is not loaded');
+                throw new InvalidArgumentException('clblast extension is not loaded');
             }
+            $this->assertCLblastExtensionVersion();
             if(isset($options['deviceType'])) {
                 $deviceType = $options['deviceType'];
             } else {
                 $deviceType = OpenCL::CL_DEVICE_TYPE_DEFAULT;
             }
+            if(!extension_loaded('rindow_opencl')) {
+                throw new InvalidArgumentException('opencl extension is not loaded');
+            }
+            $this->assertOpenCLExtensionVersion();
             $context = new Context($deviceType);
             $queue = new CommandQueue($context);
             $clblastblas = new CLBlastBlas();

@@ -233,208 +233,261 @@ class PhpMath
     }
 
     /**
-     *     X := X  (X > a)
-     *     X := a  (X <= a)
+     *     A[m,n] := A[m,n] (A[m,n] >  X[n])
+     *     A[m,n] := X[n]   (A[m,n] <= X[n])
      */
     public function maximum(
+        int $m,
         int $n,
+        Buffer $A, int $offsetA, int $ldA,
         Buffer $X, int $offsetX, int $incX,
-        float $alpha
         ) : void
     {
         if($this->useMath($X)) {
-            $this->math->maximum($n,$X,$offsetX,$incX,$alpha);
+            $this->math->maximum($m,$n,$A,$offsetA,$ldA,$X,$offsetX,$incX);
             return;
         }
+        if($m<=0 || $n<=0) {
+            throw new InvalidArgumentException("m and n must be greater than 0");
+        }
+        if(($m-1)*$ldA+($n-1)+$offsetA>=count($A)) {
+            throw new InvalidArgumentException("Matrix A is too small");
+        }
+        if(($n-1)*$incX+$offsetX>=count($X)) {
+            throw new InvalidArgumentException("Buffer X is too small");
+        }
 
-        if($offsetX+($n-1)*$incX>=count($X))
-            throw new RuntimeException('Vector specification too large for buffer.');
-
-        $idx = $offsetX;
-        if(is_nan($alpha)) {
-            // *** CAUTION ***
-            // if NaN set Nan
-            for ($i=0; $i<$n; $i++,$idx+=$incX) {
-                $X[$idx] = $alpha;
-            }
-        } else {
-            for ($i=0; $i<$n; $i++,$idx+=$incX) {
-                // *** CAUTION ***
-                // if NaN then don't set alpha
-                if($X[$idx] < $alpha) {
-                    $X[$idx] = $alpha;
+        $lna = $offsetA;
+        for($i=0;$i<$m;$i++,$lna+=$ldA) {
+            $idx = $offsetX;
+            $ida = $lna;
+            for ($j=0; $j<$n; $j++,$idx+=$incX,$ida++) {
+                $v = $X[$idx];
+                if(is_nan($v)) {
+                    // if x==NaN then set NaN
+                    $A[$ida] = $v;
+                } else {
+                    // if NaN then don't set x
+                    if($A[$ida] < $v) {
+                        $A[$ida] = $v;
+                    }
                 }
             }
         }
     }
 
     /**
-     *     X := X  (X < a)
-     *     X := a  (X >= a)
+     *     A[m,n] := A[m,n] (A[m,n] <  X[n])
+     *     A[m,n] := X[n]   (A[m,n] >= X[n])
      */
     public function minimum(
+        int $m,
         int $n,
+        Buffer $A, int $offsetA, int $ldA,
         Buffer $X, int $offsetX, int $incX,
-        float $alpha
         ) : void
     {
         if($this->useMath($X)) {
-            $this->math->minimum($n,$X,$offsetX,$incX,$alpha);
+            $this->math->minimum($m,$n,$A,$offsetA,$ldA,$X,$offsetX,$incX);
             return;
         }
+        if($m<=0 || $n<=0) {
+            throw new InvalidArgumentException("m and n must be greater than 0");
+        }
+        if(($m-1)*$ldA+($n-1)+$offsetA>=count($A)) {
+            throw new InvalidArgumentException("Matrix A is too small");
+        }
+        if(($n-1)*$incX+$offsetX>=count($X)) {
+            throw new InvalidArgumentException("Buffer X is too small");
+        }
 
-        if($offsetX+($n-1)*$incX>=count($X))
-            throw new RuntimeException('Vector specification too large for buffer.');
-
-        $idx = $offsetX;
-        if(is_nan($alpha)) {
-            // *** CAUTION ***
-            // if NaN set NaN
-            for ($i=0; $i<$n; $i++,$idx+=$incX) {
-                $X[$idx] = $alpha;
-            }
-        } else {
-            for ($i=0; $i<$n; $i++,$idx+=$incX) {
-                // *** CAUTION ***
-                // if NaN don't set alpha
-                if($X[$idx] > $alpha) {
-                    $X[$idx] = $alpha;
+        $lna = $offsetA;
+        for($i=0;$i<$m;$i++,$lna+=$ldA) {
+            $idx = $offsetX;
+            $ida = $lna;
+            for ($j=0; $j<$n; $j++,$idx+=$incX,$ida++) {
+                $v = $X[$idx];
+                if(is_nan($v)) {
+                    // if x==NaN then set NaN
+                    $A[$ida] = $v;
+                } else {
+                    // if NaN then don't set x
+                    if($A[$ida] > $v) {
+                        $A[$ida] = $v;
+                    }
                 }
             }
         }
     }
 
     /**
-     *     X := 1  (X >  a)
-     *     X := 0  (X <= a)
+     *     A[m,n] := 1 (A[m,n] >  X[n])
+     *     A[m,n] := 0 (A[m,n] <= X[n])
      */
     public function greater(
+        int $m,
         int $n,
+        Buffer $A, int $offsetA, int $ldA,
         Buffer $X, int $offsetX, int $incX,
-        float $alpha
         ) : void
     {
         if($this->useMath($X)) {
-            $this->math->greater($n,$X,$offsetX,$incX,$alpha);
+            $this->math->greater($m,$n,$A,$offsetA,$ldA,$X,$offsetX,$incX);
             return;
         }
+        if($m<=0 || $n<=0) {
+            throw new InvalidArgumentException("m and n must be greater than 0");
+        }
+        if(($m-1)*$ldA+($n-1)+$offsetA>=count($A)) {
+            throw new InvalidArgumentException("Matrix A is too small");
+        }
+        if(($n-1)*$incX+$offsetX>=count($X)) {
+            throw new InvalidArgumentException("Buffer X is too small");
+        }
 
-        if($offsetX+($n-1)*$incX>=count($X))
-            throw new RuntimeException('Vector specification too large for buffer.');
-
-        $idx = $offsetX;
-        for ($i=0; $i<$n; $i++,$idx+=$incX) {
-            $tmp = $X[$idx];
-            // *** CAUTION ***
-            // if NaN set 0.0
-            // if equal set 0.0
-            if($tmp > $alpha) {
-                $tmp = 1.0;
-            } else {
-                $tmp = 0.0;
+        $lna = $offsetA;
+        for($i=0;$i<$m;$i++,$lna+=$ldA) {
+            $idx = $offsetX;
+            $ida = $lna;
+            for ($j=0; $j<$n; $j++,$idx+=$incX,$ida++) {
+                // if NaN set 0.0
+                // if equal set 0.0
+                if($A[$ida] > $X[$idx]) {
+                    $tmp = 1.0;
+                } else {
+                    $tmp = 0.0;
+                }
+                $A[$ida] = $tmp;
             }
-            $X[$idx] = $tmp;
         }
     }
 
     /**
-     *     X := 1  (X >= a)
-     *     X := 0  (X <  a)
+     *     A[m,n] := 1 (A[m,n] >= X[n])
+     *     A[m,n] := 0 (A[m,n] <  X[n])
      */
     public function greaterEqual(
+        int $m,
         int $n,
+        Buffer $A, int $offsetA, int $ldA,
         Buffer $X, int $offsetX, int $incX,
-        float $alpha
         ) : void
     {
         if($this->useMath($X)) {
-            $this->math->greaterEqual($n,$X,$offsetX,$incX,$alpha);
+            $this->math->greaterEqual($m,$n,$A,$offsetA,$ldA,$X,$offsetX,$incX);
             return;
         }
+        if($m<=0 || $n<=0) {
+            throw new InvalidArgumentException("m and n must be greater than 0");
+        }
+        if(($m-1)*$ldA+($n-1)+$offsetA>=count($A)) {
+            throw new InvalidArgumentException("Matrix A is too small");
+        }
+        if(($n-1)*$incX+$offsetX>=count($X)) {
+            throw new InvalidArgumentException("Buffer X is too small");
+        }
 
-        if($offsetX+($n-1)*$incX>=count($X))
-            throw new RuntimeException('Vector specification too large for buffer.');
-
-        $idx = $offsetX;
-        for ($i=0; $i<$n; $i++,$idx+=$incX) {
-            $tmp = $X[$idx];
-            // *** CAUTION ***
-            // if NaN set 0.0
-            // if equal set 1.0
-            if($tmp >= $alpha) {
-                $tmp = 1.0;
-            } else {
-                $tmp = 0.0;
+        $lna = $offsetA;
+        for($i=0;$i<$m;$i++,$lna+=$ldA) {
+            $idx = $offsetX;
+            $ida = $lna;
+            for ($j=0; $j<$n; $j++,$idx+=$incX,$ida++) {
+                // if NaN set 0.0
+                // if equal set 0.0
+                if($A[$ida] >= $X[$idx]) {
+                    $tmp = 1.0;
+                } else {
+                    $tmp = 0.0;
+                }
+                $A[$ida] = $tmp;
             }
-            $X[$idx] = $tmp;
         }
     }
 
     /**
-     *     X := 1  (X <  a)
-     *     X := 0  (X >= a)
+     *     A[m,n] := 1 (A[m,n] <  X[n])
+     *     A[m,n] := 0 (A[m,n] >= X[n])
      */
     public function less(
+        int $m,
         int $n,
+        Buffer $A, int $offsetA, int $ldA,
         Buffer $X, int $offsetX, int $incX,
-        float $alpha
         ) : void
     {
         if($this->useMath($X)) {
-            $this->math->less($n,$X,$offsetX,$incX,$alpha);
+            $this->math->less($m,$n,$A,$offsetA,$ldA,$X,$offsetX,$incX);
             return;
         }
+        if($m<=0 || $n<=0) {
+            throw new InvalidArgumentException("m and n must be greater than 0");
+        }
+        if(($m-1)*$ldA+($n-1)+$offsetA>=count($A)) {
+            throw new InvalidArgumentException("Matrix A is too small");
+        }
+        if(($n-1)*$incX+$offsetX>=count($X)) {
+            throw new InvalidArgumentException("Buffer X is too small");
+        }
 
-        if($offsetX+($n-1)*$incX>=count($X))
-            throw new RuntimeException('Vector specification too large for buffer.');
-
-        $idx = $offsetX;
-        for ($i=0; $i<$n; $i++,$idx+=$incX) {
-            $tmp = $X[$idx];
-            // *** CAUTION ***
-            // if NaN set 0.0
-            // if equal set 1.0
-            if($tmp < $alpha) {
-                $tmp = 1.0;
-            } else {
-                $tmp = 0.0;
+        $lna = $offsetA;
+        for($i=0;$i<$m;$i++,$lna+=$ldA) {
+            $idx = $offsetX;
+            $ida = $lna;
+            for ($j=0; $j<$n; $j++,$idx+=$incX,$ida++) {
+                // if NaN set 0.0
+                // if equal set 0.0
+                if($A[$ida] < $X[$idx]) {
+                    $tmp = 1.0;
+                } else {
+                    $tmp = 0.0;
+                }
+                $A[$ida] = $tmp;
             }
-            $X[$idx] = $tmp;
         }
     }
 
     /**
-     *     X := 1  (X <= a)
-     *     X := 0  (X >  a)
+     *     A[m,n] := 1 (A[m,n] <= X[n])
+     *     A[m,n] := 0 (A[m,n] >  X[n])
      */
     public function lessEqual(
+        int $m,
         int $n,
+        Buffer $A, int $offsetA, int $ldA,
         Buffer $X, int $offsetX, int $incX,
-        float $alpha
         ) : void
     {
         if($this->useMath($X)) {
-            $this->math->lessEqual($n,$X,$offsetX,$incX,$alpha);
+            $this->math->lessEqual($m,$n,$A,$offsetA,$ldA,$X,$offsetX,$incX);
             return;
         }
+        if($m<=0 || $n<=0) {
+            throw new InvalidArgumentException("m and n must be greater than 0");
+        }
+        if(($m-1)*$ldA+($n-1)+$offsetA>=count($A)) {
+            throw new InvalidArgumentException("Matrix A is too small");
+        }
+        if(($n-1)*$incX+$offsetX>=count($X)) {
+            throw new InvalidArgumentException("Buffer X is too small");
+        }
 
-        if($offsetX+($n-1)*$incX>=count($X))
-            throw new RuntimeException('Vector specification too large for buffer.');
-
-        $idx = $offsetX;
-        for ($i=0; $i<$n; $i++,$idx+=$incX) {
-            $tmp = $X[$idx];
-            // *** CAUTION ***
-            // if NaN set 0.0
-            // if equal set 1.0
-            if($tmp <= $alpha) {
-                $tmp = 1.0;
-            } else {
-                $tmp = 0.0;
+        $lna = $offsetA;
+        for($i=0;$i<$m;$i++,$lna+=$ldA) {
+            $idx = $offsetX;
+            $ida = $lna;
+            for ($j=0; $j<$n; $j++,$idx+=$incX,$ida++) {
+                // if NaN set 0.0
+                // if equal set 0.0
+                if($A[$ida] <= $X[$idx]) {
+                    $tmp = 1.0;
+                } else {
+                    $tmp = 0.0;
+                }
+                $A[$ida] = $tmp;
             }
-            $X[$idx] = $tmp;
         }
     }
+
 
     /**
      *    A(m,n) := X(n) * A(m,n)
