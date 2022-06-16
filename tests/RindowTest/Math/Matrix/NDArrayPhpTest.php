@@ -403,7 +403,11 @@ class Test extends TestCase
         $array[0] = 0;
         $array[1] = 0;
         $this->assertEquals(NDArray::int32,$array2->dtype());
-        $this->assertEquals(NDArray::int32,$array2->buffer()->dtype());
+        $buffer = $array2->buffer();
+        if(!($buffer instanceof \SplFixedArray)) {
+            $this->assertEquals(NDArray::int32,$buffer->dtype());
+        }
+        $this->assertEquals(2,count($buffer));
         $this->assertEquals(1,$array2[0]);
         $this->assertEquals(2,$array2[1]);
     }

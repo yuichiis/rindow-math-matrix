@@ -1350,7 +1350,7 @@ class PhpMath
         int $n,
         Buffer $X, int $offsetX, int $incX, // float
         bool $right,
-        Buffer $Y, int $offsetY, int $incY, // int
+        Buffer $Y, int $offsetY, int $incY // int
         ) : void
     {
         if($this->math) {
@@ -1389,7 +1389,7 @@ class PhpMath
         Buffer $X, int $offsetX, int $incX, // float
         bool $exclusive,
         bool $reverse,
-        Buffer $Y, int $offsetY, int $incY, // int
+        Buffer $Y, int $offsetY, int $incY // int
         ) : void
     {
         if($this->math) {

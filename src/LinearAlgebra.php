@@ -1219,7 +1219,7 @@ class LinearAlgebra
      */
     public function maximum(
         NDArray $A,
-        $X,
+        $X
         ) : NDArray
     {
         [$m,$n,$dmy,$X] = $this->calcBroadcastFormat($A,$X);
@@ -1232,7 +1232,7 @@ class LinearAlgebra
             $m,
             $n,
             $AA,$offA,$n,
-            $XX,$offX,1,
+            $XX,$offX,1
         );
 
         return $A;
@@ -1244,7 +1244,7 @@ class LinearAlgebra
      */
     public function minimum(
         NDArray $A,
-        $X,
+        $X
         ) : NDArray
     {
         [$m,$n,$dmy,$X] = $this->calcBroadcastFormat($A,$X);
@@ -1257,7 +1257,7 @@ class LinearAlgebra
             $m,
             $n,
             $AA,$offA,$n,
-            $XX,$offX,1,
+            $XX,$offX,1
         );
 
         return $A;
@@ -1269,7 +1269,7 @@ class LinearAlgebra
      */
     public function greater(
         NDArray $A,
-        $X,
+        $X
         ) : NDArray
     {
         [$m,$n,$dmy,$X] = $this->calcBroadcastFormat($A,$X);
@@ -1282,7 +1282,7 @@ class LinearAlgebra
             $m,
             $n,
             $AA,$offA,$n,
-            $XX,$offX,1,
+            $XX,$offX,1
         );
 
         return $A;
@@ -1294,7 +1294,7 @@ class LinearAlgebra
      */
     public function greaterEqual(
         NDArray $A,
-        $X,
+        $X
         ) : NDArray
     {
         [$m,$n,$dmy,$X] = $this->calcBroadcastFormat($A,$X);
@@ -1307,7 +1307,7 @@ class LinearAlgebra
             $m,
             $n,
             $AA,$offA,$n,
-            $XX,$offX,1,
+            $XX,$offX,1
         );
 
         return $A;
@@ -1319,7 +1319,7 @@ class LinearAlgebra
      */
     public function less(
         NDArray $A,
-        $X,
+        $X
         ) : NDArray
     {
         [$m,$n,$dmy,$X] = $this->calcBroadcastFormat($A,$X);
@@ -1332,7 +1332,7 @@ class LinearAlgebra
             $m,
             $n,
             $AA,$offA,$n,
-            $XX,$offX,1,
+            $XX,$offX,1
         );
 
         return $A;
@@ -1344,7 +1344,7 @@ class LinearAlgebra
      */
     public function lessEqual(
         NDArray $A,
-        $X,
+        $X
         ) : NDArray
     {
         [$m,$n,$dmy,$X] = $this->calcBroadcastFormat($A,$X);
@@ -1357,7 +1357,7 @@ class LinearAlgebra
             $m,
             $n,
             $AA,$offA,$n,
-            $XX,$offX,1,
+            $XX,$offX,1
         );
 
         return $A;
