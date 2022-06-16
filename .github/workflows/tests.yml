@@ -11,15 +11,13 @@ jobs:
   linux_tests:
     run-on: ubuntu-20.04
   
-    steps:
-      - uses: actions/checkout@v2
-
-      - uses: php-actions/composer@v5
-
-      - name: "PHPUnit Tests"
-        uses: php-actions/phpunit@v2
-        env:
-          TEST_NAME: test
-        with:
-          bootstrap: vendor/autoload.php
-          configuration: tests/phpunit.xml
+  steps:
+    - uses: actions/checkout@v2
+    - uses: php-actions/composer@v5
+    - name: "PHPUnit Tests"
+      uses: php-actions/phpunit@v2
+      env:
+        TEST_NAME: test
+      with:
+        bootstrap: vendor/autoload.php
+        configuration: tests/phpunit.xml
