@@ -5,6 +5,11 @@ on: [push]
 jobs:
   linux_tests:
     runs-on: ubuntu-20.04
+
+    strategy:
+      fail-fast: true
+      matrix:
+        php: ['7.4', '8.0']
   
     steps:
       - name: Checkout codes
@@ -14,10 +19,9 @@ jobs:
         uses: php-actions/composer@v5
 
       - name: PHPUnit Tests
-        uses: php-actions/phpunit@v2
+        uses: php-actions/phpunit@v3
         with:
           bootstrap: vendor/autoload.php
           configuration: tests/phpunit.xml
           version: 8.5
-          php_version: 8.0
 
