@@ -11,6 +11,6 @@ jobs:
   linux_tests:
     run-on: ubuntu-20.04
   
-  steps:
-    - name: Checkout codes
-      uses: actions/checkout@v2
+    steps:
+      - name: Checkout codes
+        uses: "actions/checkout@v2"
