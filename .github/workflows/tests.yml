@@ -3,11 +3,6 @@ name: tests
 on: [push]
 
 jobs:
-  strategy:
-      fail-fast: true
-      matrix:
-        php: ['7.4','8.0']
-
   linux_tests:
     run-on: ubuntu-20.04
   
