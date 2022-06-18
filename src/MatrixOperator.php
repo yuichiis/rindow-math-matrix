@@ -779,7 +779,7 @@ class MatrixOperator
         }
         if(($X instanceof NDArray)&&($Y instanceof NDArray)) {
             if($X->shape()==$Y->shape()) {
-                if($X->dtype()==$Y->dtype()) {
+                if($X->dtype()==$Y->dtype() && in_array($X->dtype(),$this->floatTypes)) {
                     if($operator=='+') {
                         if($R===null) {
                             $R = $this->alloc(null,$Y->dtype(),$Y->shape());
@@ -821,13 +821,13 @@ class MatrixOperator
             }
         } elseif(($X instanceof NDArray)||($Y instanceof NDArray)) {
             if($operator=='*') {
-                if($X instanceof NDArray && is_numeric($Y)) {
+                if($X instanceof NDArray && is_numeric($Y) && in_array($X->dtype(),$this->floatTypes)) {
                     if($R===null) {
                         $R = $this->alloc(null,$X->dtype(),$X->shape());
                     }
                     $this->la()->copy($X,$R);
                     return $this->la()->scal($Y,$R);
-                } elseif($Y instanceof NDArray && is_numeric($X)) {
+                } elseif($Y instanceof NDArray && is_numeric($X) && in_array($Y->dtype(),$this->floatTypes)) {
                     if($R===null) {
                         $R = $this->alloc(null,$Y->dtype(),$Y->shape());
                     }
@@ -835,7 +835,7 @@ class MatrixOperator
                     return $this->la()->scal($X,$R);
                 }
             } elseif($operator=='/') {
-                if($X instanceof NDArray && is_numeric($Y)) {
+                if($X instanceof NDArray && is_numeric($Y) && in_array($X->dtype(),$this->floatTypes)) {
                     if($Y==0.0) {
                         throw new RuntimeException('Zero divide error');
                     }

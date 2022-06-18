@@ -591,6 +591,7 @@ class OpenCLMath
         LinearBuffer $hostBuffer=null, int $hostOffset=null,
         int $dtype=null)
     {
+        $hostOffset = $hostOffset ?? 0;
         return new OpenCLBuffer($this->context,
             $size,$flags,$hostBuffer,$hostOffset,$dtype);
     }

@@ -2,6 +2,7 @@
 namespace Rindow\Math\Matrix;
 
 use ArrayAccess as Buffer;
+use SplFixedArray;
 use RuntimeException;
 use InvalidArgumentException;
 use Interop\Polite\Math\Matrix\BLAS;
@@ -79,7 +80,6 @@ class PhpBlas //implements BLASLevel1
             $X[$idx] = $X[$idx] * $alpha;
         }
     }
-
     /**
      *  Y := alpha * X + Y
      */
