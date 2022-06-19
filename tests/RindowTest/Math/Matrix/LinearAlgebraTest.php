@@ -8942,6 +8942,9 @@ class Test extends TestCase
             [-0.22, 0.14, 0.59,-0.63,-0.44],
         ]);
         $correctU = $la->transpose($correctU);
+
+        $correctU = $la->square($correctU);
+        $u = $la->square($u);
         $this->assertLessThan(0.01,abs($la->amax($la->axpy($u,$correctU,-1))));
         # ---- s ----
         $correctS = $la->array(
