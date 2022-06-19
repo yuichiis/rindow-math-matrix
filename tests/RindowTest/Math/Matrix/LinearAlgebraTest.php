@@ -9071,6 +9071,8 @@ class Test extends TestCase
             [-0.29, 0.58,-0.02, 0.38,-0.65,],
         ]);
         $correctVT = $la->transpose($correctVT);
+        $correctVT = $la->square($correctVT);
+        $vt = $la->square($vt);
         $this->assertLessThan(0.01,abs($la->amax($la->axpy($vt,$correctVT,-1))));
         $this->assertTrue(true);
     }
