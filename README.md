@@ -17,6 +17,11 @@ Rindow Math Matrix is the fundamental package for scientific matrix operation
 
 Please see the documents on [Rindow projects](https://rindow.github.io/) web pages.
 
+Requirements
+============
+
+- PHP7.2 or PHP7.3 or PHP7.4 or PHP8.0
+- PHP 8.1 is not supported in this release. Please use Release 1.2 or later, which supports PHP 8.1.
 
 
 
