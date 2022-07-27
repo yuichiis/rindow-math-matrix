@@ -4,6 +4,7 @@ namespace Rindow\Math\Matrix;
 use Rindow\OpenCL\Buffer as Buffer;
 use RuntimeException;
 use InvalidArgumentException;
+use LogicException;
 use Interop\Polite\Math\Matrix\NDArray;
 use Interop\Polite\Math\Matrix\OpenCL;
 use Interop\Polite\Math\Matrix\LinearBuffer;
@@ -31,6 +32,14 @@ class OpenCLMath
         NDArray::int64=>'long', NDArray::uint64=>'ulong',
         NDArray::float16=>'half',
         NDArray::float32=>'float', NDArray::float64=>'double',
+    ];
+
+    protected $alternativeUnsignedCLType = [
+        NDArray::bool=>'char',
+        NDArray::uint8=>'char',
+        NDArray::uint16=>'short',
+        NDArray::uint32=>'int',
+        NDArray::uint64=>'long',
     ];
 
     protected $smallests = [
@@ -142,6 +151,7 @@ class OpenCLMath
     protected $fp64;
     protected $maxWorkItem;
     protected $kernelMultiple;
+    protected $hasDiv5Bug;
     protected $testMode=null;
 
     public function __construct(object $context,object $queue)
@@ -156,6 +166,7 @@ class OpenCLMath
             $this->fp64 = true;
         }
         $this->maxWorkItem = $devices->getInfo(0,OpenCL::CL_DEVICE_MAX_WORK_ITEM_SIZES);
+        $this->checkDiv5Bug();
     }
 
     public function setTestMode($testMode)
@@ -218,6 +229,78 @@ class OpenCLMath
         }
         $kernel = new Kernel($program,$name);
         return $kernel;
+    }
+
+    public function checkDiv5Bug()
+    {
+        $kernel_name = "checkDiv5Bug";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+                "__kernel void ${kernel_name}(\n".
+                "    const        int alpha,\n".
+                "    const        int beta,\n".
+                "        __global int * results\n".
+                ")\n".
+                "{\n".
+                "    results[0] = alpha%beta;\n".
+                "    results[1] = alpha/beta;\n".
+                "}\n";
+        }
+
+        $alpha = 3;
+        $beta = 5;
+        $results = new NDArrayPhp([0,0],NDArray::int32);
+        $flags = OpenCL::CL_MEM_READ_WRITE | OpenCL::CL_MEM_COPY_HOST_PTR;
+        $resultsCL = new NDArrayCL(
+            $this->context, $this->queue,
+            $results->buffer(), $results->dtype(), $results->shape(),
+            $results->offset(), $flags
+        );
+        
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$alpha,NDArray::int32);
+        $kernel->setArg(1,$beta,NDArray::int32);
+        $kernel->setArg(2,$resultsCL->buffer());
+        $global_work_size = [1];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
+            null,null);
+        $this->queue->finish();
+        $results = $resultsCL->toNDArray();
+        if($results[0]!=3 || $results[1]!=0) {
+            $this->hasDiv5Bug = true;
+        } else {
+            $this->hasDiv5Bug = false;
+        }
+    }
+
+    public function hasDiv5Bug()
+    {
+        return $this->hasDiv5Bug;
+    }
+
+    protected function splitPointer(
+        $low,
+        $high,
+        $pointer,
+        $base
+    )
+    {
+        if($this->hasDiv5Bug) {
+            return
+            "    int ${low};".
+            "    int ${high};".
+            "    if(${base}==5) {\n".
+            "        ${low} = ${pointer}%5;\n".
+            "        ${high} = ${pointer}/5;\n".
+            "    } else {\n".
+            "        ${low} = ${pointer}%${base};\n".
+            "        ${high} = ${pointer}/${base};\n".
+            "    }\n";
+        } else {
+            return
+            "    const int ${low} = ${pointer}%${base};\n".
+            "    const int ${high} = ${pointer}/${base};\n";
+        }
     }
 
     public function kernelTemplateQSum($inputs,$outputs)
@@ -383,7 +466,15 @@ class OpenCLMath
         "        } else {\n".
         "            local_items = lws;\n".
         "        }\n".
-        "        seg_count = (seg_count+lws-1)/lws;\n".
+        ($this->hasDiv5Bug ?
+        "        if(lws==5) {\n".
+        "            seg_count = (seg_count+5-1)/5;\n".
+        "        } else {\n".
+        "            seg_count = (seg_count+lws-1)/lws;\n".
+        "        }\n"
+        :
+        "        seg_count = (seg_count+lws-1)/lws;\n"
+        ).
         "    }\n".
         "    if(lid == 0) {\n".
         "        ${outputs}\n".
@@ -439,7 +530,15 @@ class OpenCLMath
         "        } else {\n".
         "            local_items = lws;\n".
         "        }\n".
-        "        seg_count = (seg_count+lws-1)/lws;\n".
+        ($this->hasDiv5Bug ?
+        "        if(lws==5) {\n".
+        "            seg_count = (seg_count+5-1)/5;\n".
+        "        } else {\n".
+        "            seg_count = (seg_count+lws-1)/lws;\n".
+        "        }\n"
+        :
+        "        seg_count = (seg_count+lws-1)/lws;\n"
+        ).
         "    }\n".
         "    if(lid == 0) {\n".
         "        ${outputs}\n".
@@ -606,6 +705,12 @@ class OpenCLMath
         return (int)ceil($value/$base)*$base;
     }
 
+    protected function adjBoundary(int $bytes)
+    {
+        $bytes += ($bytes%4) ? 4-($bytes%4) : 0; // Adjust word boundary
+        return (int)$bytes;
+    }
+
     /**
      * Y := sum( X )
      */
@@ -626,26 +731,47 @@ class OpenCLMath
         }
         $max_work_items = $this->maxWorkItem[0];
         if($n <= $max_work_items) {
-            $this->sum1(
-                $n,
-                $R, $offsetR,
-                $X, $offsetX, $incX,
-                $events, $waitEvents
-            );
+            $mode = 1;
         } elseif($n <= 30000) { // php74=131072
-            $this->sum2(
-                $n,
-                $R, $offsetR,
-                $X, $offsetX, $incX,
-                $events, $waitEvents
-            );
+            $mode = 2;
         } else {
-            $this->sum3(
-                $n,
-                $R, $offsetR,
-                $X, $offsetX, $incX,
-                $events, $waitEvents
-            );
+            $mode = 3;
+        }
+        if($this->testMode!==null) {
+            $mode = $this->testMode;
+        }
+        //echo "mode=$mode($m,$n,$k)\n";
+        switch($mode) {
+            case 1:{
+                $this->sum1(
+                    $n,
+                    $R, $offsetR,
+                    $X, $offsetX, $incX,
+                    $events, $waitEvents
+                );
+                break;
+            }
+            case 2:{
+                $this->sum2(
+                    $n,
+                    $R, $offsetR,
+                    $X, $offsetX, $incX,
+                    $events, $waitEvents
+                );
+                break;
+            }
+            case 3:{
+                $this->sum3(
+                    $n,
+                    $R, $offsetR,
+                    $X, $offsetX, $incX,
+                    $events, $waitEvents
+                );
+                break;
+            }
+            default: {
+                throw new LogicException('Invalid Mode in sum(): mode='.$mode);
+            }
         }
     }
 
@@ -699,7 +825,7 @@ class OpenCLMath
         $kernel->setArg(3,$X);
         $kernel->setArg(4,$offsetX,NDArray::uint32);
         $kernel->setArg(5,$incX,NDArray::uint32);
-        $kernel->setArg(6,null,$max_work_items*$value_size);
+        $kernel->setArg(6,null,$this->adjBoundary($max_work_items*$value_size));
         $global_work_size = [$max_work_items];
         $local_work_size = [$max_work_items];
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -756,6 +882,8 @@ class OpenCLMath
         }
         $kernel = $this->createKernel($kernel_name);
 
+        //$seg_work_bytes = $segments*$value_size;
+        //$seg_work_bytes += ($seg_work_bytes%4) ? 4-($seg_work_bytes%4) : 0; // Adjust Addressing Boundary
         $kernel->setArg(0,$total_local_items,NDArray::uint32);
         $kernel->setArg(1,$segments,NDArray::uint32);
         $kernel->setArg(2,$R);
@@ -763,8 +891,8 @@ class OpenCLMath
         $kernel->setArg(4,$X);
         $kernel->setArg(5,$offsetX,NDArray::uint32);
         $kernel->setArg(6,$incX,NDArray::uint32);
-        $kernel->setArg(7,null,$max_work_items*$value_size);
-        $kernel->setArg(8,null,$segments*$value_size);
+        $kernel->setArg(7,null,$this->adjBoundary($max_work_items*$value_size));
+        $kernel->setArg(8,null,$this->adjBoundary($segments*$value_size));
         $kernel->setArg(9,$work_items,NDArray::uint32);
         $global_work_size = [$max_work_items];
         $local_work_size = [$max_work_items];
@@ -845,7 +973,7 @@ class OpenCLMath
         $kernel->setArg(2,$offsetX,NDArray::uint32);
         $kernel->setArg(3,$incX,NDArray::uint32);
         $kernel->setArg(4,$temp_buffer);
-        $kernel->setArg(5,null,$work_items1*$value_size);
+        $kernel->setArg(5,null,$this->adjBoundary($work_items1*$value_size));
         $global_work_size = [$work_items1*$temp_size];
         $local_work_size = [$work_items1];
         $sum1Events = $this->newEventList();
@@ -855,7 +983,7 @@ class OpenCLMath
         $kernel2->setArg(0,$temp_buffer);
         $kernel2->setArg(1,$R);
         $kernel2->setArg(2,$offsetR,NDArray::uint32);
-        $kernel2->setArg(3,null,$work_items2*$value_size);
+        $kernel2->setArg(3,null,$this->adjBoundary($work_items2*$value_size));
         $global_work_size = [$work_items2];
         $local_work_size = [$work_items2];
         $kernel2->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -1965,7 +2093,11 @@ class OpenCLMath
         }
         $from = $this->dtypeToOpenCLType[$dtypeX];
         $to = $this->dtypeToOpenCLType[$dtypeY];
-        $kernel_name = "astype_${from}_${to}";
+        $toOrg = $to;
+        if($dtypeY==NDArray::bool) {
+            $toOrg = 'bool';
+        }
+        $kernel_name = "astype_${from}_${toOrg}";
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void ${kernel_name}(\n".
@@ -1976,8 +2108,20 @@ class OpenCLMath
                 "    const        uint offset_y,\n".
                 "    const        uint incy)\n".
                 "{\n".
-                "    uint gid = get_global_id(0);\n".
-                "    y[gid*incy+offset_y] = x[gid*incx+offset_x];\n".
+                "    uint gid = get_global_id(0);\n";
+            if($dtypeY==NDArray::bool&&($dtypeX==NDArray::float16||$dtypeX==NDArray::float32||$dtypeX==NDArray::float64)) {
+                $this->sources[$kernel_name] .=
+                "    int tmp = x[gid*incx+offset_x];\n".
+                "    if(tmp==0) {\n".
+                "        y[gid*incy+offset_y] = 0;\n".
+                "    } else {\n".
+                "        y[gid*incy+offset_y] = 1;\n".
+                "    }\n";
+            } else {
+                $this->sources[$kernel_name] .=
+                "    y[gid*incy+offset_y] = x[gid*incx+offset_x];\n";
+            }
+            $this->sources[$kernel_name] .=
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
@@ -2255,9 +2399,13 @@ class OpenCLMath
             throw new InvalidArgumentException("Unmatch data type A and B:".
             $this->dtypeToString($A->dtype()).",".$this->dtypeToString($B->dtype()));
         }
-        if($A->dtype()==NDArray::float64) {
+        $dtype = $A->dtype();
+        if($dtype==NDArray::float64) {
             $this->assertFP64();
         }
+        //if($dtype==NDArray::bool||$dtype==NDArray::int8||$dtype==NDArray::uint8||$dtype==NDArray::int16||$dtype==NDArray::uint16) {
+        //    throw new LogicException('Not supported data tape dtype='.$this->dtypeToString($dtype));
+        //}
 
         $small = $max_work_items = $this->maxWorkItem[0];
         $mediam = $max_work_items*$max_work_items*2;
@@ -2478,7 +2626,7 @@ class OpenCLMath
         $kernel->setArg(6,$offsetA,NDArray::uint32);
         $kernel->setArg(7,$B);
         $kernel->setArg(8,$offsetB,NDArray::uint32);
-        $kernel->setArg(9,null,$max_work_items*$value_size);
+        $kernel->setArg(9,null,$this->adjBoundary($max_work_items*$value_size));
         $kernel->setArg(10,$work_items,NDArray::uint32);
         $global_work_size = [$max_work_items*$k,$numClass];
         $local_work_size = [$max_work_items,1];
@@ -2559,8 +2707,8 @@ class OpenCLMath
         $kernel->setArg(7,$B);
         $kernel->setArg(8,$offsetB,NDArray::uint32);
         $kernel->setArg(9,$segments,NDArray::uint32);
-        $kernel->setArg(10,null,$max_work_items*$value_size);
-        $kernel->setArg(11,null,$segments*$value_size);
+        $kernel->setArg(10,null,$this->adjBoundary($max_work_items*$value_size));
+        $kernel->setArg(11,null,$this->adjBoundary($segments*$value_size));
         $kernel->setArg(12,$work_items,NDArray::uint32);
         $global_work_size = [$max_work_items*$k,$numClass];
         $local_work_size = [$max_work_items,1];
@@ -2618,11 +2766,12 @@ class OpenCLMath
                 "        __global ${type} * temp_buffer,\n".
                 "         __local ${type} * local_work)\n".
                 "{\n".
-                "    const uint parallel_item_id = get_global_id(1);\n".
+                "    const int parallel_item_id = get_global_id(1);\n".
                     $this->kernelTemplateLSum1(
                         "${type} input;\n".
-                        "const uint inner_id = parallel_item_id%k;\n". // (p)(cols k)
-                        "const uint outer_id = parallel_item_id/k;\n". // (i)(rows class)
+                        // (p)(cols k)
+                        // (i)(rows class)
+                        $this->splitPointer('inner_id','outer_id','parallel_item_id','k').
                         "const uint label = x[local_item_id+offset_x];\n".
                         "if(label==outer_id) {\n".
                         "    input = b[local_item_id*k+inner_id+offset_b];\n".
@@ -2662,7 +2811,7 @@ class OpenCLMath
         $kernel->setArg(5,$B);
         $kernel->setArg(6,$offsetB,NDArray::uint32);
         $kernel->setArg(7,$temp_buffer);
-        $kernel->setArg(8,null,$work_items1*$value_size);
+        $kernel->setArg(8,null,$this->adjBoundary($work_items1*$value_size));
         $global_work_size = [$work_items1*$temp_size,$k*$numClass];
         $local_work_size = [$work_items1,1];
         $phase1Events = $this->newEventList();
@@ -2673,7 +2822,7 @@ class OpenCLMath
         $kernel2->setArg(1,$temp_buffer);
         $kernel2->setArg(2,$A);
         $kernel2->setArg(3,$offsetA,NDArray::uint32);
-        $kernel2->setArg(4,null,$work_items2*$value_size);
+        $kernel2->setArg(4,null,$this->adjBoundary($work_items2*$value_size));
         $global_work_size = [$work_items2,$k*$numClass];
         $local_work_size = [$work_items2,1];
         $kernel2->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -2769,8 +2918,8 @@ class OpenCLMath
                 "        __global ${type} * b,\n".
                 "    const        uint offset_b)\n".
                 "{\n".
-                "    const uint p = get_global_id(0)%k;\n".
-                "    const uint j = get_global_id(0)/k;\n".
+                "    const int gid = get_global_id(0);\n".
+                     $this->splitPointer('p','j','gid','k').
                 "    const uint i = get_global_id(1);\n".
                 //"    if(gid<n) {\n".
                 "        uint pos_a = i*k+offset_a;\n".
@@ -3001,9 +3150,8 @@ class OpenCLMath
                 "    const        uint offset_b,\n".
                 "    const        uint ldb)\n".
                 "{\n".
-                "    const uint gid = get_global_id(0);\n".
-                "    const uint gid0 = gid/k;\n".
-                "    const uint gid1 = gid%k;\n".
+                "    const int gid = get_global_id(0);\n".
+                     $this->splitPointer('gid1','gid0','gid','k').
                 "    ${type} sum = 0;\n".
                 //"    if(gid0<rows) {\n".
                 "        uint pos = ${index_a};\n".
@@ -3075,9 +3223,8 @@ class OpenCLMath
                 "    const        uint ldb,\n".
                 "         __local ${type} * local_work)\n".
                 "{\n".
-                "    const uint grid = get_group_id(0);\n".
-                "    const uint gid_l = grid/k;\n".
-                "    const uint gid_r = grid%k;\n".
+                "    const int grid = get_group_id(0);\n".
+                     $this->splitPointer('gid_r','gid_l','grid','k').
                 "    const uint pos_a = gid_l*lda+gid_r+offset_a;\n".
                 "    const uint pos_b = gid_l*ldb+gid_r+offset_b;\n".
                      $this->kernelTemplateSSum(
@@ -3096,7 +3243,7 @@ class OpenCLMath
         $kernel->setArg(5,$B);
         $kernel->setArg(6,$offsetB,NDArray::uint32);
         $kernel->setArg(7,$ldB,NDArray::uint32);
-        $kernel->setArg(8,null,$max_work_items*$value_size);
+        $kernel->setArg(8,null,$this->adjBoundary($max_work_items*$value_size));
         $global_work_size = [$max_work_items*$k*$rows];
         $local_work_size = [$max_work_items];
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -3150,9 +3297,8 @@ class OpenCLMath
                 "         __local ${type} * seg_work,\n".
                 "    const        uint work_items)\n".
                 "{\n".
-                "    const uint grid = get_group_id(0);\n".
-                "    const uint gid_l = grid/k;\n".
-                "    const uint gid_r = grid%k;\n".
+                "    const int grid = get_group_id(0);\n".
+                     $this->splitPointer('gid_r','gid_l','grid','k').
                 "    const uint pos_a = gid_l*lda+gid_r+offset_a;\n".
                 "    const uint pos_b = gid_l*ldb+gid_r+offset_b;\n".
                      $this->kernelTemplateQSum(
@@ -3173,8 +3319,8 @@ class OpenCLMath
         $kernel->setArg(7,$offsetB,NDArray::uint32);
         $kernel->setArg(8,$ldB,NDArray::uint32);
 
-        $kernel->setArg(9,null,$max_work_items*$value_size);
-        $kernel->setArg(10,null,$segments*$value_size);
+        $kernel->setArg(9,null,$this->adjBoundary($max_work_items*$value_size));
+        $kernel->setArg(10,null,$this->adjBoundary($segments*$value_size));
         $kernel->setArg(11,$work_items,NDArray::uint32);
         $global_work_size = [$max_work_items*$k*$rows];
         $local_work_size = [$max_work_items];
@@ -3231,9 +3377,8 @@ class OpenCLMath
                 "        __global ${type} * temp_buffer,\n".
                 "         __local ${type} * local_work)\n".
                 "{\n".
-                "    const uint parallel_item_id = get_global_id(1);\n".
-                "    const uint gid_l = parallel_item_id/k;\n".
-                "    const uint gid_r = parallel_item_id%k;\n".
+                "    const int parallel_item_id = get_global_id(1);\n".
+                     $this->splitPointer('gid_r','gid_l','parallel_item_id','k').
                 "    const uint pos_a = gid_l*lda+gid_r+offset_a;\n".
                     $this->kernelTemplateLSum1(
                         "${type} input = a[pos_a+local_item_id*k];",
@@ -3253,9 +3398,8 @@ class OpenCLMath
                 "    const        uint ldb,\n".
                 "         __local ${type} * local_work)\n".
                 "{\n".
-                "    const uint parallel_item_id = get_global_id(1);\n".
-                "    const uint gid_l = parallel_item_id/k;\n".
-                "    const uint gid_r = parallel_item_id%k;\n".
+                "    const int parallel_item_id = get_global_id(1);\n".
+                     $this->splitPointer('gid_r','gid_l','parallel_item_id','k').
                 "    const uint pos_b = gid_l*ldb+gid_r+offset_b;\n".
                     $this->kernelTemplateLSum2(
                         "b[pos_b] = local_work[0];"
@@ -3270,7 +3414,7 @@ class OpenCLMath
         $kernel->setArg(3,$offsetA,NDArray::uint32);
         $kernel->setArg(4,$ldA,NDArray::uint32);
         $kernel->setArg(5,$temp_buffer);
-        $kernel->setArg(6,null,$work_items1*$value_size);
+        $kernel->setArg(6,null,$this->adjBoundary($work_items1*$value_size));
         $global_work_size = [$work_items1*$temp_size,$rows*$k];
         $local_work_size  = [$work_items1,1];
         $phase1Events = $this->newEventList();
@@ -3282,7 +3426,7 @@ class OpenCLMath
         $kernel2->setArg(2,$B);
         $kernel2->setArg(3,$offsetB,NDArray::uint32);
         $kernel2->setArg(4,$ldB,NDArray::uint32);
-        $kernel2->setArg(5,null,$work_items2*$value_size);
+        $kernel2->setArg(5,null,$this->adjBoundary($work_items2*$value_size));
         $global_work_size = [$work_items2,$rows*$k];
         $local_work_size = [$work_items2,1];
         $kernel2->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -3413,9 +3557,8 @@ class OpenCLMath
                 "    const        uint offset_b,\n".
                 "    const        uint ldb)\n".
                 "{\n".
-                "    const uint gid = get_global_id(0);\n".
-                "    const uint gid0 = gid/k;\n".
-                "    const uint gid1 = gid%k;\n".
+                "    const int gid = get_global_id(0);\n".
+                     $this->splitPointer('gid1','gid0','gid','k').
                 //"    if(gid0<rows) {\n".
                 "        uint i=0;\n".
                 "        uint pos = ${index_a};\n".
@@ -3494,9 +3637,8 @@ class OpenCLMath
                 "    const        uint ldb,\n".
                 "         __local ${type} * local_work)\n".
                 "{\n".
-                "    const uint grid = get_group_id(0);\n".
-                "    const uint gid_l = grid/k;\n".
-                "    const uint gid_r = grid%k;\n".
+                "    const int grid = get_group_id(0);\n".
+                     $this->splitPointer('gid_r','gid_l','grid','k').
                 "    const uint pos_a = gid_l*lda+gid_r+offset_a;\n".
                 "    const uint pos_b = gid_l*ldb+gid_r+offset_b;\n".
                      $this->kernelTemplateSMax(
@@ -3516,7 +3658,7 @@ class OpenCLMath
         $kernel->setArg(5,$B);
         $kernel->setArg(6,$offsetB,NDArray::uint32);
         $kernel->setArg(7,$ldB,NDArray::uint32);
-        $kernel->setArg(8,null,$max_work_items*$value_size);
+        $kernel->setArg(8,null,$this->adjBoundary($max_work_items*$value_size));
         $global_work_size = [$max_work_items*$k*$rows];
         $local_work_size = [$max_work_items];
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -3570,9 +3712,8 @@ class OpenCLMath
                 "         __local ${type} * seg_work,\n".
                 "    const        uint work_items)\n".
                 "{\n".
-                "    const uint grid = get_group_id(0);\n".
-                "    const uint gid_l = grid/k;\n".
-                "    const uint gid_r = grid%k;\n".
+                "    const int grid = get_group_id(0);\n".
+                     $this->splitPointer('gid_r','gid_l','grid','k').
                 "    const uint pos_a = gid_l*lda+gid_r+offset_a;\n".
                 "    const uint pos_b = gid_l*ldb+gid_r+offset_b;\n".
                      $this->kernelTemplateQMax(
@@ -3594,8 +3735,8 @@ class OpenCLMath
         $kernel->setArg(7,$offsetB,NDArray::uint32);
         $kernel->setArg(8,$ldB,NDArray::uint32);
 
-        $kernel->setArg(9,null,$max_work_items*$value_size);
-        $kernel->setArg(10,null,$segments*$value_size);
+        $kernel->setArg(9,null,$this->adjBoundary($max_work_items*$value_size));
+        $kernel->setArg(10,null,$this->adjBoundary($segments*$value_size));
         $kernel->setArg(11,$work_items,NDArray::uint32);
         $global_work_size = [$max_work_items*$k*$rows];
         $local_work_size = [$max_work_items];
@@ -3652,9 +3793,8 @@ class OpenCLMath
                 "        __global ${type} * temp_buffer,\n".
                 "         __local ${type} * local_work)\n".
                 "{\n".
-                "    const uint parallel_item_id = get_global_id(1);\n".
-                "    const uint gid_l = parallel_item_id/k;\n".
-                "    const uint gid_r = parallel_item_id%k;\n".
+                "    const int parallel_item_id = get_global_id(1);\n".
+                     $this->splitPointer('gid_r','gid_l','parallel_item_id','k').
                 "    const uint pos_a = gid_l*lda+gid_r+offset_a;\n".
                     $this->kernelTemplateLMax1(
                         "${type} input = a[pos_a+local_item_id*k];",
@@ -3691,7 +3831,7 @@ class OpenCLMath
         $kernel->setArg(3,$offsetA,NDArray::uint32);
         $kernel->setArg(4,$ldA,NDArray::uint32);
         $kernel->setArg(5,$temp_buffer);
-        $kernel->setArg(6,null,$work_items1*$value_size);
+        $kernel->setArg(6,null,$this->adjBoundary($work_items1*$value_size));
         $global_work_size = [$work_items1*$temp_size,$rows*$k];
         $local_work_size  = [$work_items1,1];
         $phase1Events = $this->newEventList();
@@ -3703,7 +3843,7 @@ class OpenCLMath
         $kernel2->setArg(2,$B);
         $kernel2->setArg(3,$offsetB,NDArray::uint32);
         $kernel2->setArg(4,$ldB,NDArray::uint32);
-        $kernel2->setArg(5,null,$work_items2*$value_size);
+        $kernel2->setArg(5,null,$this->adjBoundary($work_items2*$value_size));
         $global_work_size = [$work_items2,$rows*$k];
         $local_work_size = [$work_items2,1];
         $kernel2->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -3834,9 +3974,8 @@ class OpenCLMath
                 "    const        uint offset_b,\n".
                 "    const        uint ldb)\n".
                 "{\n".
-                "    const uint gid = get_global_id(0);\n".
-                "    const uint gid0 = gid/k;\n".
-                "    const uint gid1 = gid%k;\n".
+                "    const int gid = get_global_id(0);\n".
+                     $this->splitPointer('gid1','gid0','gid','k').
                 //"    if(gid0<rows) {\n".
                 "        uint i=0;\n".
                 "        uint pos = ${index_a};\n".
@@ -3917,9 +4056,8 @@ class OpenCLMath
                 "         __local ${type} * local_work,\n".
                 "         __local uint * local_iwork)\n".
                 "{\n".
-                "    const uint grid = get_group_id(0);\n".
-                "    const uint gid_l = grid/k;\n".
-                "    const uint gid_r = grid%k;\n".
+                "    const int grid = get_group_id(0);\n".
+                     $this->splitPointer('gid_r','gid_l','grid','k').
                 "    const uint pos_a = gid_l*lda+gid_r+offset_a;\n".
                 "    const uint pos_b = gid_l*ldb+gid_r+offset_b;\n".
                      $this->kernelTemplateSiMax(
@@ -3940,8 +4078,8 @@ class OpenCLMath
         $kernel->setArg(5,$B);
         $kernel->setArg(6,$offsetB,NDArray::uint32);
         $kernel->setArg(7,$ldB,NDArray::uint32);
-        $kernel->setArg(8,null,$max_work_items*$value_size);
-        $kernel->setArg(9,null,$max_work_items*$index_value_size);
+        $kernel->setArg(8,null,$this->adjBoundary($max_work_items*$value_size));
+        $kernel->setArg(9,null,$this->adjBoundary($max_work_items*$index_value_size));
         $global_work_size = [$max_work_items*$k*$rows];
         $local_work_size = [$max_work_items];
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -3998,9 +4136,8 @@ class OpenCLMath
                 "         __local uint * seg_iwork,\n".
                 "    const        uint work_items)\n".
                 "{\n".
-                "    const uint grid = get_group_id(0);\n".
-                "    const uint gid_l = grid/k;\n".
-                "    const uint gid_r = grid%k;\n".
+                "    const int grid = get_group_id(0);\n".
+                     $this->splitPointer('gid_r','gid_l','grid','k').
                 "    const uint pos_a = gid_l*lda+gid_r+offset_a;\n".
                 "    const uint pos_b = gid_l*ldb+gid_r+offset_b;\n".
                      $this->kernelTemplateQiMax(
@@ -4023,10 +4160,10 @@ class OpenCLMath
         $kernel->setArg(7,$offsetB,NDArray::uint32);
         $kernel->setArg(8,$ldB,NDArray::uint32);
 
-        $kernel->setArg(9,null,$max_work_items*$value_size);
-        $kernel->setArg(10,null,$segments*$value_size);
-        $kernel->setArg(11,null,$max_work_items*$index_value_size);
-        $kernel->setArg(12,null,$segments*$index_value_size);
+        $kernel->setArg(9,null,$this->adjBoundary($max_work_items*$value_size));
+        $kernel->setArg(10,null,$this->adjBoundary($segments*$value_size));
+        $kernel->setArg(11,null,$this->adjBoundary($max_work_items*$index_value_size));
+        $kernel->setArg(12,null,$this->adjBoundary($segments*$index_value_size));
         $kernel->setArg(13,$work_items,NDArray::uint32);
         $global_work_size = [$max_work_items*$k*$rows];
         $local_work_size = [$max_work_items];
@@ -4088,9 +4225,8 @@ class OpenCLMath
                 "        __global uint * temp_ibuffer,\n".
                 "         __local uint * local_iwork)\n".
                 "{\n".
-                "    const uint parallel_item_id = get_global_id(1);\n".
-                "    const uint gid_l = parallel_item_id/k;\n".
-                "    const uint gid_r = parallel_item_id%k;\n".
+                "    const int parallel_item_id = get_global_id(1);\n".
+                     $this->splitPointer('gid_r','gid_l','parallel_item_id','k').
                 "    const uint pos_a = gid_l*lda+gid_r+offset_a;\n".
                     $this->kernelTemplateLiMax1(
                         "${type} input = a[pos_a+local_item_id*k];".
@@ -4113,9 +4249,8 @@ class OpenCLMath
                 "         __local ${type} * local_work,\n".
                 "         __local uint * local_iwork)\n".
                 "{\n".
-                "    const uint parallel_item_id = get_global_id(1);\n".
-                "    const uint gid_l = parallel_item_id/k;\n".
-                "    const uint gid_r = parallel_item_id%k;\n".
+                "    const int parallel_item_id = get_global_id(1);\n".
+                    $this->splitPointer('gid_r','gid_l','parallel_item_id','k').
                 "    const uint pos_b = gid_l*ldb+gid_r+offset_b;\n".
                     $this->kernelTemplateLiMax2(
                         "b[pos_b] = local_iwork[0];"
@@ -4130,9 +4265,9 @@ class OpenCLMath
         $kernel->setArg(3,$offsetA,NDArray::uint32);
         $kernel->setArg(4,$ldA,NDArray::uint32);
         $kernel->setArg(5,$temp_buffer);
-        $kernel->setArg(6,null,$work_items1*$value_size);
+        $kernel->setArg(6,null,$this->adjBoundary($work_items1*$value_size));
         $kernel->setArg(7,$temp_ibuffer);
-        $kernel->setArg(8,null,$work_items1*$index_value_size);
+        $kernel->setArg(8,null,$this->adjBoundary($work_items1*$index_value_size));
         $global_work_size = [$work_items1*$temp_size,$rows*$k];
         $local_work_size  = [$work_items1,1];
         $phase1Events = $this->newEventList();
@@ -4145,8 +4280,8 @@ class OpenCLMath
         $kernel2->setArg(3,$B);
         $kernel2->setArg(4,$offsetB,NDArray::uint32);
         $kernel2->setArg(5,$ldB,NDArray::uint32);
-        $kernel2->setArg(6,null,$work_items2*$value_size);
-        $kernel2->setArg(7,null,$work_items2*$index_value_size);
+        $kernel2->setArg(6,null,$this->adjBoundary($work_items2*$value_size));
+        $kernel2->setArg(7,null,$this->adjBoundary($work_items2*$index_value_size));
         $global_work_size = [$work_items2,$rows*$k];
         $local_work_size = [$work_items2,1];
         $kernel2->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -4335,7 +4470,7 @@ class OpenCLMath
         $kernel->setArg(1,$A);
         $kernel->setArg(2,$offsetA,NDArray::uint32);
         $kernel->setArg(3,$ldA,NDArray::uint32);
-        $kernel->setArg(4,null,$max_work_items*$value_size);
+        $kernel->setArg(4,null,$this->adjBoundary($max_work_items*$value_size));
         $global_work_size = [$max_work_items*$rows];
         $local_work_size = [$max_work_items];
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -4433,8 +4568,8 @@ class OpenCLMath
         $kernel->setArg(3,$offsetA,NDArray::uint32);
         $kernel->setArg(4,$ldA,NDArray::uint32);
 
-        $kernel->setArg(5,null,$max_work_items*$value_size);
-        $kernel->setArg(6,null,$segments*$value_size);
+        $kernel->setArg(5,null,$this->adjBoundary($max_work_items*$value_size));
+        $kernel->setArg(6,null,$this->adjBoundary($segments*$value_size));
         $kernel->setArg(7,$work_items,NDArray::uint32);
         $global_work_size = [$max_work_items*$rows];
         $local_work_size = [$max_work_items];
@@ -4523,12 +4658,10 @@ class OpenCLMath
                 "    const        uint i2size,\n".
                 "    const        uint size)\n".
                 "{\n".
-                "    uint gid0 = get_global_id(0);\n".
-                "    uint gid1 = get_global_id(1);\n".
-                "    uint lid  = gid0 % size;\n".
-                "    uint i2   = gid0 / size;\n".
-                "    uint i1   = gid1 % i1size;\n".
-                "    uint i0   = gid1 / i1size;\n".
+                "    int gid0 = get_global_id(0);\n".
+                "    int gid1 = get_global_id(1);\n".
+                    $this->splitPointer('lid','i2','gid0','size').
+                    $this->splitPointer('i1','i0','gid1','i1size').
                 "    ${to} ${operator} ${from};\n".
                 "}\n";
         }
@@ -4853,11 +4986,10 @@ class OpenCLMath
                 "        __global ${type} * b,\n".
                 "    const        uint offset_b)\n".
                 "{\n".
-                "    uint gid0 = get_global_id(0);\n".
-                "    uint gid1 = get_global_id(1);\n".
+                "    int gid0 = get_global_id(0);\n".
+                "    int gid1 = get_global_id(1);\n".
                 "    int c  = gid0;\n".
-                "    int x   = gid1 % width;\n".
-                "    int y   = gid1 / width;\n".
+                    $this->splitPointer('x','y','gid1','width').
                 "    int sy = y*directionY+biasY;\n".
                 "    int sx = x*directionX+biasX;\n".
                 "    if(sy<0) {\n".
@@ -4997,16 +5129,24 @@ class OpenCLMath
                     "    const        uint dilation_w,\n".
                     "    const        uint output_w)\n".
                     "{\n".
-                    "    const uint gid0 = get_global_id(0);\n".
-                    "    const uint gid1 = get_global_id(1);\n".
-                    "    const uint channel_id = gid0%channels;\n".
-                    "    const int input_x =     gid0/channels;\n".
+                    "    const int gid0 = get_global_id(0);\n".
+                    "    const int gid1 = get_global_id(1);\n".
+                        $this->splitPointer('channel_id','input_x','gid0','channels').
                     "    const uint batch_id   = gid1;\n".
                     "    if(input_x<im_w && batch_id<batches){\n".
                     "        ${type} value=0;\n".
                     "        for(int kernel_x=0;kernel_x<kernel_w;kernel_x++) {".
                     "            const int tmp_x = input_x-kernel_x*dilation_w+pad_w;\n".
-                    "            const int im_x = tmp_x/stride_w;\n".
+                    ($this->hasDiv5Bug ?
+                    "            int im_x;\n".
+                    "            if(stride_w==5) {\n".
+                    "                im_x = tmp_x/5;\n".
+                    "            } else {\n".
+                    "                im_x = tmp_x/stride_w;\n".
+                    "            }\n"
+                    :
+                    "            const int im_x = tmp_x/stride_w;\n"
+                    ).
                     "            if(tmp_x%stride_w==0 &&\n".
                     "               im_x>=0 && im_x<output_w) {\n".
                     "                value += cols[${cols_id}];\n".
@@ -5031,8 +5171,8 @@ class OpenCLMath
                     "    const        uint dilation_w,\n".
                     "    const        uint output_w)\n".
                     "{\n".
-                    "    uint channel_id = get_global_id(0)%channels;\n".
-                    "    uint im_x = get_global_id(0)/channels;\n".
+                    "    const int gid = get_global_id(0);\n".
+                        $this->splitPointer('channel_id','im_x','gid','channels').
                     "    uint batch_id = get_global_id(1);\n".
                     //"    uint kernel_x = get_global_id(2);\n".
                     "    if(im_x<output_w && batch_id<batches){\n".
@@ -5184,14 +5324,13 @@ class OpenCLMath
                     "    const        uint dilation_h,\n".
                     "    const        uint dilation_w,\n".
                     "    const        uint output_h,\n".
-                    "    const        uint output_w)\n".
+                    "    const        uint output_w\n".
+                    "    )\n".
                     "{\n".
-                    "    const uint gid0 = get_global_id(0);\n".
-                    "    const uint gid1 = get_global_id(1);\n".
-                    "    const uint channel_id = gid0%channels;\n".
-                    "    const int input_x =     gid0/channels;\n".
-                    "    const int input_y =     gid1%im_h;\n".
-                    "    const uint batch_id   = gid1/im_h;\n".
+                    "    const int gid0 = get_global_id(0);\n".
+                    "    const int gid1 = get_global_id(1);\n".
+                         $this->splitPointer('channel_id','input_x','gid0','channels').
+                         $this->splitPointer('input_y','batch_id','gid1','im_h').
                     //"    const uint kernel_idx = ${kernel_idx};\n".
                     //"    const uint kernel_y = kernel_idx/kernel_w;\n".
                     //"    const uint kernel_x = kernel_idx%kernel_w;\n".
@@ -5201,8 +5340,26 @@ class OpenCLMath
                     "            for(int kernel_x=0;kernel_x<kernel_w;kernel_x++) {".
                     "                const int tmp_y = input_y-kernel_y*dilation_h+pad_h;\n".
                     "                const int tmp_x = input_x-kernel_x*dilation_w+pad_w;\n".
-                    "                const int im_y = tmp_y/stride_h;\n".
-                    "                const int im_x = tmp_x/stride_w;\n".
+                    ($this->hasDiv5Bug ?
+                    "                int im_y;\n".
+                    "                if(stride_h==5) {\n".
+                    "                    im_y = tmp_y/5;\n".
+                    "                } else {\n".
+                    "                    im_y = tmp_y/stride_h;\n".
+                    "                }\n"
+                    :
+                    "                const int im_y = tmp_y/stride_h;\n"
+                    ).
+                    ($this->hasDiv5Bug ?
+                    "                int im_x;\n".
+                    "                if(stride_w==5) {\n".
+                    "                    im_x = tmp_x/5;\n".
+                    "                } else {\n".
+                    "                    im_x = tmp_x/stride_w;\n".
+                    "                }\n"
+                    :
+                    "                const int im_x = tmp_x/stride_w;\n"
+                    ).
                     "                if(tmp_y%stride_h==0 && tmp_x%stride_w==0 &&\n".
                     "                   im_y>=0 && im_y<output_h && im_x>=0 && im_x<output_w) {\n".
                     "                    value += cols[${cols_id}];\n".
@@ -5234,14 +5391,13 @@ class OpenCLMath
                     "    const        uint dilation_h,\n".
                     "    const        uint dilation_w,\n".
                     "    const        uint output_h,\n".
-                    "    const        uint output_w)\n".
+                    "    const        uint output_w\n".
+                    "    )\n".
                     "{\n".
-                    "    const uint gid0 = get_global_id(0);\n".
-                    "    const uint gid1 = get_global_id(1);\n".
-                    "    uint channel_id = gid0%channels;\n".
-                    "    uint im_x =       gid0/channels;\n".
-                    "    uint im_y =       gid1%output_h;\n".
-                    "    uint batch_id =   gid1/output_h;\n".
+                    "    const int gid0 = get_global_id(0);\n".
+                    "    const int gid1 = get_global_id(1);\n".
+                         $this->splitPointer('channel_id','im_x','gid0','channels').
+                         $this->splitPointer('im_y','batch_id','gid1','output_h').
                     "    if(im_x<output_w && batch_id<batches){\n".
                     "        for(uint kernel_y=0;kernel_y<kernel_h;kernel_y++) {\n".
                     "            for(uint kernel_x=0;kernel_x<kernel_w;kernel_x++) {\n".
@@ -5424,14 +5580,12 @@ class OpenCLMath
                     "    const        uint output_h,\n".
                     "    const        uint output_w)\n".
                     "{\n".
-                    "    uint gid0 = get_global_id(0);\n".
-                    "    uint gid1 = get_global_id(1);\n".
-                    "    uint gid2 = get_global_id(2);\n".
-                    "    const uint channel_id = gid0%channels;\n".
-                    "    const uint input_x =    gid0/channels;\n".
-                    "    const uint input_y =    gid1%im_h;\n".
-                    "    const uint input_z =    gid1/im_h;\n".
-                    "    const uint batch_id   = gid2;\n".
+                    "    const int gid0 = get_global_id(0);\n".
+                    "    const int gid1 = get_global_id(1);\n".
+                    "    const int gid2 = get_global_id(2);\n".
+                         $this->splitPointer('channel_id','input_x','gid0','channels').
+                         $this->splitPointer('input_y','input_z','gid1','im_h').
+                    "    const int batch_id   = gid2;\n".
                     "    if(input_x<im_w && input_z<im_d && batch_id<batches){\n".
                     "        ${type} value=0;\n".
                     "        for(int kernel_z=0;kernel_z<kernel_d;kernel_z++) {".
@@ -5440,9 +5594,36 @@ class OpenCLMath
                     "                    const int tmp_z = input_z-kernel_z*dilation_d+pad_d;\n".
                     "                    const int tmp_y = input_y-kernel_y*dilation_h+pad_h;\n".
                     "                    const int tmp_x = input_x-kernel_x*dilation_w+pad_w;\n".
-                    "                    const int im_z = tmp_z/stride_d;\n".
-                    "                    const int im_y = tmp_y/stride_h;\n".
-                    "                    const int im_x = tmp_x/stride_w;\n".
+                    ($this->hasDiv5Bug ?
+                    "                    int im_z;\n".
+                    "                    if(stride_d==5) {\n".
+                    "                        im_z = tmp_z/5;\n".
+                    "                    } else {\n".
+                    "                        im_z = tmp_z/stride_d;\n".
+                    "                    }\n"
+                    :    
+                    "                    const int im_z = tmp_z/stride_d;\n"
+                    ).
+                    ($this->hasDiv5Bug ?
+                    "                    int im_y;\n".
+                    "                    if(stride_h==5) {\n".
+                    "                        im_y = tmp_y/5;\n".
+                    "                    } else {\n".
+                    "                        im_y = tmp_y/stride_h;\n".
+                    "                    }\n"
+                    :    
+                    "                    const int im_y = tmp_y/stride_h;\n"
+                    ).
+                    ($this->hasDiv5Bug ?
+                    "                    int im_x;\n".
+                    "                    if(stride_w==5) {\n".
+                    "                        im_x = tmp_x/5;\n".
+                    "                    } else {\n".
+                    "                        im_x = tmp_x/stride_w;\n".
+                    "                    }\n"
+                    :
+                    "                    const int im_x = tmp_x/stride_w;\n"
+                    ).
                     "                    if(tmp_z%stride_d==0 && tmp_y%stride_h==0 && tmp_x%stride_w==0 &&\n".
                     "                        im_z>=0 && im_z<output_d &&\n".
                     "                        im_y>=0 && im_y<output_h &&\n".
@@ -5483,14 +5664,12 @@ class OpenCLMath
                     "    const        uint output_h,\n".
                     "    const        uint output_w)\n".
                     "{\n".
-                    "    uint gid0 = get_global_id(0);\n".
-                    "    uint gid1 = get_global_id(1);\n".
-                    "    uint gid2 = get_global_id(2);\n".
-                    "    uint channel_id = gid0%channels;\n".
-                    "    uint im_x =       gid0/channels;\n".
-                    "    uint im_y =       gid1%output_h;\n".
-                    "    uint im_z =       gid1/output_h;\n".
-                    "    uint batch_id =   gid2;\n".
+                    "    const int gid0 = get_global_id(0);\n".
+                    "    const int gid1 = get_global_id(1);\n".
+                    "    const int gid2 = get_global_id(2);\n".
+                         $this->splitPointer('channel_id','im_x','gid0','channels').
+                         $this->splitPointer('im_y','im_z','gid1','output_h').
+                    "    const int batch_id =   gid2;\n".
                     "    if(im_x<output_w && im_z<output_d && batch_id<batches){\n".
                     "        for(uint kernel_z=0;kernel_z<kernel_d;kernel_z++) {\n".
                     "            for(uint kernel_y=0;kernel_y<kernel_h;kernel_y++) {\n".
@@ -5707,4 +5886,57 @@ class OpenCLMath
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
             $events,$waitEvents);
     }
+
+    public function fill(
+        int $n,
+        Buffer $X, int $offsetX, int $incX,
+        $pattern,
+        EventList $events=null, EventList $waitEvents=null
+        )
+    {
+        if(!is_scalar($pattern)) {
+            throw new InvalidArgumentException('Pattern must be scalar type.');
+        }
+        $dtype = $X->dtype();
+        if($dtype==NDArray::float64) {
+            $this->assertFP64();
+        }
+        $isInt = array_key_exists($dtype,$this->intTypes);
+        $type = $this->dtypeToOpenCLType[$dtype];
+        if(is_bool($pattern)) {
+            $pattern = ($pattern)?1:0;
+        }
+        if($dtype==NDArray::bool) {
+            $dtype = NDArray::uint8;
+        } elseif($isInt) {
+            $pattern = (int)$pattern;
+        } else {
+            $pattern = (float)$pattern;
+        }
+        $kernel_name = "fill_${type}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+            "__kernel void ${kernel_name}(\n".
+            "                    __global ${type} * x,\n".
+            "                      const uint offsetX,\n".
+            "                      const uint incX,\n".
+            "                      const ${type} pattern)\n".
+            "{\n".
+            "   uint gid = get_global_id(0);\n".
+            "   x[offsetX+gid*incX] = pattern;\n".
+            "}\n";
+        }
+
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$X);
+        $kernel->setArg(1,$offsetX,NDArray::uint32);
+        $kernel->setArg(2,$incX,NDArray::uint32);
+        $kernel->setArg(3,$pattern,$dtype);
+        $global_work_size = [$n];
+        $local_work_size=null;
+        #$local_work_size = [1,1,$size];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
+            $events,$waitEvents);
+    }
+
 }

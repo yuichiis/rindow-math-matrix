@@ -209,13 +209,23 @@ class MatrixOperator
 
     public function array($array,$dtype=null) : NDArray
     {
-        if($dtype==null)
-            $dtype=$this->defaultFloatType;
+        if($dtype==null) {
+            if(is_bool($array)) {
+                $dtype = NDArray::bool;
+            } else {
+                $dtype = $this->resolveDtype($array);
+                if($dtype!=NDArray::bool) {
+                    $dtype=$this->defaultFloatType;
+                }
+            }
+        }
         if(is_array($array)) {
             return $this->alloc($array,$dtype);
         } elseif($array instanceof ArrayObject) {
             return $this->alloc($array,$dtype);
         } elseif(is_numeric($array)) {
+            return $this->alloc($array,$dtype);
+        } elseif(is_bool($array)) {
             return $this->alloc($array,$dtype);
         } else {
             throw new InvalidArgumentException("Must be array or ArrayObject");
