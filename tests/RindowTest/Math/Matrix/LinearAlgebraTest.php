@@ -4669,15 +4669,21 @@ class Test extends TestCase
 
         if($la->accelerated()) {
             $devType = $math->getContext()->getInfo(OpenCL::CL_CONTEXT_DEVICES)->getInfo(0,OpenCL::CL_DEVICE_TYPE);
+            $clVersion = $la->getCLVersion();
         } else {
             $devType = OpenCL::CL_DEVICE_TYPE_CPU;
+            $clVersion = null;
         }
         #### float to unsigned ######
         $X = $la->array([-1,0,1,2,3],NDArray::float32);
         $dtype = NDArray::uint8;
         $Y = $math->astype($X, $dtype);
         if($devType===OpenCL::CL_DEVICE_TYPE_GPU) {
-            $this->assertEquals([0,0,1,2,3],$Y->toArray());
+            if($clVersion=='OpenCL 1.2 AMD-APP (1800.11)') {
+                $this->assertEquals([255,0,1,2,3],$Y->toArray());
+            } else {
+                $this->assertEquals([0,0,1,2,3],$Y->toArray());
+            }
         } else {
             $this->assertEquals([255,0,1,2,3],$Y->toArray());
         }
@@ -4685,7 +4691,11 @@ class Test extends TestCase
         $dtype = NDArray::uint16;
         $Y = $math->astype($X, $dtype);
         if($devType===OpenCL::CL_DEVICE_TYPE_GPU) {
-            $this->assertEquals([0,0,1,2,3],$Y->toArray());
+            if($clVersion=='OpenCL 1.2 AMD-APP (1800.11)') {
+                $this->assertEquals([65535,0,1,2,3],$Y->toArray());
+            } else {
+                $this->assertEquals([0,0,1,2,3],$Y->toArray());
+            }
         } else {
             $this->assertEquals([65535,0,1,2,3],$Y->toArray());
         }
@@ -4715,11 +4725,18 @@ class Test extends TestCase
         // ***** CAUTION ******
         $X = $la->array([-1000,0,1,2,3],NDArray::float32);
         if($la->accelerated()) {
-            $devType = $math->getContext()->getInfo(OpenCL::CL_CONTEXT_DEVICES)->getInfo(0,OpenCL::CL_DEVICE_TYPE);
             // GPU
             $dtype = NDArray::uint64;
             $Y = $math->astype($X, $dtype);
-            $this->assertEquals([-1000,0,1,2,3],$Y->toArray());
+            if($devType===OpenCL::CL_DEVICE_TYPE_GPU) {
+                if($clVersion=='OpenCL 1.2 AMD-APP (1800.11)') {
+                    $this->assertEquals([0,0,1,2,3],$Y->toArray());
+                } else {
+                    $this->assertEquals([-1000,0,1,2,3],$Y->toArray());
+                }
+            } else {
+                $this->assertEquals([-1000,0,1,2,3],$Y->toArray());
+            }
         } elseif($la->getConfig()=='PhpBlas') {
             // CPU
             $dtype = NDArray::uint64;
