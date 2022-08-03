@@ -5108,17 +5108,8 @@ class OpenCLMath
                     "        ${type} value=0;\n".
                     "        for(int kernel_x=0;kernel_x<kernel_w;kernel_x++) {\n".
                     "            const int tmp_x = input_x-kernel_x*dilation_w+pad_w;\n".
-                    ($this->hasDiv5Bug ?
-                    "            int im_x;\n".
-                    "            if(stride_w==5) {\n".
-                    "                im_x = tmp_x/5;\n".
-                    "            } else {\n".
-                    "                im_x = tmp_x/stride_w;\n".
-                    "            }\n"
-                    :
-                    "            const int im_x = tmp_x/stride_w;\n"
-                    ).
-                    "            if(tmp_x%stride_w==0 &&\n".
+                    "            const int im_x = tmp_x/stride_w;\n". // div5bug
+                    "            if(tmp_x%stride_w==0 &&\n". // div5bug
                     "               im_x>=0 && im_x<output_w) {\n".
                     "                value += cols[${cols_id}];\n".
                     "            }\n".
@@ -5311,27 +5302,9 @@ class OpenCLMath
                     "            for(int kernel_x=0;kernel_x<kernel_w;kernel_x++) {".
                     "                const int tmp_y = input_y-kernel_y*dilation_h+pad_h;\n".
                     "                const int tmp_x = input_x-kernel_x*dilation_w+pad_w;\n".
-                    ($this->hasDiv5Bug ?
-                    "                int im_y;\n".
-                    "                if(stride_h==5) {\n".
-                    "                    im_y = tmp_y/5;\n".
-                    "                } else {\n".
-                    "                    im_y = tmp_y/stride_h;\n".
-                    "                }\n"
-                    :
-                    "                const int im_y = tmp_y/stride_h;\n"
-                    ).
-                    ($this->hasDiv5Bug ?
-                    "                int im_x;\n".
-                    "                if(stride_w==5) {\n".
-                    "                    im_x = tmp_x/5;\n".
-                    "                } else {\n".
-                    "                    im_x = tmp_x/stride_w;\n".
-                    "                }\n"
-                    :
-                    "                const int im_x = tmp_x/stride_w;\n"
-                    ).
-                    "                if(tmp_y%stride_h==0 && tmp_x%stride_w==0 &&\n".
+                    "                const int im_y = tmp_y/stride_h;\n". // div5bug
+                    "                const int im_x = tmp_x/stride_w;\n". // div5bug
+                    "                if(tmp_y%stride_h==0 && tmp_x%stride_w==0 &&\n". // div5bug
                     "                   im_y>=0 && im_y<output_h && im_x>=0 && im_x<output_w) {\n".
                     "                    value += cols[${cols_id}];\n".
                     "                }\n".
@@ -5565,37 +5538,10 @@ class OpenCLMath
                     "                    const int tmp_z = input_z-kernel_z*dilation_d+pad_d;\n".
                     "                    const int tmp_y = input_y-kernel_y*dilation_h+pad_h;\n".
                     "                    const int tmp_x = input_x-kernel_x*dilation_w+pad_w;\n".
-                    ($this->hasDiv5Bug ?
-                    "                    int im_z;\n".
-                    "                    if(stride_d==5) {\n".
-                    "                        im_z = tmp_z/5;\n".
-                    "                    } else {\n".
-                    "                        im_z = tmp_z/stride_d;\n".
-                    "                    }\n"
-                    :    
-                    "                    const int im_z = tmp_z/stride_d;\n"
-                    ).
-                    ($this->hasDiv5Bug ?
-                    "                    int im_y;\n".
-                    "                    if(stride_h==5) {\n".
-                    "                        im_y = tmp_y/5;\n".
-                    "                    } else {\n".
-                    "                        im_y = tmp_y/stride_h;\n".
-                    "                    }\n"
-                    :    
-                    "                    const int im_y = tmp_y/stride_h;\n"
-                    ).
-                    ($this->hasDiv5Bug ?
-                    "                    int im_x;\n".
-                    "                    if(stride_w==5) {\n".
-                    "                        im_x = tmp_x/5;\n".
-                    "                    } else {\n".
-                    "                        im_x = tmp_x/stride_w;\n".
-                    "                    }\n"
-                    :
-                    "                    const int im_x = tmp_x/stride_w;\n"
-                    ).
-                    "                    if(tmp_z%stride_d==0 && tmp_y%stride_h==0 && tmp_x%stride_w==0 &&\n".
+                    "                    const int im_z = tmp_z/stride_d;\n". // div5bug
+                    "                    const int im_y = tmp_y/stride_h;\n". // div5bug
+                    "                    const int im_x = tmp_x/stride_w;\n". // div5bug
+                    "                    if(tmp_z%stride_d==0 && tmp_y%stride_h==0 && tmp_x%stride_w==0 &&\n". // div5bug
                     "                        im_z>=0 && im_z<output_d &&\n".
                     "                        im_y>=0 && im_y<output_h &&\n".
                     "                        im_x>=0 && im_x<output_w) {\n".
