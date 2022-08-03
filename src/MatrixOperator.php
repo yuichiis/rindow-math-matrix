@@ -1268,6 +1268,9 @@ class MatrixOperator
             $queue = new CommandQueue($context);
             $clblastblas = new CLBlastBlas();
             $openclmath = new OpenCLMath($context,$queue);
+            if($openclmath->hasDiv5Bug()) {
+                $openclmath = new OpenCLMathFixDiv5Bug($context,$queue);
+            }
             $clblastmath = new CLBlastMath();
             $la = new LinearAlgebraCL($context,$queue,
                 $clblastblas,$openclmath,$clblastmath,
