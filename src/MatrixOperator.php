@@ -1243,6 +1243,15 @@ class MatrixOperator
         return $this->laRawMode;
     }
 
+    protected function createLinearAlgebraCL(
+        $context,$queue,$clblastblas,$openclmath,$clblastmath)
+    {
+        $la = new TestLinearAlgebraCL($context,$queue,
+            $clblastblas,$openclmath,$clblastmath,
+            $this->openblasmath,$this->openblaslapack);
+        return $la;
+    }
+
     public function laAccelerated($mode,array $options=null)
     {
         if($mode=='clblast') {
@@ -1272,9 +1281,8 @@ class MatrixOperator
                 $openclmath = new OpenCLMathFixDiv5Bug($context,$queue);
             }
             $clblastmath = new CLBlastMath();
-            $la = new LinearAlgebraCL($context,$queue,
-                $clblastblas,$openclmath,$clblastmath,
-                $this->openblasmath,$this->openblaslapack);
+            $la = $this->createLinearAlgebraCL(
+                $context,$queue,$clblastblas,$openclmath,$clblastmath);
             $this->clblastLA = $la;
             return $la;
         }

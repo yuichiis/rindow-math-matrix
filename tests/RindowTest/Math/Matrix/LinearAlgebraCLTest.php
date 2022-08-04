@@ -28,31 +28,13 @@ use Rindow\OpenBLAS\Lapack as OpenBLASLapack;
 
 class TestMatrixOperator extends MatrixOperator
 {
-    public function laAccelerated($mode,array $options=null)
+    protected function createLinearAlgebraCL(
+        $context,$queue,$clblastblas,$openclmath,$clblastmath)
     {
-        if($mode=='clblast') {
-            if($this->clblastLA) {
-                return $this->clblastLA;
-            }
-            if(!extension_loaded('rindow_clblast')) {
-                throw new InvalidArgumentException('extension is not loaded');
-            }
-            if(isset($options['deviceType'])) {
-                $deviceType = $options['deviceType'];
-            } else {
-                $deviceType = OpenCL::CL_DEVICE_TYPE_DEFAULT;
-            }
-            $context = new Context($deviceType);
-            $queue = new CommandQueue($context);
-            $clblastblas = new CLBlastBlas();
-            $openclmath = new OpenCLMath($context,$queue);
-            $clblastmath = new CLBlastMath();
-            $la = new TestLinearAlgebraCL($context,$queue,
-                $clblastblas,$openclmath,$clblastmath,
-                $this->openblasmath,$this->openblaslapack);
-            $this->clblastLA = $la;
-            return $la;
-        }
+        $la = new TestLinearAlgebraCL($context,$queue,
+            $clblastblas,$openclmath,$clblastmath,
+            $this->openblasmath,$this->openblaslapack);
+        return $la;
     }
 }
 
