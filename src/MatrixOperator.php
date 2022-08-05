@@ -1246,7 +1246,7 @@ class MatrixOperator
     protected function createLinearAlgebraCL(
         $context,$queue,$clblastblas,$openclmath,$clblastmath)
     {
-        $la = new TestLinearAlgebraCL($context,$queue,
+        $la = new LinearAlgebraCL($context,$queue,
             $clblastblas,$openclmath,$clblastmath,
             $this->openblasmath,$this->openblaslapack);
         return $la;
