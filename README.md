@@ -40,6 +40,7 @@ You can use GPU acceleration on OpenCL.
 - [Build from source](https://github.com/rindow/rindow-clblast)
 
 *Note:*
+
 This OpenCL support extension works well on Windows and contributes to the speedup.
 
 However, on Linux, libclc used in linux standard mesa-opencl-icd is very buggy and slow. I made a temporary fix to make it look like it would work, but gave up on careful testing.
