@@ -45,11 +45,11 @@ You can use GPU acceleration on OpenCL.
 
 *Note:*
 
-This OpenCL support extension works better in environments and helps speed things up even without n-NVIDIA.
+This OpenCL support extension works better in your environment and helps speed up your laptop environment without n-NVIDIA.
 
-Tested on AMD's Bobcat architecture APU and Integrated GPU.
+Tested on AMD's Bobcat architecture APU.
 
-In the Windows environment, GPU usage was more effective than CPU, and it worked comfortably.
+In the Windows environment, Integrated GPU usage was more effective than CPU, and it worked comfortably.
 
 However, OLD AMD APU on Linux, libclc used in linux standard mesa-opencl-icd is very buggy and slow. I made a temporary fix to make it look like it would work, but gave up on careful testing.
 If you have testable hardware, please test using the proprietary driver.
