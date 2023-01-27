@@ -36,12 +36,26 @@ You can perform very fast N-dimensional array operations in conjunction
 
 You can use GPU acceleration on OpenCL.
 
-- [Pre-build binaries](https://github.com/rindow/rindow-clblast/releases)
-- [Build from source](https://github.com/rindow/rindow-clblast)
+- Pre-build binaries
+  - [rindow-opencl](https://github.com/rindow/rindow-opencl/releases)
+  - [rindow-clblast](https://github.com/rindow/rindow-clblast/releases)
+- Build from source
+  - [rindow-opencl](https://github.com/rindow/rindow-opencl)
+  - [rindow-clblast](https://github.com/rindow/rindow-clblast)
 
 *Note:*
 
-This OpenCL support extension works well on Windows and contributes to the speedup.
+This OpenCL support extension works better in environments and helps speed things up even without n-NVIDIA.
 
-However, on Linux, libclc used in linux standard mesa-opencl-icd is very buggy and slow. I made a temporary fix to make it look like it would work, but gave up on careful testing.
+Tested on AMD's Bobcat architecture APU and Integrated GPU.
+
+In the Windows environment, GPU usage was more effective than CPU, and it worked comfortably.
+
+However, OLD AMD APU on Linux, libclc used in linux standard mesa-opencl-icd is very buggy and slow. I made a temporary fix to make it look like it would work, but gave up on careful testing.
 If you have testable hardware, please test using the proprietary driver.
+
+On the other hand, I tested with Ivy-bridge of Intel CPU and Integrated GPU.
+
+Windows 10 standard OpenCL driver worked fine, but it was very slow and occasionally crashed.
+
+And it worked fine and fast in Ubuntu 20.04 + beignet-opencl-icd environment.
