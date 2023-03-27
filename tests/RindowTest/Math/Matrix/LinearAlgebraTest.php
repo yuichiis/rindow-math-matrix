@@ -4681,11 +4681,10 @@ class Test extends TestCase
         $dtype = NDArray::uint8;
         $Y = $math->astype($X, $dtype);
         if($devType===OpenCL::CL_DEVICE_TYPE_GPU) {
-            echo $devName."\n";
-            if(strpos($clVersion,'OpenCL 1.1 Mesa')===false) {
-                $this->assertEquals([255,0,1,2,3],$Y->toArray());// Windows CL1.2
+            if($devName=='Loveland') {
+                $this->assertEquals([255,0,1,2,3],$Y->toArray());// AMD GPU on Windows
             } else {
-                $this->assertEquals([0,0,1,2,3],$Y->toArray()); // linux CL1.1Mesa 
+                $this->assertEquals([0,0,1,2,3],$Y->toArray());
             }
         } else {
             $this->assertEquals([255,0,1,2,3],$Y->toArray());
@@ -4694,7 +4693,7 @@ class Test extends TestCase
         $dtype = NDArray::uint16;
         $Y = $math->astype($X, $dtype);
         if($devType===OpenCL::CL_DEVICE_TYPE_GPU) {
-            if(strpos($clVersion,'OpenCL 1.1 Mesa')===false) {
+            if($devName=='Loveland') {
                 $this->assertEquals([65535,0,1,2,3],$Y->toArray());
             } else {
                 $this->assertEquals([0,0,1,2,3],$Y->toArray());
@@ -4732,8 +4731,10 @@ class Test extends TestCase
             $dtype = NDArray::uint64;
             $Y = $math->astype($X, $dtype);
             if($devType===OpenCL::CL_DEVICE_TYPE_GPU) {
-                if(strpos($clVersion,'OpenCL 1.1 Mesa')===false) {
+                if($devName=='Loveland') {
                     $this->assertEquals([0,0,1,2,3],$Y->toArray());
+                } elseif(strpos($devName,'Intel')!==false) {
+                    $this->assertEquals([1000,0,1,2,3],$Y->toArray());
                 } else {
                     $this->assertEquals([-1000,0,1,2,3],$Y->toArray());
                 }
