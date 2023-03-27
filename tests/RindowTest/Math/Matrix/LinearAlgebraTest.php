@@ -2335,12 +2335,14 @@ class Test extends TestCase
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
 
-        // X := sqrt(X)
+        // X := pow(X)
         $X = $la->array([[1,2,3],[4,5,6]]);
         $la->pow($X,3);
-        $this->assertEquals(
+        $X = $la->toNDArray($X);
+        $this->assertTrue($mo->la()->isclose($mo->array(
             [[1,8,27],[64,125,216]]
-        ,$X->toArray());
+            ),$X)
+        );
     }
 
     public function testExp()
