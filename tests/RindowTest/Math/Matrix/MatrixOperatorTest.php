@@ -434,6 +434,7 @@ class Test extends TestCase
         $this->assertEquals(
             [[1,4],[2,5],[3,6]],
             $mo->transpose($A)->toArray());
+
     }
 
 

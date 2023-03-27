@@ -7,7 +7,6 @@ use Interop\Polite\Math\Matrix\BLAS;
 use Rindow\Math\Matrix\MatrixOperator;
 use Rindow\Math\Matrix\PhpBlas;
 use InvalidArgumentException;
-use RuntimeException;
 
 class Test extends TestCase
 {
@@ -474,7 +473,7 @@ class Test extends TestCase
             $this->translate_gemm($A,$B,$alpha,$beta,$C,$transA,$transB);
 
         $AA = $mo->array([1,2,3,4,5])->buffer();
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Matrix specification too large for bufferA.');
         $blas->gemm(
             BLAS::RowMajor,$transA,$transB,
@@ -503,7 +502,7 @@ class Test extends TestCase
             $this->translate_gemm($A,$B,$alpha,$beta,$C,$transA,$transB);
 
         $BB = $mo->array([1,0,0, 0,1,0, 0,0])->buffer();
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Matrix specification too large for bufferB');
         $blas->gemm(
             BLAS::RowMajor,$transA,$transB,
@@ -533,7 +532,7 @@ class Test extends TestCase
 
 
         $CC = $mo->zeros([5])->buffer();
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Matrix specification too large for bufferC');
         $blas->gemm(
             BLAS::RowMajor,$transA,$transB,
@@ -562,7 +561,7 @@ class Test extends TestCase
             $this->translate_gemm($A,$B,$alpha,$beta,$C,$transA,$transB);
 
         $AA = $mo->array([1,0,0, 0,1,0, 0,0])->buffer();
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Matrix specification too large for bufferA');
         $blas->gemm(
             BLAS::RowMajor,$transA,$transB,
@@ -591,7 +590,7 @@ class Test extends TestCase
             $this->translate_gemm($A,$B,$alpha,$beta,$C,$transA,$transB);
 
         $BB = $mo->array([1,2,3,4,5])->buffer();
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Matrix specification too large for bufferB');
         $blas->gemm(
             BLAS::RowMajor,$transA,$transB,
@@ -620,7 +619,7 @@ class Test extends TestCase
             $this->translate_gemm($A,$B,$alpha,$beta,$C,$transA,$transB);
 
         $CC = $mo->zeros([5])->buffer();
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Matrix specification too large for bufferC');
         $blas->gemm(
             BLAS::RowMajor,$transA,$transB,
@@ -700,7 +699,7 @@ class Test extends TestCase
             $this->translate_gemv($A,$X,null,null,$Y);
 
         $AA = $mo->array([1,2,3,4,5])->buffer();
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Matrix specification too large for bufferA');
         $blas->gemv(
             BLAS::RowMajor,$trans,
@@ -726,7 +725,7 @@ class Test extends TestCase
             $this->translate_gemv($A,$X,null,null,$Y);
 
         $XX = $mo->array([10,1])->buffer();
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Vector specification too large for bufferX');
         $blas->gemv(
             BLAS::RowMajor,$trans,
@@ -752,7 +751,7 @@ class Test extends TestCase
             $this->translate_gemv($A,$X,null,null,$Y);
 
         $YY = $mo->array([0])->buffer();
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Vector specification too large for bufferY');
         $blas->gemv(
             BLAS::RowMajor,$trans,
@@ -844,7 +843,7 @@ class Test extends TestCase
           $beta,$CC,$offC,$ldC] =
             $this->translate_syrk($A,null,null,$C);
 
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Argument n must be greater than 0.');
         $blas->syrk(
             BLAS::RowMajor,$uplo,$trans,
@@ -872,7 +871,7 @@ class Test extends TestCase
           $beta,$CC,$offC,$ldC] =
             $this->translate_syrk($A,null,null,$C);
 
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Argument k must be greater than 0.');
         $blas->syrk(
             BLAS::RowMajor,$uplo,$trans,
@@ -900,7 +899,7 @@ class Test extends TestCase
           $beta,$CC,$offC,$ldC] =
             $this->translate_syrk($A,null,null,$C);
 
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Matrix specification too large for bufferA');
         $blas->syrk(
             BLAS::RowMajor,$uplo,$trans,
@@ -928,7 +927,7 @@ class Test extends TestCase
           $beta,$CC,$offC,$ldC] =
             $this->translate_syrk($A,null,null,$C);
 
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Matrix specification too large for bufferA');
         $blas->syrk(
             BLAS::RowMajor,$uplo,$trans,
@@ -956,7 +955,7 @@ class Test extends TestCase
           $beta,$CC,$offC,$ldC] =
             $this->translate_syrk($A,null,null,$C);
 
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Matrix specification too large for bufferA');
         $blas->syrk(
             BLAS::RowMajor,$uplo,$trans,
@@ -984,7 +983,7 @@ class Test extends TestCase
           $beta,$CC,$offC,$ldC] =
             $this->translate_syrk($A,null,null,$C);
 
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Matrix specification too large for bufferA');
         $blas->syrk(
             BLAS::RowMajor,$uplo,$trans,
@@ -1012,7 +1011,7 @@ class Test extends TestCase
           $beta,$CC,$offC,$ldC] =
             $this->translate_syrk($A,null,null,$C,null,true);
 
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Matrix specification too large for bufferA');
         $blas->syrk(
             BLAS::RowMajor,$uplo,$trans,
@@ -1040,7 +1039,7 @@ class Test extends TestCase
           $beta,$CC,$offC,$ldC] =
             $this->translate_syrk($A,null,null,$C);
 
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Matrix specification too large for bufferC');
         $blas->syrk(
             BLAS::RowMajor,$uplo,$trans,
@@ -1068,7 +1067,7 @@ class Test extends TestCase
           $beta,$CC,$offC,$ldC] =
             $this->translate_syrk($A,null,null,$C);
 
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Matrix specification too large for bufferC');
         $blas->syrk(
             BLAS::RowMajor,$uplo,$trans,
@@ -1096,7 +1095,7 @@ class Test extends TestCase
           $beta,$CC,$offC,$ldC] =
             $this->translate_syrk($A,null,null,$C,null,true);
 
-        $this->expectException(RuntimeException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Matrix specification too large for bufferC');
         $blas->syrk(
             BLAS::RowMajor,$uplo,$trans,

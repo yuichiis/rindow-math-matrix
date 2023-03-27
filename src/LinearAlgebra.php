@@ -3202,13 +3202,87 @@ class LinearAlgebra
 
     public function transpose(
         NDArray $A,
+        array|NDArray $perm=null,
         NDArray $B=null,
-        float $alpha=null
         ) : NDArray
     {
-        if($A->ndim()!=2) {
-            throw new InvalidArgumentException('input array must be 2D.');
+        if($A->ndim()<1) {
+            throw new InvalidArgumentException('input array must be grator than or equal 1D.');
         }
+        if($A->ndim()==2) {
+            if($perm) {
+                if(count($perm)!=2) {
+                    throw new InvalidArgumentException('unmatch sourceshape and perm');
+                    if(!is_array($perm)) {
+                        $perm = $perm->toArray();
+                    }
+                    if($perm==[0,1]) {
+                        return $this->copy($A,$B);
+                    }
+                    if($perm!=[1,0]) {
+                        throw new InvalidArgumentException('unmatch sourceshape and perm');
+                    }
+                }
+            }
+            return $this->transpose2D($A,$B);
+        }
+        return $this->transposeND($A,$perm,$B);
+    }
+
+    protected function transposeND(
+        NDArray $A,
+        array|NDArray $perm=null,
+        NDArray $B=null,
+        ) : NDArray
+    {
+        if($perm===null) {
+            $perm = range($A->ndim()-1,0,-1);
+            $perm = $this->array($perm,NDArray::int32);
+        }
+        $perm = $this->array($perm);
+        $shapeA = $A->shape();
+        if(count($shapeA)!=count($perm)) {
+            throw new InvalidArgumentException('unmatch sourceshape and perm');
+        }
+        $shapeB = [];
+        $checkPerm = [];
+        foreach($perm as $axis) {
+            if(isset($checkPerm[$axis])) {
+                throw new InvalidArgumentException('duplicate axis in perm option');
+            }
+            $checkPerm[$axis] = true;
+            $shapeB[] = $shapeA[$axis];
+        }
+        if($B===null) {
+            $B = $this->alloc($shapeB,$A->dtype());
+        } else {
+            if($B->shape()!=$shapeB) {
+                throw new InvalidArgumentException('output shape must be transpose matrix of input.');
+            }
+            if($B->dtype()!=$A->dtype()) {
+                throw new InvalidArgumentException('output data type must be same with matrix of input.');
+            }
+        }
+        $AA = $A->buffer();
+        $BB = $B->buffer();
+        $offsetA = $A->offset();
+        $offsetB = $B->offset();
+        $sourceShape = $this->array($shapeA,NDArray::int32)->buffer();
+        $permBuf = $perm->buffer();
+        $this->math->transpose(
+            $sourceShape,
+            $permBuf,
+            $AA, $offsetA,
+            $BB, $offsetB,
+        );
+        return $B;
+    }
+
+    protected function transpose2D(
+        NDArray $A,
+        NDArray $B=null,
+        ) : NDArray
+    {
         $shape = $A->shape();
         $shape = [$shape[1],$shape[0]];
         if($B==null) {
@@ -3220,9 +3294,6 @@ class LinearAlgebra
             if($B->dtype()!=$A->dtype()) {
                 throw new InvalidArgumentException('output data type must be same with matrix of input.');
             }
-        }
-        if($alpha===null) {
-            $alpha = 1.0;
         }
         $trans=true;
         $m = $shape[1];
@@ -3237,7 +3308,7 @@ class LinearAlgebra
             $trans,
             $m,
             $n,
-            $alpha,
+            $alpha = 1.0,
             $AA,$offA,$ldA,
             $BB,$offB,$ldB
         );

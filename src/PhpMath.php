@@ -5,6 +5,7 @@ use ArrayAccess as Buffer;
 use RuntimeException;
 use InvalidArgumentException;
 use Interop\Polite\Math\Matrix\NDArray;
+use SplFixedArray;
 
 class PhpMath
 {
@@ -46,10 +47,16 @@ class PhpMath
         Buffer $X, int $offsetX, int $incX,
         Buffer $Y, int $offsetY, int $incY ) : void
     {
-        $idxX = $offsetX;
-        $idxY = $offsetY;
-        for ($i=0; $i<$n; $i++,$idxX+=$incX,$idxY+=$incY) {
-            $Y[$idxY] = $X[$idxX];
+        if($incX==1 && $incY==1) {
+            for($i=0;$i<$n;$i++) {                 // memcpy(y,x,$n*sizeof(dtype))
+                $Y[$offsetY+$i] = $X[$offsetX+$i];
+            }
+        } else {
+            $idxX = $offsetX;
+            $idxY = $offsetY;
+            for ($i=0; $i<$n; $i++,$idxX+=$incX,$idxY+=$incY) {
+                $Y[$idxY] = $X[$idxX];
+            }
         }
     }
 
@@ -126,7 +133,7 @@ class PhpMath
         }
 
         if($offsetX+($n-1)*$incX>=count($X))
-            throw new RuntimeException('Vector X specification too large for buffer.');
+            throw new InvalidArgumentException('Vector X specification too large for buffer.');
         $idxX = $offsetX;
         $acc = 0.0;
         for ($i=0; $i<$n; $i++,$idxX+=$incX) {
@@ -147,7 +154,7 @@ class PhpMath
         }
 
         if($offsetX+($n-1)*$incX>=count($X))
-            throw new RuntimeException('Vector X specification too large for buffer.');
+            throw new InvalidArgumentException('Vector X specification too large for buffer.');
         $idxX = $offsetX+$incX;
         $acc = $X[$offsetX];
         $idx = 0;
@@ -172,7 +179,7 @@ class PhpMath
         }
 
         if($offsetX+($n-1)*$incX>=count($X))
-            throw new RuntimeException('Vector X specification too large for buffer.');
+            throw new InvalidArgumentException('Vector X specification too large for buffer.');
         $idxX = $offsetX+$incX;
         $acc = $X[$offsetX];
         $idx = 0;
@@ -200,7 +207,7 @@ class PhpMath
         }
 
         if($offsetX+($n-1)*$incX>=count($X))
-            throw new RuntimeException('Vector specification too large for buffer.');
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
 
         $idx = $offsetX;
         for ($i=0; $i<$n; $i++,$idx+=$incX) {
@@ -223,7 +230,7 @@ class PhpMath
         }
 
         if($offsetX+($n-1)*$incX>=count($X))
-            throw new RuntimeException('Vector specification too large for buffer.');
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
 
         $idx = $offsetX;
         for ($i=0; $i<$n; $i++,$idx+=$incX) {
@@ -517,9 +524,9 @@ class PhpMath
         }
 
         if($offsetX+($cols-1)*$incX>=count($X))
-            throw new RuntimeException('Vector specification too large for buffer.');
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
         if($offsetA+($m-1)*$ldA+($n-1)>=count($A))
-            throw new RuntimeException('Vector specification too large for buffer.');
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
 
         if(!$trans) { $incAj = $ldA; $incAi = 1;}
         else        { $incAj = 1;    $incAi = $ldA;}
@@ -558,9 +565,9 @@ class PhpMath
         }
 
         if($offsetX+($cols-1)*$incX>=count($X))
-            throw new RuntimeException('Vector specification too large for buffer.');
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
         if($offsetA+($m-1)*$ldA+($n-1)>=count($A))
-            throw new RuntimeException('Vector specification too large for buffer.');
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
 
         if(!$trans) { $incAj = $ldA; $incAi = 1;}
         else        { $incAj = 1;    $incAi = $ldA;}
@@ -589,7 +596,7 @@ class PhpMath
         }
 
         if($offsetX+($n-1)*$incX>=count($X))
-            throw new RuntimeException('Vector specification too large for buffer.');
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
 
         $idx = $offsetX;
         for ($i=0; $i<$n; $i++,$idx+=$incX) {
@@ -612,7 +619,7 @@ class PhpMath
         }
 
         if($offsetX+($n-1)*$incX>=count($X))
-            throw new RuntimeException('Vector specification too large for buffer.');
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
 
         $idx = $offsetX;
         for ($i=0; $i<$n; $i++,$idx+=$incX) {
@@ -636,7 +643,7 @@ class PhpMath
         }
 
         if($offsetX+($n-1)*$incX>=count($X))
-            throw new RuntimeException('Vector specification too large for buffer.');
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
 
         $idx = $offsetX;
         for ($i=0; $i<$n; $i++,$idx+=$incX) {
@@ -666,7 +673,7 @@ class PhpMath
         }
 
         if($offsetX+($n-1)*$incX>=count($X))
-            throw new RuntimeException('Vector specification too large for buffer.');
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
 
         $idx = $offsetX;
         for ($i=0; $i<$n; $i++,$idx+=$incX) {
@@ -688,7 +695,7 @@ class PhpMath
         }
 
         if($offsetX+($n-1)*$incX>=count($X))
-            throw new RuntimeException('Vector specification too large for buffer.');
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
 
         $idx = $offsetX;
         for ($i=0; $i<$n; $i++,$idx+=$incX) {
@@ -710,7 +717,7 @@ class PhpMath
         }
 
         if($offsetX+($n-1)*$incX>=count($X))
-            throw new RuntimeException('Vector specification too large for buffer.');
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
 
         $idx = $offsetX;
         for ($i=0; $i<$n; $i++,$idx+=$incX) {
@@ -732,7 +739,7 @@ class PhpMath
             return;
         }
         if($offsetX+($n-1)*$incX>=count($X))
-            throw new RuntimeException('Vector specification too large for buffer.');
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
 
         $idx = $offsetX;
         for ($i=0; $i<$n; $i++,$idx+=$incX) {
@@ -754,7 +761,7 @@ class PhpMath
             return;
         }
         if($offsetX+($n-1)*$incX>=count($X))
-            throw new RuntimeException('Vector specification too large for buffer.');
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
 
         $idx = $offsetX;
         for ($i=0; $i<$n; $i++,$idx+=$incX) {
@@ -776,7 +783,7 @@ class PhpMath
             return;
         }
         if($offsetX+($n-1)*$incX>=count($X))
-            throw new RuntimeException('Vector specification too large for buffer.');
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
 
         $idx = $offsetX;
         for ($i=0; $i<$n; $i++,$idx+=$incX) {
@@ -798,7 +805,7 @@ class PhpMath
             return;
         }
         if($offsetX+($n-1)*$incX>=count($X))
-            throw new RuntimeException('Vector specification too large for buffer.');
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
 
         $idx = $offsetX;
         for ($i=0; $i<$n; $i++,$idx+=$incX) {
@@ -830,9 +837,9 @@ class PhpMath
         }
 
         if($offsetX+($cols-1)*$incX>=count($X))
-            throw new RuntimeException('Vector specification too large for buffer.');
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
         if($offsetA+($m-1)*$ldA+($n-1)>=count($A))
-            throw new RuntimeException('Vector specification too large for buffer.');
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
 
         if(!$trans) { $incAj = $ldA; $incAi = 1;}
         else        { $incAj = 1;    $incAi = $ldA;}
@@ -866,7 +873,7 @@ class PhpMath
         }
 
         if($offsetX+($n-1)*$incX>=count($X))
-            throw new RuntimeException('Vector specification too large for buffer.');
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
 
         $idx = $offsetX;
         for ($i=0; $i<$n; $i++,$idx+=$incX) {
@@ -908,13 +915,13 @@ class PhpMath
 //echo "[n=$n,k=$k,class=$numClass]\n";
 
         if($offsetX+$n>count($X))
-            throw new RuntimeException('Matrix X specification too large for buffer.');
+            throw new InvalidArgumentException('Matrix X specification too large for buffer.');
         if($offsetA+$numClass*$k>count($A))
-            throw new RuntimeException('Matrix A specification too large for buffer.');
+            throw new InvalidArgumentException('Matrix A specification too large for buffer.');
         if($offsetB+$n*$k>count($B))
-            throw new RuntimeException('Matrix B specification too large for buffer.');
+            throw new InvalidArgumentException('Matrix B specification too large for buffer.');
         if($numClass<=0)
-            throw new RuntimeException('numClass must be grator than zero.');
+            throw new InvalidArgumentException('numClass must be grator than zero.');
 
         $idxX = $offsetX;
         $idxA = $offsetA;
@@ -974,13 +981,13 @@ class PhpMath
         }
 //echo "[m=$m,n=$n,class=$numClass]\n";
         if($offsetX+$n>count($X))
-            throw new RuntimeException('Matrix X specification too large for buffer.');
+            throw new InvalidArgumentException('Matrix X specification too large for buffer.');
         if($offsetA+$m*$numClass>count($A))
-            throw new RuntimeException('Matrix A specification too large for buffer.');
+            throw new InvalidArgumentException('Matrix A specification too large for buffer.');
         if($offsetB+$m*$n>count($B))
-            throw new RuntimeException('Matrix B specification too large for buffer.');
+            throw new InvalidArgumentException('Matrix B specification too large for buffer.');
         if($numClass<=0)
-            throw new RuntimeException('numClass must be grator than zero.');
+            throw new InvalidArgumentException('numClass must be grator than zero.');
 
         $idxX = $offsetX;
         $idxA = $offsetA;
@@ -1043,11 +1050,11 @@ class PhpMath
         //}
 
         if($offsetX+$n>count($X))
-            throw new RuntimeException('Matrix X specification too large for buffer.');
+            throw new InvalidArgumentException('Matrix X specification too large for buffer.');
         if($offsetA+$numClass*$k>count($A))
-            throw new RuntimeException('Matrix A specification too large for buffer.');
+            throw new InvalidArgumentException('Matrix A specification too large for buffer.');
         if($offsetB+$n*$k>count($B))
-            throw new RuntimeException('Matrix B specification too large for buffer.');
+            throw new InvalidArgumentException('Matrix B specification too large for buffer.');
 
         for($i=0;$i<$numClass;$i++) {
             for($p=0;$p<$k;$p++) {
@@ -1088,9 +1095,9 @@ class PhpMath
         }
 //echo "[m=$m,n=$n,class=$numClass]\n";
         if($offsetA+$m*$k>count($A))
-            throw new RuntimeException('Matrix A specification too large for buffer.');
+            throw new InvalidArgumentException('Matrix A specification too large for buffer.');
         if($offsetB+$m*$repeats*$k>count($B))
-            throw new RuntimeException('Matrix B specification too large for buffer.');
+            throw new InvalidArgumentException('Matrix B specification too large for buffer.');
 
         $idxA = $offsetA;
         $idxB = $offsetB;
@@ -1120,9 +1127,9 @@ class PhpMath
         }
 
         if($offsetX+($m-1)*$incX>=count($X))
-            throw new RuntimeException('Vector specification too large for bufferX.');
+            throw new InvalidArgumentException('Vector specification too large for bufferX.');
         if($offsetY+($m-1)*$ldY+($n-1)>=count($Y))
-            throw new RuntimeException('Vector specification too large for bufferY.');
+            throw new InvalidArgumentException('Vector specification too large for bufferY.');
 
         $idx = $offsetX;
         $idy = $offsetY;
@@ -1150,9 +1157,9 @@ class PhpMath
         }
 
         if($offsetX+($n-1)*$incX>=count($X))
-            throw new RuntimeException('Vector specification too large for buffer.');
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
         if($offsetY+($n-1)*$incY>=count($Y))
-            throw new RuntimeException('Vector specification too large for buffer.');
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
 
         $idX = $offsetX;
         $idY = $offsetY;
@@ -1180,9 +1187,9 @@ class PhpMath
         }
 
         if($offsetA+$m*$n*$k>count($A))
-            throw new RuntimeException('Matrix A specification too large for buffer.');
+            throw new InvalidArgumentException('Matrix A specification too large for buffer.');
         if($offsetB+$m*$k>count($B))
-            throw new RuntimeException('Matrix B specification too large for buffer.');
+            throw new InvalidArgumentException('Matrix B specification too large for buffer.');
 
         $idxA = $offsetA;
         $idxB = $offsetB;
@@ -1212,9 +1219,9 @@ class PhpMath
         }
 
         if($offsetA+$m*$n*$k>count($A))
-            throw new RuntimeException('Matrix A specification too large for buffer.');
+            throw new InvalidArgumentException('Matrix A specification too large for buffer.');
         if($offsetB+$m*$k>count($B))
-            throw new RuntimeException('Matrix B specification too large for buffer.');
+            throw new InvalidArgumentException('Matrix B specification too large for buffer.');
 
         $idxA = $offsetA;
         $idxB = $offsetB;
@@ -1244,9 +1251,9 @@ class PhpMath
         }
 
         if($offsetA+$m*$n*$k>count($A))
-            throw new RuntimeException('Matrix A specification too large for buffer.');
+            throw new InvalidArgumentException('Matrix A specification too large for buffer.');
         if($offsetB+$m*$k>count($B))
-            throw new RuntimeException('Matrix B specification too large for buffer.');
+            throw new InvalidArgumentException('Matrix B specification too large for buffer.');
 
         $idxA = $offsetA;
         $idxB = $offsetB;
@@ -1265,7 +1272,7 @@ class PhpMath
         Buffer $A, int $offsetA, int $ldA) : void
     {
         if($offsetA+($m-1)*$ldA+($n-1)>=count($A))
-            throw new RuntimeException('Vector specification too large for buffer.');
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
 
         $idA = $offsetA;
         for($i=0;$i<$m;$i++,$idA+=$ldA) {
@@ -2372,7 +2379,7 @@ class PhpMath
         }
 
         if($offsetX+($n-1)*$incX>=count($X))
-            throw new RuntimeException('Vector specification too large for buffer.');
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
 
         $idx = $offsetX;
          for ($i=0; $i<$n; $i++,$idx+=$incX) {
@@ -2394,7 +2401,7 @@ class PhpMath
         }
 
         if($offsetX+($n-1)*$incX>=count($X))
-            throw new RuntimeException('Vector specification too large for buffer.');
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
 
         $idx = $offsetX;
          for ($i=0; $i<$n; $i++,$idx+=$incX) {
@@ -2488,4 +2495,86 @@ class PhpMath
             }
         }
     }
+
+    public function transpose(
+        Buffer $sourceShape,
+        Buffer $perm,
+        Buffer $A, int $offsetA,
+        Buffer $B, int $offsetB, 
+        ) : void
+    {
+        if(count($sourceShape)!=count($perm)) {
+            throw new InvalidArgumentException('unmatch sourceshape and perm');
+        }
+        if(!($A instanceof SplFixedArray)) {
+            if($A->dtype()!=$B->dtype()) {
+                throw new InvalidArgumentException('unmatch sourceshape and perm');
+            }
+        }
+        $strides = new SplFixedArray(count($sourceShape));
+        $targetStrides = new SplFixedArray(count($sourceShape));
+        $stride = 1;
+        $targetStride = 1;
+        $ndim = count($sourceShape);
+        if($ndim<=0) {
+            throw new InvalidArgumentException('Matrix must not be a scalar');
+        }
+        for($dimDepth=$ndim-1;$dimDepth>=0;$dimDepth--) {
+            $strides[$dimDepth] = $stride;
+            $stride *= $sourceShape[$dimDepth];
+            $targDepth = $perm[$dimDepth];
+            if($targDepth>=$ndim) {
+                throw new InvalidArgumentException('dim value in the perm is out of range.');
+            }
+            $targetStrides[$targDepth] = $targetStride;
+            $targetStride *= $sourceShape[$targDepth];
+        }
+        if($stride!=$targetStride) {
+            throw new InvalidArgumentException('duplicate axis in perm option');
+        }
+        if($offsetA+$stride>count($A)) {
+            throw new InvalidArgumentException('Matrix specification too large for bufferA');
+        }
+        if($offsetB+$targetStride>count($B)) {
+            throw new InvalidArgumentException('Matrix specification too large for bufferB');
+        }
+        //echo "strides=".implode(',',$strides->toArray())."\n";
+        //echo "targetStrides=".implode(',',$targetStrides->toArray())."\n";
+        $sourceShape = $this->transBuff2array($sourceShape);
+        $strides = $this->transBuff2array($strides);
+        $targetStrides = $this->transBuff2array($targetStrides);
+        $this->transCopy(
+            $A,$offsetA,$B,$offsetB,
+            $ndim-1,$sourceShape,$strides,$targetStrides
+        );
+    }
+    protected function transBuff2array($buffer)
+    {
+        $size = count($buffer);
+        $array = [];
+        for($i=0;$i<$size;$i++) {
+            $array[] = $buffer[$i];
+        }
+        return $array;
+    }
+
+    protected function transCopy(
+        $A,$offsetA,$B,$offsetB,
+        $ndim,$sourceShape,$strides,$targetStrides)
+    {
+        $repeat = array_shift($sourceShape);
+        $stride = array_shift($strides);
+        $targetStride = array_shift($targetStrides);
+        if($ndim<=0) {
+            $this->math_copy($repeat,$A,$offsetA,$stride,$B,$offsetB,$targetStride);
+            return;
+        }
+
+        for($pos=0; $pos<$repeat; $pos++) {
+            $this->transCopy(
+                $A,$offsetA+$stride*$pos,$B,$offsetB+$targetStride*$pos,
+                $ndim-1,$sourceShape,$strides,$targetStrides);
+        }
+    }
+
 }

@@ -460,30 +460,35 @@ class MatrixOperator
 
     public function transpose(NDArray $X) : NDArray
     {
-        $shape = $X->shape();
-        $newShape = array_reverse($shape);
-        $Y = $this->alloc(null, $X->dtype(), $newShape);
-        $w = 1;
-        $posY = 0;
-        $posX = 0;
-        $this->_transpose($newShape, $w, $X->buffer(), $X->offset(), $posX, $Y->buffer(), $posY);
-        return $Y;
+        return $this->la()->transpose($X);
     }
 
-    protected function _transpose($shape, $w, $bufX, $offX, $posX, $bufY, &$posY)
-    {
-        $n=array_shift($shape);
-        $W = $w*$n;
-        $deps = count($shape);
-        for($i=0;$i<$n;$i++) {
-            if($deps) {
-                $this->_transpose($shape, $W, $bufX, $offX, $posX+$w*$i, $bufY, $posY);
-            } else {
-                $bufY[$posY] = $bufX[$offX + $posX+$w*$i];
-                $posY++;
-            }
-        }
-    }
+    //public function transpose(NDArray $X) : NDArray
+    //{
+    //    $shape = $X->shape();
+    //    $newShape = array_reverse($shape);
+    //    $Y = $this->alloc(null, $X->dtype(), $newShape);
+    //    $w = 1;
+    //    $posY = 0;
+    //    $posX = 0;
+    //    $this->_transpose($newShape, $w, $X->buffer(), $X->offset(), $posX, $Y->buffer(), $posY);
+    //    return $Y;
+    //}
+//
+    //protected function _transpose($shape, $w, $bufX, $offX, $posX, $bufY, &$posY)
+    //{
+    //    $n=array_shift($shape);
+    //    $W = $w*$n;
+    //    $deps = count($shape);
+    //    for($i=0;$i<$n;$i++) {
+    //        if($deps) {
+    //            $this->_transpose($shape, $W, $bufX, $offX, $posX+$w*$i, $bufY, $posY);
+    //        } else {
+    //            $bufY[$posY] = $bufX[$offX + $posX+$w*$i];
+    //            $posY++;
+    //        }
+    //    }
+    //}
 
     public function dot(NDArray $A, NDArray $B)
     {

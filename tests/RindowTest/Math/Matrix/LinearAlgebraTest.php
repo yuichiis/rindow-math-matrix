@@ -4670,19 +4670,22 @@ class Test extends TestCase
         if($la->accelerated()) {
             $devType = $math->getContext()->getInfo(OpenCL::CL_CONTEXT_DEVICES)->getInfo(0,OpenCL::CL_DEVICE_TYPE);
             $clVersion = $la->getCLVersion();
+            $devName = $math->getContext()->getInfo(OpenCL::CL_CONTEXT_DEVICES)->getInfo(0,OpenCL::CL_DEVICE_NAME);
         } else {
             $devType = OpenCL::CL_DEVICE_TYPE_CPU;
             $clVersion = null;
+            $devName = "CPU";
         }
         #### float to unsigned ######
         $X = $la->array([-1,0,1,2,3],NDArray::float32);
         $dtype = NDArray::uint8;
         $Y = $math->astype($X, $dtype);
         if($devType===OpenCL::CL_DEVICE_TYPE_GPU) {
+            echo $devName."\n";
             if(strpos($clVersion,'OpenCL 1.1 Mesa')===false) {
-                $this->assertEquals([255,0,1,2,3],$Y->toArray());
+                $this->assertEquals([255,0,1,2,3],$Y->toArray());// Windows CL1.2
             } else {
-                $this->assertEquals([0,0,1,2,3],$Y->toArray());
+                $this->assertEquals([0,0,1,2,3],$Y->toArray()); // linux CL1.1Mesa 
             }
         } else {
             $this->assertEquals([255,0,1,2,3],$Y->toArray());
@@ -8360,6 +8363,8 @@ class Test extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
+
+        // 2D
         $a = $la->array([
             [0,1,2],
             [3,4,5],
@@ -8370,6 +8375,71 @@ class Test extends TestCase
             [1,4],
             [2,5]
         ],$b->toArray());
+
+        // 1D
+        $a = $mo->array([1,2,3,4,5,6],NDArray::float32);
+        $b = $la->transpose($a);
+        $this->assertEquals(
+            [1,2,3,4,5,6],
+            $b->toArray()
+        );
+        $this->assertEquals([6],$a->shape());
+        $this->assertEquals([6],$b->shape());
+
+        // 3D
+        $a = $mo->array(
+            [[[ 0,  1,  2],
+              [ 3,  4,  5]],
+             [[ 6,  7,  8],
+              [ 9, 10, 11]],
+             [[12, 13, 14],
+              [15, 16, 17]],
+             [[18, 19, 20],
+              [21, 22, 23]]],
+        NDArray::float32);
+        $b = $la->transpose($a);
+        $this->assertEquals(
+            [[[ 0,  6, 12, 18],
+              [ 3,  9, 15, 21]],
+             [[ 1,  7, 13, 19],
+              [ 4, 10, 16, 22]],
+             [[ 2,  8, 14, 20],
+              [ 5, 11, 17, 23]]],
+            $b->toArray()
+        );
+        $this->assertEquals([4,2,3],$a->shape());
+        $this->assertEquals([3,2,4],$b->shape());
+
+        // with perm
+        $a = $mo->array(
+            [[[ 0,  1,  2],
+              [ 3,  4,  5]],
+             [[ 6,  7,  8],
+              [ 9, 10, 11]],
+             [[12, 13, 14],
+              [15, 16, 17]],
+             [[18, 19, 20],
+              [21, 22, 23]]],
+        NDArray::float32);
+        $b = $la->transpose(
+            $a,$perm=[2,0,1],
+        );
+        $this->assertEquals(
+            [[[ 0,  3],
+              [ 6,  9],
+              [12, 15],
+              [18, 21]],
+             [[ 1,  4],
+              [ 7, 10],
+              [13, 16],
+              [19, 22]],
+             [[ 2,  5],
+              [ 8, 11],
+              [14, 17],
+              [20, 23]]],
+            $b->toArray()
+        );
+
     }
 
     public function testImagecopy()

@@ -5860,4 +5860,55 @@ class OpenCLMath
             $events,$waitEvents);
     }
 
+    public function transpose(
+        Buffer $sourceShape,
+        Buffer $perm,
+        Buffer $A, int $offsetA,
+        Buffer $B, int $offsetB, 
+        ) : void
+    {
+        if(!is_scalar($pattern)) {
+            throw new InvalidArgumentException('Pattern must be scalar type.');
+        }
+        $dtype = $X->dtype();
+        if($dtype==NDArray::float64) {
+            $this->assertFP64();
+        }
+        $isInt = array_key_exists($dtype,$this->intTypes);
+        $type = $this->dtypeToOpenCLType[$dtype];
+        if(is_bool($pattern)) {
+            $pattern = ($pattern)?1:0;
+        }
+        if($dtype==NDArray::bool) {
+            $dtype = NDArray::uint8;
+        } elseif($isInt) {
+            $pattern = (int)$pattern;
+        } else {
+            $pattern = (float)$pattern;
+        }
+        $kernel_name = "fill_{$type}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+            "__kernel void {$kernel_name}(\n".
+            "                    __global {$type} * x,\n".
+            "                      const uint offsetX,\n".
+            "                      const uint incX,\n".
+            "                      const {$type} pattern)\n".
+            "{\n".
+            "   uint gid = get_global_id(0);\n".
+            "   x[offsetX+gid*incX] = pattern;\n".
+            "}\n";
+        }
+
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$X);
+        $kernel->setArg(1,$offsetX,NDArray::uint32);
+        $kernel->setArg(2,$incX,NDArray::uint32);
+        $kernel->setArg(3,$pattern,$dtype);
+        $global_work_size = [$n];
+        $local_work_size=null;
+        #$local_work_size = [1,1,$size];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
+            $events,$waitEvents);
+    }
 }
