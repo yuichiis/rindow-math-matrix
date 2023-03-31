@@ -220,6 +220,12 @@ class LinearAlgebraCL
         return in_array($value,$this->intTypes);
     }
 
+    public function isFloat(NDArray $value)
+    {
+        $dtype = $value->dtype();
+        return $dtype==NDarray::float32||$dtype==NDarray::float64;
+    }
+
     public function array($array, $flags=null)
     {
         if($this->profiling) {
@@ -4727,7 +4733,7 @@ class LinearAlgebraCL
             $repeats,
             $AA,$offA,
             $BB,$offB,
-            $events=null,$waitEvents=null
+            $events,$waitEvents
         );
         if($this->blocking) {
             $this->finish();
@@ -4748,7 +4754,7 @@ class LinearAlgebraCL
         if($A->ndim()<1) {
             throw new InvalidArgumentException('input array must be grator than or equal 1D.');
         }
-        if($A->ndim()==2) {
+        if($A->ndim()==2 && $this->isFloat($A)) {
             if($perm) {
                 if(count($perm)!=2) {
                     throw new InvalidArgumentException('unmatch sourceshape and perm');
@@ -4765,15 +4771,19 @@ class LinearAlgebraCL
             }
             return $this->transpose2D($A,$B,$events);
         }
-        return $this->transposeND($A,$perm,$B);
+        return $this->transposeND($A,$perm,$B,$events);
     }
 
     protected function transposeND(
         NDArray $A,
         array|NDArray $perm=null,
         NDArray $B=null,
+        $events=null,$waitEvents=null
         ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("transposeND");
+        }
         if($perm===null) {
             $perm = range($A->ndim()-1,0,-1);
             $perm = new NDArrayPhp($perm,NDArray::int32);
@@ -4805,24 +4815,34 @@ class LinearAlgebraCL
             }
         }
 
-        $AA = $this->toNDArray($A)->buffer();
-        $BB = $this->newHostBuffer($B->size(),$B->dtype());
+        //$AA = $this->toNDArray($A)->buffer();
+        //$BB = $this->newHostBuffer($B->size(),$B->dtype());
+        $AA = $A->buffer();
+        $BB = $B->buffer();
         $offsetA = $A->offset();
-        $offsetB = 0;
+        //$offsetB = 0;
+        $offsetB = $B->offset();
         $sourceShape = (new NDArrayPhp($shapeA,NDArray::int32))->buffer();
         $permBuf = $perm->buffer();
-        $this->openblasmath->transpose(
+        $this->openclmath->transpose(
             $sourceShape,
             $permBuf,
             $AA, $offsetA,
             $BB, $offsetB, 
+            $events,$waitEvents
         );
-        $B->buffer()->write(
-            $this->queue,
-            $BB,                            // host buffer
-            $BB->value_size()*$B->size(),   // bytes
-            $BB->value_size()*$B->offset(), // offset bytes
-        );
+        //$B->buffer()->write(
+        //    $this->queue,
+        //    $BB,                            // host buffer
+        //    $BB->value_size()*$B->size(),   // bytes
+        //    $BB->value_size()*$B->offset(), // offset bytes
+        //);
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("transposeND");
+        }
         return $B;
     }
 
@@ -4833,7 +4853,7 @@ class LinearAlgebraCL
         )
     {
         if($this->profiling) {
-            $this->profilingStart("transpose");
+            $this->profilingStart("transpose2D");
         }
         if($A->ndim()!=2) {
             throw new InvalidArgumentException('input array must be 2D.');
@@ -4870,7 +4890,7 @@ class LinearAlgebraCL
             $this->finish();
         }
         if($this->profiling) {
-            $this->profilingEnd("transpose");
+            $this->profilingEnd("transpose2D");
         }
         return $B;
     }

@@ -8367,7 +8367,17 @@ class Test extends TestCase
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
 
-        // 2D
+        // 1D
+        $a = $la->array([1,2,3,4,5,6],NDArray::float32);
+        $b = $la->transpose($a);
+        $this->assertEquals(
+            [1,2,3,4,5,6],
+            $b->toArray()
+        );
+        $this->assertEquals([6],$a->shape());
+        $this->assertEquals([6],$b->shape());
+
+        // 2D float
         $a = $la->array([
             [0,1,2],
             [3,4,5],
@@ -8379,18 +8389,20 @@ class Test extends TestCase
             [2,5]
         ],$b->toArray());
 
-        // 1D
-        $a = $mo->array([1,2,3,4,5,6],NDArray::float32);
+        // 2D int
+        $a = $la->array([
+            [0,1,2],
+            [3,4,5],
+        ],NDArray::int32);
         $b = $la->transpose($a);
-        $this->assertEquals(
-            [1,2,3,4,5,6],
-            $b->toArray()
-        );
-        $this->assertEquals([6],$a->shape());
-        $this->assertEquals([6],$b->shape());
+        $this->assertEquals([
+            [0,3],
+            [1,4],
+            [2,5]
+        ],$b->toArray());
 
         // 3D
-        $a = $mo->array(
+        $a = $la->array(
             [[[ 0,  1,  2],
               [ 3,  4,  5]],
              [[ 6,  7,  8],
@@ -8413,8 +8425,80 @@ class Test extends TestCase
         $this->assertEquals([4,2,3],$a->shape());
         $this->assertEquals([3,2,4],$b->shape());
 
+        // 4D
+        $a = $la->array(
+        [[[[ 0,  1],
+         [ 2,  3],
+         [ 4,  5]],
+
+        [[ 6,  7],
+         [ 8,  9],
+         [10, 11]],
+
+        [[12, 13],
+         [14, 15],
+         [16, 17]],
+
+        [[18, 19],
+         [20, 21],
+         [22, 23]]],
+
+
+       [[[24, 25],
+         [26, 27],
+         [28, 29]],
+
+        [[30, 31],
+         [32, 33],
+         [34, 35]],
+
+        [[36, 37],
+         [38, 39],
+         [40, 41]],
+
+        [[42, 43],
+         [44, 45],
+         [46, 47]]]],
+        NDArray::float32);
+        $b = $la->transpose($a);
+        $this->assertEquals(
+            [[[[ 0, 24],
+         [ 6, 30],
+         [12, 36],
+         [18, 42]],
+
+        [[ 2, 26],
+         [ 8, 32],
+         [14, 38],
+         [20, 44]],
+
+        [[ 4, 28],
+         [10, 34],
+         [16, 40],
+         [22, 46]]],
+
+
+       [[[ 1, 25],
+         [ 7, 31],
+         [13, 37],
+         [19, 43]],
+
+        [[ 3, 27],
+         [ 9, 33],
+         [15, 39],
+         [21, 45]],
+
+        [[ 5, 29],
+         [11, 35],
+         [17, 41],
+         [23, 47]]]],
+            $b->toArray()
+        );
+        $this->assertEquals([2,4,3,2],$a->shape());
+        $this->assertEquals([2,3,4,2],$b->shape());
+
         // with perm
-        $a = $mo->array(
+        $a = $la->array(
             [[[ 0,  1,  2],
               [ 3,  4,  5]],
              [[ 6,  7,  8],

@@ -2503,6 +2503,15 @@ class PhpMath
         Buffer $B, int $offsetB, 
         ) : void
     {
+        if($this->math) {
+            $this->math->transpose(
+                $sourceShape,
+                $perm,
+                $A, $offsetA,
+                $B, $offsetB, 
+            );
+            return;
+        }
         if(count($sourceShape)!=count($perm)) {
             throw new InvalidArgumentException('unmatch sourceshape and perm');
         }
@@ -2543,9 +2552,13 @@ class PhpMath
         $sourceShape = $this->transBuff2array($sourceShape);
         $strides = $this->transBuff2array($strides);
         $targetStrides = $this->transBuff2array($targetStrides);
-        $this->transCopy(
+        //$this->transCopy(
+        //    $A,$offsetA,$B,$offsetB,
+        //    $ndim-1,$sourceShape,$strides,$targetStrides
+        //);
+        $this->transCopy2(
             $A,$offsetA,$B,$offsetB,
-            $ndim-1,$sourceShape,$strides,$targetStrides
+            $ndim,$sourceShape,$strides,$targetStrides
         );
     }
     protected function transBuff2array($buffer)
@@ -2558,6 +2571,9 @@ class PhpMath
         return $array;
     }
 
+    ///////
+    // matrixlib simulation version
+    ///////
     protected function transCopy(
         $A,$offsetA,$B,$offsetB,
         $ndim,$sourceShape,$strides,$targetStrides)
@@ -2577,4 +2593,119 @@ class PhpMath
         }
     }
 
+    ///////
+    // opencl simulation version
+    ///////
+    protected function transCopy2(
+        $A,$offsetA,$B,$offsetB,
+        $ndim,$sourceShape,$strides,$targetStrides)
+    {
+        $n = $sourceShape[0];
+        $stackPos = new SplFixedArray(count($sourceShape));
+        $stackOfsA = new SplFixedArray(count($sourceShape));
+        $stackOfsB = new SplFixedArray(count($sourceShape));
+        for($gid=0;$gid<$n;$gid++) {
+            $this->transCopy2_kernel(
+                $surface=1,
+                $gid,
+                $A,$offsetA,$B,$offsetB,
+                $stackPos,$stackOfsA,$stackOfsB,
+                $ndim,$sourceShape,$strides,$targetStrides);
+        }
+        //$this->transCopy2_kernel(
+        //    $surface=0,
+        //    $gid=0,
+        //    $A,$offsetA,$B,$offsetB,
+        //    $stackPos,$stackOfsA,$stackOfsB,
+        //    $ndim,$sourceShape,$strides,$targetStrides);
+    }
+
+    protected function debug($debug,$message)
+    {
+        if($debug) {
+            echo $message;
+        }
+    }
+
+    protected function transCopy2_kernel(
+        $surface,
+        $gid,
+        $A,$offsetA,$B,$offsetB,
+        $stackPos,$stackOfsA,$stackOfsB,
+        $ndim,$sourceShape,$strides,$targetStrides)
+    {
+        $debug = false;
+        $bed = 2; // 1: copy each value, 2: use math_copy
+        $depth = $surface;
+        $pos = 0;
+        $offsetA += $strides[0]*$gid;
+        $offsetB += $targetStrides[0]*$gid;
+        $this->debug($debug,"start kernel php($gid)\n");
+        if($depth>=$ndim) {
+            $B[$offsetB] = $A[$offsetA];
+            return;
+        }
+
+        while($depth>=$surface) {
+            $this->debug($debug,"top($gid):  dep=$depth,pos=$pos,rep=".$sourceShape[$depth].",ofsA=$offsetA,ofsB=$offsetB,st=".$strides[$depth].",ta=".$targetStrides[$depth]."\n");
+        
+            while($depth<$ndim-$bed) {
+                $this->debug($debug,"push($gid): dep=$depth,pos=$pos,rep=".$sourceShape[$depth].",ofsA=$offsetA,ofsB=$offsetB,st=".$strides[$depth].",ta=".$targetStrides[$depth]."\n");
+                $stackPos[$depth] = $pos;
+                $stackOfsA[$depth] = $offsetA;
+                $stackOfsB[$depth] = $offsetB;
+                $pos=0;
+                $depth++;
+                $this->debug($debug,"psh2($gid): dep=$depth,pos=$pos,rep=".$sourceShape[$depth].",ofsA=$offsetA,ofsB=$offsetB,st=".$strides[$depth].",ta=".$targetStrides[$depth]."\n");
+            }
+        
+            if($depth>=$ndim-$bed) {
+                $dp = false;
+                if($ndim>2) {
+                    $depth++;
+                    $dp = true;
+                }
+                if($bed>1) {
+                    $this->debug($debug,"copy($gid): dep=$depth,      n=  ".$sourceShape[$depth].",ofsA=$offsetA,ofsB=$offsetB,st=".$strides[$depth].",ta=".$targetStrides[$depth]."\n");
+                    $this->math_copy(
+                        $sourceShape[$depth], // n
+                        $A, $offsetA, $strides[$depth],
+                        $B, $offsetB, $targetStrides[$depth],
+                    );
+                } else {
+                    $this->debug($debug,"($offsetA,$offsetB),\n");
+                    $B[$offsetB] = $A[$offsetA];
+                }
+                if($dp) {
+                    $depth--;
+                }
+            }
+        
+            while(true) {
+                if($depth<=$ndim-$bed) {
+                    $offsetA += $strides[$depth];
+                    $offsetB += $targetStrides[$depth];
+                    $pos++;
+                    $this->debug($debug,"incr($gid): dep=$depth,pos=$pos,rep=".$sourceShape[$depth].",ofsA=$offsetA,ofsB=$offsetB,st=".$strides[$depth].",ta=".$targetStrides[$depth]."\n");
+                    if($pos<$sourceShape[$depth]) {
+                        break;
+                    }
+                }
+                $depth--;
+                if($depth<$surface) {
+                    $this->debug($debug,"dep($gid)=$depth\n");
+                    break;
+                }
+                $pos = $stackPos[$depth];
+                $offsetA = $stackOfsA[$depth];
+                $offsetB = $stackOfsB[$depth];
+                $this->debug($debug,"pop($gid):  dep=$depth,pos=$pos,rep=".$sourceShape[$depth].",ofsA=$offsetA,ofsB=$offsetB,st=".$strides[$depth].",ta=".$targetStrides[$depth]."\n");
+            }
+        
+            //if($debug) {
+            //    echo "pause>";
+            //    fgets(STDIN);
+            //}
+        }
+    }
 }

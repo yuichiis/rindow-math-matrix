@@ -86,6 +86,12 @@ class LinearAlgebra
         return in_array($value->dtype(),$this->intTypes);
     }
 
+    public function isFloat(NDArray $value)
+    {
+        $dtype = $value->dtype();
+        return $dtype==NDarray::float32||$dtype==NDarray::float64;
+    }
+
     public function array($array,$dtype=null) : NDArray
     {
         if($array instanceof NDArray) {
@@ -3209,7 +3215,7 @@ class LinearAlgebra
         if($A->ndim()<1) {
             throw new InvalidArgumentException('input array must be grator than or equal 1D.');
         }
-        if($A->ndim()==2) {
+        if($A->ndim()==2 && $this->isFloat($A)) {
             if($perm) {
                 if(count($perm)!=2) {
                     throw new InvalidArgumentException('unmatch sourceshape and perm');
@@ -3239,7 +3245,7 @@ class LinearAlgebra
             $perm = range($A->ndim()-1,0,-1);
             $perm = $this->array($perm,NDArray::int32);
         }
-        $perm = $this->array($perm);
+        $perm = $this->array($perm,NDArray::int32);
         $shapeA = $A->shape();
         if(count($shapeA)!=count($perm)) {
             throw new InvalidArgumentException('unmatch sourceshape and perm');

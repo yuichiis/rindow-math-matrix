@@ -8,6 +8,7 @@ use LogicException;
 use Interop\Polite\Math\Matrix\NDArray;
 use Interop\Polite\Math\Matrix\OpenCL;
 use Interop\Polite\Math\Matrix\LinearBuffer;
+use Interop\Polite\Math\Matrix\Buffer as AnyBuffer;
 use Rindow\OpenCL\Program;
 use Rindow\OpenCL\Kernel;
 use Rindow\OpenCL\EventList;
@@ -5860,54 +5861,234 @@ class OpenCLMath
             $events,$waitEvents);
     }
 
+    protected function toHostBuffer(
+        Buffer $clBuffer,
+        int $offset,
+        bool $blocking_read=true,EventList $waitEvents=null,
+        EventList &$events=null) : NDArray
+    {
+        $dtype = $clBuffer->dtype();
+        $bytes = $clBuffer->bytes();
+        $valueSize = $clBuffer->value_size();
+        $size = $clBuffer->count();
+        $hostBuffer = new OpenBlasBuffer($size,$dtype);
+        $event = $clBuffer->read($this->queue,$hostBuffer,$bytes,
+            $offset*$valueSize,$hostoffset=0,$blocking_read,$waitEvents);
+        $events = $event;
+        return $hostBuffer;
+    }
+
     public function transpose(
-        Buffer $sourceShape,
-        Buffer $perm,
+        AnyBuffer $shape,
+        AnyBuffer $perm,
         Buffer $A, int $offsetA,
         Buffer $B, int $offsetB, 
+        EventList $events=null, EventList $waitEvents=null
         ) : void
     {
-        if(!is_scalar($pattern)) {
-            throw new InvalidArgumentException('Pattern must be scalar type.');
-        }
-        $dtype = $X->dtype();
+        $dtype = $A->dtype();
         if($dtype==NDArray::float64) {
             $this->assertFP64();
         }
         $isInt = array_key_exists($dtype,$this->intTypes);
         $type = $this->dtypeToOpenCLType[$dtype];
-        if(is_bool($pattern)) {
-            $pattern = ($pattern)?1:0;
+        $ndim = count($shape);
+
+        // check shape
+        if($shape->dtype()!=NDArray::int32) {
+            throw new InvalidArgumentException('data type of shape buffer must be int32.');
         }
+        $orgShape = $shape;
+        if(!($shape instanceof OpenBlasBuffer)) {
+            $shape = $this->toHostBuffer($shape);
+        }
+        $size = 1;
+        for($i=0;$i<$ndim;$i++) {
+            $size *= $shape[$i];
+        }
+        
+        // check shape
+        if($ndim!=count($perm)) {
+            throw new InvalidArgumentException('matrix shape and perm must be same size.');
+        }
+        if($perm->dtype()!=NDArray::int32) {
+            throw new InvalidArgumentException('data type of perm buffer must be int32.');
+        }
+        $orgPerm = $perm;
+        if(!($perm instanceof OpenBlasBuffer)) {
+            $perm = $this->toHostBuffer($perm);
+        }
+
+        if($dtype!=$B->dtype()) {
+            throw new InvalidArgumentException("Unmatch data type for A and B.".
+            $this->dtypeToString($dtype).",".$this->dtypeToString($cols->dtype()));
+        }
+
+        $strides = $this->newHostBuffer($ndim,NDArray::int32);
+        $targetStrides = $this->newHostBuffer($ndim,NDArray::int32);
+        $stride = 1;
+        $targetStride = 1;
+        for($dimDepth=$ndim-1;$dimDepth>=0;$dimDepth--) {
+            $strides[$dimDepth] = $stride;
+            $stride *= $shape[$dimDepth];
+            $targDepth = $perm[$dimDepth];
+            if($targDepth>=$ndim) {
+                throw new InvalidArgumentException('perm contained an out-of-bounds axis.');
+            }
+            $targetStrides[$targDepth] = $targetStride;
+            $targetStride *= $shape[$targDepth];
+        }
+        if($stride!=$targetStride) {
+            throw new InvalidArgumentException('Perm contained duplicate axis.');
+        }
+    
         if($dtype==NDArray::bool) {
             $dtype = NDArray::uint8;
-        } elseif($isInt) {
-            $pattern = (int)$pattern;
-        } else {
-            $pattern = (float)$pattern;
         }
-        $kernel_name = "fill_{$type}";
+
+        $repeat = $shape[0];
+        $stride = $strides[0];
+        $targetStride = $targetStrides[0];
+
+        $shape = $orgShape;
+        if(!($shape instanceof OpenCLBuffer)) {
+            $valueSize = $shape->value_size();
+            $shape = $this->newBuffer(
+                count($shape)*$valueSize,
+                OpenCL::CL_MEM_READ_ONLY|OpenCL::CL_MEM_COPY_HOST_PTR,
+                $shape, 0,
+                $shape->dtype());
+        }
+
+        $valueSize = $strides->value_size();
+        $strides = $this->newBuffer(
+            $strides->count()*$valueSize,
+            OpenCL::CL_MEM_READ_ONLY|OpenCL::CL_MEM_COPY_HOST_PTR,
+            $strides, 0,
+            $strides->dtype()
+        );
+        $valueSize = $strides->value_size();
+        $targetStrides = $this->newBuffer(
+            $targetStrides->count()*$valueSize,
+            OpenCL::CL_MEM_READ_ONLY|OpenCL::CL_MEM_COPY_HOST_PTR,
+            $targetStrides, 0,
+            $targetStrides->dtype()
+        );
+
+        $kernel_name = "transpose_{$type}";
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
-            "__kernel void {$kernel_name}(\n".
-            "                    __global {$type} * x,\n".
-            "                      const uint offsetX,\n".
-            "                      const uint incX,\n".
-            "                      const {$type} pattern)\n".
+            "void {$kernel_name}_copy(\n".
+            "                      const  int n,\n".
+            "                    __global {$type} * a,\n".
+            "                             int offsetA,\n".
+            "                      const  int incA,\n".
+            "                    __global {$type} * b,\n".
+            "                             int offsetB,\n".
+            "                      const  int incB)\n".
             "{\n".
-            "   uint gid = get_global_id(0);\n".
-            "   x[offsetX+gid*incX] = pattern;\n".
+            "    for(int i=0;i<n;i++,offsetA+=incA,offsetB+=incB) {\n".
+            "        b[offsetB] = a[offsetA];\n".
+            "    }\n".
+            "}\n".
+            "__kernel void {$kernel_name}(\n".
+            "                      const  int ndim,\n".
+            "                    __global int * shape,\n".
+            "                    __global int * strides,\n".
+            "                    __global int * targetStrides,\n".
+            "                    __global {$type} * a,\n".
+            "                             int offsetA,\n".
+            "                    __global {$type} * b,\n".
+            "                             int offsetB,\n".
+            "                    __local {$type} * stackPos,\n".
+            "                    __local {$type} * stackOfsA,\n".
+            "                    __local {$type} * stackOfsB)\n".
+            "{\n".
+            //"   const int dbg = -1;"."\n".
+            "   const int gid = get_global_id(0);\n".
+            "   const int surface = 1;\n".
+            "   const int bed = 2;\n".
+            "   int depth = surface;\n".
+            "   int pos = 0;\n".
+            //'   if(gid==dbg) printf("start kernel(%d)\n",gid);'."\n".
+            "   offsetA = offsetA+strides[0]*gid;\n".
+            "   offsetB = offsetB+targetStrides[0]*gid;\n".
+            "   if(depth>=ndim) {\n".
+            "       b[offsetB] = a[offsetA];\n".
+            "       return;\n".
+            "   }\n".
+            "   while(depth>=surface) {\n".
+            //'       if(gid==dbg) printf("top(%d):  dep=%d,pos=%d,rep=%d,ofsA=%d,ofsB=%d,st=%d,ta=%d\n",'."\n".
+            //'           gid,depth,pos,shape[depth],offsetA,offsetB,strides[depth],targetStrides[depth]);'."\n".
+            "       while(depth<ndim-bed) {\n".
+            //'           if(gid==dbg) printf("push(%d): dep=%d,pos=%d,rep=%d,ofsA=%d,ofsB=%d,st=%d,ta=%d\n",'."\n".
+            //'               gid,depth,pos,shape[depth],offsetA,offsetB,strides[depth],targetStrides[depth]);'."\n".
+            "           stackPos[depth] = pos;\n".
+            "           stackOfsA[depth] = offsetA;\n".
+            "           stackOfsB[depth] = offsetB;\n".
+            "           pos = 0;\n".
+            "           depth++;\n".
+            //'           if(gid==dbg) printf("psh2(%d): dep=%d,pos=%d,rep=%d,ofsA=%d,ofsB=%d,st=%d,ta=%d\n",'."\n".
+            //'               gid,depth,pos,shape[depth],offsetA,offsetB,strides[depth],targetStrides[depth]);'."\n".
+            "       }\n".
+            "       if(depth>=ndim-bed) {\n".
+            "           int dp=0;\n".
+            "           if(ndim>2) {\n".
+            "               depth++;\n".
+            "               dp=1;\n".
+            "           }\n".
+            //'           if(gid==dbg) printf("copy(%d): dep=%d,      n=  %d,ofsA=%d,ofsB=%d,st=%d,ta=%d\n",'."\n".
+            //'               gid,depth,shape[depth],offsetA,offsetB,strides[depth],targetStrides[depth]);'."\n".
+            "           {$kernel_name}_copy(\n".
+            "               shape[depth],\n".
+            "               a,offsetA,strides[depth],\n".
+            "               b,offsetB,targetStrides[depth]\n".
+            "           );\n".
+            "           if(dp!=0) {\n".
+            "               depth--;\n".
+            "           }\n".
+            "       }\n".
+            "       while(true) {\n".
+            "           if(depth<=ndim-bed) {\n".
+            "               offsetA += strides[depth];\n".
+            "               offsetB += targetStrides[depth];\n".
+            "               pos++;\n".
+            //'               if(gid==dbg) printf("incr(%d): dep=%d,pos=%d,rep=%d,ofsA=%d,ofsB=%d,st=%d,ta=%d\n",'."\n".
+            //'                   gid,depth,pos,shape[depth],offsetA,offsetB,strides[depth],targetStrides[depth]);'."\n".
+            "               if(pos<shape[depth]) {\n".
+            "                   break;\n".
+            "               }\n".
+            "           }\n".
+            "           depth--;\n".
+            "           if(depth<surface) {\n".
+            //'               if(gid==dbg) printf("dep(%d)=%d\n",gid,depth);'."\n".
+            "               break;\n".
+            "           }\n".
+            "           pos = stackPos[depth];\n".
+            "           offsetA = stackOfsA[depth];\n".
+            "           offsetB = stackOfsB[depth];\n".
+            //'           if(gid==dbg) printf("pop(%d):  dep=%d,pos=%d,rep=%d,ofsA=%d,ofsB=%d,st=%d,ta=%d\n",'."\n".
+            //'               gid,depth,pos,shape[depth],offsetA,offsetB,strides[depth],targetStrides[depth]);'."\n".
+            "       }\n".
+            "   }\n".
             "}\n";
         }
 
+        $intSize = $strides->value_size();
         $kernel = $this->createKernel($kernel_name);
-        $kernel->setArg(0,$X);
-        $kernel->setArg(1,$offsetX,NDArray::uint32);
-        $kernel->setArg(2,$incX,NDArray::uint32);
-        $kernel->setArg(3,$pattern,$dtype);
-        $global_work_size = [$n];
-        $local_work_size=null;
-        #$local_work_size = [1,1,$size];
+        $kernel->setArg(0,$ndim,NDArray::int32);
+        $kernel->setArg(1,$shape);
+        $kernel->setArg(2,$strides);
+        $kernel->setArg(3,$targetStrides);
+        $kernel->setArg(4,$A);
+        $kernel->setArg(5,$offsetA,NDArray::int32);
+        $kernel->setArg(6,$B);
+        $kernel->setArg(7,$offsetB,NDArray::int32);
+        $kernel->setArg(8,null,$ndim*$intSize);
+        $kernel->setArg(9,null,$ndim*$intSize);
+        $kernel->setArg(10,null,$ndim*$intSize);
+        $global_work_size = [$repeat];
+        $local_work_size = [1];
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
             $events,$waitEvents);
     }

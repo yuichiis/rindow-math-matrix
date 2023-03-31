@@ -458,9 +458,12 @@ class MatrixOperator
         return $C;
     }
 
-    public function transpose(NDArray $X) : NDArray
+    public function transpose(
+        NDArray $X,
+        array|NDArray $perm=null,
+        ) : NDArray
     {
-        return $this->la()->transpose($X);
+        return $this->la()->transpose($X,perm:$perm);
     }
 
     //public function transpose(NDArray $X) : NDArray
