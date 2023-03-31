@@ -8425,7 +8425,7 @@ class Test extends TestCase
         $this->assertEquals([4,2,3],$a->shape());
         $this->assertEquals([3,2,4],$b->shape());
 
-        // 4D
+        // 4D  use full spec of algorism
         $a = $la->array(
         [[[[ 0,  1],
          [ 2,  3],
@@ -8526,6 +8526,8 @@ class Test extends TestCase
               [20, 23]]],
             $b->toArray()
         );
+        $this->assertEquals([4,2,3],$a->shape());
+        $this->assertEquals([3,4,2],$b->shape());
 
     }
 
