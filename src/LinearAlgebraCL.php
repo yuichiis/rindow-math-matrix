@@ -3248,6 +3248,7 @@ class LinearAlgebraCL
     public function reduceSum(//reduceSumEx
         NDArray $A,
         int $axis=null,
+        bool $keepdims=null,
         NDArray $B=null,
         $dtype=null,
         $events=null,$waitEvents=null
@@ -3271,7 +3272,11 @@ class LinearAlgebraCL
         $n = array_shift($postfixShape);
         $m = array_product($prefixShape);
         $k = array_product($postfixShape);
-        $outputShape = array_merge($prefixShape,$postfixShape);
+        if($keepdims) {
+            $outputShape = array_merge($prefixShape,[1],$postfixShape);
+        } else {
+            $outputShape = array_merge($prefixShape,$postfixShape);
+        }
         if($dtype===null) {
             $dtype = $A->dtype();
         }
@@ -3312,6 +3317,7 @@ class LinearAlgebraCL
     public function reduceMax(//reduceMaxEx
         NDArray $A,
         int $axis=null,
+        bool $keepdims=null,
         NDArray $B=null,
         $dtype=null,
         $events=null,$waitEvents=null
@@ -3335,7 +3341,11 @@ class LinearAlgebraCL
         $n = array_shift($postfixShape);
         $m = array_product($prefixShape);
         $k = array_product($postfixShape);
-        $outputShape = array_merge($prefixShape,$postfixShape);
+        if($keepdims) {
+            $outputShape = array_merge($prefixShape,[1],$postfixShape);
+        } else {
+            $outputShape = array_merge($prefixShape,$postfixShape);
+        }
         if($dtype===null) {
             $dtype = $A->dtype();
         }
@@ -3376,6 +3386,7 @@ class LinearAlgebraCL
     public function reduceArgMax(//reduceArgMaxEx
         NDArray $A,
         int $axis=null,
+        bool $keepdims=null,
         NDArray $B=null,
         $dtypeB=null,
         $events=null,$waitEvents=null
@@ -3399,7 +3410,11 @@ class LinearAlgebraCL
         $n = array_shift($postfixShape);
         $m = array_product($prefixShape);
         $k = array_product($postfixShape);
-        $outputShape = array_merge($prefixShape,$postfixShape);
+        if($keepdims) {
+            $outputShape = array_merge($prefixShape,[1],$postfixShape);
+        } else {
+            $outputShape = array_merge($prefixShape,$postfixShape);
+        }
         if($dtypeB===null) {
             $dtypeB = NDArray::uint32;
         }
@@ -3440,6 +3455,7 @@ class LinearAlgebraCL
     public function reduceMean(
         NDArray $A,
         int $axis,
+        bool $keepdims=null,
         NDArray $X=null,
         $dtypeX=null,
         $events=null,$waitEvents=null
@@ -3448,8 +3464,8 @@ class LinearAlgebraCL
         $waitPrev = $waitEvents;
         $waitEvents = $this->newEventList();
         $X = $this->reduceSum(
-            $A,$axis,$X,$dtypeX,
-            $waitEvents,$waitPrev
+            $A,axis:$axis,keepdims:$keepdims,B:$X,dtype:$dtypeX,
+            events:$waitEvents,waitEvents:$waitPrev
         );
         if($A->ndim()<=$axis) {
             throw new InvalidException('axis must be less then num of dimension');
@@ -4691,6 +4707,7 @@ class LinearAlgebraCL
         NDArray $A,
         int $repeats,
         int $axis=null,
+        bool $keepdims=null,
         $events=null,$waitEvents=null
         )
     {
@@ -4718,7 +4735,15 @@ class LinearAlgebraCL
             $outputShape = [(int)array_product(
                     array_merge($outerShape,[$repeats],$innerShape))];
         } else {
-            $outputShape = array_merge($outerShape,[$repeats],$innerShape);
+            if($keepdims) {
+                $base = array_shift($innerShape);
+                if($base===null) {
+                    throw new InvalidArgumentException('dimension rank must be two or greater on keepdims.');
+                }
+                $outputShape = array_merge($outerShape,[$repeats*$base],$innerShape);
+            } else {
+                $outputShape = array_merge($outerShape,[$repeats],$innerShape);
+            }
         }
         $B = $this->alloc($outputShape,$A->dtype());
         $m = (int)array_product($outerShape);

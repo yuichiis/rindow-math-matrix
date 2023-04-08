@@ -3978,6 +3978,15 @@ class Test extends TestCase
         $x = $x[1];
         $this->assertEquals([5,7,9],$la->reduceSum($x,$axis=0)->toArray());
         $this->assertEquals([6,15],$la->reduceSum($x,$axis=1)->toArray());
+
+        // keeepdims
+        $x = $la->ones($la->alloc([2,3,4]));
+        $y = $la->reduceSum($x,axis:1,keepdims:true);
+        $this->assertEquals([2,1,4],$y->shape());
+        $this->assertEquals([
+            [[3,3,3,3]],
+            [[3,3,3,3]],
+        ],$y->toArray());
     }
 /*
     public function testReduceSumOLDLarge()
@@ -4227,6 +4236,15 @@ class Test extends TestCase
         $this->assertTrue(INF==  $x[3]);
         $this->assertTrue(is_nan($x[4]));
         $this->assertTrue(is_nan($x[5]));
+
+        // keeepdims
+        $x = $la->ones($la->alloc([2,3,4]));
+        $y = $la->reduceMax($x,axis:1,keepdims:true);
+        $this->assertEquals([2,1,4],$y->shape());
+        $this->assertEquals([
+            [[1,1,1,1]],
+            [[1,1,1,1]],
+        ],$y->toArray());
     }
 
     public function testReduceMaxLarge()
@@ -4357,6 +4375,14 @@ class Test extends TestCase
         $this->assertEquals([1,1,1],$la->reduceArgMax($x,$axis=0)->toArray());
         $this->assertEquals([2,2],$la->reduceArgMax($x,$axis=1)->toArray());
 
+        // keeepdims
+        $x = $la->ones($la->alloc([2,3,4]));
+        $y = $la->reduceArgMax($x,axis:1,keepdims:true);
+        $this->assertEquals([2,1,4],$y->shape());
+        $this->assertEquals([
+            [[0,0,0,0]],
+            [[0,0,0,0]],
+        ],$y->toArray());
     }
 
     public function testReduceArgMaxLarge()
@@ -4447,6 +4473,15 @@ class Test extends TestCase
         $x = $x[1];
         $this->assertEquals([2.5,3.5,4.5],$la->reduceMean($x,$axis=0)->toArray());
         $this->assertEquals([2,5],$la->reduceMean($x,$axis=1)->toArray());
+
+        // keeepdims
+        $x = $la->ones($la->alloc([2,3,4]));
+        $y = $la->reduceMean($x,axis:1,keepdims:true);
+        $this->assertEquals([2,1,4],$y->shape());
+        $this->assertEquals([
+            [[1,1,1,1]],
+            [[1,1,1,1]],
+        ],$y->toArray());
     }
 
     public function testEqualNormal()
@@ -8052,7 +8087,7 @@ class Test extends TestCase
         ],$y->toArray());
     }
 
-    public function testRepeat()
+    public function testRepeatNormal()
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
@@ -8187,6 +8222,23 @@ class Test extends TestCase
             [[1,2,3],[1,2,3]],
             [[4,5,6],[4,5,6]],
         ],$Y->toArray());
+
+        // keepdims
+        $X = $la->ones($la->alloc([2,3,4]));
+        $Y = $la->repeat($X,$repeats=2,axis:0,keepdims:true);
+        $this->assertEquals([4,3,4],$Y->shape());
+
+        $X = $la->ones($la->alloc([2,3,4]));
+        $Y = $la->repeat($X,$repeats=2,axis:1,keepdims:true);
+        $this->assertEquals([2,6,4],$Y->shape());
+
+        $X = $la->ones($la->alloc([2,3,4]));
+        $Y = $la->repeat($X,$repeats=2,axis:2,keepdims:true);
+        $this->assertEquals([2,3,8],$Y->shape());
+
+        $X = $la->ones($la->alloc([2,3,4]));
+        $Y = $la->repeat($X,$repeats=2,axis:null,keepdims:true);
+        $this->assertEquals([48],$Y->shape());
     }
 
     public function testReduceSum3d()
