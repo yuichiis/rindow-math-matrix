@@ -1688,23 +1688,29 @@ class LinearAlgebra
     }
 
     /**
-     * A(m,n) := X(n)
+     *      input:  X
+     *      output: A
+     *      A(m,n) := X(n)
      */
-    public function duplicate(NDArray $X, int $repeats=null, bool $trans=null,NDArray $A=null) : NDArray
+    public function duplicate(
+        NDArray $input,
+        int $repeats=null,
+        bool $trans=null,
+        NDArray $output=null) : NDArray
     {
         if($trans===null)
             $trans = false;
-        if($A===null) {
+        if($output===null) {
             if($repeats===null)
                 $repeats = 1;
             if(!$trans) {
-                $A = $this->alloc(array_merge([$repeats],$X->shape()),$X->dtype());
+                $output = $this->alloc(array_merge([$repeats],$input->shape()),$input->dtype());
             } else {
-                $A = $this->alloc(array_merge($X->shape(),[$repeats]),$X->dtype());
+                $output = $this->alloc(array_merge($input->shape(),[$repeats]),$input->dtype());
             }
         } else {
-            $shapeX = $X->shape();
-            $shapeA = $A->shape();
+            $shapeX = $input->shape();
+            $shapeA = $output->shape();
             if($trans)
                 $shapeA = array_reverse($shapeA);
             while(true) {
@@ -1714,16 +1720,16 @@ class LinearAlgebra
                 $ad = array_pop($shapeA);
                 if($xd!==$ad)
                     throw new InvalidArgumentException('Unmatch dimension size for broadcast.: '.
-                        '['.implode(',',$X->shape()).'] => ['.implode(',',$A->shape()).']');
+                        '['.implode(',',$input->shape()).'] => ['.implode(',',$output->shape()).']');
             }
         }
 
-        $n = $X->size();
-        $XX = $X->buffer();
-        $offX = $X->offset();
-        $m = $A->size()/$n;
-        $AA = $A->buffer();
-        $offA = $A->offset();
+        $n = $input->size();
+        $XX = $input->buffer();
+        $offX = $input->offset();
+        $m = $output->size()/$n;
+        $AA = $output->buffer();
+        $offA = $output->offset();
         if($trans) {
             [$m,$n] = [$n,$m];
         }
@@ -1735,18 +1741,20 @@ class LinearAlgebra
             $XX,$offX,1,
             $AA,$offA,$n);
 
-        return $A;
+        return $output;
     }
 
     /**
-    *      B(m,n,k) := A(m,X(m,n),k)
-    */
+     *      input:  A,X
+     *      output: B
+     *      B(m,n,k) := A(m,X(m,n),k)
+     */
     public function doGather(
         bool $scatterAdd,
         NDArray $A,
         NDArray $X,
         int $axis=null,
-        NDArray $B=null,
+        NDArray $output=null,
         $dtype=null) : NDArray
     {
 //echo "shapeX=[".implode(',',$X->shape())."],shapeA=[".implode(',',$A->shape())."]\n";
@@ -1785,13 +1793,13 @@ class LinearAlgebra
         if($dtype===null) {
             $dtype = $A->dtype();
         }
-        if($B==null) {
-            $B = $this->alloc($outputShape,$dtype);
-            $this->zeros($B);
+        if($output==null) {
+            $output = $this->alloc($outputShape,$dtype);
+            $this->zeros($output);
         } else {
-            if($B->shape()!=$outputShape) {
+            if($output->shape()!=$outputShape) {
                 throw new InvalidArgumentException("Unmatch output shape of dimension: ".
-                                            $this->printableShapes([$outputShape,$B]));
+                                            $this->printableShapes([$outputShape,$output]));
             }
         }
 
@@ -1799,8 +1807,8 @@ class LinearAlgebra
         $offA = $A->offset();
         $XX = $X->buffer();
         $offX = $X->offset();
-        $BB = $B->buffer();
-        $offB = $B->offset();
+        $BB = $output->buffer();
+        $offB = $output->offset();
 
         if($scatterAdd) {
             $reverse=true;
@@ -1831,17 +1839,19 @@ class LinearAlgebra
                 $BB,$offB);
         }
 
-        return $B;
+        return $output;
     }
 
     /**
-    *      B(m,n,k) := A(m,X(m,n),k)
-    */
+     *      input:  A,X
+     *      output: B
+     *      B(m,n,k) := A(m,X(m,n),k)
+     */
     public function gather(
         NDArray $A,
         NDArray $X,
         int $axis=null,
-        NDArray $B=null,
+        NDArray $output=null,
         $dtype=null) : NDArray
     {
         return $this->doGather(
@@ -1849,39 +1859,43 @@ class LinearAlgebra
             $A,
             $X,
             $axis,
-            $B,
+            $output,
             $dtype);
     }
 
     /**
-    *      B(m,X(m,n),k) += A(m,n,k)
-    */
+     *      input:  A,X
+     *      output: B
+     *      B(m,X(m,n),k) += A(m,n,k)
+     */
     public function scatterAdd(
         NDArray $X,
         NDArray $A,
-        NDArray $B,
+        NDArray $output,
         int $axis=null,
         $dtype=null) : NDArray
     {
         $this->doGather(
             $scatterAdd=true,
-            $B,
+            $output,
             $X,
             $axis,
             $A,
             $dtype);
-        return $B;
+        return $output;
     }
 
     /**
-    *      B(m,X(m,n),k) := A(m,n,k)
-    */
+     *      input:  A,X
+     *      output: B
+     *      B(m,X(m,n),k) := A(m,n,k)
+     */
     public function scatter(
         NDArray $X,
         NDArray $A,
         int $numClass,
         int $axis=null,
-        NDArray $B=null,
+        NDArray $output=null,
         $dtype=null) : NDArray
     {
 //echo "shapeX=[".implode(',',$X->shape())."],shapeA=[".implode(',',$A->shape())."]\n";
@@ -1934,12 +1948,12 @@ class LinearAlgebra
         if($dtype===null) {
             $dtype = $A->dtype();
         }
-        if($B==null) {
-            $B = $this->alloc($outputShape,$dtype);
-            $this->zeros($B);
+        if($output==null) {
+            $output = $this->alloc($outputShape,$dtype);
+            $this->zeros($output);
         } else {
-            if($B->shape()!=$outputShape) {
-                $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$B->shape()).')';
+            if($output->shape()!=$outputShape) {
+                $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$output->shape()).')';
                 throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
             }
         }
@@ -1948,8 +1962,8 @@ class LinearAlgebra
         $offA = $A->offset();
         $XX = $X->buffer();
         $offX = $X->offset();
-        $BB = $B->buffer();
-        $offB = $B->offset();
+        $BB = $output->buffer();
+        $offB = $output->offset();
 
         if($expandDims) {
             $this->math->reduceGather(
@@ -1974,37 +1988,37 @@ class LinearAlgebra
                 $AA,$offA);
         }
 
-        return $B;
+        return $output;
     }
 
     public function onehot(
-        NDArray $X,
+        NDArray $input,
         int $numClass,
         float $a=null,
-        NDArray $Y=null) : NDArray
+        NDArray $output=null) : NDArray
     {
-        if($X->ndim()!=1) {
+        if($input->ndim()!=1) {
             throw new InvalidArgumentException('"X" must be 1D-NDArray.');
         }
-        $sizeX = $X->size();
-        if($Y===null) {
-            $Y = $this->zeros($this->alloc([$sizeX,$numClass],$this->defaultFloatType));
+        $sizeX = $input->size();
+        if($output===null) {
+            $output = $this->zeros($this->alloc([$sizeX,$numClass],$this->defaultFloatType));
         }
-        if($Y->ndim()!=2) {
+        if($output->ndim()!=2) {
             throw new InvalidArgumentException('"Y" must be 2D-NDArray.');
         }
-        [$m,$n] = $Y->shape();
+        [$m,$n] = $output->shape();
         if($m!=$sizeX || $n!=$numClass) {
-            $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
+            $shapeError = '('.implode(',',$input->shape()).'),('.implode(',',$output->shape()).')';
             throw new InvalidArgumentException('Unmatch shape of dimension "X" and "Y" and "numClass": '.$shapeError);
         }
         if($a===null) {
             $a = 1.0;
         }
-        $XX = $X->buffer();
-        $offX = $X->offset();
-        $YY = $Y->buffer();
-        $offY = $Y->offset();
+        $XX = $input->buffer();
+        $offX = $input->offset();
+        $YY = $output->buffer();
+        $offY = $output->offset();
         $ldY = $n;
 
         $this->math->updateAddOnehot(
@@ -2014,7 +2028,7 @@ class LinearAlgebra
             $XX,$offX,1,
             $YY,$offY,$ldY);
 
-        return $Y;
+        return $output;
     }
 
     /**
@@ -2044,13 +2058,13 @@ class LinearAlgebra
      *    X(m) := sum( A(m,n) )
      */
     public function reduceSum( // reduceSumEx
-        NDArray $A,
+        NDArray $input,
         int $axis=null,
         bool $keepdims=null,
-        NDArray $B=null,
+        NDArray $output=null,
         $dtype=null) : NDArray
     {
-        $ndim = $A->ndim();
+        $ndim = $input->ndim();
         if($axis===null) {
             $axis = 0;
         }
@@ -2060,7 +2074,7 @@ class LinearAlgebra
         if($axis<0 || $axis>$ndim-1) {
             throw new InvalidArgumentException("Invalid axis");
         }
-        $postfixShape = $A->shape();
+        $postfixShape = $input->shape();
         $prefixShape = [];
         for($i=0;$i<$axis;$i++) {
             $prefixShape[] = array_shift($postfixShape);
@@ -2074,21 +2088,21 @@ class LinearAlgebra
             $outputShape = array_merge($prefixShape,$postfixShape);
         }
         if($dtype===null) {
-            $dtype = $A->dtype();
+            $dtype = $input->dtype();
         }
-        if($B==null) {
-            $B = $this->alloc($outputShape,$dtype);
+        if($output==null) {
+            $output = $this->alloc($outputShape,$dtype);
         } else {
-            if($B->shape()!=$outputShape) {
-                $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$B->shape()).')';
+            if($output->shape()!=$outputShape) {
+                $shapeError = '('.implode(',',$input->shape()).'),('.implode(',',$output->shape()).')';
                 throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
             }
         }
 
-        $AA = $A->buffer();
-        $offA = $A->offset();
-        $BB = $B->buffer();
-        $offB = $B->offset();
+        $AA = $input->buffer();
+        $offA = $input->offset();
+        $BB = $output->buffer();
+        $offB = $output->offset();
 
         $this->math->reduceSum(
             $m,
@@ -2097,17 +2111,17 @@ class LinearAlgebra
             $AA,$offA,
             $BB,$offB);
 
-        return $B;
+        return $output;
     }
 
     public function reduceMax( // reduceMaxEx
-        NDArray $A,
+        NDArray $input,
         int $axis=null,
         bool $keepdims=null,
-        NDArray $B=null,
+        NDArray $output=null,
         $dtype=null) : NDArray
     {
-        $ndim = $A->ndim();
+        $ndim = $input->ndim();
         if($axis===null) {
             $axis = 0;
         }
@@ -2117,7 +2131,7 @@ class LinearAlgebra
         if($axis<0 || $axis>$ndim-1) {
             throw new InvalidArgumentException("Invalid axis");
         }
-        $postfixShape = $A->shape();
+        $postfixShape = $input->shape();
         $prefixShape = [];
         for($i=0;$i<$axis;$i++) {
             $prefixShape[] = array_shift($postfixShape);
@@ -2131,21 +2145,21 @@ class LinearAlgebra
             $outputShape = array_merge($prefixShape,$postfixShape);
         }
         if($dtype===null) {
-            $dtype = $A->dtype();
+            $dtype = $input->dtype();
         }
-        if($B==null) {
-            $B = $this->alloc($outputShape,$dtype);
+        if($output==null) {
+            $output = $this->alloc($outputShape,$dtype);
         } else {
-            if($B->shape()!=$outputShape) {
-                $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$B->shape()).')';
+            if($output->shape()!=$outputShape) {
+                $shapeError = '('.implode(',',$input->shape()).'),('.implode(',',$output->shape()).')';
                 throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
             }
         }
 
-        $AA = $A->buffer();
-        $offA = $A->offset();
-        $BB = $B->buffer();
-        $offB = $B->offset();
+        $AA = $input->buffer();
+        $offA = $input->offset();
+        $BB = $output->buffer();
+        $offB = $output->offset();
 
         $this->math->reduceMax(
             $m,
@@ -2154,17 +2168,17 @@ class LinearAlgebra
             $AA,$offA,
             $BB,$offB);
 
-        return $B;
+        return $output;
     }
 
     public function reduceArgMax( // reduceMaxArgEx
-        NDArray $A,
+        NDArray $input,
         int $axis=null,
         bool $keepdims=null,
-        NDArray $B=null,
+        NDArray $output=null,
         $dtypeB=null) : NDArray
     {
-        $ndim = $A->ndim();
+        $ndim = $input->ndim();
         if($axis===null) {
             $axis = 0;
         }
@@ -2174,7 +2188,7 @@ class LinearAlgebra
         if($axis<0 || $axis>$ndim-1) {
             throw new InvalidArgumentException("Invalid axis");
         }
-        $postfixShape = $A->shape();
+        $postfixShape = $input->shape();
         $prefixShape = [];
         for($i=0;$i<$axis;$i++) {
             $prefixShape[] = array_shift($postfixShape);
@@ -2190,19 +2204,19 @@ class LinearAlgebra
         if($dtypeB===null) {
             $dtypeB = NDArray::uint32;
         }
-        if($B==null) {
-            $B = $this->alloc($outputShape,$dtypeB);
+        if($output==null) {
+            $output = $this->alloc($outputShape,$dtypeB);
         } else {
-            if($B->shape()!=$outputShape) {
-                $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$B->shape()).')';
+            if($output->shape()!=$outputShape) {
+                $shapeError = '('.implode(',',$input->shape()).'),('.implode(',',$output->shape()).')';
                 throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
             }
         }
 
-        $AA = $A->buffer();
-        $offA = $A->offset();
-        $BB = $B->buffer();
-        $offB = $B->offset();
+        $AA = $input->buffer();
+        $offA = $input->offset();
+        $BB = $output->buffer();
+        $offB = $output->offset();
 
         $this->math->reduceArgMax(
             $m,
@@ -2211,33 +2225,33 @@ class LinearAlgebra
             $AA,$offA,
             $BB,$offB);
 
-        return $B;
+        return $output;
     }
 
     public function reduceMean(
-        NDArray $A,
+        NDArray $input,
         int $axis=null,
         bool $keepdims=null,
-        NDArray $X=null,
-        $dtypeX=null) : NDArray
+        NDArray $output=null,
+        $dtype=null) : NDArray
     {
         if($axis===null) {
             $axis = 0;
         }
-        $X = $this->reduceSum(
-            $A,axis:$axis,keepdims:$keepdims,B:$X,dtype:$dtypeX
+        $output = $this->reduceSum(
+            $input,axis:$axis,keepdims:$keepdims,output:$output,dtype:$dtype
         );
-        $ndim = $A->ndim();
+        $ndim = $input->ndim();
         if($axis<0) {
             $axis = $ndim+$axis;
         }
         if($ndim<=$axis) {
             throw new InvalidException('axis must be less then num of dimension');
         }
-        $shapeA = $A->shape();
+        $shapeA = $input->shape();
         $rows = $shapeA[$axis];
-        $this->scal(1/$rows,$X);
-        return $X;
+        $this->scal(1/$rows,$output);
+        return $output;
     }
 
     public function im2col(

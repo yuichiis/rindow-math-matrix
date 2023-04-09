@@ -1727,6 +1727,195 @@ class LinearAlgebraCL
     }
 
     /**
+    *    ret := x_1 + ... + x_n
+    */
+    public function sum(
+        NDArray $X,
+        NDArray $R=null,
+        object $events=null
+        //object $waitEvents=null
+        )
+    {
+        if($this->profiling) {
+            $this->profilingStart("sum");
+        }
+        if($R==null) {
+            $R = $this->alloc([],$X->dtype(),OpenCL::CL_MEM_READ_WRITE);
+        }
+        $N = $X->size();
+        $RR = $R->buffer();
+        $offR = $R->offset();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+        $dtype = $X->dtype();
+        if($dtype==NDArray::float32 || $dtype==NDArray::float64) {
+            $this->math->sum($N,$RR,$offR,$XX,$offX,1,$this->queue,$events);
+        } else {
+            $this->openclmath->sum($N,$RR,$offR,$XX,$offX,1,$events,null);
+        }
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("sum");
+        }
+        if($this->scalarNumeric) {
+            return $R->toArray();
+        }
+        return $R;
+    }
+
+    /**
+    *    ret := arg max X(i)
+    */
+    public function imax(
+        NDArray $X,
+        NDArray $R=null,
+        object $events=null)
+    {
+        if($this->profiling) {
+            $this->profilingStart("imax");
+        }
+        if($R==null) {
+            // *** CAUTION ****
+            // Index result is 32bit
+            $R = $this->alloc([],NDArray::int32,OpenCL::CL_MEM_READ_WRITE);
+        }
+        $N = $X->size();
+        $RR = $R->buffer();
+        $offR = $R->offset();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+        $this->math->imax($N,$RR,$offR,$XX,$offX,1,$this->queue,$events);
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("imax");
+        }
+        if($this->scalarNumeric) {
+            return $R->toArray();
+        }
+        return $R;
+    }
+
+    /**
+    *    ret := arg min X(i)
+    */
+    public function imin(
+        NDArray $X,
+        NDArray $R=null,
+        object $events=null)
+    {
+        if($this->profiling) {
+            $this->profilingStart("imin");
+        }
+        if($R==null) {
+            // *** CAUTION ****
+            // Index result is 32bit
+            $R = $this->alloc([],NDArray::int32,OpenCL::CL_MEM_READ_WRITE);
+        }
+        $N = $X->size();
+        $RR = $R->buffer();
+        $offR = $R->offset();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+        $this->math->imin($N,$RR,$offR,$XX,$offX,1,$this->queue,$events);
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->scalarNumeric) {
+            return $R->toArray();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("imin");
+        }
+        return $R;
+    }
+
+    /**
+    *    ret := max X(i)
+    */
+    public function max(
+        NDArray $X,
+        NDArray $R=null,
+        object $events=null)
+    {
+        if($this->profiling) {
+            $this->profilingStart("max");
+        }
+        if($R==null) {
+            $R = $this->alloc([],$X->dtype(),OpenCL::CL_MEM_READ_WRITE);
+        }
+        // *** CAUTION ****
+        // Index result is 32bit
+        $IR = $this->alloc([],NDArray::int32,OpenCL::CL_MEM_READ_WRITE);
+        $N = $X->size();
+        $IRR = $IR->buffer();
+        $offIR = $IR->offset();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+        $imaxEvents = $this->newEventList();
+        $this->math->imax($N,$IRR,$offIR,$XX,$offX,1,$this->queue,$imaxEvents);
+
+        $RR = $R->buffer();
+        $offR = $R->offset();
+        $this->openclmath->reduceGather(false,false,
+            1,1,$N,$IRR,$offIR,$XX,$offX,$RR,$offR,$events,$imaxEvents);
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("max");
+        }
+        if($this->scalarNumeric) {
+            return $R->toArray();
+        }
+        return $R;
+    }
+
+    /**
+    *    ret := min X(i)
+    */
+    public function min(
+        NDArray $X,
+        NDArray $R=null,
+        object $events=null)
+    {
+        if($this->profiling) {
+            $this->profilingStart("min");
+        }
+        if($R==null) {
+            $R = $this->alloc([],$X->dtype(),OpenCL::CL_MEM_READ_WRITE);
+        }
+        // *** CAUTION ****
+        // Index result is 32bit
+        $IR = $this->alloc([],NDArray::int32,OpenCL::CL_MEM_READ_WRITE);
+        $N = $X->size();
+        $IRR = $IR->buffer();
+        $offIR = $IR->offset();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+        $imaxEvents = $this->newEventList();
+        $i = $this->math->imin($N,$IRR,$offIR,$XX,$offX,1,$this->queue,$imaxEvents);
+
+        $RR = $R->buffer();
+        $offR = $R->offset();
+        $this->openclmath->reduceGather(false,false,
+            1,1,$N,$IRR,$offIR,$XX,$offX,$RR,$offR,$events,$imaxEvents);
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("min");
+        }
+        if($this->scalarNumeric) {
+            return $R->toArray();
+        }
+        return $R;
+    }
+
+    /**
     *    X := alpha * X + beta
     */
     public function increment(
@@ -2579,13 +2768,15 @@ class LinearAlgebraCL
     }
 
     /**
-     * A(m,n) := X(n)
+     *      input:  X
+     *      output: A
+     *      A(m,n) := X(n)
      */
     public function duplicate(
-        NDArray $X,
+        NDArray $input,
         int $repeats=null,
         bool $trans=null,
-        NDArray $A=null,
+        NDArray $output=null,
         object $events=null,
         object $waitEvents=null
         ) : NDArray
@@ -2595,17 +2786,17 @@ class LinearAlgebraCL
         }
         if($trans===null)
             $trans = false;
-        if($A===null) {
+        if($output===null) {
             if($repeats===null)
                 $repeats = 1;
             if(!$trans) {
-                $A = $this->alloc(array_merge([$repeats],$X->shape()),$X->dtype());
+                $output = $this->alloc(array_merge([$repeats],$input->shape()),$input->dtype());
             } else {
-                $A = $this->alloc(array_merge($X->shape(),[$repeats]),$X->dtype());
+                $output = $this->alloc(array_merge($input->shape(),[$repeats]),$input->dtype());
             }
         } else {
-            $shapeX = $X->shape();
-            $shapeA = $A->shape();
+            $shapeX = $input->shape();
+            $shapeA = $output->shape();
             if($trans)
                 $shapeA = array_reverse($shapeA);
             while(true) {
@@ -2615,16 +2806,16 @@ class LinearAlgebraCL
                 $ad = array_pop($shapeA);
                 if($xd!==$ad)
                     throw new InvalidArgumentException('Unmatch dimension size for broadcast.: '.
-                        '['.implode(',',$X->shape()).'] => ['.implode(',',$A->shape()).']');
+                        '['.implode(',',$input->shape()).'] => ['.implode(',',$output->shape()).']');
             }
         }
 
-        $n = $X->size();
-        $XX = $X->buffer();
-        $offX = $X->offset();
-        $m = $A->size()/$n;
-        $AA = $A->buffer();
-        $offA = $A->offset();
+        $n = $input->size();
+        $XX = $input->buffer();
+        $offX = $input->offset();
+        $m = $output->size()/$n;
+        $AA = $output->buffer();
+        $offA = $output->offset();
         if($trans) {
             [$m,$n] = [$n,$m];
         }
@@ -2644,208 +2835,20 @@ class LinearAlgebraCL
         if($this->profiling) {
             $this->profilingEnd("duplicate");
         }
-        return $A;
+        return $output;
     }
 
     /**
-    *    ret := x_1 + ... + x_n
-    */
-    public function sum(
-        NDArray $X,
-        NDArray $R=null,
-        object $events=null
-        //object $waitEvents=null
-        )
-    {
-        if($this->profiling) {
-            $this->profilingStart("sum");
-        }
-        if($R==null) {
-            $R = $this->alloc([],$X->dtype(),OpenCL::CL_MEM_READ_WRITE);
-        }
-        $N = $X->size();
-        $RR = $R->buffer();
-        $offR = $R->offset();
-        $XX = $X->buffer();
-        $offX = $X->offset();
-        $dtype = $X->dtype();
-        if($dtype==NDArray::float32 || $dtype==NDArray::float64) {
-            $this->math->sum($N,$RR,$offR,$XX,$offX,1,$this->queue,$events);
-        } else {
-            $this->openclmath->sum($N,$RR,$offR,$XX,$offX,1,$events,null);
-        }
-        if($this->blocking) {
-            $this->finish();
-        }
-        if($this->profiling) {
-            $this->profilingEnd("sum");
-        }
-        if($this->scalarNumeric) {
-            return $R->toArray();
-        }
-        return $R;
-    }
-
-    /**
-    *    ret := arg max X(i)
-    */
-    public function imax(
-        NDArray $X,
-        NDArray $R=null,
-        object $events=null)
-    {
-        if($this->profiling) {
-            $this->profilingStart("imax");
-        }
-        if($R==null) {
-            // *** CAUTION ****
-            // Index result is 32bit
-            $R = $this->alloc([],NDArray::int32,OpenCL::CL_MEM_READ_WRITE);
-        }
-        $N = $X->size();
-        $RR = $R->buffer();
-        $offR = $R->offset();
-        $XX = $X->buffer();
-        $offX = $X->offset();
-        $this->math->imax($N,$RR,$offR,$XX,$offX,1,$this->queue,$events);
-        if($this->blocking) {
-            $this->finish();
-        }
-        if($this->profiling) {
-            $this->profilingEnd("imax");
-        }
-        if($this->scalarNumeric) {
-            return $R->toArray();
-        }
-        return $R;
-    }
-
-    /**
-    *    ret := arg min X(i)
-    */
-    public function imin(
-        NDArray $X,
-        NDArray $R=null,
-        object $events=null)
-    {
-        if($this->profiling) {
-            $this->profilingStart("imin");
-        }
-        if($R==null) {
-            // *** CAUTION ****
-            // Index result is 32bit
-            $R = $this->alloc([],NDArray::int32,OpenCL::CL_MEM_READ_WRITE);
-        }
-        $N = $X->size();
-        $RR = $R->buffer();
-        $offR = $R->offset();
-        $XX = $X->buffer();
-        $offX = $X->offset();
-        $this->math->imin($N,$RR,$offR,$XX,$offX,1,$this->queue,$events);
-        if($this->blocking) {
-            $this->finish();
-        }
-        if($this->scalarNumeric) {
-            return $R->toArray();
-        }
-        if($this->profiling) {
-            $this->profilingEnd("imin");
-        }
-        return $R;
-    }
-
-    /**
-    *    ret := max X(i)
-    */
-    public function max(
-        NDArray $X,
-        NDArray $R=null,
-        object $events=null)
-    {
-        if($this->profiling) {
-            $this->profilingStart("max");
-        }
-        if($R==null) {
-            $R = $this->alloc([],$X->dtype(),OpenCL::CL_MEM_READ_WRITE);
-        }
-        // *** CAUTION ****
-        // Index result is 32bit
-        $IR = $this->alloc([],NDArray::int32,OpenCL::CL_MEM_READ_WRITE);
-        $N = $X->size();
-        $IRR = $IR->buffer();
-        $offIR = $IR->offset();
-        $XX = $X->buffer();
-        $offX = $X->offset();
-        $imaxEvents = $this->newEventList();
-        $this->math->imax($N,$IRR,$offIR,$XX,$offX,1,$this->queue,$imaxEvents);
-
-        $RR = $R->buffer();
-        $offR = $R->offset();
-        $this->openclmath->reduceGather(false,false,
-            1,1,$N,$IRR,$offIR,$XX,$offX,$RR,$offR,$events,$imaxEvents);
-        if($this->blocking) {
-            $this->finish();
-        }
-        if($this->profiling) {
-            $this->profilingEnd("max");
-        }
-        if($this->scalarNumeric) {
-            return $R->toArray();
-        }
-        return $R;
-    }
-
-
-    /**
-    *    ret := min X(i)
-    */
-    public function min(
-        NDArray $X,
-        NDArray $R=null,
-        object $events=null)
-    {
-        if($this->profiling) {
-            $this->profilingStart("min");
-        }
-        if($R==null) {
-            $R = $this->alloc([],$X->dtype(),OpenCL::CL_MEM_READ_WRITE);
-        }
-        // *** CAUTION ****
-        // Index result is 32bit
-        $IR = $this->alloc([],NDArray::int32,OpenCL::CL_MEM_READ_WRITE);
-        $N = $X->size();
-        $IRR = $IR->buffer();
-        $offIR = $IR->offset();
-        $XX = $X->buffer();
-        $offX = $X->offset();
-        $imaxEvents = $this->newEventList();
-        $i = $this->math->imin($N,$IRR,$offIR,$XX,$offX,1,$this->queue,$imaxEvents);
-
-        $RR = $R->buffer();
-        $offR = $R->offset();
-        $this->openclmath->reduceGather(false,false,
-            1,1,$N,$IRR,$offIR,$XX,$offX,$RR,$offR,$events,$imaxEvents);
-        if($this->blocking) {
-            $this->finish();
-        }
-        if($this->profiling) {
-            $this->profilingEnd("min");
-        }
-        if($this->scalarNumeric) {
-            return $R->toArray();
-        }
-        return $R;
-    }
-
-    /**
-    *      B(m,n,k) := A(m,X(m,n),k)
-    */
+     *      input:  A,X
+     *      output: B
+     *      B(m,n,k) := A(m,X(m,n),k)
+     */
     public function doGather(
         bool $scatterAdd,
         NDArray $A,
         NDArray $X,
         int $axis=null,
-        NDArray $B=null,
+        NDArray $output=null,
         $dtype=null,
         $events=null,$waitEvents=null
         ) : NDArray
@@ -2891,15 +2894,15 @@ class LinearAlgebraCL
         if($dtype===null) {
             $dtype = $A->dtype();
         }
-        if($B==null) {
-            $B = $this->alloc($outputShape,$dtype);
+        if($output==null) {
+            $output = $this->alloc($outputShape,$dtype);
             $waitPrev = $waitEvents;
             $waitEvents = $this->newEventList();
-            $this->zeros($B,$waitEvents,$waitPrev);
+            $this->zeros($output,$waitEvents,$waitPrev);
         } else {
-            if($B->shape()!=$outputShape) {
+            if($output->shape()!=$outputShape) {
                 throw new InvalidArgumentException("Unmatch output shape of dimension: ".
-                                            $this->printableShapes([$outputShape,$B]));
+                                            $this->printableShapes([$outputShape,$output]));
             }
         }
 
@@ -2907,8 +2910,8 @@ class LinearAlgebraCL
         $offA = $A->offset();
         $XX = $X->buffer();
         $offX = $X->offset();
-        $BB = $B->buffer();
-        $offB = $B->offset();
+        $BB = $output->buffer();
+        $offB = $output->offset();
 
         if($scatterAdd) {
             $reverse=true;
@@ -2957,7 +2960,7 @@ class LinearAlgebraCL
         if($this->blocking) {
             $this->finish();
         }
-        return $B;
+        return $output;
     }
 
     /**
@@ -2967,7 +2970,7 @@ class LinearAlgebraCL
         NDArray $A,
         NDArray $X,
         int $axis=null,
-        NDArray $B=null,
+        NDArray $output=null,
         $dtype=null,
         object $events=null,object $waitEvents=null
         ) : NDArray
@@ -2975,27 +2978,30 @@ class LinearAlgebraCL
         if($this->profiling) {
             $this->profilingStart("gather");
         }
-        return $this->doGather(
+        $output = $this->doGather(
             $scatterAdd=false,
             $A,
             $X,
             $axis,
-            $B,
+            $output,
             $dtype,
             $events, $waitEvents
         );
         if($this->profiling) {
             $this->profilingEnd("gather");
         }
+        return $output;
     }
 
     /**
-    *      B(m,X(m,n),k) += A(m,n,k)
-    */
+     *      input:  A,X
+     *      output: B
+     *      B(m,X(m,n),k) += A(m,n,k)
+     */
     public function scatterAdd(
         NDArray $X,
         NDArray $A,
-        NDArray $B,
+        NDArray $output,
         int $axis=null,
         $dtype=null,
         object $events=null,object $waitEvents=null
@@ -3006,7 +3012,7 @@ class LinearAlgebraCL
         }
         $this->doGather(
             $scatterAdd=true,
-            $B,
+            $output,
             $X,
             $axis,
             $A,
@@ -3016,18 +3022,20 @@ class LinearAlgebraCL
         if($this->profiling) {
             $this->profilingEnd("scatterAdd");
         }
-        return $B;
+        return $output;
     }
 
     /**
-    *      B(m,X(m,n),k) := A(m,n,k)
-    */
+     *      input:  A,X
+     *      output: B
+     *      B(m,X(m,n),k) := A(m,n,k)
+     */
     public function scatter(
         NDArray $X,
         NDArray $A,
         int $numClass,
         int $axis=null,
-        NDArray $B=null,
+        NDArray $output=null,
         $dtype=null,
         object $events=null,object $waitEvents=null
         ) : NDArray
@@ -3090,14 +3098,14 @@ class LinearAlgebraCL
         if($dtype===null) {
             $dtype = $A->dtype();
         }
-        if($B==null) {
-            $B = $this->alloc($outputShape,$dtype);
+        if($output==null) {
+            $output = $this->alloc($outputShape,$dtype);
             $waitPrev = $waitEvents;
             $waitEvents = $this->newEventList();
-            $this->zeros($B,$waitEvents,$waitPrev);
+            $this->zeros($output,$waitEvents,$waitPrev);
         } else {
-            if($B->shape()!=$outputShape) {
-                $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$B->shape()).')';
+            if($output->shape()!=$outputShape) {
+                $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$output->shape()).')';
                 throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
             }
         }
@@ -3106,8 +3114,8 @@ class LinearAlgebraCL
         $offA = $A->offset();
         $XX = $X->buffer();
         $offX = $X->offset();
-        $BB = $B->buffer();
-        $offB = $B->offset();
+        $BB = $output->buffer();
+        $offB = $output->offset();
 
         if($expandDims) {
             $this->openclmath->reduceGather(
@@ -3140,14 +3148,14 @@ class LinearAlgebraCL
         if($this->profiling) {
             $this->profilingEnd("scatter");
         }
-        return $B;
+        return $output;
     }
 
     public function onehot(
         NDArray $X,
         int $numClass,
         float $a=null,
-        NDArray $Y=null,
+        NDArray $output=null,
         $events=null,$waitEvents=null
         ) : NDArray
     {
@@ -3164,19 +3172,19 @@ class LinearAlgebraCL
         }
         $sizeX = $X->size();
         $addMode = true;
-        if($Y===null) {
+        if($output===null) {
             $addMode = false;
-            $Y = $this->alloc([$sizeX,$numClass],$this->defaultFloatType);
+            $output = $this->alloc([$sizeX,$numClass],$this->defaultFloatType);
             $waitPrev = $waitEvents;
             $waitEvents = $this->newEventList();
-            $this->zeros($Y,$waitEvents,$waitPrev);
+            $this->zeros($output,$waitEvents,$waitPrev);
         }
-        if($Y->ndim()!=2) {
+        if($output->ndim()!=2) {
             throw new InvalidArgumentException('"Y" must be 2D-NDArray.');
         }
-        [$m,$n] = $Y->shape();
+        [$m,$n] = $output->shape();
         if($m!=$sizeX || $n!=$numClass) {
-            $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
+            $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$output->shape()).')';
             throw new InvalidArgumentException('Unmatch shape of dimension "X" and "Y" and "numClass": '.$shapeError);
         }
         if($a===null) {
@@ -3184,8 +3192,8 @@ class LinearAlgebraCL
         }
         $XX = $X->buffer();
         $offX = $X->offset();
-        $YY = $Y->buffer();
-        $offY = $Y->offset();
+        $YY = $output->buffer();
+        $offY = $output->offset();
         $ldY = $n;
 
         $this->openclmath->onehot(
@@ -3204,7 +3212,7 @@ class LinearAlgebraCL
         if($this->profiling) {
             $this->profilingEnd("onehot");
         }
-        return $Y;
+        return $output;
     }
 
     /**
@@ -3246,10 +3254,10 @@ class LinearAlgebraCL
      *    X(m) := sum( A(m,n) )
      */
     public function reduceSum(//reduceSumEx
-        NDArray $A,
+        NDArray $input,
         int $axis=null,
         bool $keepdims=null,
-        NDArray $B=null,
+        NDArray $output=null,
         $dtype=null,
         $events=null,$waitEvents=null
         ) : NDArray
@@ -3257,14 +3265,14 @@ class LinearAlgebraCL
         if($this->profiling) {
             $this->profilingStart("reduceSum");
         }
-        $ndim = $A->ndim();
+        $ndim = $input->ndim();
         if($axis<0) {
             $axis = $ndim+$axis;
         }
         if($axis<0 || $axis>$ndim-1) {
             throw new InvalidArgumentException("Invalid axis");
         }
-        $postfixShape = $A->shape();
+        $postfixShape = $input->shape();
         $prefixShape = [];
         for($i=0;$i<$axis;$i++) {
             $prefixShape[] = array_shift($postfixShape);
@@ -3278,21 +3286,21 @@ class LinearAlgebraCL
             $outputShape = array_merge($prefixShape,$postfixShape);
         }
         if($dtype===null) {
-            $dtype = $A->dtype();
+            $dtype = $input->dtype();
         }
-        if($B==null) {
-            $B = $this->alloc($outputShape,$dtype);
+        if($output==null) {
+            $output = $this->alloc($outputShape,$dtype);
         } else {
-            if($B->shape()!=$outputShape) {
-                $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$B->shape()).')';
+            if($output->shape()!=$outputShape) {
+                $shapeError = '('.implode(',',$input->shape()).'),('.implode(',',$output->shape()).')';
                 throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
             }
         }
 
-        $AA = $A->buffer();
-        $offA = $A->offset();
-        $BB = $B->buffer();
-        $offB = $B->offset();
+        $AA = $input->buffer();
+        $offA = $input->offset();
+        $BB = $output->buffer();
+        $offB = $output->offset();
 
         $this->openclmath->reduceSum(
             $m,
@@ -3308,17 +3316,17 @@ class LinearAlgebraCL
         if($this->profiling) {
             $this->profilingEnd("reduceSum");
         }
-        return $B;
+        return $output;
     }
 
     /**
      *    X(m) := max( A(m,n) )
      */
     public function reduceMax(//reduceMaxEx
-        NDArray $A,
+        NDArray $input,
         int $axis=null,
         bool $keepdims=null,
-        NDArray $B=null,
+        NDArray $output=null,
         $dtype=null,
         $events=null,$waitEvents=null
         ) : NDArray
@@ -3326,14 +3334,14 @@ class LinearAlgebraCL
         if($this->profiling) {
             $this->profilingStart("reduceMax");
         }
-        $ndim = $A->ndim();
+        $ndim = $input->ndim();
         if($axis<0) {
             $axis = $ndim+$axis;
         }
         if($axis<0 || $axis>$ndim-1) {
             throw new InvalidArgumentException("Invalid axis");
         }
-        $postfixShape = $A->shape();
+        $postfixShape = $input->shape();
         $prefixShape = [];
         for($i=0;$i<$axis;$i++) {
             $prefixShape[] = array_shift($postfixShape);
@@ -3347,21 +3355,21 @@ class LinearAlgebraCL
             $outputShape = array_merge($prefixShape,$postfixShape);
         }
         if($dtype===null) {
-            $dtype = $A->dtype();
+            $dtype = $input->dtype();
         }
-        if($B==null) {
-            $B = $this->alloc($outputShape,$dtype);
+        if($output==null) {
+            $output = $this->alloc($outputShape,$dtype);
         } else {
-            if($B->shape()!=$outputShape) {
-                $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$B->shape()).')';
+            if($output->shape()!=$outputShape) {
+                $shapeError = '('.implode(',',$input->shape()).'),('.implode(',',$output->shape()).')';
                 throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
             }
         }
 
-        $AA = $A->buffer();
-        $offA = $A->offset();
-        $BB = $B->buffer();
-        $offB = $B->offset();
+        $AA = $input->buffer();
+        $offA = $input->offset();
+        $BB = $output->buffer();
+        $offB = $output->offset();
 
         $this->openclmath->reduceMax(
             $m,
@@ -3377,17 +3385,17 @@ class LinearAlgebraCL
         if($this->profiling) {
             $this->profilingEnd("reduceMax");
         }
-        return $B;
+        return $output;
     }
 
     /**
      *    X(m) := imax( A(m,n) )
      */
     public function reduceArgMax(//reduceArgMaxEx
-        NDArray $A,
+        NDArray $input,
         int $axis=null,
         bool $keepdims=null,
-        NDArray $B=null,
+        NDArray $output=null,
         $dtypeB=null,
         $events=null,$waitEvents=null
         ) : NDArray
@@ -3395,14 +3403,14 @@ class LinearAlgebraCL
         if($this->profiling) {
             $this->profilingStart("reduceArgMax");
         }
-        $ndim = $A->ndim();
+        $ndim = $input->ndim();
         if($axis<0) {
             $axis = $ndim+$axis;
         }
         if($axis<0 || $axis>$ndim-1) {
             throw new InvalidArgumentException("Invalid axis");
         }
-        $postfixShape = $A->shape();
+        $postfixShape = $input->shape();
         $prefixShape = [];
         for($i=0;$i<$axis;$i++) {
             $prefixShape[] = array_shift($postfixShape);
@@ -3418,19 +3426,19 @@ class LinearAlgebraCL
         if($dtypeB===null) {
             $dtypeB = NDArray::uint32;
         }
-        if($B==null) {
-            $B = $this->alloc($outputShape,$dtypeB);
+        if($output==null) {
+            $output = $this->alloc($outputShape,$dtypeB);
         } else {
-            if($B->shape()!=$outputShape) {
-                $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$B->shape()).')';
+            if($output->shape()!=$outputShape) {
+                $shapeError = '('.implode(',',$input->shape()).'),('.implode(',',$output->shape()).')';
                 throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
             }
         }
 
-        $AA = $A->buffer();
-        $offA = $A->offset();
-        $BB = $B->buffer();
-        $offB = $B->offset();
+        $AA = $input->buffer();
+        $offA = $input->offset();
+        $BB = $output->buffer();
+        $offB = $output->offset();
 
         $this->openclmath->reduceArgMax(
             $m,
@@ -3446,41 +3454,41 @@ class LinearAlgebraCL
         if($this->profiling) {
             $this->profilingEnd("reduceArgMax");
         }
-        return $B;
+        return $output;
     }
 
     /**
      *    X(m) := sum( A(m,n)/n )
      */
     public function reduceMean(
-        NDArray $A,
+        NDArray $input,
         int $axis,
         bool $keepdims=null,
-        NDArray $X=null,
-        $dtypeX=null,
+        NDArray $output=null,
+        $dtype=null,
         $events=null,$waitEvents=null
         ) : NDArray
     {
         $waitPrev = $waitEvents;
         $waitEvents = $this->newEventList();
-        $X = $this->reduceSum(
-            $A,axis:$axis,keepdims:$keepdims,B:$X,dtype:$dtypeX,
+        $output = $this->reduceSum(
+            $input,axis:$axis,keepdims:$keepdims,output:$output,dtype:$dtype,
             events:$waitEvents,waitEvents:$waitPrev
         );
-        if($A->ndim()<=$axis) {
+        if($input->ndim()<=$axis) {
             throw new InvalidException('axis must be less then num of dimension');
         }
-        $shapeA = $A->shape();
+        $shapeA = $input->shape();
         $rows = $shapeA[$axis];
         $waitEvents->wait();
         $this->scal(
-            1/$rows,$X,
+            1/$rows,$output,
             $events
         );
         if($this->blocking) {
             $this->finish();
         }
-        return $X;
+        return $output;
     }
 
     public function im2col2dclblast(
