@@ -4928,6 +4928,40 @@ class LinearAlgebraCL
         return $B;
     }
 
+    public function bandpart(
+        NDArray $A,
+        int $lower,
+        int $upper,
+        object $events=null,object $waitEvents=null
+    ) : void
+    {
+        if($this->profiling) {
+            $this->profilingStart("bandpart");
+        }
+        if($A->ndim()<2) {
+            throw new InvalidArgumentException('input array must be 2D or upper.');
+        }
+        $shape = $A->shape();
+        $k = array_pop($shape);
+        $n = array_pop($shape);
+        $m = (int)array_product($shape);
+        $buffer = $A->buffer();
+        $offset = $A->offset();
+        $this->openclmath->bandpart(
+            $m,$n,$k,
+            $buffer,$offset,
+            $lower,
+            $upper,
+            $events,$waitEvents
+        );
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("bandpart");
+        }
+    }
+
     public function imagecopy(
         NDArray $A,
         NDArray $B=null,

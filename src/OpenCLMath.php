@@ -6092,4 +6092,54 @@ class OpenCLMath
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
             $events,$waitEvents);
     }
+
+    /**
+     *     X := bandpart(X,lower,upper)
+     */
+    public function bandpart(
+        int $m,
+        int $n,
+        int $k,
+        Buffer $A, int $offset,
+        int $lower,
+        int $upper,
+        EventList $events=null, EventList $waitEvents=null
+        ) : void
+    {
+        $dtype = $A->dtype();
+        if($dtype==NDArray::float64) {
+            $this->assertFP64();
+        }
+        $type = $this->dtypeToOpenCLType[$dtype];
+        $kernel_name = "bandpart_{$type}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+                "__kernel void {$kernel_name}(\n".
+                "    const        int n,\n".
+                "    const        int k,\n".
+                "        __global {$type} * a,\n".
+                "    const        int offset,\n".
+                "    const        int lower,\n".
+                "    const        int upper)\n".
+                "{\n".
+                "    int idx = get_global_id(0)*n*k+offset;\n".
+                "    int i = get_global_id(1);\n".
+                "    for(int j=0;j<k;j++) {\n".
+                "        if((lower >= 0 && (i-j) > lower) || (upper >= 0 && (j-i) > upper)) {\n".
+                "            a[idx+i*k+j] = 0;\n".
+                "        }\n".
+                "    }\n".
+                "}\n";
+        }
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$n,NDArray::uint32);
+        $kernel->setArg(1,$k,NDArray::uint32);
+        $kernel->setArg(2,$A);
+        $kernel->setArg(3,$offset,NDArray::uint32);
+        $kernel->setArg(4,$lower,NDArray::uint32);
+        $kernel->setArg(5,$upper,NDArray::uint32);
+        $global_work_size = [$m,$n];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
+            $events,$waitEvents);
+    }
 }

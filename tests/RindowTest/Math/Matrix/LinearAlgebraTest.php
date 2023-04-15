@@ -8583,6 +8583,66 @@ class Test extends TestCase
 
     }
 
+    public function testBandpart()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        $a = $la->ones($la->alloc([2,5,5]));
+        $la->bandpart($a,0,-1);
+        $this->assertEquals([
+            [[1,1,1,1,1],
+             [0,1,1,1,1],
+             [0,0,1,1,1],
+             [0,0,0,1,1],
+             [0,0,0,0,1]],
+            [[1,1,1,1,1],
+             [0,1,1,1,1],
+             [0,0,1,1,1],
+             [0,0,0,1,1],
+             [0,0,0,0,1]],
+        ],$a->toArray());
+
+        $a = $la->ones($la->alloc([5,5]));
+        $la->bandpart($a,-1,0);
+        $this->assertEquals([
+            [1,0,0,0,0],
+            [1,1,0,0,0],
+            [1,1,1,0,0],
+            [1,1,1,1,0],
+            [1,1,1,1,1],
+        ],$a->toArray());
+
+        $a = $la->ones($la->alloc([5,5]));
+        $la->bandpart($a,0,0);
+        $this->assertEquals([
+            [1,0,0,0,0],
+            [0,1,0,0,0],
+            [0,0,1,0,0],
+            [0,0,0,1,0],
+            [0,0,0,0,1],
+        ],$a->toArray());
+
+        $a = $la->ones($la->alloc([5,5]));
+        $la->bandpart($a,0,1);
+        $this->assertEquals([
+            [1,1,0,0,0],
+            [0,1,1,0,0],
+            [0,0,1,1,0],
+            [0,0,0,1,1],
+            [0,0,0,0,1],
+        ],$a->toArray());
+
+        $a = $la->ones($la->alloc([5,5]));
+        $la->bandpart($a,1,0);
+        $this->assertEquals([
+            [1,0,0,0,0],
+            [1,1,0,0,0],
+            [0,1,1,0,0],
+            [0,0,1,1,0],
+            [0,0,0,1,1],
+        ],$a->toArray());
+    }
+
     public function testImagecopy()
     {
         $mo = $this->newMatrixOperator();

@@ -2708,4 +2708,33 @@ class PhpMath
             //}
         }
     }
+
+    public function bandpart(
+        int $m,
+        int $n,
+        int $k,
+        Buffer $A, int $offset,
+        int $lower,
+        int $upper,
+        ) : void
+    {
+        if($this->math) {
+            $this->math->bandpart(
+                $m,$n,$k,
+                $A,$offset,
+                $lower,
+                $upper,
+                );
+            return;
+        }
+        for($batch=0;$batch<$m;$batch++) {
+            for($i=0;$i<$n;$i++) {
+                for($j=0;$j<$k;$j++) {
+                    if(($lower >= 0 && ($i-$j) > $lower) || ($upper >= 0 && ($j-$i) > $upper)) {
+                        $A[$offset+$batch*$n*$k+$i*$k+$j] = 0;
+                    }
+                }
+            }
+        }
+    }
 }
