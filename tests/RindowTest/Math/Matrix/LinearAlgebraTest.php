@@ -4180,6 +4180,7 @@ class Test extends TestCase
         $x = $la->array([[1,2,3],[4,5,6]]);
         $this->assertEquals([4,5,6],$la->reduceMax($x,$axis=0)->toArray());
         $this->assertEquals([3,6],$la->reduceMax($x,$axis=1)->toArray());
+        $this->assertEquals([3,6],$la->reduceMax($x,$axis=-1)->toArray());
 
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
@@ -4348,6 +4349,7 @@ class Test extends TestCase
         $x = $la->array([[1,2,3],[4,5,6]]);
         $this->assertEquals([1,1,1],$la->reduceArgMax($x,$axis=0)->toArray());
         $this->assertEquals([2,2],$la->reduceArgMax($x,$axis=1)->toArray());
+        $this->assertEquals([2,2],$la->reduceArgMax($x,$axis=-1)->toArray());
 
         // ***** CAUTION ******
         // 3d array
@@ -4457,6 +4459,7 @@ class Test extends TestCase
         $x = $la->array([[1,2,3],[4,5,6]]);
         $this->assertEquals([2.5,3.5,4.5],$la->reduceMean($x,$axis=0)->toArray());
         $this->assertEquals([2,5],$la->reduceMean($x,$axis=1)->toArray());
+        $this->assertEquals([2,5],$la->reduceMean($x,$axis=-1)->toArray());
 
         // n-dimensions
         $x = $la->array([[[1,2,3],[4,5,6]],[[1,2,3],[4,5,6]],[[1,2,3],[4,5,6]]]);
@@ -4639,6 +4642,10 @@ class Test extends TestCase
         $dtype = NDArray::bool;
         $Y = $math->astype($X, $dtype);
         $this->assertEquals([true,false,true,true,true],$Y->toArray());
+        $this->assertEquals(NDArray::bool,$Y->dtype());
+        $Z = $math->astype($Y, NDArray::int32);  // check reverse
+        $this->assertEquals([1,0,1,1,1],$Z->toArray());
+        $this->assertEquals(NDArray::int32,$Z->dtype());
 
         #### float to any ######
         $X = $la->array([-1,0,1,2,3],NDArray::float32);
@@ -4671,6 +4678,10 @@ class Test extends TestCase
         $dtype = NDArray::bool;
         $Y = $math->astype($X, $dtype);
         $this->assertEquals([true,false,true,true,true],$Y->toArray());
+        $this->assertEquals(NDArray::bool,$Y->dtype());
+        $Z = $math->astype($Y, NDArray::float32);  // check reverse
+        $this->assertEquals([1,0,1,1,1],$Z->toArray());
+        $this->assertEquals(NDArray::float32,$Z->dtype());
 
         #### bool to any ######
         $X = $la->array([true,false,true,true,true],NDArray::bool);
@@ -9512,6 +9523,40 @@ class Test extends TestCase
         $solve = $la->solve($a,$b);
         //echo $mo->toString($solve,'%f',true);
         $this->assertEquals([3,5,2],$solve->toArray());
+    }
+
+    public function testIsInt()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        $this->assertTrue($la->isInt($la->array(1,NDArray::int8)));
+        $this->assertTrue($la->isInt($la->array(1,NDArray::uint8)));
+        $this->assertTrue($la->isInt($la->array(1,NDArray::int32)));
+        $this->assertTrue($la->isInt($la->array(1,NDArray::uint32)));
+        $this->assertTrue($la->isInt($la->array(1,NDArray::int64)));
+        $this->assertTrue($la->isInt($la->array(1,NDArray::uint64)));
+
+        $this->assertFalse($la->isInt($la->array(1,NDArray::float32)));
+        $this->assertFalse($la->isInt($la->array(1,NDArray::float64)));
+
+        $this->assertFalse($la->isInt($la->array(1,NDArray::bool)));
+    }
+
+    public function testIsFloat()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        $this->assertFalse($la->isFloat($la->array(1,NDArray::int8)));
+        $this->assertFalse($la->isFloat($la->array(1,NDArray::uint8)));
+        $this->assertFalse($la->isFloat($la->array(1,NDArray::int32)));
+        $this->assertFalse($la->isFloat($la->array(1,NDArray::uint32)));
+        $this->assertFalse($la->isFloat($la->array(1,NDArray::int64)));
+        $this->assertFalse($la->isFloat($la->array(1,NDArray::uint64)));
+
+        $this->assertTrue($la->isFloat($la->array(1,NDArray::float32)));
+        $this->assertTrue($la->isFloat($la->array(1,NDArray::float64)));
+
+        $this->assertFalse($la->isFloat($la->array(1,NDArray::bool)));
     }
 
 }

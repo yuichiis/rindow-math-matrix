@@ -2067,6 +2067,9 @@ class OpenCLMath
         if($dtypeX==NDArray::float64 || $dtypeY==NDArray::float64) {
             $this->assertFP64();
         }
+        if($dtype!=$dtypeY) {
+            throw new InvalidArgumentException('unmatch data type between dtype and output buffer type');
+        }
         $from = $this->dtypeToOpenCLType[$dtypeX];
         $to = $this->dtypeToOpenCLType[$dtypeY];
         $toOrg = $to;
@@ -2085,7 +2088,8 @@ class OpenCLMath
                 "    const        uint incy)\n".
                 "{\n".
                 "    uint gid = get_global_id(0);\n";
-            if($dtypeY==NDArray::bool&&($dtypeX==NDArray::float16||$dtypeX==NDArray::float32||$dtypeX==NDArray::float64)) {
+            if($dtypeY==NDArray::bool) {
+                if($dtypeX==NDArray::float16||$dtypeX==NDArray::float32||$dtypeX==NDArray::float64) {
                 $this->sources[$kernel_name] .=
                 "    int tmp = x[gid*incx+offset_x];\n".
                 "    if(tmp==0) {\n".
@@ -2093,6 +2097,14 @@ class OpenCLMath
                 "    } else {\n".
                 "        y[gid*incy+offset_y] = 1;\n".
                 "    }\n";
+                } else {
+                $this->sources[$kernel_name] .=
+                "    if(x[gid*incx+offset_x]==0) {\n".
+                "        y[gid*incy+offset_y] = 0;\n".
+                "    } else {\n".
+                "        y[gid*incy+offset_y] = 1;\n".
+                "    }\n";
+                }
             } else {
                 $this->sources[$kernel_name] .=
                 "    y[gid*incy+offset_y] = x[gid*incx+offset_x];\n";

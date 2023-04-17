@@ -35,6 +35,11 @@ class LinearAlgebraCL
     protected $clVersion;
     protected $isOpenCL110;
 
+    protected $intTypes= [
+        NDArray::int8,NDArray::int16,NDArray::int32,NDArray::int64,
+        NDArray::uint8,NDArray::uint16,NDArray::uint32,NDArray::uint64,
+    ];
+
     public function __construct(
         $context,$queue,$blas,$openclmath,$clblastmath,
         $openblasmath=null,$lapack=null,$defaultFloatType=null)
@@ -217,7 +222,7 @@ class LinearAlgebraCL
 
     public function isInt(NDArray $value)
     {
-        return in_array($value,$this->intTypes);
+        return in_array($value->dtype(),$this->intTypes);
     }
 
     public function isFloat(NDArray $value)
@@ -3266,6 +3271,9 @@ class LinearAlgebraCL
             $this->profilingStart("reduceSum");
         }
         $ndim = $input->ndim();
+        if($axis===null) {
+            $axis = 0;
+        }
         if($axis<0) {
             $axis = $ndim+$axis;
         }
@@ -3335,6 +3343,9 @@ class LinearAlgebraCL
             $this->profilingStart("reduceMax");
         }
         $ndim = $input->ndim();
+        if($axis===null) {
+            $axis = 0;
+        }
         if($axis<0) {
             $axis = $ndim+$axis;
         }
@@ -3396,7 +3407,7 @@ class LinearAlgebraCL
         int $axis=null,
         bool $keepdims=null,
         NDArray $output=null,
-        $dtypeB=null,
+        $dtype=null,
         $events=null,$waitEvents=null
         ) : NDArray
     {
@@ -3404,6 +3415,9 @@ class LinearAlgebraCL
             $this->profilingStart("reduceArgMax");
         }
         $ndim = $input->ndim();
+        if($axis===null) {
+            $axis = 0;
+        }
         if($axis<0) {
             $axis = $ndim+$axis;
         }
@@ -3423,11 +3437,11 @@ class LinearAlgebraCL
         } else {
             $outputShape = array_merge($prefixShape,$postfixShape);
         }
-        if($dtypeB===null) {
-            $dtypeB = NDArray::uint32;
+        if($dtype===null) {
+            $dtype = NDArray::uint32;
         }
         if($output==null) {
-            $output = $this->alloc($outputShape,$dtypeB);
+            $output = $this->alloc($outputShape,$dtype);
         } else {
             if($output->shape()!=$outputShape) {
                 $shapeError = '('.implode(',',$input->shape()).'),('.implode(',',$output->shape()).')';
@@ -3462,20 +3476,27 @@ class LinearAlgebraCL
      */
     public function reduceMean(
         NDArray $input,
-        int $axis,
+        int $axis=null,
         bool $keepdims=null,
         NDArray $output=null,
-        $dtype=null,
-        $events=null,$waitEvents=null
+        int $dtype=null,
+        object $events=null,object $waitEvents=null
         ) : NDArray
     {
         $waitPrev = $waitEvents;
         $waitEvents = $this->newEventList();
+        if($axis===null) {
+            $axis = 0;
+        }
         $output = $this->reduceSum(
             $input,axis:$axis,keepdims:$keepdims,output:$output,dtype:$dtype,
             events:$waitEvents,waitEvents:$waitPrev
         );
-        if($input->ndim()<=$axis) {
+        $ndim = $input->ndim();
+        if($axis<0) {
+            $axis = $ndim+$axis;
+        }
+        if($ndim<=$axis) {
             throw new InvalidException('axis must be less then num of dimension');
         }
         $shapeA = $input->shape();

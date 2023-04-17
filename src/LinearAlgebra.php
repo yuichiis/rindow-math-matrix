@@ -2176,7 +2176,7 @@ class LinearAlgebra
         int $axis=null,
         bool $keepdims=null,
         NDArray $output=null,
-        $dtypeB=null) : NDArray
+        $dtype=null) : NDArray
     {
         $ndim = $input->ndim();
         if($axis===null) {
@@ -2201,11 +2201,11 @@ class LinearAlgebra
         } else {
             $outputShape = array_merge($prefixShape,$postfixShape);
         }
-        if($dtypeB===null) {
-            $dtypeB = NDArray::uint32;
+        if($dtype===null) {
+            $dtype = NDArray::uint32;
         }
         if($output==null) {
-            $output = $this->alloc($outputShape,$dtypeB);
+            $output = $this->alloc($outputShape,$dtype);
         } else {
             if($output->shape()!=$outputShape) {
                 $shapeError = '('.implode(',',$input->shape()).'),('.implode(',',$output->shape()).')';
