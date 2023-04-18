@@ -8238,18 +8238,26 @@ class Test extends TestCase
         $X = $la->ones($la->alloc([2,3,4]));
         $Y = $la->repeat($X,$repeats=2,axis:0,keepdims:true);
         $this->assertEquals([4,3,4],$Y->shape());
+        $Z = $la->repeat($X,$repeats=2,axis:0);
+        $this->assertEquals($Z->reshape([4*3*4])->toArray(),$Y->reshape([4*3*4])->toArray());
 
         $X = $la->ones($la->alloc([2,3,4]));
         $Y = $la->repeat($X,$repeats=2,axis:1,keepdims:true);
         $this->assertEquals([2,6,4],$Y->shape());
+        $Z = $la->repeat($X,$repeats=2,axis:1);
+        $this->assertEquals($Z->reshape([2*6*4])->toArray(),$Y->reshape([2*6*4])->toArray());
 
         $X = $la->ones($la->alloc([2,3,4]));
         $Y = $la->repeat($X,$repeats=2,axis:2,keepdims:true);
         $this->assertEquals([2,3,8],$Y->shape());
+        $Z = $la->repeat($X,$repeats=2,axis:1);
+        $this->assertEquals($Z->reshape([2*3*8])->toArray(),$Y->reshape([2*3*8])->toArray());
 
         $X = $la->ones($la->alloc([2,3,4]));
         $Y = $la->repeat($X,$repeats=2,axis:null,keepdims:true);
         $this->assertEquals([48],$Y->shape());
+        $Z = $la->repeat($X,$repeats=2,axis:null);
+        $this->assertEquals($Z->reshape([48])->toArray(),$Y->reshape([48])->toArray());
     }
 
     public function testReduceSum3d()

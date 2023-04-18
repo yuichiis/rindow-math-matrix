@@ -4760,6 +4760,7 @@ class LinearAlgebraCL
         for($i=0;$i<$axis;$i++) {
             $outerShape[] = array_shift($innerShape);
         }
+        $base = 1;
         if($axis===null) {
             $outputShape = [(int)array_product(
                     array_merge($outerShape,[$repeats],$innerShape))];
@@ -4776,7 +4777,7 @@ class LinearAlgebraCL
         }
         $B = $this->alloc($outputShape,$A->dtype());
         $m = (int)array_product($outerShape);
-        $k = (int)array_product($innerShape);
+        $k = (int)array_product($innerShape)*$base;
         $AA = $A->buffer();
         $offA = $A->offset();
         $BB = $B->buffer();
