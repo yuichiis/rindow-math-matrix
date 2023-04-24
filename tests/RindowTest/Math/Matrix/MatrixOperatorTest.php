@@ -535,15 +535,15 @@ class Test extends TestCase
 
         $this->assertEquals(
             [[   10001,   100010],[ 1000100, 10001000]],
-            $mo->sum($A,$axis=0)->toArray());
+            $mo->sum($A,axis:0)->toArray());
 
         $this->assertEquals(
             [[     101,     1010],[ 1010000, 10100000]],
-            $mo->sum($A,$axis=1)->toArray());
+            $mo->sum($A,axis:1)->toArray());
 
         $this->assertEquals(
             [[      11,     1100],[  110000, 11000000]],
-            $mo->sum($A,$axis=2)->toArray());
+            $mo->sum($A,axis:2)->toArray());
     }
 
     public function testASumPure()
@@ -573,15 +573,15 @@ class Test extends TestCase
 
         $this->assertEquals(
             [[   10001,   100010],[ 1000100, 10001000]],
-            $mo->asum($A,$axis=0)->toArray());
+            $mo->asum($A,axis:0)->toArray());
 
         $this->assertEquals(
             [[     101,     1010],[ 1010000, 10100000]],
-            $mo->asum($A,$axis=1)->toArray());
+            $mo->asum($A,axis:1)->toArray());
 
         $this->assertEquals(
             [[      11,     1100],[  110000, 11000000]],
-            $mo->asum($A,$axis=2)->toArray());
+            $mo->asum($A,axis:2)->toArray());
     }
 
     public function testMaxPure()
@@ -612,12 +612,12 @@ class Test extends TestCase
         $this->assertEquals([2,3],$X->shape());
         $this->assertEquals(
             [4,2,3],
-            $mo->max($X,$axis=0)->toArray());
+            $mo->max($X,axis:0)->toArray());
 
         $X = $mo->array([[1,2,3],[4,-5,-6]],NDArray::float32);
         $this->assertEquals(
             [3,4],
-            $mo->max($X,$axis=1)->toArray());
+            $mo->max($X,axis:1)->toArray());
 
         // with offset
         $X = $mo->array([[[9,9,9],[9,9,9]],[[1,2,3],[4,-5,-6]]],NDArray::float32);
@@ -625,30 +625,30 @@ class Test extends TestCase
         $this->assertEquals([2,3],$X->shape());
         $this->assertEquals(
             [4,2,3],
-            $mo->max($X,$axis=0)->toArray());
+            $mo->max($X,axis:0)->toArray());
 
         // with offset
         $X = $mo->array([[[9,9,9],[9,9,9]],[[1,2,3],[4,-5,-6]]],NDArray::float32);
         $X = $X[1];
         $this->assertEquals(
             [3,4],
-            $mo->max($X,$axis=1)->toArray());
+            $mo->max($X,axis:1)->toArray());
 
 
         $X = $mo->array([[[1,-2],[-3,4]],[[-5,6],[7,-8]]],NDArray::float32);
         $this->assertEquals(
             [[1, 6],[7, 4]],
-            $mo->max($X,$axis=0)->toArray());
+            $mo->max($X,axis:0)->toArray());
 
         $X = $mo->array([[[1,-2],[-3,4]],[[-5,6],[7,-8]]],NDArray::float32);
         $this->assertEquals(
             [[1, 4],[7, 6]],
-            $mo->max($X,$axis=1)->toArray());
+            $mo->max($X,axis:1)->toArray());
 
         $X = $mo->array([[[1,-2],[-3,4]],[[-5,6],[7,-8]]],NDArray::float32);
         $this->assertEquals(
             [[1, 4],[6, 7]],
-            $mo->max($X,$axis=2)->toArray());
+            $mo->max($X,axis:2)->toArray());
     }
 
     public function testArgMaxPure()
@@ -679,41 +679,41 @@ class Test extends TestCase
         $X = $mo->array([[1,2,3],[4,-5,-6]],NDArray::float32);
         $this->assertEquals(
             [1,0,0],
-            $mo->argMax($X,$axis=0)->toArray());
+            $mo->argMax($X,axis:0)->toArray());
 
         $X = $mo->array([[1,2,3],[4,-5,-6]],NDArray::float32);
         $this->assertEquals(
             [2,0],
-            $mo->argMax($X,$axis=1)->toArray());
+            $mo->argMax($X,axis:1)->toArray());
 
         // with offset
         $X = $mo->array([[[0,0,0],[0,0,0]],[[1,2,3],[4,-5,-6]]],NDArray::float32)[1];
         $this->assertEquals(6,$X->offset());
         $this->assertEquals(
             [1,0,0],
-            $mo->argMax($X,$axis=0)->toArray());
+            $mo->argMax($X,axis:0)->toArray());
 
         $X = $mo->array([[[0,0,0],[0,0,0]],[[1,2,3],[4,-5,-6]]],NDArray::float32)[1];
         $this->assertEquals(6,$X->offset());
         $this->assertEquals(
             [2,0],
-            $mo->argMax($X,$axis=1)->toArray());
+            $mo->argMax($X,axis:1)->toArray());
 
 
         $X = $mo->array([[[1,-2],[-3,4]],[[5,6],[-7,-8]]],NDArray::float32);
         $this->assertEquals(
             [[1, 1],[0, 0]],
-            $mo->argMax($X,$axis=0)->toArray());
+            $mo->argMax($X,axis:0)->toArray());
 
         $X = $mo->array([[[1,-2],[-3,4]],[[5,6],[-7,-8]]],NDArray::float32);
         $this->assertEquals(
             [[0, 1],[0, 0]],
-            $mo->argMax($X,$axis=1)->toArray());
+            $mo->argMax($X,axis:1)->toArray());
 
         $X = $mo->array([[[1,-2],[-3,4]],[[5,6],[-7,-8]]],NDArray::float32);
         $this->assertEquals(
             [[0, 1],[1, 0]],
-            $mo->argMax($X,$axis=2)->toArray());
+            $mo->argMax($X,axis:2)->toArray());
     }
 
     public function testAMaxPure()
@@ -744,27 +744,27 @@ class Test extends TestCase
         $X = $mo->array([[1,2,3],[4,-5,-6]],NDArray::float32);
         $this->assertEquals(
             [4,-5,-6],
-            $mo->amax($X,$axis=0)->toArray());
+            $mo->amax($X,axis:0)->toArray());
 
         $X = $mo->array([[1,2,3],[4,-5,-6]],NDArray::float32);
         $this->assertEquals(
             [3,-6],
-            $mo->amax($X,$axis=1)->toArray());
+            $mo->amax($X,axis:1)->toArray());
 
         $X = $mo->array([[[1,-2],[-3,4]],[[-5,6],[7,-8]]],NDArray::float32);
         $this->assertEquals(
             [[-5, 6],[7, -8]],
-            $mo->amax($X,$axis=0)->toArray());
+            $mo->amax($X,axis:0)->toArray());
 
         $X = $mo->array([[[1,-2],[-3,4]],[[-5,6],[7,-8]]],NDArray::float32);
         $this->assertEquals(
             [[-3, 4],[7, -8]],
-            $mo->amax($X,$axis=1)->toArray());
+            $mo->amax($X,axis:1)->toArray());
 
         $X = $mo->array([[[1,-2],[-3,4]],[[-5,6],[7,-8]]],NDArray::float32);
         $this->assertEquals(
             [[-2, 4],[6, -8]],
-            $mo->amax($X,$axis=2)->toArray());
+            $mo->amax($X,axis:2)->toArray());
     }
 
     public function testArgAMaxPure()
@@ -795,27 +795,27 @@ class Test extends TestCase
         $X = $mo->array([[1,2,3],[4,-5,-6]],NDArray::float32);
         $this->assertEquals(
             [1,1,1],
-            $mo->argAmax($X,$axis=0)->toArray());
+            $mo->argAmax($X,axis:0)->toArray());
 
         $X = $mo->array([[1,2,3],[4,-5,-6]],NDArray::float32);
         $this->assertEquals(
             [2,2],
-            $mo->argAmax($X,$axis=1)->toArray());
+            $mo->argAmax($X,axis:1)->toArray());
 
         $X = $mo->array([[[-2,1],[8,-7]],[[3,4],[-5,-6]]],NDArray::float32);
         $this->assertEquals(
             [[1, 1],[0, 0]],
-            $mo->argAmax($X,$axis=0)->toArray());
+            $mo->argAmax($X,axis:0)->toArray());
 
         $X = $mo->array([[[-2,1],[8,-7]],[[3,4],[-5,-6]]],NDArray::float32);
         $this->assertEquals(
             [[1, 1],[1, 1]],
-            $mo->argAmax($X,$axis=1)->toArray());
+            $mo->argAmax($X,axis:1)->toArray());
 
         $X = $mo->array([[[-2,1],[8,-7]],[[3,4],[-5,-6]]],NDArray::float32);
         $this->assertEquals(
             [[0, 0],[1, 1]],
-            $mo->argAmax($X,$axis=2)->toArray());
+            $mo->argAmax($X,axis:2)->toArray());
     }
 
     public function testMinPure()
@@ -846,27 +846,27 @@ class Test extends TestCase
         $X = $mo->array([[1,2,3],[4,-5,-6]],NDArray::float32);
         $this->assertEquals(
             [1,-5,-6],
-            $mo->min($X,$axis=0)->toArray());
+            $mo->min($X,axis:0)->toArray());
 
         $X = $mo->array([[1,2,3],[4,-5,-6]],NDArray::float32);
         $this->assertEquals(
             [1,-6],
-            $mo->min($X,$axis=1)->toArray());
+            $mo->min($X,axis:1)->toArray());
 
         $X = $mo->array([[[1,-2],[-3,4]],[[-5,6],[7,-8]]],NDArray::float32);
         $this->assertEquals(
             [[-5, -2],[-3, -8]],
-            $mo->min($X,$axis=0)->toArray());
+            $mo->min($X,axis:0)->toArray());
 
         $X = $mo->array([[[1,-2],[-3,4]],[[-5,6],[7,-8]]],NDArray::float32);
         $this->assertEquals(
             [[-3, -2],[-5, -8]],
-            $mo->min($X,$axis=1)->toArray());
+            $mo->min($X,axis:1)->toArray());
 
         $X = $mo->array([[[1,-2],[-3,4]],[[-5,6],[7,-8]]],NDArray::float32);
         $this->assertEquals(
             [[-2, -3],[-5, -8]],
-            $mo->min($X,$axis=2)->toArray());
+            $mo->min($X,axis:2)->toArray());
     }
 
     public function testArgMinPure()
@@ -897,41 +897,41 @@ class Test extends TestCase
         $X = $mo->array([[1,2,3],[4,-5,-6]],NDArray::float32);
         $this->assertEquals(
             [0, 1, 1],
-            $mo->argMin($X,$axis=0)->toArray());
+            $mo->argMin($X,axis:0)->toArray());
 
         $X = $mo->array([[1,2,3],[4,-5,-6]],NDArray::float32);
         $this->assertEquals(
             [0, 2],
-            $mo->argMin($X,$axis=1)->toArray());
+            $mo->argMin($X,axis:1)->toArray());
 
         // with offset
         $X = $mo->array([[[0,0,0],[0,0,0]],[[1,2,3],[4,-5,-6]]],NDArray::float32)[1];
         $this->assertEquals(6,$X->offset());
         $this->assertEquals(
             [0, 1, 1],
-            $mo->argMin($X,$axis=0)->toArray());
+            $mo->argMin($X,axis:0)->toArray());
 
         $X = $mo->array([[[0,0,0],[0,0,0]],[[1,2,3],[4,-5,-6]]],NDArray::float32)[1];
         $this->assertEquals(6,$X->offset());
         $this->assertEquals(
             [0, 2],
-            $mo->argMin($X,$axis=1)->toArray());
+            $mo->argMin($X,axis:1)->toArray());
 
 
         $X = $mo->array([[[1,-2],[-3,4]],[[5,6],[-7,-8]]],NDArray::float32);
         $this->assertEquals(
             [[0, 0],[1, 1]],
-            $mo->argMin($X,$axis=0)->toArray());
+            $mo->argMin($X,axis:0)->toArray());
 
         $X = $mo->array([[[1,-2],[-3,4]],[[5,6],[-7,-8]]],NDArray::float32);
         $this->assertEquals(
             [[1, 0],[1, 1]],
-            $mo->argMin($X,$axis=1)->toArray());
+            $mo->argMin($X,axis:1)->toArray());
 
         $X = $mo->array([[[1,-2],[-3,4]],[[5,6],[-7,-8]]],NDArray::float32);
         $this->assertEquals(
             [[1, 0],[0, 1]],
-            $mo->argMin($X,$axis=2)->toArray());
+            $mo->argMin($X,axis:2)->toArray());
     }
 
     public function testAminPure()
@@ -962,27 +962,27 @@ class Test extends TestCase
         $X = $mo->array([[1,2,3],[4,-5,-6]],NDArray::float32);
         $this->assertEquals(
             [1,2,3],
-            $mo->amin($X,$axis=0)->toArray());
+            $mo->amin($X,axis:0)->toArray());
 
         $X = $mo->array([[1,2,3],[4,-5,-6]],NDArray::float32);
         $this->assertEquals(
             [1,4],
-            $mo->amin($X,$axis=1)->toArray());
+            $mo->amin($X,axis:1)->toArray());
 
         $X = $mo->array([[[1,-2],[-3,4]],[[-5,6],[7,-8]]],NDArray::float32);
         $this->assertEquals(
             [[1, -2],[-3, 4]],
-            $mo->amin($X,$axis=0)->toArray());
+            $mo->amin($X,axis:0)->toArray());
 
         $X = $mo->array([[[1,-2],[-3,4]],[[-5,6],[7,-8]]],NDArray::float32);
         $this->assertEquals(
             [[1, -2],[-5, 6]],
-            $mo->amin($X,$axis=1)->toArray());
+            $mo->amin($X,axis:1)->toArray());
 
         $X = $mo->array([[[1,-2],[-3,4]],[[-5,6],[7,-8]]],NDArray::float32);
         $this->assertEquals(
             [[1, -3],[-5, 7]],
-            $mo->amin($X,$axis=2)->toArray());
+            $mo->amin($X,axis:2)->toArray());
     }
 
     public function testArgAminPure()
@@ -1013,28 +1013,28 @@ class Test extends TestCase
         $X = $mo->array([[1,2,3],[4,-5,-6]],NDArray::float32);
         $this->assertEquals(
             [0,0,0],
-            $mo->argAmin($X,$axis=0)->toArray());
+            $mo->argAmin($X,axis:0)->toArray());
 
         $X = $mo->array([[1,2,3],[4,-5,-6]],NDArray::float32);
         $this->assertEquals(
             [0,0],
-            $mo->argAmin($X,$axis=1)->toArray());
+            $mo->argAmin($X,axis:1)->toArray());
 
 
         $X = $mo->array([[[-2,1],[8,-7]],[[3,4],[-5,-6]]],NDArray::float32);
         $this->assertEquals(
             [[0, 0],[1, 1]],
-            $mo->argAmin($X,$axis=0)->toArray());
+            $mo->argAmin($X,axis:0)->toArray());
 
         $X = $mo->array([[[-2,1],[8,-7]],[[3,4],[-5,-6]]],NDArray::float32);
         $this->assertEquals(
             [[0, 0],[0, 0]],
-            $mo->argAmin($X,$axis=1)->toArray());
+            $mo->argAmin($X,axis:1)->toArray());
 
         $X = $mo->array([[[-2,1],[8,-7]],[[3,4],[-5,-6]]],NDArray::float32);
         $this->assertEquals(
             [[1, 1],[0, 0]],
-            $mo->argAmin($X,$axis=2)->toArray());
+            $mo->argAmin($X,axis:2)->toArray());
     }
 
     public function testMeanPure()
@@ -1067,15 +1067,15 @@ class Test extends TestCase
         $this->assertEquals([2,2,2],$A->shape());
         $this->assertEquals(
             [[   5000.5,   50005],[ 500050, 5000500]],
-            $mo->mean($A,$axis=0)->toArray());
+            $mo->mean($A,axis:0)->toArray());
 
         $this->assertEquals(
             [[     50.5,     505],[ 505000, 5050000]],
-            $mo->mean($A,$axis=1)->toArray());
+            $mo->mean($A,axis:1)->toArray());
 
         $this->assertEquals(
             [[      5.5,     550],[  55000, 5500000]],
-            $mo->mean($A,$axis=2)->toArray());
+            $mo->mean($A,axis:2)->toArray());
     }
 
     public function testApplyFunction()

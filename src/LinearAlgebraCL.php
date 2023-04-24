@@ -665,10 +665,10 @@ class LinearAlgebraCL
         return $X;
     }
 
-    protected function newHostBuffer($size,$dtype)
-    {
-        return new OpenBlasBuffer($size,$dtype);
-    }
+    #protected function newHostBuffer($size,$dtype)
+    #{
+    #    return new OpenBlasBuffer($size,$dtype);
+    #}
 
     protected function newBuffer(
         int $size, int $flags=null,
