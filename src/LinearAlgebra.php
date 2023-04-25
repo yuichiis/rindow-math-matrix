@@ -92,7 +92,7 @@ class LinearAlgebra
         return $dtype==NDarray::float32||$dtype==NDarray::float64;
     }
 
-    public function array($array,$dtype=null) : NDArray
+    public function array($array,int $dtype=null) : NDArray
     {
         if($array instanceof NDArray) {
             return $array;
@@ -180,7 +180,7 @@ class LinearAlgebra
         return $x->reshape($newShape);
     }
 
-    public function alloc(array $shape,$dtype=null) : NDArray
+    public function alloc(array $shape,int $dtype=null) : NDArray
     {
         if($dtype===null)
             $dtype = $this->defaultFloatType;
@@ -1755,7 +1755,7 @@ class LinearAlgebra
         NDArray $X,
         int $axis=null,
         NDArray $output=null,
-        $dtype=null) : NDArray
+        int $dtype=null) : NDArray
     {
 //echo "shapeX=[".implode(',',$X->shape())."],shapeA=[".implode(',',$A->shape())."]\n";
         if($axis===null) {
@@ -1852,7 +1852,7 @@ class LinearAlgebra
         NDArray $X,
         int $axis=null,
         NDArray $output=null,
-        $dtype=null) : NDArray
+        int $dtype=null) : NDArray
     {
         return $this->doGather(
             $scatterAdd=false,
@@ -1873,7 +1873,7 @@ class LinearAlgebra
         NDArray $A,
         NDArray $output,
         int $axis=null,
-        $dtype=null) : NDArray
+        int $dtype=null) : NDArray
     {
         $this->doGather(
             $scatterAdd=true,
@@ -1896,7 +1896,7 @@ class LinearAlgebra
         int $numClass,
         int $axis=null,
         NDArray $output=null,
-        $dtype=null) : NDArray
+        int $dtype=null) : NDArray
     {
 //echo "shapeX=[".implode(',',$X->shape())."],shapeA=[".implode(',',$A->shape())."]\n";
 //echo "axis=$axis,numClass=$numClass\n";
@@ -2062,7 +2062,7 @@ class LinearAlgebra
         int $axis=null,
         bool $keepdims=null,
         NDArray $output=null,
-        $dtype=null) : NDArray
+        int $dtype=null) : NDArray
     {
         $ndim = $input->ndim();
         if($axis===null) {
@@ -2119,7 +2119,7 @@ class LinearAlgebra
         int $axis=null,
         bool $keepdims=null,
         NDArray $output=null,
-        $dtype=null) : NDArray
+        int $dtype=null) : NDArray
     {
         $ndim = $input->ndim();
         if($axis===null) {
@@ -2176,7 +2176,7 @@ class LinearAlgebra
         int $axis=null,
         bool $keepdims=null,
         NDArray $output=null,
-        $dtype=null) : NDArray
+        int $dtype=null) : NDArray
     {
         $ndim = $input->ndim();
         if($axis===null) {
@@ -2233,7 +2233,7 @@ class LinearAlgebra
         int $axis=null,
         bool $keepdims=null,
         NDArray $output=null,
-        $dtype=null) : NDArray
+        int $dtype=null) : NDArray
     {
         if($axis===null) {
             $axis = 0;
@@ -2687,7 +2687,7 @@ class LinearAlgebra
         array $shape,
         $low,
         $high,
-        $dtype=null,
+        int $dtype=null,
         int $seed=null,
         NDArray $X=null) : NDArray
     {
@@ -2728,7 +2728,7 @@ class LinearAlgebra
         array $shape,
         $mean,
         $scale,
-        $dtype=null,
+        int $dtype=null,
         int $seed=null,
         NDArray $X=null) : NDArray
     {
@@ -3495,7 +3495,7 @@ class LinearAlgebra
         NDArray $A,
         NDArray $X,
         bool $right=null,
-        $dtype=null,
+        int $dtype=null,
         NDArray $Y=null
         ) : NDArray
     {
@@ -3619,7 +3619,7 @@ class LinearAlgebra
         return $X;
     }
 
-    public function linspace(float $start, float $stop, int $num, $dtype=null) : NDArray
+    public function linspace(float $start, float $stop, int $num, int $dtype=null) : NDArray
     {
         if($num<=0) {
             throw new InvalidArgumentException('num must be greater than or equal zero.');
