@@ -1691,42 +1691,67 @@ class OpenCLMath
     }
 
     /**
-     *     X := X ^ a
+     *    A(m,n) := A(m,n) ** X(n)
      */
     public function pow(
+        bool $trans,
+        int $m,
         int $n,
+        Buffer $A, int $offsetA, int $ldA,
         Buffer $X, int $offsetX, int $incX,
-        float $alpha,
         EventList $events=null, EventList $waitEvents=null
         ) : void
     {
+        if($trans) {
+            $trans = 'trans';
+            $rows = $n;
+            $cols = $m;
+        } else {
+            $trans = 'norm';
+            $rows = $m;
+            $cols = $n;
+        }
         $dtypeX = $X->dtype();
         if($dtypeX==NDArray::float64) {
             $this->assertFP64();
         }
         $type = $this->dtypeToOpenCLType[$dtypeX];
-        $kernel_name = "pow_{$type}";
+        $kernel_name = "pow_{$type}_{$trans}";
         if(!isset($this->sources[$kernel_name])) {
+            if($trans=='trans') {
+                $index_a = 'col_id*lda+row_id+offset_a';
+            } else {
+                $index_a = 'row_id*lda+col_id+offset_a';
+            }
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        {$type} alpha,\n".
-                "        __global {$type} * x,\n".
+                "    const global {$type} * x,\n".
                 "    const        uint offset_x,\n".
-                "    const        uint incx)\n".
+                "    const        uint incx,\n".
+                "        __global {$type} * a,\n".
+                "    const        uint offset_a,\n".
+                "    const        uint lda)\n".
                 "{\n".
-                "    uint idx = get_global_id(0)*incx+offset_x;\n".
-                "    x[idx] = pow(x[idx],alpha);\n".
+                "    const uint row_id = get_global_id(0);\n".
+                "    const uint col_id = get_global_id(1);\n".
+                "    const uint index_a = {$index_a};\n".
+                "    const uint index_x = col_id*incx+offset_x;\n".
+                "    const {$type} work_x = x[index_x];\n".
+                "    a[index_a] = pow(a[index_a],work_x);\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
-        $kernel->setArg(0,$alpha,NDArray::float32);
-        $kernel->setArg(1,$X);
-        $kernel->setArg(2,$offsetX,NDArray::uint32);
-        $kernel->setArg(3,$incX,NDArray::uint32);
-        $global_work_size = [$n];
+        $kernel->setArg(0,$X);
+        $kernel->setArg(1,$offsetX,NDArray::uint32);
+        $kernel->setArg(2,$incX,NDArray::uint32);
+        $kernel->setArg(3,$A);
+        $kernel->setArg(4,$offsetA,NDArray::uint32);
+        $kernel->setArg(5,$ldA,NDArray::uint32);
+        $global_work_size = [$rows,$cols];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
     }
+
 
     /**
      *     X(i) := e ^ X(i)
@@ -1987,6 +2012,102 @@ class OpenCLMath
         $kernel->setArg(3,$Y);
         $kernel->setArg(4,$offsetY,NDArray::uint32);
         $kernel->setArg(5,$incY,NDArray::uint32);
+        $global_work_size = [$n];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
+            $events,$waitEvents);
+    }
+
+    /**
+     * Y(i) := 1  ( X(i) != Y(i) )
+     * Y(i) := 0  ( X(i) == Y(i) )
+     */
+    public function notEqual(
+        int $n,
+        Buffer $X, int $offsetX, int $incX,
+        Buffer $Y, int $offsetY, int $incY,
+        EventList $events=null, EventList $waitEvents=null
+        ) : void
+    {
+        $dtypeX = $X->dtype();
+        $dtypeY = $Y->dtype();
+        if($dtypeX != $dtypeY) {
+            throw new InvalidArgumentException('X and Y must be same data type.');
+        }
+        if($dtypeX==NDArray::float64 || $dtypeY==NDArray::float64) {
+            $this->assertFP64();
+        }
+        $dtype = $this->dtypeToOpenCLType[$dtypeX];
+        $kernel_name = "notEqual_{$dtype}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+                "__kernel void {$kernel_name}(\n".
+                "    const global {$dtype} * x,\n".
+                "    const        uint offset_x,\n".
+                "    const        uint incx,\n".
+                "        __global {$dtype} * y,\n".
+                "    const        uint offset_y,\n".
+                "    const        uint incy)\n".
+                "{\n".
+                "    uint gid = get_global_id(0);\n".
+                "    uint index_x = gid*incx+offset_x;\n".
+                "    uint index_y = gid*incy+offset_y;\n".
+                "    if(x[index_x]!=y[index_y]) {\n".
+                "        y[index_y] = 1;\n".
+                "    } else {\n".
+                "        y[index_y] = 0;\n".
+                "    }\n".
+                "}\n";
+        }
+        $kernel = $this->createKernel($kernel_name);
+
+        $kernel->setArg(0,$X);
+        $kernel->setArg(1,$offsetX,NDArray::uint32);
+        $kernel->setArg(2,$incX,NDArray::uint32);
+        $kernel->setArg(3,$Y);
+        $kernel->setArg(4,$offsetY,NDArray::uint32);
+        $kernel->setArg(5,$incY,NDArray::uint32);
+        $global_work_size = [$n];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
+            $events,$waitEvents);
+    }
+
+    /**
+     * X(i) := 1  ( X(i) != 0 )
+     * X(i) := 0  ( X(i) == 0 )
+     */
+    public function not(
+        int $n,
+        Buffer $X, int $offsetX, int $incX,
+        EventList $events=null, EventList $waitEvents=null
+        ) : void
+    {
+        $dtypeX = $X->dtype();
+        if($dtypeX==NDArray::float64) {
+            $this->assertFP64();
+        }
+        $dtype = $this->dtypeToOpenCLType[$dtypeX];
+        $kernel_name = "not_{$dtype}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+                "__kernel void {$kernel_name}(\n".
+                "        __global {$dtype} * x,\n".
+                "    const        uint offset_x,\n".
+                "    const        uint incx)\n".
+                "{\n".
+                "    uint gid = get_global_id(0);\n".
+                "    uint index_x = gid*incx+offset_x;\n".
+                "    if(x[index_x]==0) {\n".
+                "        x[index_x] = 1;\n".
+                "    } else {\n".
+                "        x[index_x] = 0;\n".
+                "    }\n".
+                "}\n";
+        }
+        $kernel = $this->createKernel($kernel_name);
+
+        $kernel->setArg(0,$X);
+        $kernel->setArg(1,$offsetX,NDArray::uint32);
+        $kernel->setArg(2,$incX,NDArray::uint32);
         $global_work_size = [$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);

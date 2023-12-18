@@ -248,7 +248,7 @@ class LinearAlgebraCL
         } elseif(is_array($array) || is_numeric($array)) {
             $dtype = $flags;
             $flags = null;
-            $array = new NDArrayPhp($array,$dtype);
+            $array = new NDArrayPhp($array,dtype:$dtype);
         } else {
             throw new InvalidArgumentException('input value must be NDArray or array');
         }
@@ -632,7 +632,7 @@ class LinearAlgebraCL
         if($num<=0) {
             throw new InvalidArgumentException('num must be greater than or equal zero.');
         }
-        $array = new NDArrayPhp(null,$dtype,[$num]);
+        $array = new NDArrayPhp(null,dtype:$dtype,shape:[$num]);
         $step = ($stop-$start)/($num-1);
         $value = $start;
         for($i=0;$i<$num;$i++) {
@@ -646,7 +646,7 @@ class LinearAlgebraCL
     {
         if($dtype===null)
             $dtype = $this->defaultFloatType;
-        return new NDArrayPhp(null,$dtype,$shape);
+        return new NDArrayPhp(null,dtype:$dtype,shape:$shape);
     }
 
     public function zerosHost(
@@ -2007,7 +2007,8 @@ class LinearAlgebraCL
     protected function calcBroadcastFormat($A,$X)
     {
         if(is_numeric($X)) {
-            $X = $this->array($X,$A->dtype());
+            $X = new NDArrayPhp($X,dtype:$A->dtype());
+            $X = $this->array($X);
         }
         if(!($X instanceof NDArray)) {
             throw new InvalidArgumentException('X must be NDArray or float');;
@@ -2292,8 +2293,9 @@ class LinearAlgebraCL
         if($this->profiling) {
             $this->profilingStart("multiply");
         }
-        if($trans===null)
+        if($trans===null) {
             $trans = false;
+        }
         $shapeX = $X->shape();
         $shapeA = $A->shape();
         if($trans)
@@ -2503,11 +2505,12 @@ class LinearAlgebraCL
     }
 
     /**
-     *     X := X ^ a
+     *     A(m,n) := A(m,n) ** alpha(n)
      */
     public function pow(
-        NDArray $X,
-        float $alpha,
+        NDArray $A,
+        float|NDArray $alpha,
+        bool $trans=null,
         object $events=null,
         object $waitEvents=null
         ) : NDArray
@@ -2515,14 +2518,51 @@ class LinearAlgebraCL
         if($this->profiling) {
             $this->profilingStart("pow");
         }
-        $n = $X->size();
-        $XX = $X->buffer();
-        $offX = $X->offset();
+        if($trans===null) {
+            $trans = false;
+        }
+        $shapeA = $A->shape();
+        if(is_numeric($alpha)) {
+            $alpha = new NDArrayPhp($alpha,dtype:$A->dtype());
+            $alpha = $this->array($alpha);
+        }
+        $shapeX = $alpha->shape();
+        if(count($shapeX)==0) {
+            $trans = false;
+            $shapeA = [(int)array_product($shapeA),1];
+            $shapeX = [1];
+        }
+
+        if($trans) {
+            $shapeA = array_reverse($shapeA);
+        }
+        while(true) {
+            $xd = array_pop($shapeX);
+            if($xd===null)
+                break;
+            $ad = array_pop($shapeA);
+            if($xd!==$ad) {
+                $shapeA = $trans ? array_reverse($A->shape()) : $A->shape();
+                throw new InvalidArgumentException('Unmatch dimension size for broadcast.: '.
+                    '['.implode(',',$X->shape()).'] => ['.implode(',',$shapeA).']');
+            }
+        }
+        $n = $alpha->size();
+        $XX = $alpha->buffer();
+        $offX = $alpha->offset();
+        $m = $A->size()/$n;
+        $AA = $A->buffer();
+        $offA = $A->offset();
+        if($trans) {
+            [$m,$n] = [$n,$m];
+        }
 
         $this->openclmath->pow(
+            $trans,
+            $m,
             $n,
+            $AA,$offA,$n,
             $XX,$offX,1,
-            $alpha,
             $events,$waitEvents
         );
 
@@ -2532,7 +2572,7 @@ class LinearAlgebraCL
         if($this->profiling) {
             $this->profilingEnd("pow");
         }
-        return $X;
+        return $A;
     }
 
     /**
@@ -2723,7 +2763,7 @@ class LinearAlgebraCL
 
     /**
      *     Y(i) := 1 (X(i) = Y(i))
-     *     Y(i) := 0 (X(i) = Y(i))
+     *     Y(i) := 0 (X(i) != Y(i))
      */
     public function equal(
         NDArray $X,
@@ -2763,13 +2803,77 @@ class LinearAlgebraCL
     }
 
     /**
+     *     Y(i) := 1 (X(i) != Y(i))
+     *     Y(i) := 0 (X(i) = Y(i))
+     */
+    public function notEqual(
+        NDArray $X,
+        NDArray $Y,
+        object $events=null,
+        object $waitEvents=null
+        ) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("notEqual");
+        }
+        if($X->shape()!=$Y->shape()) {
+            $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
+            throw new InvalidArgumentException('Unmatch shape of dimension "X" and "Y" and "numClass": '.$shapeError);
+        }
+        $N = $X->size();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+        $incX = 1;
+        $YY = $Y->buffer();
+        $offY = $Y->offset();
+        $incY = 1;
+        $this->openclmath->notEqual(
+            $N,
+            $XX,$offX,$incX,
+            $YY,$offY,$incY,
+            $events,$waitEvents
+        );
+
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("notEqual");
+        }
+        return $Y;
+    }
+
+    /**
      *     X(i) := 1 (X(i)  = 0)
      *     X(i) := 0 (X(i) != 0)
      */
-    public function not(NDArray $x)
+    public function not(
+        NDArray $X,
+        object $events=null,
+        object $waitEvents=null
+        )
     {
-        $zeros = $this->zerosLike($x);
-        return $this->equal($zeros,$x);
+        if($this->profiling) {
+            $this->profilingStart("notEqual");
+        }
+        $N = $X->size();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+        $incX = 1;
+        $this->openclmath->not(
+            $N,
+            $XX,
+            $offX,
+            $incX,
+            $events,$waitEvents
+        );
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("not");
+        }
+        return $X;
     }
 
     /**
@@ -3271,6 +3375,7 @@ class LinearAlgebraCL
             $this->profilingStart("reduceSum");
         }
         $ndim = $input->ndim();
+        $origAxis = $axis;
         if($axis===null) {
             $axis = 0;
         }
@@ -3278,7 +3383,8 @@ class LinearAlgebraCL
             $axis = $ndim+$axis;
         }
         if($axis<0 || $axis>$ndim-1) {
-            throw new InvalidArgumentException("Invalid axis");
+            $origAxis = $origAxis ?? 'null';
+            throw new InvalidArgumentException("Invalid axis: ".$origAxis);
         }
         $postfixShape = $input->shape();
         $prefixShape = [];
@@ -3343,6 +3449,7 @@ class LinearAlgebraCL
             $this->profilingStart("reduceMax");
         }
         $ndim = $input->ndim();
+        $origAxis = $axis;
         if($axis===null) {
             $axis = 0;
         }
@@ -3350,7 +3457,8 @@ class LinearAlgebraCL
             $axis = $ndim+$axis;
         }
         if($axis<0 || $axis>$ndim-1) {
-            throw new InvalidArgumentException("Invalid axis");
+            $origAxis = $origAxis ?? 'null';
+            throw new InvalidArgumentException("Invalid axis: ".$origAxis);
         }
         $postfixShape = $input->shape();
         $prefixShape = [];
@@ -3415,6 +3523,7 @@ class LinearAlgebraCL
             $this->profilingStart("reduceArgMax");
         }
         $ndim = $input->ndim();
+        $origAxis = $axis;
         if($axis===null) {
             $axis = 0;
         }
@@ -3422,7 +3531,8 @@ class LinearAlgebraCL
             $axis = $ndim+$axis;
         }
         if($axis<0 || $axis>$ndim-1) {
-            throw new InvalidArgumentException("Invalid axis");
+            $origAxis = $origAxis ?? 'null';
+            throw new InvalidArgumentException("Invalid axis: ".$origAxis);
         }
         $postfixShape = $input->shape();
         $prefixShape = [];
@@ -4270,6 +4380,8 @@ class LinearAlgebraCL
         int $base,
         int $size=null,
         int $seed=null,
+        int $dtype=null,
+        NDArray $output=null,
         object $events=null,object $waitEvents=null
         ) : NDArray
     {
@@ -4279,7 +4391,16 @@ class LinearAlgebraCL
         if($size==null) {
             $size = $base;
         }
-        $hostX = $this->allocHost([$base],NDArray::int64);
+        if($output==null) {
+            $dtype = $dtype ?? NDArray::int32;
+            $hostX = $this->allocHost([$base],$dtype);
+        } else {
+            $dtype = $dtype ?? $output->dtype();
+            if($output->dtype()!=$dtype || $output->size()!=$size) {
+                throw new InvalidArgumentException("output size must be the same of size and same dtype");
+            }
+            $hostX = $this->allocHost([$base],$dtype);
+        }
         if($seed===null) {
             $seed = random_int(~PHP_INT_MAX,PHP_INT_MAX);
         }
@@ -4294,18 +4415,18 @@ class LinearAlgebraCL
             $XX,$offX,1,
             $seed);
         $hostX = $hostX[[0,$size-1]];
-        $X = $this->array($hostX);
-        $X = $this->astype(
-            $X,NDArray::int32,
-            $events,$waitEvents
-        );
+        if($output==null) {
+            $output = $this->array($hostX);
+        } else {
+            throw new InvalidArgumentException("output option is not supported on OpenCL");
+        }
         if($this->blocking) {
             $this->finish();
         }
         if($this->profiling) {
             $this->profilingEnd("randomSequence");
         }
-        return $X;
+        return $output;
     }
 
     /**
@@ -4841,9 +4962,9 @@ class LinearAlgebraCL
         }
         if($perm===null) {
             $perm = range($A->ndim()-1,0,-1);
-            $perm = new NDArrayPhp($perm,NDArray::int32);
+            $perm = new NDArrayPhp($perm,dtype:NDArray::int32);
         } elseif(is_array($perm)) {
-            $perm = new NDArrayPhp($perm,NDArray::int32);
+            $perm = new NDArrayPhp($perm,dtype:NDArray::int32);
         }
         $perm = $this->toNDArray($perm);
         $shapeA = $A->shape();
@@ -4877,7 +4998,7 @@ class LinearAlgebraCL
         $offsetA = $A->offset();
         //$offsetB = 0;
         $offsetB = $B->offset();
-        $sourceShape = (new NDArrayPhp($shapeA,NDArray::int32))->buffer();
+        $sourceShape = (new NDArrayPhp($shapeA,dtype:NDArray::int32))->buffer();
         $permBuf = $perm->buffer();
         $this->openclmath->transpose(
             $sourceShape,

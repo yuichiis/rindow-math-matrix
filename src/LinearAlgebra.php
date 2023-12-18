@@ -1378,8 +1378,9 @@ class LinearAlgebra
         bool $trans=null
         ) : NDArray
     {
-        if($trans===null)
+        if($trans===null) {
             $trans = false;
+        }
         $shapeX = $X->shape();
         $shapeA = $A->shape();
         if($trans)
@@ -1528,23 +1529,61 @@ class LinearAlgebra
     }
 
     /**
-     *     X := X ^ a
+     *     A(m,n) := A(m,n) ** alpha(n)
      */
     public function pow(
-        NDArray $X,
-        float $alpha
+        NDArray $A,
+        float|NDArray $alpha,
+        bool $trans=null,
         ) : NDArray
     {
-        $n = $X->size();
-        $XX = $X->buffer();
-        $offX = $X->offset();
+        if($trans===null) {
+            $trans = false;
+        }
+        $shapeA = $A->shape();
+        if(is_numeric($alpha)) {
+            $alpha = $this->array($alpha,dtype:$A->dtype());
+        }
+        $shapeX = $alpha->shape();
+        if(count($shapeX)==0) {
+            $trans = false;
+            $shapeA = [(int)array_product($shapeA),1];
+            $shapeX = [1];
+        }
+
+        if($trans) {
+            $shapeA = array_reverse($shapeA);
+        }
+        while(true) {
+            $xd = array_pop($shapeX);
+            if($xd===null)
+                break;
+            $ad = array_pop($shapeA);
+            if($xd!==$ad) {
+                $shapeA = $trans ? array_reverse($A->shape()) : $A->shape();
+                throw new InvalidArgumentException('Unmatch dimension size for broadcast.: '.
+                    '['.implode(',',$X->shape()).'] => ['.implode(',',$shapeA).']');
+            }
+        }
+        $n = $alpha->size();
+        $XX = $alpha->buffer();
+        $offX = $alpha->offset();
+        $m = $A->size()/$n;
+        $AA = $A->buffer();
+        $offA = $A->offset();
+        if($trans) {
+            [$m,$n] = [$n,$m];
+        }
 
         $this->math->pow(
+            $trans,
+            $m,
             $n,
+            $AA,$offA,$n,
             $XX,$offX,1,
-            $alpha);
+            );
 
-        return $X;
+        return $A;
     }
 
     /**
@@ -1657,7 +1696,7 @@ class LinearAlgebra
 
     /**
      *     Y(i) := 1 (X(i) = Y(i))
-     *     Y(i) := 0 (X(i) = Y(i))
+     *     Y(i) := 0 (X(i) != Y(i))
      */
     public function equal(NDArray $X, NDArray $Y) : NDArray
     {
@@ -1678,13 +1717,39 @@ class LinearAlgebra
     }
 
     /**
+     *     Y(i) := 1 (X(i) != Y(i))
+     *     Y(i) := 0 (X(i) = Y(i))
+     */
+    public function notEqual(NDArray $X, NDArray $Y) : NDArray
+    {
+        if($X->shape()!=$Y->shape()) {
+            $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
+            throw new InvalidArgumentException('Unmatch shape of dimension "X" and "Y" and "numClass": '.$shapeError);
+        }
+        $N = $X->size();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+        $incX = 1;
+        $YY = $Y->buffer();
+        $offY = $Y->offset();
+        $incY = 1;
+        $this->math->notEqual($N,$XX,$offX,$incX,$YY,$offY,$incY);
+
+        return $Y;
+    }
+
+    /**
      *     X(i) := 1 (X(i)  = 0)
      *     X(i) := 0 (X(i) != 0)
      */
-    public function not(NDArray $x)
+    public function not(NDArray $X)
     {
-        $zeros = $this->zerosLike($x);
-        return $this->equal($zeros,$x);
+        $N = $X->size();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+        $incX = 1;
+        $this->math->not($N,$XX,$offX,$incX);
+        return $X;
     }
 
     /**
@@ -1991,6 +2056,9 @@ class LinearAlgebra
         return $output;
     }
 
+    /**
+     * output += a * onehot(input)
+     */
     public function onehot(
         NDArray $input,
         int $numClass,
@@ -2065,6 +2133,7 @@ class LinearAlgebra
         int $dtype=null) : NDArray
     {
         $ndim = $input->ndim();
+        $origAxis = $axis;
         if($axis===null) {
             $axis = 0;
         }
@@ -2072,7 +2141,8 @@ class LinearAlgebra
             $axis = $ndim+$axis;
         }
         if($axis<0 || $axis>$ndim-1) {
-            throw new InvalidArgumentException("Invalid axis");
+            $origAxis = $origAxis ?? 'null';
+            throw new InvalidArgumentException("Invalid axis: ".$origAxis);
         }
         $postfixShape = $input->shape();
         $prefixShape = [];
@@ -2122,6 +2192,7 @@ class LinearAlgebra
         int $dtype=null) : NDArray
     {
         $ndim = $input->ndim();
+        $origAxis = $axis;
         if($axis===null) {
             $axis = 0;
         }
@@ -2129,7 +2200,8 @@ class LinearAlgebra
             $axis = $ndim+$axis;
         }
         if($axis<0 || $axis>$ndim-1) {
-            throw new InvalidArgumentException("Invalid axis");
+            $origAxis = $origAxis ?? 'null';
+            throw new InvalidArgumentException("Invalid axis: ".$origAxis);
         }
         $postfixShape = $input->shape();
         $prefixShape = [];
@@ -2179,6 +2251,7 @@ class LinearAlgebra
         int $dtype=null) : NDArray
     {
         $ndim = $input->ndim();
+        $origAxis = $axis;
         if($axis===null) {
             $axis = 0;
         }
@@ -2186,7 +2259,8 @@ class LinearAlgebra
             $axis = $ndim+$axis;
         }
         if($axis<0 || $axis>$ndim-1) {
-            throw new InvalidArgumentException("Invalid axis");
+            $origAxis = $origAxis ?? 'null';
+            throw new InvalidArgumentException("Invalid axis: ".$origAxis);
         }
         $postfixShape = $input->shape();
         $prefixShape = [];
@@ -2743,7 +2817,7 @@ class LinearAlgebra
             if ($X->shape()!=$shape) {
                 throw new InvalidArgumentException('Unmatch shape and shape of X');
             }
-            if(!is_numeric($low)||!is_numeric($high)){
+            if(!is_numeric($mean)||!is_numeric($scale)){
                 throw new InvalidArgumentException('low and high must be integer or float');
             }
         }
@@ -2768,13 +2842,25 @@ class LinearAlgebra
     public function randomSequence(
         int $base,
         int $size=null,
-        int $seed=null
+        int $seed=null,
+        int $dtype=null,
+        NDArray $output=null,
         ) : NDArray
     {
+        $X = $output;
         if($size==null) {
             $size = $base;
         }
-        $X = $this->alloc([$base],NDArray::int64);
+        if($X==null) {
+            $dtype = $dtype ?? NDArray::int32;
+            $X = $this->alloc([$base],$dtype);
+        } else {
+            $dtype = $dtype ?? $X->dtype();
+            if($X->dtype()!=$dtype || $X->size()!=$base) {
+                throw new InvalidArgumentException("output size must be the same of base and same dtype");
+            }
+        }
+
         if($seed===null) {
             $seed = random_int(~PHP_INT_MAX,PHP_INT_MAX);
         }

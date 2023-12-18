@@ -659,25 +659,42 @@ class PhpMath
     }
 
     /**
-     *     X := X ^ a
+     *     A(m,n) := A(m,n) ** X(n)
      */
     public function pow(
+        bool $trans,
+        int $m,
         int $n,
+        Buffer $A, int $offsetA, int $ldA,
         Buffer $X, int $offsetX, int $incX,
-        float $alpha
         ) : void
     {
         if($this->useMath($X)) {
-            $this->math->pow($n,$X,$offsetX,$incX,$alpha);
+            $this->math->pow($trans,$m,$n,$A,$offsetA,$ldA,$X,$offsetX,$incX);
             return;
         }
 
-        if($offsetX+($n-1)*$incX>=count($X))
+        if(!$trans) {
+            $rows = $m; $cols = $n;
+        } else {
+            $rows = $n; $cols = $m;
+        }
+
+        if($offsetX+($cols-1)*$incX>=count($X))
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
+        if($offsetA+($m-1)*$ldA+($n-1)>=count($A))
             throw new InvalidArgumentException('Vector specification too large for buffer.');
 
-        $idx = $offsetX;
-        for ($i=0; $i<$n; $i++,$idx+=$incX) {
-            $X[$idx] = $X[$idx] ** $alpha;
+        if(!$trans) { $incAj = $ldA; $incAi = 1;}
+        else        { $incAj = 1;    $incAi = $ldA;}
+
+        $idAj = $offsetA;
+        for($j=0; $j<$rows; $j++,$idAj+=$incAj) {
+            $idA = $idAj;
+            $idX = $offsetX;
+            for($i=0; $i<$cols; $i++,$idA+=$incAi,$idX+=$incX) {
+                $A[$idA] = pow($A[$idA],$X[$idX]);
+            }
         }
     }
 
@@ -1167,6 +1184,60 @@ class PhpMath
         else                   {$true = 1; $false = 0;}
         for($i=0; $i<$n; $i++,$idX+=$incX,$idY+=$incY) {
             $Y[$idY] = ($Y[$idY] == $X[$idX]) ? $true : $false;
+        }
+    }
+
+    /**
+     * Y(i) := 1  ( X(i) != Y(i) )
+     * Y(i) := 0  ( X(i) == Y(i) )
+     */
+    public function notEqual(
+        int $n,
+        Buffer $X, int $offsetX, int $incX,
+        Buffer $Y, int $offsetY, int $incY
+        ) : void
+    {
+        if($this->math) { // Support all dtype by math
+            $this->math->notEqual($n,$X,$offsetX,$incX,$Y,$offsetY,$incY);
+            return;
+        }
+
+        if($offsetX+($n-1)*$incX>=count($X))
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
+        if($offsetY+($n-1)*$incY>=count($Y))
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
+
+        $idX = $offsetX;
+        $idY = $offsetY;
+        if(is_bool($Y[$idY])) {$true = true; $false = false;}
+        else                   {$true = 1; $false = 0;}
+        for($i=0; $i<$n; $i++,$idX+=$incX,$idY+=$incY) {
+            $Y[$idY] = ($Y[$idY] != $X[$idX]) ? $true : $false;
+        }
+    }
+
+    /**
+     * X(i) := 1  ( X(i) == 0 )
+     * X(i) := 0  ( X(i) != 0 )
+     */
+    public function not(
+        int $n,
+        Buffer $X, int $offsetX, int $incX,
+        ) : void
+    {
+        if($this->math) { // Support all dtype by math
+            $this->math->not($n,$X,$offsetX,$incX);
+            return;
+        }
+
+        if($offsetX+($n-1)*$incX>=count($X))
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
+
+        $idX = $offsetX;
+        if(is_bool($X[$idX])) {$true = true; $false = false;}
+        else                   {$true = 1; $false = 0;}
+        for($i=0; $i<$n; $i++,$idX+=$incX) {
+            $X[$idX] = ($X[$idX]==$false) ? $true : $false;
         }
     }
 

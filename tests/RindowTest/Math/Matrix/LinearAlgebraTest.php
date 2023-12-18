@@ -2335,12 +2335,42 @@ class Test extends TestCase
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
 
-        // X := pow(X)
+        // X := X ** 3
         $X = $la->array([[1,2,3],[4,5,6]]);
         $la->pow($X,3);
         $X = $la->toNDArray($X);
         $this->assertTrue($mo->la()->isclose($mo->array(
             [[1,8,27],[64,125,216]]
+            ),$X)
+        );
+
+        // X(n) := X(n) ** alpha(n)
+        $X = $la->array([1,2,3]);
+        $alpha = $la->array([4,3,2]);
+        $la->pow($X,$alpha);
+        $X = $la->toNDArray($X);
+        $this->assertTrue($mo->la()->isclose($mo->array(
+            [1,8,9]
+            ),$X)
+        );
+
+        // X(m,n) := X(m,n) ** alpha(n)
+        $X = $la->array([[1,2,3],[4,5,6]]);
+        $alpha = $la->array([4,3,2]);
+        $la->pow($X,$alpha);
+        $X = $la->toNDArray($X);
+        $this->assertTrue($mo->la()->isclose($mo->array(
+            [[1,8,9],[256,125,36]]
+            ),$X)
+        );
+
+        // transpose
+        $X = $la->array([[1,2,3],[4,5,6]]);
+        $alpha = $la->array([3,2]);
+        $la->pow($X,$alpha,trans:true);
+        $X = $la->toNDArray($X);
+        $this->assertTrue($mo->la()->isclose($mo->array(
+            [[1,8,27],[16,25,36]]
             ),$X)
         );
     }
@@ -3568,15 +3598,15 @@ class Test extends TestCase
         $la = $this->newLA($mo);
 
         // 1D by 1D
-        $x = $la->array([3,2,1,1],NDArray::int32);
-        $a = $la->array([13,12,11,11]);
+        $x = $la->array([3,2,1,4],NDArray::int32); // Must not be duplicated
+        $a = $la->array([13,12,11,14]);
         $b = $la->alloc([10]);
         $la->ones($b);
         $la->scatterAdd($x,$a,$b);
         $this->assertEquals([4],$x->shape());
         $this->assertEquals([4],$a->shape());
         $this->assertEquals([10],$b->shape()); // replace axis0
-        $trues = $la->array([1,23,13,14,1,1,1,1,1,1]);
+        $trues = $la->array([1,12,13,14,15,1,1,1,1,1]);
         //echo $mo->toString($b,null,true)."\n";
         $this->assertEquals($trues->toArray(),$b->toArray());
     }
@@ -3909,12 +3939,13 @@ class Test extends TestCase
         $la = $this->newLA($mo);
         $x = $la->array([0,1,2,0]);
 
+        $y = $la->onehot($x,3);
         $this->assertEquals([
             [1,0,0],
             [0,1,0],
             [0,0,1],
             [1,0,0],
-        ],$la->onehot($x,3)->toArray());
+        ],$y->toArray());
 
         $y = $la->array($mo->ones([4,3]));
         $this->assertEquals([
@@ -4492,9 +4523,89 @@ class Test extends TestCase
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
 
+        $X = $la->array([true,true,false],NDArray::bool);
+        $Y = $la->array([true,false,false],NDArray::bool);
+        $this->assertEquals([1,0,1],$la->equal($X,$Y)->toArray());
+
+        $X = $la->array([100,10,-1000],NDArray::int32);
+        $Y = $la->array([100,-10,-1000],NDArray::int32);
+        $this->assertEquals([1,0,1],$la->equal($X,$Y)->toArray());
+
+        $X = $la->array([100,10,-1000],NDArray::uint32);
+        $Y = $la->array([100,-10,-1000],NDArray::uint32);
+        $this->assertEquals([1,0,1],$la->equal($X,$Y)->toArray());
+
+        $X = $la->array([100,10,-1000],NDArray::int64);
+        $Y = $la->array([100,-10,-1000],NDArray::int64);
+        $this->assertEquals([1,0,1],$la->equal($X,$Y)->toArray());
+    
+        $X = $la->array([100,10,-1000],NDArray::uint64);
+        $Y = $la->array([100,-10,-1000],NDArray::uint64);
+        $this->assertEquals([1,0,1],$la->equal($X,$Y)->toArray());
+
+        $X = $la->array([100,10,-1000],NDArray::float32);
+        $Y = $la->array([100,-10,-1000],NDArray::float32);
+        $this->assertEquals([1,0,1],$la->equal($X,$Y)->toArray());
+
+        if($la->fp64()) {
+            $X = $la->array([100,10,-1000],NDArray::float64);
+            $Y = $la->array([100,-10,-1000],NDArray::float64);
+            $this->assertEquals([1,0,1],$la->equal($X,$Y)->toArray());
+        }
+    }
+
+    public function testEqualNormalLarge()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $X = $la->fill(1,$la->alloc([100,1000],NDArray::bool));
+        $Y = $la->fill(1,$la->alloc([100,1000],NDArray::bool));
+        $Z = $la->fill(1,$la->alloc([100,1000],NDArray::bool));
+        $this->assertEquals($Z->toArray(),$la->equal($X,$Y)->toArray());
+
+        $X = $la->fill(1,$la->alloc([100,1000],NDArray::int32));
+        $Y = $la->fill(1,$la->alloc([100,1000],NDArray::int32));
+        $Z = $la->fill(1,$la->alloc([100,1000],NDArray::int32));
+        $this->assertEquals($Z->toArray(),$la->equal($X,$Y)->toArray());
+
+        $X = $la->fill(1,$la->alloc([100,1000],NDArray::float32));
+        $Y = $la->fill(1,$la->alloc([100,1000],NDArray::float32));
+        $Z = $la->fill(1,$la->alloc([100,1000],NDArray::float32));
+        $this->assertEquals($Z->toArray(),$la->equal($X,$Y)->toArray());
+    }
+
+    public function testNotEqualNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
         $X = $la->array([100,10,-1000]);
         $Y = $la->array([100,-10,-1000]);
-        $this->assertEquals([1,0,1],$la->equal($X,$Y)->toArray());
+        $this->assertEquals([0,1,0],$la->notEqual($X,$Y)->toArray());
+
+        $X = $la->array([100,10,-1000],NDArray::int32);
+        $Y = $la->array([100,-10,-1000],NDArray::int32);
+        $this->assertEquals([0,1,0],$la->notEqual($X,$Y)->toArray());
+
+        $X = $la->array([true,true,false],NDArray::bool);
+        $Y = $la->array([true,false,false],NDArray::bool);
+        $this->assertEquals([false,true,false],$la->notEqual($X,$Y)->toArray());
+    }
+
+    public function testNotNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $X = $la->array([100,0,-1000]);
+        $this->assertEquals([0,1,0],$la->not($X)->toArray());
+
+        $X = $la->array([100,0,-1000],NDArray::int32);
+        $this->assertEquals([0,1,0],$la->not($X)->toArray());
+
+        $X = $la->array([true,true,false],NDArray::bool);
+        $this->assertEquals([false,false,true],$la->not($X)->toArray());
     }
 
     public function testSoftmax()
@@ -4601,7 +4712,7 @@ class Test extends TestCase
     }
 
     public function testastype()
-     {
+    {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
         $math = $la;
@@ -7003,6 +7114,7 @@ class Test extends TestCase
     */
     public function testIm2col3dNormal($params)
     {
+        //return;
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
 
@@ -7582,7 +7694,7 @@ class Test extends TestCase
                 NDArray::int32,$x->dtype());
         } else {
             $this->assertEquals(
-                NDArray::int64,$x->dtype());
+                NDArray::int32,$x->dtype());
         }
         $this->assertEquals(
             [100],$x->shape());
