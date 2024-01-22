@@ -61,6 +61,21 @@ class LinearAlgebraCL
         $this->isOpenCL110 = substr($this->clVersion,0,10)==='OpenCL 1.1';
     }
 
+    public function service() : Service
+    {
+        return $this->service;
+    }
+
+    public function isAdvanced() : bool
+    {
+        return $this->service->serviceLevel()>=Service::LV_ADVANCED;
+    }
+
+    public function isAccelerated() : bool
+    {
+        return $this->service->serviceLevel()>=Service::LV_ACCELERATED;
+    }
+
     public function getBlas()
     {
         return $this->blas;

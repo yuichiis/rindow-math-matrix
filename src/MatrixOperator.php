@@ -1389,7 +1389,7 @@ class MatrixOperator
 
     protected function createLinearAlgebraCL(array $options=null)
     {
-        $queue = $this->createLAQueue($options);
+        $queue = $this->service->createQueue($options);
         $la = new LinearAlgebraCL($queue,$this->service);
         return $la;
     }
@@ -1412,6 +1412,16 @@ class MatrixOperator
     public function service() : Service
     {
         return $this->service;
+    }
+
+    public function isAdvanced() : bool
+    {
+        return $this->service->serviceLevel()>=Service::LV_ADVANCED;
+    }
+
+    public function isAccelerated() : bool
+    {
+        return $this->service->serviceLevel()>=Service::LV_ACCELERATED;
     }
 
     public function info() : string

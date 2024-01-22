@@ -782,6 +782,13 @@ class Test extends ORGTest
         ];
     }
 
+    public function testOriginalLaAccelerated()
+    {
+        $mo = new MatrixOperator();
+        $la = $mo->laAccelerated('clblast',['deviceType'=>OpenCL::CL_DEVICE_TYPE_GPU]);
+        $this->assertInstanceOf(LinearAlgebraCL::class,$la);
+    }
+
     public function testRotg()
     {
         $this->markTestSkipped('Unsuppored function on clblast');
