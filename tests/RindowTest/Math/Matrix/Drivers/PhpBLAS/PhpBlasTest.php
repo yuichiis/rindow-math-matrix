@@ -1,19 +1,18 @@
 <?php
-namespace RindowTest\Math\Matrix\PhpBlasTest;
+namespace RindowTest\Math\Matrix\Drivers\PhpBLAS\PhpBlasTest;
 
 use PHPUnit\Framework\TestCase;
 use Interop\Polite\Math\Matrix\NDArray;
 use Interop\Polite\Math\Matrix\BLAS;
 use Rindow\Math\Matrix\MatrixOperator;
-use Rindow\Math\Matrix\PhpBlas;
+use Rindow\Math\Matrix\Drivers\Service;
 use InvalidArgumentException;
 
 class Test extends TestCase
 {
     public function getBlas($mo)
     {
-        #$blas = new PhpBlas();
-        $blas = $mo->blas();
+        $blas = $mo->service()->blas();
         return $blas;
     }
 
@@ -189,7 +188,7 @@ class Test extends TestCase
     {
         $mo = new MatrixOperator();
         $blas = $this->getBlas($mo);
-        if(extension_loaded('rindow_openblas')) {
+        if($mo->service()->serviceLevel()>=Service::LV_ADVANCED) {
             if(strpos($blas->getConfig(),'OpenBLAS')===0) {
                 $this->assertStringStartsWith('OpenBLAS',$blas->getConfig());
             } else {
@@ -205,7 +204,7 @@ class Test extends TestCase
     {
         $mo = new MatrixOperator();
         $blas = $this->getBlas($mo);
-        if(extension_loaded('rindow_openblas')) {
+        if($mo->service()->serviceLevel()>=Service::LV_ADVANCED) {
             $this->assertGreaterThanOrEqual(1,$blas->getNumThreads());
         } else {
             $this->assertEquals(1,$blas->getNumThreads());
@@ -216,7 +215,7 @@ class Test extends TestCase
     {
         $mo = new MatrixOperator();
         $blas = $this->getBlas($mo);
-        if(extension_loaded('rindow_openblas')) {
+        if($mo->service()->serviceLevel()>=Service::LV_ADVANCED) {
             $this->assertGreaterThanOrEqual(1,$blas->getNumProcs());
         } else {
             $this->assertEquals(1,$blas->getNumProcs());
@@ -227,7 +226,7 @@ class Test extends TestCase
     {
         $mo = new MatrixOperator();
         $blas = $this->getBlas($mo);
-        if(extension_loaded('rindow_openblas')) {
+        if($mo->service()->serviceLevel()>=Service::LV_ADVANCED) {
             $this->assertTrue(is_string($blas->getCorename()));
         } else {
             $this->assertTrue(is_string($blas->getCorename()));

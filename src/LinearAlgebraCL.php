@@ -5,7 +5,9 @@ use Interop\Polite\Math\Matrix\BLAS;
 use Interop\Polite\Math\Matrix\NDArray;
 use Interop\Polite\Math\Matrix\OpenCL;
 use Interop\Polite\Math\Matrix\LinearBuffer;
+use Interop\Polite\Math\Matrix\DeviceBuffer;
 use Rindow\OpenCL\EventList;
+use Rindow\Math\Matrix\Drivers\Service;
 #use Rindow\Math\Matrix\OpenBlasBuffer;
 #use Rindow\Math\Matrix\NDArrayPhp;
 use InvalidArgumentException;
@@ -16,6 +18,7 @@ class LinearAlgebraCL
     const LAPACK_ROW_MAJOR = 101;
     const LAPACK_COL_MAJOR = 102;
 
+    protected $service;
     protected $context;
     protected $queue;
     protected $iaminwarning;
@@ -41,19 +44,19 @@ class LinearAlgebraCL
     ];
 
     public function __construct(
-        $context,$queue,$blas,$openclmath,$clblastmath,
-        $openblasmath=null,$lapack=null,$defaultFloatType=null)
+        object $queue, Service $service, $defaultFloatType=null)
     {
-        $this->context = $context;
+        $this->service = $service;
         $this->queue = $queue;
-        $this->blas = $blas;
-        $this->math = $clblastmath;
-        $this->openclmath = $openclmath;
-        $this->openblasmath = $openblasmath;
-        $this->lapack = $lapack;
+        $this->context = $queue->getContext();
+        $this->blas = $service->blasCL($queue);
+        $this->lapack = $service->lapack(Service::LV_ADVANCED);
+        $this->math = $service->mathCLBlast($queue);
+        $this->openclmath = $service->mathCL($queue);
+        $this->openblasmath = $service->math(Service::LV_ADVANCED);
         if($defaultFloatType!==null)
             $this->defaultFloatType = $defaultFloatType;
-        $this->clVersion = $context->getInfo(OpenCL::CL_CONTEXT_DEVICES)->getInfo(0,OpenCL::CL_DEVICE_VERSION);
+        $this->clVersion = $this->context->getInfo(OpenCL::CL_CONTEXT_DEVICES)->getInfo(0,OpenCL::CL_DEVICE_VERSION);
         //                                                    1234567890
         $this->isOpenCL110 = substr($this->clVersion,0,10)==='OpenCL 1.1';
     }
@@ -231,7 +234,7 @@ class LinearAlgebraCL
         return $dtype==NDarray::float32||$dtype==NDarray::float64;
     }
 
-    public function array($array, $flags=null)
+    public function array($array, int $dtype=null, int $flags=null) : NDArray
     {
         if($this->profiling) {
             $this->profilingStart("array");
@@ -240,15 +243,13 @@ class LinearAlgebraCL
             $buffer = $array->buffer();
             if($buffer instanceof LinearBuffer) {
                 ;
-            } elseif($buffer instanceof OpenCLBuffer) {
+            } elseif($buffer instanceof DeviceBuffer) {
                 return $array;
             } else {
                 throw new InvalidArgumentException('Unsuppored buffer type.');
             }
         } elseif(is_array($array) || is_numeric($array)) {
-            $dtype = $flags;
-            $flags = null;
-            $array = new NDArrayPhp($array,dtype:$dtype);
+            $array = new NDArrayPhp($array,dtype:$dtype,service:$this->service);
         } else {
             throw new InvalidArgumentException('input value must be NDArray or array');
         }
@@ -258,8 +259,8 @@ class LinearAlgebraCL
         $flags = $flags | OpenCL::CL_MEM_COPY_HOST_PTR;
         $arrayCL = new NDArrayCL(
             $this->context, $this->queue,
-            $array->buffer(), $array->dtype(), $array->shape(),
-            $array->offset(), $flags);
+            $array->buffer(), dtype:$array->dtype(), shape:$array->shape(),
+            offset:$array->offset(), flags:$flags, service:$this->service);
         if($this->profiling) {
             $this->profilingEnd("array");
         }
@@ -351,8 +352,8 @@ class LinearAlgebraCL
         if($dtype===null)
             $dtype = $this->defaultFloatType;
         $arrayCL = new NDArrayCL(
-            $this->context, $this->queue, $buffer=null, $dtype, $shape,
-            $offset=null, $flags);
+            $this->context, $this->queue, dtype:$dtype, shape:$shape,
+            flags:$flags, service:$this->service);
 
         if($this->profiling) {
             $this->profilingEnd("alloc");
@@ -632,7 +633,7 @@ class LinearAlgebraCL
         if($num<=0) {
             throw new InvalidArgumentException('num must be greater than or equal zero.');
         }
-        $array = new NDArrayPhp(null,dtype:$dtype,shape:[$num]);
+        $array = new NDArrayPhp(null,dtype:$dtype,shape:[$num],service:$this->service);
         $step = ($stop-$start)/($num-1);
         $value = $start;
         for($i=0;$i<$num;$i++) {
@@ -646,7 +647,7 @@ class LinearAlgebraCL
     {
         if($dtype===null)
             $dtype = $this->defaultFloatType;
-        return new NDArrayPhp(null,dtype:$dtype,shape:$shape);
+        return new NDArrayPhp(null,dtype:$dtype,shape:$shape,service:$this->service);
     }
 
     public function zerosHost(
@@ -675,13 +676,13 @@ class LinearAlgebraCL
         LinearBuffer $hostBuffer=null, int $hostOffset=null,
         int $dtype=null)
     {
-        return new OpenCLBuffer($this->context,
+        return $this->buffer()->Buffer($this->context,
             $size,$flags,$hostBuffer,$hostOffset,$dtype);
     }
 
     public function newEventList()
     {
-        return new EventList();
+        return $this->service->openCL()->EventList();
     }
 
     public function astype(NDArray $X, $dtype, NDArray $Y=null,
@@ -2007,7 +2008,7 @@ class LinearAlgebraCL
     protected function calcBroadcastFormat($A,$X)
     {
         if(is_numeric($X)) {
-            $X = new NDArrayPhp($X,dtype:$A->dtype());
+            $X = new NDArrayPhp($X,dtype:$A->dtype(),service:$this->service);
             $X = $this->array($X);
         }
         if(!($X instanceof NDArray)) {
@@ -2523,7 +2524,7 @@ class LinearAlgebraCL
         }
         $shapeA = $A->shape();
         if(is_numeric($alpha)) {
-            $alpha = new NDArrayPhp($alpha,dtype:$A->dtype());
+            $alpha = new NDArrayPhp($alpha,dtype:$A->dtype(),service:$this->service);
             $alpha = $this->array($alpha);
         }
         $shapeX = $alpha->shape();
@@ -4962,9 +4963,9 @@ class LinearAlgebraCL
         }
         if($perm===null) {
             $perm = range($A->ndim()-1,0,-1);
-            $perm = new NDArrayPhp($perm,dtype:NDArray::int32);
+            $perm = new NDArrayPhp($perm,dtype:NDArray::int32,service:$this->service);
         } elseif(is_array($perm)) {
-            $perm = new NDArrayPhp($perm,dtype:NDArray::int32);
+            $perm = new NDArrayPhp($perm,dtype:NDArray::int32,service:$this->service);
         }
         $perm = $this->toNDArray($perm);
         $shapeA = $A->shape();
@@ -4998,7 +4999,7 @@ class LinearAlgebraCL
         $offsetA = $A->offset();
         //$offsetB = 0;
         $offsetB = $B->offset();
-        $sourceShape = (new NDArrayPhp($shapeA,dtype:NDArray::int32))->buffer();
+        $sourceShape = (new NDArrayPhp($shapeA,dtype:NDArray::int32,service:$this->service))->buffer();
         $permBuf = $perm->buffer();
         $this->openclmath->transpose(
             $sourceShape,

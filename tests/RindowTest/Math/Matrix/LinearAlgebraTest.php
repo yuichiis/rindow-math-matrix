@@ -6,25 +6,32 @@ use Interop\Polite\Math\Matrix\NDArray;
 use Interop\Polite\Math\Matrix\OpenCL;
 use Rindow\Math\Matrix\MatrixOperator;
 use Rindow\Math\Matrix\NDArrayPhp;
+use Rindow\Math\Matrix\Drivers\Selector;
+use Rindow\Math\Matrix\Drivers\Service;
 use Rindow\Math\Plot\Plot;
 use ArrayObject;
-use SplFixedArray;
 use InvalidArgumentException;
-use Rindow\Math\Matrix\LinearAlgebraCL;
+
+use Rindow\Math\Matrix\Drivers\MatlibExt;
 
 class Test extends TestCase
 {
     static protected $speedtest = false;
     protected $equalEpsilon = 1e-04;
+    protected $service;
+
+    public function setUp() : void
+    {
+        $selector = new Selector();
+        $this->service = $selector->select();
+    }
 
     public function newMatrixOperator()
     {
-        $mo = new MatrixOperator();
-        if(extension_loaded('rindow_openblas')) {
-            $mo->blas()->forceBlas(true);
-            $mo->lapack()->forceLapack(true);
-            $mo->math()->forceMath(true);
-        }
+        $mo = new MatrixOperator(service:$this->service);
+        //if($service->serviceLevel()<Service::LV_ADVANCED) {
+        //    throw new \Exception("the service is not Advanced.");
+        //}
         return $mo;
     }
 
@@ -37,7 +44,7 @@ class Test extends TestCase
     {
         if($dtype===null)
             $dtype = NDArray::float32;
-        $array = new NDArrayPhp(null,$dtype,$shape);
+        $array = new NDArrayPhp(null,$dtype,$shape,service:$this->service);
         $size = $array->size();
         $buffer = $array->buffer();
         for($i=0;$i<$size;$i++) {
@@ -175,7 +182,7 @@ class Test extends TestCase
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
 
-        $x = $la->array([[1,2,3],[4,5,6]],NDArray::float32);
+        $x = $la->array([[1,2,3],[4,5,6]],dtype:NDArray::float32);
         $y = $la->zerosLike($x);
 
         $this->assertEquals($x->shape(),$y->shape());
@@ -187,7 +194,7 @@ class Test extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
-        $x = $la->array([[1,2,3],[4,5,6],[7,8,9]],NDArray::float32);
+        $x = $la->array([[1,2,3],[4,5,6],[7,8,9]],dtype:NDArray::float32);
         $la->scal(2,$x);
         $this->assertEquals([[2,4,6],[8,10,12],[14,16,18]],$x->toArray());
     }
@@ -199,8 +206,8 @@ class Test extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
-        $x = $la->array([[1,2,3],[4,5,6]],NDArray::float32);
-        $y = $la->array([[10,20,30],[40,50,60]],NDArray::float32);
+        $x = $la->array([[1,2,3],[4,5,6]],dtype:NDArray::float32);
+        $y = $la->array([[10,20,30],[40,50,60]],dtype:NDArray::float32);
         $la->axpy($x,$y,2);
         $this->assertEquals([[12,24,36],[48,60,72]],$y->toArray());
     }
@@ -212,8 +219,8 @@ class Test extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
-        $x = $la->array([[1,2,3],[4,5,6]],NDArray::float32);
-        $y = $la->array([[10,20,30],[40,50,60]],NDArray::float32);
+        $x = $la->array([[1,2,3],[4,5,6]],dtype:NDArray::float32);
+        $y = $la->array([[10,20,30],[40,50,60]],dtype:NDArray::float32);
         $ret = $la->dot($x,$y);
         $this->assertEquals(1*10+2*20+3*30+4*40+5*50+6*60,$ret);
     }
@@ -225,7 +232,7 @@ class Test extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
-        $x = $la->array([[-1,2,-3],[-4,5,-6]],NDArray::float32);
+        $x = $la->array([[-1,2,-3],[-4,5,-6]],dtype:NDArray::float32);
         $ret = $la->asum($x);
         $this->assertEquals(1+2+3+4+5+6,$ret);
     }
@@ -237,7 +244,7 @@ class Test extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
-        $x = $la->array([[-1,2,-3],[-4,5,-6]],NDArray::float32);
+        $x = $la->array([[-1,2,-3],[-4,5,-6]],dtype:NDArray::float32);
         $ret = $la->imax($x);
         $this->assertEquals(4,$ret);
     }
@@ -249,7 +256,7 @@ class Test extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
-        $x = $la->array([[-1,2,-3],[-4,5,-6]],NDArray::float32);
+        $x = $la->array([[-1,2,-3],[-4,5,-6]],dtype:NDArray::float32);
         $ret = $la->iamax($x);
         $this->assertEquals(5,$ret);
     }
@@ -261,7 +268,7 @@ class Test extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
-        $x = $la->array([[-1,2,-3],[-4,5,-6]],NDArray::float32);
+        $x = $la->array([[-1,2,-3],[-4,5,-6]],dtype:NDArray::float32);
         $ret = $la->imin($x);
         $this->assertEquals(5,$ret);
     }
@@ -273,7 +280,7 @@ class Test extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
-        $x = $la->array([[-1,2,-3],[-4,5,-6]],NDArray::float32);
+        $x = $la->array([[-1,2,-3],[-4,5,-6]],dtype:NDArray::float32);
         $ret = $la->iamin($x);
         $this->assertEquals(0,$ret);
     }
@@ -285,7 +292,7 @@ class Test extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
-        $x = $la->array([[-1,2,-3],[-4,5,-6]],NDArray::float32);
+        $x = $la->array([[-1,2,-3],[-4,5,-6]],dtype:NDArray::float32);
         $ret = $la->max($x);
         $this->assertEquals(5,$ret);
 
@@ -294,19 +301,19 @@ class Test extends TestCase
         // *** CAUTION ****
         // This function is not compatible with numpy
         // and is compatible with argmax in tensorflow 2.6.
-        $x = $la->array([0,INF,-INF],NDArray::float32);
+        $x = $la->array([0,INF,-INF],dtype:NDArray::float32);
         $ret = $la->max($x);
         $this->assertTrue(INF==$ret);
 
-        $x = $la->array([0,INF,-INF,NAN],NDArray::float32);
+        $x = $la->array([0,INF,-INF,NAN],dtype:NDArray::float32);
         $ret = $la->max($x);
         $this->assertTrue($ret==INF);
 
-        $x = $la->array([0,1,-1,NAN],NDArray::float32);
+        $x = $la->array([0,1,-1,NAN],dtype:NDArray::float32);
         $ret = $la->max($x);
         $this->assertEquals(1.0,$ret);
 
-        $x = $la->array([NAN,1,-1,0],NDArray::float32);
+        $x = $la->array([NAN,1,-1,0],dtype:NDArray::float32);
         $ret = $la->max($x);
         $this->assertEquals(1.0,$ret);
     }
@@ -318,7 +325,7 @@ class Test extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
-        $x = $la->array([[-1,2,-3],[-4,5,-6]],NDArray::float32);
+        $x = $la->array([[-1,2,-3],[-4,5,-6]],dtype:NDArray::float32);
         $ret = $la->amax($x);
         $this->assertEquals(-6,$ret);
 
@@ -326,20 +333,20 @@ class Test extends TestCase
         // *** CAUTION ****
         // This function is not compatible with numpy
         // and is compatible with argmax in tensorflow 2.6.
-        $x = $la->array([0,INF,-INF],NDArray::float32);
+        $x = $la->array([0,INF,-INF],dtype:NDArray::float32);
         $ret = $la->amax($x);
         //$this->assertTrue(INF==$ret);
         // -INF or INF
         $this->assertTrue($ret!=0);
 
-        $x = $la->array([0,INF,-INF,NAN],NDArray::float32);
+        $x = $la->array([0,INF,-INF,NAN],dtype:NDArray::float32);
         $ret = $la->amax($x);
         //$this->assertTrue($ret==INF);
         // -INF or INF
         $this->assertTrue($ret!=0);
         $this->assertTrue(!is_nan($ret));
 
-        $x = $la->array([0,1,-1,NAN],NDArray::float32);
+        $x = $la->array([0,1,-1,NAN],dtype:NDArray::float32);
         $ret = $la->amax($x);
         // -1 or 1
         $this->assertTrue($ret!=0);
@@ -353,7 +360,7 @@ class Test extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
-        $x = $la->array([[-1,2,-3],[-4,5,-6]],NDArray::float32);
+        $x = $la->array([[-1,2,-3],[-4,5,-6]],dtype:NDArray::float32);
         $ret = $la->min($x);
         $this->assertEquals(-6,$ret);
 
@@ -361,15 +368,15 @@ class Test extends TestCase
         // *** CAUTION ****
         // This function is not compatible with numpy
         // and is compatible with argmax in tensorflow 2.6.
-        $x = $la->array([0,INF,-INF],NDArray::float32);
+        $x = $la->array([0,INF,-INF],dtype:NDArray::float32);
         $ret = $la->min($x);
         $this->assertTrue(-INF==$ret);
 
-        $x = $la->array([0,INF,-INF,NAN],NDArray::float32);
+        $x = $la->array([0,INF,-INF,NAN],dtype:NDArray::float32);
         $ret = $la->min($x);
         $this->assertTrue($ret==-INF);
 
-        $x = $la->array([0,1,-1,NAN],NDArray::float32);
+        $x = $la->array([0,1,-1,NAN],dtype:NDArray::float32);
         $ret = $la->min($x);
         $this->assertEquals(-1.0,$ret);
     }
@@ -381,7 +388,7 @@ class Test extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
-        $x = $la->array([[-1,2,-3],[-4,5,-6]],NDArray::float32);
+        $x = $la->array([[-1,2,-3],[-4,5,-6]],dtype:NDArray::float32);
         $ret = $la->amin($x);
         $this->assertEquals(-1,$ret);
 
@@ -389,17 +396,17 @@ class Test extends TestCase
         // *** CAUTION ****
         // This function is not compatible with numpy
         // and is compatible with argmax in tensorflow 2.6.
-        $x = $la->array([0,INF,-INF],NDArray::float32);
+        $x = $la->array([0,INF,-INF],dtype:NDArray::float32);
         $ret = $la->amin($x);
         $this->assertTrue(0==$ret);
 
-        $x = $la->array([0,INF,-INF,NAN],NDArray::float32);
+        $x = $la->array([0,INF,-INF,NAN],dtype:NDArray::float32);
         $ret = $la->amin($x);
         // *** CAUTION ***
         // Platform dependent
         // $this->assertTrue($ret==0);
 
-        $x = $la->array([0,1,-1,NAN],NDArray::float32);
+        $x = $la->array([0,1,-1,NAN],dtype:NDArray::float32);
         $ret = $la->amin($x);
         // *** CAUTION ***
         // Platform dependent
@@ -413,7 +420,7 @@ class Test extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
-        $x = $la->array([[-1,2,-3],[-4,5,-6]],NDArray::float32);
+        $x = $la->array([[-1,2,-3],[-4,5,-6]],dtype:NDArray::float32);
         $y = $la->zerosLike($x);
         $ret = $la->copy($x,$y);
 
@@ -427,7 +434,7 @@ class Test extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
-        $x = $la->array([[1,2],[3,4]],NDArray::float32);
+        $x = $la->array([[1,2],[3,4]],dtype:NDArray::float32);
         $nrm2 = sqrt(1+2**2+3**2+4**2);
         $this->assertLessThan(0.00001,abs($nrm2-
             $la->nrm2($x)
@@ -437,14 +444,13 @@ class Test extends TestCase
     /**
     *    a,b,cos,sin := rotg(x,y)
     *
-    *   @requires extension rindow_openblas
     */
     public function testRotg()
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
-        $x = $la->array([1,2,3,4,5],NDArray::float32);
-        $y = $la->array([1,2,3,4,5],NDArray::float32);
+        $x = $la->array([1,2,3,4,5],dtype:NDArray::float32);
+        $y = $la->array([1,2,3,4,5],dtype:NDArray::float32);
         $x = $x->reshape([$x->size(),1]);
         $y = $y->reshape([$y->size(),1]);
         for($i=0;$i<5;$i++) {
@@ -472,10 +478,10 @@ class Test extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
-        $x = $la->array([1,2,3,4,5],NDArray::float32);
-        $y = $la->array([1,2,3,4,5],NDArray::float32);
-        $c = $la->array([cos(pi()/4)],NDArray::float32);
-        $s = $la->array([sin(pi()/4)],NDArray::float32);
+        $x = $la->array([1,2,3,4,5],dtype:NDArray::float32);
+        $y = $la->array([1,2,3,4,5],dtype:NDArray::float32);
+        $c = $la->array([cos(pi()/4)],dtype:NDArray::float32);
+        $s = $la->array([sin(pi()/4)],dtype:NDArray::float32);
         $la->rot($x,$y,$c,$s);
         for($i=0;$i<5;$i++) {
             $this->assertLessThan(1e-6,abs(sqrt(2)*($i+1)-$x[$i]));
@@ -496,8 +502,8 @@ class Test extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
-        $x = $la->array($mo->arange(16,null,null,NDArray::float32));
-        $y = $la->array($mo->arange(16,15,-1,NDArray::float32));
+        $x = $la->array($mo->arange(16,null,null,dtype:NDArray::float32));
+        $y = $la->array($mo->arange(16,15,-1,dtype:NDArray::float32));
         $la->swap($x,$y);
         for($i=0;$i<16;$i++) {
             if(is_scalar($x[$i])) {
@@ -1071,9 +1077,6 @@ class Test extends TestCase
         ],$C->toArray());
     }
 
-    /**
-    *   @requires extension rindow_clblast
-    */
     public function testTrmmNormal()
     {
         $mo = $this->newMatrixOperator();
@@ -1084,8 +1087,8 @@ class Test extends TestCase
             [0,0,6],
         ]);
         $B = $la->array([
-            [1,2,3,4],
-            [5,6,7,8],
+            [1, 2, 3, 4],
+            [5, 6, 7, 8],
             [9,10,11,12],
         ]);
         $trues = $la->gemm($A,$B);
@@ -1128,9 +1131,6 @@ class Test extends TestCase
         ],$trues->toArray());
     }
 
-    /**
-    *   @requires extension rindow_clblast
-    */
     public function testTrmmTranspose()
     {
         $mo = $this->newMatrixOperator();
@@ -1185,9 +1185,6 @@ class Test extends TestCase
         ],$trues->toArray());
     }
 
-    /**
-    *   @requires extension rindow_clblast
-    */
     public function testTrmmUnit()
     {
         $mo = $this->newMatrixOperator();
@@ -1242,9 +1239,6 @@ class Test extends TestCase
         ],$trues->toArray());
     }
 
-    /**
-    *   @requires extension rindow_clblast
-    */
     public function testTrmmRight()
     {
         $mo = $this->newMatrixOperator();
@@ -1303,31 +1297,654 @@ class Test extends TestCase
         ],$trues->toArray());
     }
 
-    /**
-    *   @requires extension rindow_clblast
-    */
-    public function testTrsmNormal()
+    public function testTrmmAllCombinations()
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
-        $A = $la->array([
+        
+        //  "======default=======\n";
+        $a = $mo->array([
             [1,2,3],
             [0,4,5],
             [0,0,6],
         ]);
-        $B = $la->array([
-            [1,2,3,4],
-            [5,6,7,8],
-            [9,10,11,12],
+        $b = $mo->array([
+            [1,2],
+            [3,4],
+            [5,6],
         ]);
-        $trues = $la->gemm($A,$B);
+        $trues = $mo->la()->gemm($a,$b);
+        $a = $mo->array([
+            [1,2,3],
+            [9,4,5],
+            [9,9,6],
+        ]);
+        $b = $mo->array([
+            [1,2],
+            [3,4],
+            [5,6],
+        ]);
+        $c = $mo->la()->trmm($a,$b);
+        $this->assertEquals($trues->toArray(),$c->toArray());
+
+        // "======trans=======\n";
+        $a = $mo->array([
+            [1,2,3],
+            [0,4,5],
+            [0,0,6],
+        ]);
+        $b = $mo->array([
+            [1,2],
+            [3,4],
+            [5,6],
+        ]);
+        $trues = $mo->la()->gemm($a,$b,transA:true);
+        $a = $mo->array([
+            [1,2,3],
+            [9,4,5],
+            [9,9,6],
+        ]);
+        $b = $mo->array([
+            [1,2],
+            [3,4],
+            [5,6],
+        ]);
+        $c = $mo->la()->trmm($a,$b,trans:true);
+        $this->assertEquals($trues->toArray(),$c->toArray());
+
+        // "======lower=======\n";
+        $a = $mo->array([
+            [1,0,0],
+            [2,4,0],
+            [3,5,6],
+        ]);
+        $b = $mo->array([
+            [1,2],
+            [3,4],
+            [5,6],
+        ]);
+        $trues = $mo->la()->gemm($a,$b);
+        $a = $mo->array([
+            [1,9,9],
+            [2,4,9],
+            [3,5,6],
+        ]);
+        $b = $mo->array([
+            [1,2],
+            [3,4],
+            [5,6],
+        ]);
+        $c = $mo->la()->trmm($a,$b,lower:true);
+        $this->assertEquals($trues->toArray(),$c->toArray());
+
+        // "======trans&lower=======\n";
+        $a = $mo->array([
+            [1,0,0],
+            [2,4,0],
+            [3,5,6],
+        ]);
+        $b = $mo->array([
+            [1,2],
+            [3,4],
+            [5,6],
+        ]);
+        $trues = $mo->la()->gemm($a,$b,transA:true);
+        $a = $mo->array([
+            [1,9,9],
+            [2,4,9],
+            [3,5,6],
+        ]);
+        $b = $mo->array([
+            [1,2],
+            [3,4],
+            [5,6],
+        ]);
+        $c = $mo->la()->trmm($a,$b,trans:true,lower:true);
+
+        // "======diag=======\n";
+        $a = $mo->array([
+            [1,2,3],
+            [0,1,5],
+            [0,0,1],
+        ]);
+        $b = $mo->array([
+            [1,2],
+            [3,4],
+            [5,6],
+        ]);
+        $trues = $mo->la()->gemm($a,$b);
+        $a = $mo->array([
+            [9,2,3],
+            [9,9,5],
+            [9,9,9],
+        ]);
+        $b = $mo->array([
+            [1,2],
+            [3,4],
+            [5,6],
+        ]);
+        $c = $mo->la()->trmm($a,$b,unit:true);
+        $this->assertEquals($trues->toArray(),$c->toArray());
+
+        // "======trans&diag=======\n";
+        $a = $mo->array([
+            [1,2,3],
+            [0,1,5],
+            [0,0,1],
+        ]);
+        $b = $mo->array([
+            [1,2],
+            [3,4],
+            [5,6],
+        ]);
+        $trues = $mo->la()->gemm($a,$b,transA:true);
+        $a = $mo->array([
+            [9,2,3],
+            [9,9,5],
+            [9,9,9],
+        ]);
+        $b = $mo->array([
+            [1,2],
+            [3,4],
+            [5,6],
+        ]);
+        $c = $mo->la()->trmm($a,$b,trans:true,unit:true);
+        $this->assertEquals($trues->toArray(),$c->toArray());
+
+        // "======lower&diag=======\n";
+        $a = $mo->array([
+            [1,0,0],
+            [2,1,0],
+            [3,5,1],
+        ]);
+        $b = $mo->array([
+            [1,2],
+            [3,4],
+            [5,6],
+        ]);
+        $trues = $mo->la()->gemm($a,$b);
+        $a = $mo->array([
+            [9,9,9],
+            [2,9,9],
+            [3,5,9],
+        ]);
+        $b = $mo->array([
+            [1,2],
+            [3,4],
+            [5,6],
+        ]);
+        $c = $mo->la()->trmm($a,$b,lower:true,unit:true);
+        $this->assertEquals($trues->toArray(),$c->toArray());
+
+        // "======trans&lower&diag=======\n";
+        $a = $mo->array([
+            [1,0,0],
+            [2,1,0],
+            [3,5,1],
+        ]);
+        $b = $mo->array([
+            [1,2],
+            [3,4],
+            [5,6],
+        ]);
+        $trues = $mo->la()->gemm($a,$b,transA:true);
+        $a = $mo->array([
+            [9,9,9],
+            [2,9,9],
+            [3,5,9],
+        ]);
+        $b = $mo->array([
+            [1,2],
+            [3,4],
+            [5,6],
+        ]);
+        $c = $mo->la()->trmm($a,$b,trans:true,lower:true,unit:true);
+        $this->assertEquals($trues->toArray(),$c->toArray());
+        
+        /// =============================right=================================
+        // "======right=======\n";
+        $a = $mo->array([
+            [1,2,3],
+            [0,4,5],
+            [0,0,6],
+        ]);
+        $b = $mo->array([
+            [1,2,3],
+            [4,5,6],
+        ]);
+        $trues = $mo->la()->gemm($b,$a);
+        $a = $mo->array([
+            [1,2,3],
+            [9,4,5],
+            [9,9,6],
+        ]);
+        $b = $mo->array([
+            [1,2,3],
+            [4,5,6],
+        ]);
+        $c = $mo->la()->trmm($a,$b,right:true);
+        $this->assertEquals($trues->toArray(),$c->toArray());
+
+        // "======right&trans=======\n";
+        $a = $mo->array([
+            [1,2,3],
+            [0,4,5],
+            [0,0,6],
+        ]);
+        $b = $mo->array([
+            [1,2,3],
+            [4,5,6],
+        ]);
+        $trues = $mo->la()->gemm($b,$a,transB:true);
+        $a = $mo->array([
+            [1,2,3],
+            [9,4,5],
+            [9,9,6],
+        ]);
+        $b = $mo->array([
+            [1,2,3],
+            [4,5,6],
+        ]);
+        $c = $mo->la()->trmm($a,$b,right:true,trans:true);
+        $this->assertEquals($trues->toArray(),$c->toArray());
+
+        // "======right&lower=======\n";
+        $a = $mo->array([
+            [1,0,0],
+            [2,4,0],
+            [3,5,6],
+        ]);
+        $b = $mo->array([
+            [1,2,3],
+            [4,5,6],
+        ]);
+        $trues = $mo->la()->gemm($b,$a);
+        $a = $mo->array([
+            [1,9,9],
+            [2,4,9],
+            [3,5,6],
+        ]);
+        $b = $mo->array([
+            [1,2,3],
+            [4,5,6],
+        ]);
+        $c = $mo->la()->trmm($a,$b,right:true,lower:true);
+        $this->assertEquals($trues->toArray(),$c->toArray());
+
+        // "======right&lower&trans=======\n";
+        $a = $mo->array([
+            [1,0,0],
+            [2,4,0],
+            [3,5,6],
+        ]);
+        $b = $mo->array([
+            [1,2,3],
+            [4,5,6],
+        ]);
+        $trues = $mo->la()->gemm($b,$a,transB:true);
+        $a = $mo->array([
+            [1,9,9],
+            [2,4,9],
+            [3,5,6],
+        ]);
+        $b = $mo->array([
+            [1,2,3],
+            [4,5,6],
+        ]);
+        $c = $mo->la()->trmm($a,$b,right:true,lower:true,trans:true);
+        $this->assertEquals($trues->toArray(),$c->toArray());
+
+        // "======right&diag=======\n";
+        $a = $mo->array([
+            [1,2,3],
+            [0,1,5],
+            [0,0,1],
+        ]);
+        $b = $mo->array([
+            [1,2,3],
+            [4,5,6],
+        ]);
+        $trues = $mo->la()->gemm($b,$a);
+        $a = $mo->array([
+            [9,2,3],
+            [9,9,5],
+            [9,9,9],
+        ]);
+        $b = $mo->array([
+            [1,2,3],
+            [4,5,6],
+        ]);
+        $c = $mo->la()->trmm($a,$b,right:true,unit:true);
+        $this->assertEquals($trues->toArray(),$c->toArray());
+
+        // "======right&trans&diag=======\n";
+        $a = $mo->array([
+            [1,2,3],
+            [0,1,5],
+            [0,0,1],
+        ]);
+        $b = $mo->array([
+            [1,2,3],
+            [4,5,6],
+        ]);
+        $trues = $mo->la()->gemm($b,$a,transB:true);
+        $a = $mo->array([
+            [9,2,3],
+            [9,9,5],
+            [9,9,9],
+        ]);
+        $b = $mo->array([
+            [1,2,3],
+            [4,5,6],
+        ]);
+        $c = $mo->la()->trmm($a,$b,right:true,trans:true,unit:true);
+        $this->assertEquals($trues->toArray(),$c->toArray());
+
+        // "======right&lower&diag=======\n";
+        $a = $mo->array([
+            [1,0,0],
+            [2,1,0],
+            [3,5,1],
+        ]);
+        $b = $mo->array([
+            [1,2,3],
+            [4,5,6],
+        ]);
+        $trues = $mo->la()->gemm($b,$a);
+        $a = $mo->array([
+            [9,9,9],
+            [2,9,9],
+            [3,5,9],
+        ]);
+        $b = $mo->array([
+            [1,2,3],
+            [4,5,6],
+        ]);
+        $c = $mo->la()->trmm($a,$b,right:true,lower:true,unit:true);
+        $this->assertEquals($trues->toArray(),$c->toArray());
+
+        // "======right&lower&trans&diag=======\n";
+        $a = $mo->array([
+            [1,0,0],
+            [2,1,0],
+            [3,5,1],
+        ]);
+        $b = $mo->array([
+            [1,2,3],
+            [4,5,6],
+        ]);
+        $trues = $mo->la()->gemm($b,$a,transB:true);
+        $a = $mo->array([
+            [9,9,9],
+            [2,9,9],
+            [3,5,9],
+        ]);
+        $b = $mo->array([
+            [1,2,3],
+            [4,5,6],
+        ]);
+        $c = $mo->la()->trmm($a,$b,right:true,trans:true,lower:true,unit:true);
+        $this->assertEquals($trues->toArray(),$c->toArray());
+    }
+
+    public function testTrsmNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // default
         $A = $la->array([
             [1,2,3],
             [9,4,5],
             [9,9,6],
         ]);
+        $B = $la->array([
+            [ 7, 8],
+            [10,11],
+            [13,14],
+        ]);
+        $origB = $la->copy($B);
         $la->trsm($A,$B);
-        $this->markTestSkipped('trsm');
+        $A = $la->array([
+            [1,2,3],
+            [0,4,5],
+            [0,0,6],
+        ]);
+        $Y = $la->gemm($A,$B);
+        $this->assertTrue($mo->la()->isclose($la->toNDArray($origB),$la->toNDArray($Y)));
+
+        // lower
+        $A = $la->array([
+            [1,9,9],
+            [2,4,9],
+            [3,5,6],
+        ]);
+        $B = $la->array([
+            [ 7, 8],
+            [10,11],
+            [13,14],
+        ]);
+        $origB = $la->copy($B);
+        $la->trsm($A,$B,lower:true);
+        $A = $la->array([
+            [1,0,0],
+            [2,4,0],
+            [3,5,6],
+        ]);
+        $Y = $la->gemm($A,$B);
+        $this->assertTrue($mo->la()->isclose($la->toNDArray($origB),$la->toNDArray($Y)));
+
+        // trans
+        $A = $la->array([
+            [1,2,3],
+            [9,4,5],
+            [9,9,6],
+        ]);
+        $B = $la->array([
+            [ 7, 8],
+            [10,11],
+            [13,14],
+        ]);
+        $origB = $la->copy($B);
+        $la->trsm($A,$B,trans:true);
+        $A = $la->array([
+            [1,2,3],
+            [0,4,5],
+            [0,0,6],
+        ]);
+        $Y = $la->gemm($A,$B,transA:true);
+        $this->assertTrue($mo->la()->isclose($la->toNDArray($origB),$la->toNDArray($Y)));
+
+        // diag
+        $A = $la->array([
+            [9,2,3],
+            [9,9,5],
+            [9,9,9],
+        ]);
+        $B = $la->array([
+            [ 7, 8],
+            [10,11],
+            [13,14],
+        ]);
+        $origB = $la->copy($B);
+        $la->trsm($A,$B,unit:true);
+        $A = $la->array([
+            [1,2,3],
+            [0,1,5],
+            [0,0,1],
+        ]);
+        $Y = $la->gemm($A,$B);
+        $this->assertTrue($mo->la()->isclose($la->toNDArray($origB),$la->toNDArray($Y)));
+
+        // side
+        $A = $la->array([
+            [1,2,3],
+            [9,4,5],
+            [9,9,6],
+        ]);
+        $B = $la->array([
+            [ 7,10,13],
+            [ 8,11,14],
+        ]);
+        $origB = $la->copy($B);
+        $la->trsm($A,$B,right:true);
+        $A = $la->array([
+            [1,2,3],
+            [0,4,5],
+            [0,0,6],
+        ]);
+        $Y = $la->gemm($B,$A);
+        $this->assertTrue($mo->la()->isclose($la->toNDArray($origB),$la->toNDArray($Y)));
+    }
+
+    public function testTrsmAllCombinations()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // lower&trans
+        $A = $la->array([
+            [1,9,9],
+            [2,4,9],
+            [3,5,6],
+        ]);
+        $B = $la->array([
+            [ 7, 8],
+            [10,11],
+            [13,14],
+        ]);
+        $origB = $la->copy($B);
+        $la->trsm($A,$B,lower:true,trans:true);
+        $A = $la->array([
+            [1,0,0],
+            [2,4,0],
+            [3,5,6],
+        ]);
+        $Y = $la->gemm($A,$B,transA:true);
+        $this->assertTrue($mo->la()->isclose($la->toNDArray($origB),$la->toNDArray($Y)));
+
+        // lower&right
+        $A = $la->array([
+            [1,9,9],
+            [2,4,9],
+            [3,5,6],
+        ]);
+        $B = $la->array([
+            [ 7,10,13],
+            [ 8,11,14],
+        ]);
+        $origB = $la->copy($B);
+        $la->trsm($A,$B,right:true,lower:true);
+        $A = $la->array([
+            [1,0,0],
+            [2,4,0],
+            [3,5,6],
+        ]);
+        $Y = $la->gemm($B,$A);
+        $this->assertTrue($mo->la()->isclose($la->toNDArray($origB),$la->toNDArray($Y)));
+
+        // trans&right
+        $A = $la->array([
+            [1,2,3],
+            [9,4,5],
+            [9,9,6],
+        ]);
+        $B = $la->array([
+            [ 7,10,13],
+            [ 8,11,14],
+        ]);
+        $origB = $la->copy($B);
+        $la->trsm($A,$B,right:true,trans:true);
+        $A = $la->array([
+            [1,2,3],
+            [0,4,5],
+            [0,0,6],
+        ]);
+        $Y = $la->gemm($B,$A,transB:true);
+        $this->assertTrue($mo->la()->isclose($la->toNDArray($origB),$la->toNDArray($Y)));
+
+        // lower&trans&right
+        $A = $la->array([
+            [1,9,9],
+            [2,4,9],
+            [3,5,6],
+        ]);
+        $B = $la->array([
+            [ 7,10,13],
+            [ 8,11,14],
+        ]);
+        $origB = $la->copy($B);
+        $la->trsm($A,$B,right:true,lower:true,trans:true);
+        $A = $la->array([
+            [1,0,0],
+            [2,4,0],
+            [3,5,6],
+        ]);
+        $Y = $la->gemm($B,$A,transB:true);
+        $this->assertTrue($mo->la()->isclose($la->toNDArray($origB),$la->toNDArray($Y)));
+
+        // trans&diag
+        $A = $la->array([
+            [9,2,3],
+            [9,9,5],
+            [9,9,9],
+        ]);
+        $B = $la->array([
+            [ 7, 8],
+            [10,11],
+            [13,14],
+        ]);
+        $origB = $la->copy($B);
+        $la->trsm($A,$B,trans:true,unit:true);
+        $A = $la->array([
+            [1,2,3],
+            [0,1,5],
+            [0,0,1],
+        ]);
+        $Y = $la->gemm($A,$B,transA:true);
+        $this->assertTrue($mo->la()->isclose($la->toNDArray($origB),$la->toNDArray($Y)));
+
+        // lower&diag
+        $A = $la->array([
+            [9,9,9],
+            [2,9,9],
+            [3,5,9],
+        ]);
+        $B = $la->array([
+            [ 7, 8],
+            [10,11],
+            [13,14],
+        ]);
+        $origB = $la->copy($B);
+        $la->trsm($A,$B,lower:true,unit:true);
+        $A = $la->array([
+            [1,0,0],
+            [2,1,0],
+            [3,5,1],
+        ]);
+        $Y = $la->gemm($A,$B);
+        $this->assertTrue($mo->la()->isclose($la->toNDArray($origB),$la->toNDArray($Y)));
+
+        // right&diag
+        $A = $la->array([
+            [9,2,3],
+            [9,9,5],
+            [9,9,9],
+        ]);
+        $B = $la->array([
+            [ 7,10,13],
+            [ 8,11,14],
+        ]);
+        $origB = $la->copy($B);
+        $la->trsm($A,$B,right:true,unit:true);
+        $A = $la->array([
+            [1,2,3],
+            [0,1,5],
+            [0,0,1],
+        ]);
+        $Y = $la->gemm($B,$A);
+        $this->assertTrue($mo->la()->isclose($la->toNDArray($origB),$la->toNDArray($Y)));
+
     }
 
     public function testMatmulNormal()
@@ -2533,8 +3150,8 @@ class Test extends TestCase
             [4,5,6],
             [7,8,9],
             [10,11,12],
-        ],NDArray::float32);
-        $x = $la->array([0,2],NDArray::int32);
+        ],dtype:NDArray::float32);
+        $x = $la->array([0,2],dtype:NDArray::int32);
         $y = $la->gather($a,$x);
         $this->assertEquals([[1,2,3],[7,8,9]],$y->toArray());
         $y = $la->gather($a,$x);
@@ -2546,7 +3163,7 @@ class Test extends TestCase
             [7,8,9],
             [10,11,12],
         ]);
-        $x = $la->array([0,1,2,0],NDArray::int32);
+        $x = $la->array([0,1,2,0],dtype:NDArray::int32);
         $y = $la->gather($a,$x,axis:1);
         $this->assertEquals([1,5,9,10],$y->toArray());
     }
@@ -2560,7 +3177,7 @@ class Test extends TestCase
             [4,5,6],
             [7,8,9],
             [10,11,12],
-        ],NDArray::float32);
+        ],dtype:NDArray::float32);
         $x = $la->array([0,2],NDArray::int32);
         $y = $la->gather($a,$x);
         $this->assertEquals([[1,2,3],[7,8,9]],$y->toArray());
@@ -2571,8 +3188,8 @@ class Test extends TestCase
                 [4,5,6],
                 [7,8,9],
                 [10,11,12],
-            ],NDArray::float64);
-            $x = $la->array([0,2],NDArray::int64);
+            ],dtype:NDArray::float64);
+            $x = $la->array([0,2],dtype:NDArray::int64);
             $y = $la->gather($a,$x);
             $this->assertEquals([[1,2,3],[7,8,9]],$y->toArray());
         }
@@ -2582,8 +3199,8 @@ class Test extends TestCase
             [4,5,6],
             [7,8,9],
             [10,11,12],
-        ],NDArray::int64);
-        $x = $la->array([0,2],NDArray::int64);
+        ],dtype:NDArray::int64);
+        $x = $la->array([0,2],dtype:NDArray::int64);
         $y = $la->gather($a,$x);
         $this->assertEquals([[1,2,3],[7,8,9]],$y->toArray());
 
@@ -2592,38 +3209,38 @@ class Test extends TestCase
             [4,5,6],
             [7,8,9],
             [10,11,12],
-        ],NDArray::uint8);
-        $x = $la->array([0,2],NDArray::uint8);
+        ],dtype:NDArray::uint8);
+        $x = $la->array([0,2],dtype:NDArray::uint8);
         $y = $la->gather($a,$x);
         $this->assertEquals([[1,2,3],[7,8,9]],$y->toArray());
 
-        $a = $la->array([1,2,3,4],NDArray::float32);
-        $x = $la->array([0,2],NDArray::int32);
+        $a = $la->array([1,2,3,4],dtype:NDArray::float32);
+        $x = $la->array([0,2],dtype:NDArray::int32);
         $y = $la->gather($a,$x);
         $this->assertEquals([1,3],$y->toArray());
 
         if($la->fp64()) {
-            $a = $la->array([1,2,3,4],NDArray::float64);
-            $x = $la->array([0,2],NDArray::int64);
+            $a = $la->array([1,2,3,4],dtype:NDArray::float64);
+            $x = $la->array([0,2],dtype:NDArray::int64);
             $y = $la->gather($a,$x);
             $this->assertEquals([1,3],$y->toArray());
         }
 
-        $a = $la->array([1,2,3,4],NDArray::int64);
-        $x = $la->array([0,2],NDArray::int64);
+        $a = $la->array([1,2,3,4],dtype:NDArray::int64);
+        $x = $la->array([0,2],dtype:NDArray::int64);
         $y = $la->gather($a,$x);
         $this->assertEquals([1,3],$y->toArray());
 
-        $a = $la->array([252,253,254,255],NDArray::uint8);
-        $x = $la->array([0,2],NDArray::uint8);
+        $a = $la->array([252,253,254,255],dtype:NDArray::uint8);
+        $x = $la->array([0,2],dtype:NDArray::uint8);
         $y = $la->gather($a,$x);
         $this->assertEquals([252,254],$y->toArray());
 
-        $a = $la->array($mo->full([256],255,NDArray::uint8));
-        $x = $la->array([0,2],NDArray::uint8);
+        $a = $la->array($mo->full([256],255,dtype:NDArray::uint8));
+        $x = $la->array([0,2],dtype:NDArray::uint8);
         $y = $la->gather($a,$x);
-        $a2 = $la->array($mo->full([256],255,NDArray::uint8));
-        $x2 = $la->array([0,2],NDArray::uint8);
+        $a2 = $la->array($mo->full([256],255,dtype:NDArray::uint8));
+        $x2 = $la->array([0,2],dtype:NDArray::uint8);
         $y2 = $la->gather($a2,$x2);
 
     }
@@ -2638,20 +3255,20 @@ class Test extends TestCase
             [7,8,9],
             [10,11,12],
         ]);
-        $x = $la->array([0,1,2,0],NDArray::int32);
+        $x = $la->array([0,1,2,0],dtype:NDArray::int32);
         $y = $la->gather($a,$x,axis:1);
         $this->assertEquals([1,5,9,10],$y->toArray());
 
-        $x = $la->array([0,1,2,0],NDArray::int64);
+        $x = $la->array([0,1,2,0],dtype:NDArray::int64);
         $y = $la->gather($a,$x,axis:1);
         $this->assertEquals([1,5,9,10],$y->toArray());
 
-        $x = $la->array([0,1,2,0],NDArray::float32);
+        $x = $la->array([0,1,2,0],dtype:NDArray::float32);
         $y = $la->gather($a,$x,axis:1);
         $this->assertEquals([1,5,9,10],$y->toArray());
 
         if($la->fp64()) {
-            $x = $la->array([0,1,2,0],NDArray::float64);
+            $x = $la->array([0,1,2,0],dtype:NDArray::float64);
             $y = $la->gather($a,$x,axis:1);
             $this->assertEquals([1,5,9,10],$y->toArray());
         }
@@ -2664,8 +3281,8 @@ class Test extends TestCase
 
         // float32
         // 1D 2D
-        $x = $la->array([0,2],NDArray::int64);
-        $y = $la->array([[1,2,3],[7,8,9]],NDArray::float32);
+        $x = $la->array([0,2],dtype:NDArray::int64);
+        $y = $la->array([[1,2,3],[7,8,9]],dtype:NDArray::float32);
         $a = $la->scatter($x,$y,$numClass=4);
 
         $this->assertEquals([2],$x->shape());
@@ -2681,8 +3298,8 @@ class Test extends TestCase
         );
 
         // 1D 1D (must be same shape)
-        $x = $la->array([0,2],NDArray::int64);
-        $y = $la->array([1,2],NDArray::float32);
+        $x = $la->array([0,2],dtype:NDArray::int64);
+        $y = $la->array([1,2],dtype:NDArray::float32);
         $a = $la->scatter($x,$y,$numClass=4);
 
         $this->assertEquals([2],$x->shape());
@@ -2695,8 +3312,8 @@ class Test extends TestCase
         );
 
         // 2D 3D
-        $x = $la->array([[0,1,2],[5,4,3]],NDArray::int64);
-        $y = $la->array([[[1,2],[3,4],[5,6]],[[7,8],[9,10],[11,12]]],NDArray::float32);
+        $x = $la->array([[0,1,2],[5,4,3]],dtype:NDArray::int64);
+        $y = $la->array([[[1,2],[3,4],[5,6]],[[7,8],[9,10],[11,12]]],dtype:NDArray::float32);
         $a = $la->scatter($x,$y,$numClass=8);
 
         $this->assertEquals([2,3],$x->shape());
@@ -2718,8 +3335,8 @@ class Test extends TestCase
 
         // float64
         if($la->fp64()) {
-            $x = $la->array([0,2],NDArray::int64);
-            $y = $la->array([[1,2,3],[7,8,9]],NDArray::float64);
+            $x = $la->array([0,2],dtype:NDArray::int64);
+            $y = $la->array([[1,2,3],[7,8,9]],dtype:NDArray::float64);
             $a = $la->scatter($x,$y,$numClass=4);
             $this->assertEquals(
                 [[1,2,3],
@@ -2730,8 +3347,8 @@ class Test extends TestCase
             );
         }
         // int64
-        $x = $la->array([0,2],NDArray::int64);
-        $y = $la->array([[1,2,3],[7,8,9]],NDArray::int64);
+        $x = $la->array([0,2],dtype:NDArray::int64);
+        $y = $la->array([[1,2,3],[7,8,9]],dtype:NDArray::int64);
         $a = $la->scatter($x,$y,$numClass=4);
         $this->assertEquals(
            [[1,2,3],
@@ -2741,8 +3358,8 @@ class Test extends TestCase
             $a->toArray()
         );
         // uint8
-        $x = $la->array([0,2],NDArray::int64);
-        $y = $la->array([[1,2,3],[7,8,9]],NDArray::uint8);
+        $x = $la->array([0,2],dtype:NDArray::int64);
+        $y = $la->array([[1,2,3],[7,8,9]],dtype:NDArray::uint8);
         $a = $la->scatter($x,$y,$numClass=4);
         $this->assertEquals(
            [[1,2,3],
@@ -2753,8 +3370,8 @@ class Test extends TestCase
         );
 
         // float32
-        $x = $la->array([0,2],NDArray::int64);
-        $y = $la->array([1,3],NDArray::float32);
+        $x = $la->array([0,2],dtype:NDArray::int64);
+        $y = $la->array([1,3],dtype:NDArray::float32);
         $a = $la->scatter($x,$y,$numClass=4);
         $this->assertEquals(
            [1,0,3,0],
@@ -2762,8 +3379,8 @@ class Test extends TestCase
         );
 
         // int32
-        $x = $la->array([0,2],NDArray::int64);
-        $y = $la->array([1,3],NDArray::int32);
+        $x = $la->array([0,2],dtype:NDArray::int64);
+        $y = $la->array([1,3],dtype:NDArray::int32);
         $a = $la->scatter($x,$y,$numClass=4);
         $this->assertEquals(
            [1,0,3,0],
@@ -2772,8 +3389,8 @@ class Test extends TestCase
 
         // float64
         if($la->fp64()) {
-            $x = $la->array([0,2],NDArray::int64);
-            $y = $la->array([1,3],NDArray::float64);
+            $x = $la->array([0,2],dtype:NDArray::int64);
+            $y = $la->array([1,3],dtype:NDArray::float64);
             $a = $la->scatter($x,$y,$numClass=4);
             $this->assertEquals(
                 [1,0,3,0],
@@ -2781,24 +3398,24 @@ class Test extends TestCase
             );
         }
         // int64
-        $x = $la->array([0,2],NDArray::int64);
-        $y = $la->array([1,3],NDArray::int64);
+        $x = $la->array([0,2],dtype:NDArray::int64);
+        $y = $la->array([1,3],dtype:NDArray::int64);
         $a = $la->scatter($x,$y,$numClass=4);
         $this->assertEquals(
            [1,0,3,0],
             $a->toArray()
         );
         // uint8
-        $x = $la->array([0,2],NDArray::int64);
-        $y = $la->array([252,254],NDArray::uint8);
+        $x = $la->array([0,2],dtype:NDArray::int64);
+        $y = $la->array([252,254],dtype:NDArray::uint8);
         $a = $la->scatter($x,$y,$numClass=4);
         $this->assertEquals(
            [252,0,254,0],
             $a->toArray()
         );
         // x=uint8
-        $x = $la->array([0,255],NDArray::uint8);
-        $y = $la->array([252,254],NDArray::uint8);
+        $x = $la->array([0,255],dtype:NDArray::uint8);
+        $y = $la->array([252,254],dtype:NDArray::uint8);
         $a = $la->scatter($x,$y,$numClass=256);
         if(is_scalar($a[0])) {
             $this->assertEquals(252,$a[0]);
@@ -2827,11 +3444,11 @@ class Test extends TestCase
         $rows = 256;
         $cols = 8;
         $numClass = 8;
-        $x = $la->alloc([$rows],NDArray::int32);
+        $x = $la->alloc([$rows],dtype:NDArray::int32);
         $la->fill(1,$x);
-        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $y = $la->alloc([$rows,$cols],dtype:NDArray::float32);
         $la->fill(1.0,$y);
-        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $a = $la->alloc([$numClass,$cols],dtype:NDArray::float32);
         $la->fill(0.0,$a);
         $la->scatter($x,$y,$numClass,axis:null,output:$a);
         $start = hrtime(true);
@@ -2845,11 +3462,11 @@ class Test extends TestCase
         $rows = 65536;#131072;
         $cols = 8;
         $numClass = 8;
-        $x = $la->alloc([$rows],NDArray::int32);
+        $x = $la->alloc([$rows],dtype:NDArray::int32);
         $la->fill(1,$x);
-        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $y = $la->alloc([$rows,$cols],dtype:NDArray::float32);
         $la->fill(1.0,$y);
-        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $a = $la->alloc([$numClass,$cols],dtype:NDArray::float32);
         $la->fill(0.0,$a);
         $la->scatter($x,$y,$numClass,axis:null,output:$a);
         $start = hrtime(true);
@@ -2863,11 +3480,11 @@ class Test extends TestCase
         $rows = 1000000;
         $cols = 8;
         $numClass = 8;
-        $x = $la->alloc([$rows],NDArray::int32);
+        $x = $la->alloc([$rows],dtype:NDArray::int32);
         $la->fill(1,$x);
-        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $y = $la->alloc([$rows,$cols],dtype:NDArray::float32);
         $la->fill(1.0,$y);
-        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $a = $la->alloc([$numClass,$cols],dtype:NDArray::float32);
         $la->fill(0.0,$a);
         $la->scatter($x,$y,$numClass,axis:null,output:$a);
         $start = hrtime(true);
@@ -2881,11 +3498,11 @@ class Test extends TestCase
         $rows = 8;
         $cols = 65536;
         $numClass = 8;
-        $x = $la->alloc([$rows],NDArray::int32);
+        $x = $la->alloc([$rows],dtype:NDArray::int32);
         $la->fill(1,$x);
-        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $y = $la->alloc([$rows,$cols],dtype:NDArray::float32);
         $la->fill(1.0,$y);
-        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $a = $la->alloc([$numClass,$cols],dtype:NDArray::float32);
         $la->fill(0.0,$a);
         $la->scatter($x,$y,$numClass,axis:null,output:$a);
         $start = hrtime(true);
@@ -2899,11 +3516,11 @@ class Test extends TestCase
         $rows = 8;
         $cols = 1000000;
         $numClass = 8;
-        $x = $la->alloc([$rows],NDArray::int32);
+        $x = $la->alloc([$rows],dtype:NDArray::int32);
         $la->fill(1,$x);
-        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $y = $la->alloc([$rows,$cols],dtype:NDArray::float32);
         $la->fill(1.0,$y);
-        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $a = $la->alloc([$numClass,$cols],dtype:NDArray::float32);
         $la->fill(0.0,$a);
         $la->scatter($x,$y,$numClass,axis:null,output:$a);
         $start = hrtime(true);
@@ -2917,11 +3534,11 @@ class Test extends TestCase
         $rows = 8;
         $cols = 8;
         $numClass = 131072;
-        $x = $la->alloc([$rows],NDArray::int32);
+        $x = $la->alloc([$rows],dtype:NDArray::int32);
         $la->fill(1,$x);
-        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $y = $la->alloc([$rows,$cols],dtype:NDArray::float32);
         $la->fill(1.0,$y);
-        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $a = $la->alloc([$numClass,$cols],dtype:NDArray::float32);
         $la->fill(0.0,$a);
         $la->scatter($x,$y,$numClass,axis:null,output:$a);
         $start = hrtime(true);
@@ -2935,11 +3552,11 @@ class Test extends TestCase
         $rows = 8;
         $cols = 8;
         $numClass = 1000000;
-        $x = $la->alloc([$rows],NDArray::int32);
+        $x = $la->alloc([$rows],dtype:NDArray::int32);
         $la->fill(1,$x);
-        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $y = $la->alloc([$rows,$cols],dtype:NDArray::float32);
         $la->fill(1.0,$y);
-        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $a = $la->alloc([$numClass,$cols],dtype:NDArray::float32);
         $la->fill(0.0,$a);
         $la->scatter($x,$y,$numClass,axis:null,output:$a);
         $start = hrtime(true);
@@ -2954,11 +3571,11 @@ class Test extends TestCase
         //$rows = 131072;
         //$cols = 8;
         //$numClass = 8;
-        //$x = $la->alloc([$rows],NDArray::int32);
+        //$x = $la->alloc([$rows],dtype:NDArray::int32);
         //$la->fill(1,$x);
-        //$y = $la->alloc([$rows,$cols],NDArray::float32);
+        //$y = $la->alloc([$rows,$cols],dtype:NDArray::float32);
         //$la->fill(1.0,$y);
-        //$a = $la->alloc([$numClass,$cols],NDArray::float32);
+        //$a = $la->alloc([$numClass,$cols],dtype:NDArray::float32);
         //$la->fill(0.0,$a);
         //$la->scatterTest($x,$y,$numClass,$axis=0,$a,null,null,$mode=4);
         //$start = hrtime(true);
@@ -2976,8 +3593,8 @@ class Test extends TestCase
         $la = $this->newLA($mo);
 
         // 1D 1D
-        $x = $la->array([0,1,2,0],NDArray::int32);
-        $y = $la->array([1,5,9,10],NDArray::float32);
+        $x = $la->array([0,1,2,0],dtype:NDArray::int32);
+        $y = $la->array([1,5,9,10],dtype:NDArray::float32);
         $a = $la->scatter($x,$y,$numClass=3,axis:1);
         //foreach($a->toArray() as $pr) {
         //    echo "\n";
@@ -3002,8 +3619,8 @@ class Test extends TestCase
         // 2D 1D is unmatched shapes
 
         // 2D 2D
-        $x = $la->array([[0,1,2],[2,1,0]],NDArray::int32);
-        $y = $la->array([[1,2,3],[4,5,6]],NDArray::float32);
+        $x = $la->array([[0,1,2],[2,1,0]],dtype:NDArray::int32);
+        $y = $la->array([[1,2,3],[4,5,6]],dtype:NDArray::float32);
         $a = $la->scatter($x,$y,$numClass=4,axis:1);
 
         $this->assertEquals([2,3],$x->shape());
@@ -3021,8 +3638,8 @@ class Test extends TestCase
             $a->toArray());
 
         /// index bit variation
-        $x = $la->array([0,1,2,0],NDArray::int64);
-        $y = $la->array([1,5,9,10],NDArray::float32);
+        $x = $la->array([0,1,2,0],dtype:NDArray::int64);
+        $y = $la->array([1,5,9,10],dtype:NDArray::float32);
         $a = $la->scatter($x,$y,$numClass=3,axis:1);
         $this->assertEquals(
            [[1,0,0],
@@ -3031,7 +3648,7 @@ class Test extends TestCase
             [10,0,0]],
             $a->toArray());
 
-        $x = $la->array([0,1,2,0],NDArray:: float32);
+        $x = $la->array([0,1,2,0],dtype:NDArray::float32);
         $a = $la->scatter($x,$y,$numClass=3,axis:1);
         $this->assertEquals(
            [[1,0,0],
@@ -3041,7 +3658,7 @@ class Test extends TestCase
             $a->toArray());
 
         if($la->fp64()) {
-            $x = $la->array([0,1,2,0],NDArray:: float64);
+            $x = $la->array([0,1,2,0],dtype:NDArray::float64);
             $a = $la->scatter($x,$y,$numClass=3,axis:1);
             $this->assertEquals(
                 [[1,0,0],
@@ -3059,8 +3676,8 @@ class Test extends TestCase
         $la = $this->newLA($mo);
 
         // 1D 1D
-        $x = $la->array([0,1,2,0],NDArray::int32);
-        $y = $la->array([1,5,9,10],NDArray::float32);
+        $x = $la->array([0,1,2,0],dtype:NDArray::int32);
+        $y = $la->array([1,5,9,10],dtype:NDArray::float32);
         $a = $la->scatter($x,$y,$numClass=3,axis:0);
 
         $this->assertEquals([4],$x->shape());
@@ -3077,8 +3694,8 @@ class Test extends TestCase
         // 2D 1D is unmatched shapes
 
         // 2D 2D
-        $x = $la->array([[0,1,2],[2,1,0]],NDArray::int32);
-        $y = $la->array([[1,2,3],[4,5,6]],NDArray::float32);
+        $x = $la->array([[0,1,2],[2,1,0]],dtype:NDArray::int32);
+        $y = $la->array([[1,2,3],[4,5,6]],dtype:NDArray::float32);
         $a = $la->scatter($x,$y,$numClass=4,axis:0);
 
         $this->assertEquals([2,3],$x->shape());
@@ -3106,8 +3723,8 @@ class Test extends TestCase
         // 2D 1D is unmatched shapes
 
         // 2D 2D
-        $x = $la->array([[0,1,2],[2,1,0]],NDArray::int32);
-        $y = $la->array([[1,2,3],[4,5,6]],NDArray::float32);
+        $x = $la->array([[0,1,2],[2,1,0]],dtype:NDArray::int32);
+        $y = $la->array([[1,2,3],[4,5,6]],dtype:NDArray::float32);
         $a = $la->scatter($x,$y,$numClass=4,axis:2);
 
         $this->assertEquals([2,3],$x->shape());
@@ -3130,7 +3747,7 @@ class Test extends TestCase
         $la = $this->newLA($mo);
 
         // 1D by 1D
-        $x = $la->array([3,2,1,1],NDArray::int32);
+        $x = $la->array([3,2,1,1],dtype:NDArray::int32);
         $a = $la->array([10,11,12,13,14,15,16,17,18,19]);
         $b = $la->gather($a,$x);
         $this->assertEquals([4],$x->shape());
@@ -3144,7 +3761,7 @@ class Test extends TestCase
         $this->assertEquals($trues->toArray(),$b->toArray());
 
         // 1D by 2D
-        $x = $la->array([[3,2,1],[1,2,3]],NDArray::int32);
+        $x = $la->array([[3,2,1],[1,2,3]],dtype:NDArray::int32);
         $a = $la->array([10,11,12,13,14,15,16,17,18,19]);
         $b = $la->gather($a,$x);
         $this->assertEquals([2,3],$x->shape());
@@ -3158,7 +3775,7 @@ class Test extends TestCase
         $this->assertEquals($trues->toArray(),$b->toArray());
 
         // 2D by 1D
-        $x = $la->array([3,1],NDArray::int32);
+        $x = $la->array([3,1],dtype:NDArray::int32);
         $a = $la->array([
             [ 0, 0, 3],
             [ 0, 0, 4],
@@ -3182,7 +3799,7 @@ class Test extends TestCase
         $x = $la->array([
             [2, 1, 0],
             [1, 2, 3],
-        ],NDArray::int32);
+        ],dtype:NDArray::int32);
         $a = $la->array([
             [ 1, 0, 0],
             [ 0, 2, 0],
@@ -3213,7 +3830,7 @@ class Test extends TestCase
         $la = $this->newLA($mo);
         // axis = 0
         // 1D indices
-        $x = $la->array([3,2,1],NDArray::int32);
+        $x = $la->array([3,2,1],dtype:NDArray::int32);
         $a = $la->array([
             [ 0, 0, 3],
             [ 0, 0, 4],
@@ -3239,7 +3856,7 @@ class Test extends TestCase
         $x = $la->array([
             [0,2,2,1],
             [2,0,1,2],
-        ],NDArray::int32);
+        ],dtype:NDArray::int32);
         $a = $la->array([
             [[ 1, 0, 0, 0],
              [ 0, 6, 0, 0]],
@@ -3268,7 +3885,7 @@ class Test extends TestCase
 
         // axis = 1
         // 1D indices
-        $x = $la->array([2,2,1,0],NDArray::int32);
+        $x = $la->array([2,2,1,0],dtype:NDArray::int32);
         $a = $la->array([
             [ 0, 0, 3],
             [ 0, 0, 4],
@@ -3295,7 +3912,7 @@ class Test extends TestCase
             [1,0,1,0],
             [1,0,1,0],
             [1,0,1,0],
-        ],NDArray::int32);
+        ],dtype:NDArray::int32);
         $a = $la->array([
             [[ 0, 2, 0, 4],
              [ 1, 0, 3, 0]],
@@ -3330,7 +3947,7 @@ class Test extends TestCase
         $la = $this->newLA($mo);
 
         // 1D by 1D
-        $x = $la->array([3,2,1,1],NDArray::int32);
+        $x = $la->array([3,2,1,1],dtype:NDArray::int32);
         $a = $la->array([13,12,11,11]);
         $b = $la->scatter($x,$a,$numClass=10);
         $this->assertEquals([4],$x->shape());
@@ -3344,7 +3961,7 @@ class Test extends TestCase
         $this->assertEquals($trues->toArray(),$b->toArray());
 
         // 1D by 2D
-        $x = $la->array([[3,2,1],[5,6,7]],NDArray::int32);
+        $x = $la->array([[3,2,1],[5,6,7]],dtype:NDArray::int32);
         $a = $la->array([[13,12,11],[15,16,17]]);
         $b = $la->scatter($x,$a,$numClass=10);
         $this->assertEquals([2,3],$x->shape());
@@ -3358,7 +3975,7 @@ class Test extends TestCase
         $this->assertEquals($trues->toArray(),$b->toArray());
 
         // 2D by 1D
-        $x = $la->array([3,1],NDArray::int32);
+        $x = $la->array([3,1],dtype:NDArray::int32);
         $a = $la->array([
             [1,2,3],
             [2,3,4]
@@ -3383,7 +4000,7 @@ class Test extends TestCase
         $x = $la->array([
             [2, 1, 0],
             [1, 2, 3],
-        ],NDArray::int32);
+        ],dtype:NDArray::int32);
         $a = $la->array([
             [[0,0,3],
              [0,2,0],
@@ -3418,8 +4035,8 @@ class Test extends TestCase
         // axis = 0
         //
         //  1D inputs
-        $x = $la->array([3,2,0],NDArray::int32);
-        $a = $la->array([1,2,3],NDArray::float32);
+        $x = $la->array([3,2,0],dtype:NDArray::int32);
+        $a = $la->array([1,2,3],dtype:NDArray::float32);
         $b = $la->scatter($x,$a,$numClass=4,axis:0);
         $this->assertEquals([3],$x->shape());
         $this->assertEquals([3],$a->shape());
@@ -3468,8 +4085,8 @@ class Test extends TestCase
         // axis = 1
         //
         //  1D inputs
-        $x = $la->array([0,1,2,0],NDArray::int32);
-        $a = $la->array([1,5,9,10],NDArray::float32);
+        $x = $la->array([0,1,2,0],dtype:NDArray::int32);
+        $a = $la->array([1,5,9,10],dtype:NDArray::float32);
         $b = $la->scatter($x,$a,$numClass=3,axis:1);
         $this->assertEquals([4],$x->shape());
         $this->assertEquals([4],$a->shape());
@@ -3550,7 +4167,7 @@ class Test extends TestCase
             [5,6],
             [9,10],
             [11,12]
-        ],NDArray::float32);
+        ],dtype:NDArray::float32);
         $a = $la->scatter($x,$y,$numClass=3,axis:1);
         $trues = $la->array([
             [1,0,0],
@@ -3560,8 +4177,8 @@ class Test extends TestCase
         $this->assertEquals($trues->toArray(),$a->toArray());
 */
 
-        $y = $la->array([1,5,9,10],NDArray::float32);
-        $x = $la->array([0,1,2,0],NDArray::int64);
+        $y = $la->array([1,5,9,10],dtype:NDArray::float32);
+        $x = $la->array([0,1,2,0],dtype:NDArray::int64);
         $a = $la->scatter($x,$y,$numClass=3,axis:1);
         $this->assertEquals(
            [[1,0,0],
@@ -3570,7 +4187,7 @@ class Test extends TestCase
             [10,0,0]],
             $a->toArray());
 
-        $x = $la->array([0,1,2,0],NDArray:: float32);
+        $x = $la->array([0,1,2,0],dtype:NDArray:: float32);
         $a = $la->scatter($x,$y,$numClass=3,axis:1);
         $this->assertEquals(
            [[1,0,0],
@@ -3580,7 +4197,7 @@ class Test extends TestCase
             $a->toArray());
 
         if($la->fp64()) {
-            $x = $la->array([0,1,2,0],NDArray:: float64);
+            $x = $la->array([0,1,2,0],dtype:NDArray:: float64);
             $a = $la->scatter($x,$y,$numClass=3,axis:1);
             $this->assertEquals(
                 [[1,0,0],
@@ -3598,7 +4215,7 @@ class Test extends TestCase
         $la = $this->newLA($mo);
 
         // 1D by 1D
-        $x = $la->array([3,2,1,4],NDArray::int32); // Must not be duplicated
+        $x = $la->array([3,2,1,4],dtype:NDArray::int32); // Must not be duplicated
         $a = $la->array([13,12,11,14]);
         $b = $la->alloc([10]);
         $la->ones($b);
@@ -3620,8 +4237,8 @@ class Test extends TestCase
         // axis = 0
         //
         //  1D inputs
-        $x = $la->array([3,2,0],NDArray::int32);
-        $a = $la->array([1,2,3],NDArray::float32);
+        $x = $la->array([3,2,0],dtype:NDArray::int32);
+        $a = $la->array([1,2,3],dtype:NDArray::float32);
         $b = $la->alloc([4,3]);
         $la->ones($b);
         $la->scatterAdd($x,$a,$b,axis:0);
@@ -3643,9 +4260,9 @@ class Test extends TestCase
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
         // float32
-        $x = $la->array([0,2],NDArray::int64);
-        $y = $la->array([[1,2,3],[7,8,9]],NDArray::float32);
-        $a = $la->array($mo->ones([4,3],NDArray::float32));
+        $x = $la->array([0,2],dtype:NDArray::int64);
+        $y = $la->array([[1,2,3],[7,8,9]],dtype:NDArray::float32);
+        $a = $la->array($mo->ones([4,3],dtype:NDArray::float32));
         $la->scatterAdd($x,$y,$a);
         #foreach($a->toArray() as $pr) {
         #    echo "\n";
@@ -3664,9 +4281,9 @@ class Test extends TestCase
         );
         // float64
         if($la->fp64()) {
-            $x = $la->array([0,2],NDArray::int64);
-            $y = $la->array([[1,2,3],[7,8,9]],NDArray::float64);
-            $a = $la->array($mo->ones([4,3],NDArray::float64));
+            $x = $la->array([0,2],dtype:NDArray::int64);
+            $y = $la->array([[1,2,3],[7,8,9]],dtype:NDArray::float64);
+            $a = $la->array($mo->ones([4,3],dtype:NDArray::float64));
             $la->scatterAdd($x,$y,$a);
             $this->assertEquals(
                 [[2,3,4],
@@ -3677,9 +4294,9 @@ class Test extends TestCase
             );
         }
         // int64
-        $x = $la->array([0,2],NDArray::int64);
-        $y = $la->array([[1,2,3],[7,8,9]],NDArray::int64);
-        $a = $la->array($mo->ones([4,3],NDArray::int64));
+        $x = $la->array([0,2],dtype:NDArray::int64);
+        $y = $la->array([[1,2,3],[7,8,9]],dtype:NDArray::int64);
+        $a = $la->array($mo->ones([4,3],dtype:NDArray::int64));
         $la->scatterAdd($x,$y,$a);
         $this->assertEquals(
            [[2,3,4],
@@ -3689,9 +4306,9 @@ class Test extends TestCase
             $a->toArray()
         );
         // uint8
-        $x = $la->array([0,2],NDArray::int64);
-        $y = $la->array([[1,2,3],[7,8,9]],NDArray::uint8);
-        $a = $la->array($mo->ones([4,3],NDArray::uint8));
+        $x = $la->array([0,2],dtype:NDArray::int64);
+        $y = $la->array([[1,2,3],[7,8,9]],dtype:NDArray::uint8);
+        $a = $la->array($mo->ones([4,3],dtype:NDArray::uint8));
         $la->scatterAdd($x,$y,$a);
         $this->assertEquals(
            [[2,3,4],
@@ -3714,14 +4331,14 @@ class Test extends TestCase
         $rows = 8;
         $cols = 8;
         $numClass = 65536;
-        $x = $la->alloc([$rows],NDArray::int32);
+        $x = $la->alloc([$rows],dtype:NDArray::int32);
         $la->fill(1,$x);
-        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $y = $la->alloc([$rows,$cols],dtype:NDArray::float32);
         $la->fill(1.0,$y);
-        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $a = $la->alloc([$numClass,$cols],dtype:NDArray::float32);
         $la->fill(0.0,$a);
         $la->scatterAdd($x,$y,$a);
-        $trues = $la->alloc([$numClass,$cols],NDArray::float32);
+        $trues = $la->alloc([$numClass,$cols],dtype:NDArray::float32);
         $la->fill($rows,$trues);
         $this->assertLessThan(1e-3,$la->amax($la->axpy(
             $trues,$a,-1)));
@@ -3729,14 +4346,14 @@ class Test extends TestCase
         $rows = 8;
         $cols = 8;
         $numClass = 1000000;
-        $x = $la->alloc([$rows],NDArray::int32);
+        $x = $la->alloc([$rows],dtype:NDArray::int32);
         $la->fill(1,$x);
-        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $y = $la->alloc([$rows,$cols],dtype:NDArray::float32);
         $la->fill(1.0,$y);
-        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $a = $la->alloc([$numClass,$cols],dtype:NDArray::float32);
         $la->fill(0.0,$a);
         $la->scatterAdd($x,$y,$a);
-        $trues = $la->alloc([$numClass,$cols],NDArray::float32);
+        $trues = $la->alloc([$numClass,$cols],dtype:NDArray::float32);
         $la->fill($rows,$trues);
         $this->assertLessThan(1e-3,$la->amax($la->axpy(
             $trues,$a,-1)));
@@ -3760,11 +4377,11 @@ class Test extends TestCase
         $rows = 256;
         $cols = 8;
         $numClass = 8;
-        $x = $la->alloc([$rows],NDArray::int32);
+        $x = $la->alloc([$rows],dtype:NDArray::int32);
         $la->fill(1,$x);
-        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $y = $la->alloc([$rows,$cols],dtype:NDArray::float32);
         $la->fill(1.0,$y);
-        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $a = $la->alloc([$numClass,$cols],dtype:NDArray::float32);
         $la->fill(0.0,$a);
         $la->scatterAdd($x,$y,$a);
         $start = hrtime(true);
@@ -3778,11 +4395,11 @@ class Test extends TestCase
         $rows = 65536;#131072;
         $cols = 8;
         $numClass = 8;
-        $x = $la->alloc([$rows],NDArray::int32);
+        $x = $la->alloc([$rows],dtype:NDArray::int32);
         $la->fill(1,$x);
-        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $y = $la->alloc([$rows,$cols],dtype:NDArray::float32);
         $la->fill(1.0,$y);
-        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $a = $la->alloc([$numClass,$cols],dtype:NDArray::float32);
         $la->fill(0.0,$a);
         $la->scatterAdd($x,$y,$a);
         $start = hrtime(true);
@@ -3796,11 +4413,11 @@ class Test extends TestCase
         $rows = 1000000;
         $cols = 8;
         $numClass = 8;
-        $x = $la->alloc([$rows],NDArray::int32);
+        $x = $la->alloc([$rows],dtype:NDArray::int32);
         $la->fill(1,$x);
-        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $y = $la->alloc([$rows,$cols],dtype:NDArray::float32);
         $la->fill(1.0,$y);
-        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $a = $la->alloc([$numClass,$cols],dtype:NDArray::float32);
         $la->fill(0.0,$a);
         $la->scatterAdd($x,$y,$a);
         $start = hrtime(true);
@@ -3814,11 +4431,11 @@ class Test extends TestCase
         $rows = 8;
         $cols = 65536;
         $numClass = 8;
-        $x = $la->alloc([$rows],NDArray::int32);
+        $x = $la->alloc([$rows],dtype:NDArray::int32);
         $la->fill(1,$x);
-        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $y = $la->alloc([$rows,$cols],dtype:NDArray::float32);
         $la->fill(1.0,$y);
-        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $a = $la->alloc([$numClass,$cols],dtype:NDArray::float32);
         $la->fill(0.0,$a);
         $la->scatterAdd($x,$y,$a);
         $start = hrtime(true);
@@ -3832,11 +4449,11 @@ class Test extends TestCase
         $rows = 8;
         $cols = 1000000;
         $numClass = 8;
-        $x = $la->alloc([$rows],NDArray::int32);
+        $x = $la->alloc([$rows],dtype:NDArray::int32);
         $la->fill(1,$x);
-        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $y = $la->alloc([$rows,$cols],dtype:NDArray::float32);
         $la->fill(1.0,$y);
-        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $a = $la->alloc([$numClass,$cols],dtype:NDArray::float32);
         $la->fill(0.0,$a);
         $la->scatterAdd($x,$y,$a);
         $start = hrtime(true);
@@ -3850,11 +4467,11 @@ class Test extends TestCase
         $rows = 8;
         $cols = 8;
         $numClass = 131072;
-        $x = $la->alloc([$rows],NDArray::int32);
+        $x = $la->alloc([$rows],dtype:NDArray::int32);
         $la->fill(1,$x);
-        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $y = $la->alloc([$rows,$cols],dtype:NDArray::float32);
         $la->fill(1.0,$y);
-        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $a = $la->alloc([$numClass,$cols],dtype:NDArray::float32);
         $la->fill(0.0,$a);
         $la->scatterAdd($x,$y,$a);
         $start = hrtime(true);
@@ -3868,11 +4485,11 @@ class Test extends TestCase
         $rows = 8;
         $cols = 8;
         $numClass = 1000000;
-        $x = $la->alloc([$rows],NDArray::int32);
+        $x = $la->alloc([$rows],dtype:NDArray::int32);
         $la->fill(1,$x);
-        $y = $la->alloc([$rows,$cols],NDArray::float32);
+        $y = $la->alloc([$rows,$cols],dtype:NDArray::float32);
         $la->fill(1.0,$y);
-        $a = $la->alloc([$numClass,$cols],NDArray::float32);
+        $a = $la->alloc([$numClass,$cols],dtype:NDArray::float32);
         $la->fill(0.0,$a);
         $la->scatterAdd($x,$y,$a);
         $start = hrtime(true);
@@ -3908,9 +4525,9 @@ class Test extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
-        $x = $la->array([0,1,2,0],NDArray::int32);
-        $y = $la->array([1,5,9,10],NDArray::float32);
-        $a = $la->array($mo->ones([4,3],NDArray::float32));
+        $x = $la->array([0,1,2,0],dtype:NDArray::int32);
+        $y = $la->array([1,5,9,10],dtype:NDArray::float32);
+        $a = $la->array($mo->ones([4,3],dtype:NDArray::float32));
         $la->scatterAdd($x,$y,$a,axis:1);
         $this->assertEquals(
            [[2,1,1],
@@ -3920,9 +4537,9 @@ class Test extends TestCase
             $a->toArray());
 
         if($la->fp64()) {
-            $x = $la->array([0,1,2,0],NDArray::int32);
-            $y = $la->array([1,5,9,10],NDArray::float64);
-            $a = $la->array($mo->ones([4,3],NDArray::float64));
+            $x = $la->array([0,1,2,0],dtype:NDArray::int32);
+            $y = $la->array([1,5,9,10],dtype:NDArray::float64);
+            $a = $la->array($mo->ones([4,3],dtype:NDArray::float64));
             $la->scatterAdd($x,$y,$a,axis:1);
             $this->assertEquals(
                 [[2,1,1],
@@ -4062,10 +4679,10 @@ class Test extends TestCase
         // large size
         $colsize = 800000;
         $rowsize = 64;
-        $x = $la->alloc([$rowsize,$colsize],NDArray::float32);
+        $x = $la->alloc([$rowsize,$colsize],dtype:NDArray::float32);
         $la->fill(1.0,$x);
         $sum = $la->reduceSum($x,axis:1);
-        $trues = $la->alloc([$rowsize],NDArray::float32);
+        $trues = $la->alloc([$rowsize],dtype:NDArray::float32);
         $la->fill($colsize,$trues);
         $this->assertLessThan(1e-3,$la->amax($la->axpy(
             $trues,$sum,-1)));
@@ -4073,10 +4690,10 @@ class Test extends TestCase
         // large size
         $colsize = 64;
         $rowsize = 10000;#00;
-        $x = $la->alloc([$rowsize,$colsize],NDArray::float32);
+        $x = $la->alloc([$rowsize,$colsize],dtype:NDArray::float32);
         $la->fill(1.0,$x);
         $sum = $la->reduceSum($x,axis:1);
-        $trues = $la->alloc([$rowsize],NDArray::float32);
+        $trues = $la->alloc([$rowsize],dtype:NDArray::float32);
         $la->fill($colsize,$trues);
         $this->assertLessThan(1e-3,$la->amax($la->axpy(
             $trues,$sum,-1)));
@@ -4160,7 +4777,7 @@ class Test extends TestCase
 
         $colsize = 1000000;
         $rowsize = 64;
-        $x = $la->alloc([$rowsize,$colsize],NDArray::float32);
+        $x = $la->alloc([$rowsize,$colsize],dtype:NDArray::float32);
         fwrite(STDERR,"Start fill1\n");
         $la->fill(1.0,$x);
         fwrite(STDERR,"End fill1\n");
@@ -4175,7 +4792,7 @@ class Test extends TestCase
 
         $colsize = 64;
         $rowsize = 1000000;
-        $x = $la->alloc([$rowsize,$colsize],NDArray::float32);
+        $x = $la->alloc([$rowsize,$colsize],dtype:NDArray::float32);
         fwrite(STDERR,"Start fill2\n");
         $la->fill(1.0,$x);
         fwrite(STDERR,"End fill2\n");
@@ -4190,7 +4807,7 @@ class Test extends TestCase
 
         $colsize = 4096;
         $rowsize = 8000;#0;
-        $x = $la->alloc([$rowsize,$colsize],NDArray::float32);
+        $x = $la->alloc([$rowsize,$colsize],dtype:NDArray::float32);
         fwrite(STDERR,"Start fill3\n");
         $la->fill(1.0,$x);
         fwrite(STDERR,"End fill3\n");
@@ -4290,10 +4907,10 @@ class Test extends TestCase
         // large size
         $colsize = 1000000;
         $rowsize = 64;
-        $x = $la->alloc([$rowsize,$colsize],NDArray::float32);
+        $x = $la->alloc([$rowsize,$colsize],dtype:NDArray::float32);
         $la->fill(1.0,$x);
         $r = $la->reduceMax($x,axis:1);
-        $trues = $la->alloc([$rowsize],NDArray::float32);
+        $trues = $la->alloc([$rowsize],dtype:NDArray::float32);
         $la->fill(1.0,$trues);
         $this->assertLessThan(1e-3,$la->amax($la->axpy(
             $trues,$r,-1)));
@@ -4305,7 +4922,7 @@ class Test extends TestCase
         //    mode:  0   1    2     3
         $colslist = [10, 200, 2000, 200000];
         foreach($colslist as $cols) {
-            $x = $la->alloc([6,$cols],NDArray::float32);
+            $x = $la->alloc([6,$cols],dtype:NDArray::float32);
             $la->fill(0.0,$x);
             $la->copy($la->array([1.0, 2.0]),   $x[0][[0,1]]);
             $la->copy($la->array([INF, 1.0]),   $x[1][[0,1]]);
@@ -4341,7 +4958,7 @@ class Test extends TestCase
 
         $colsize = 1000000;
         $rowsize = 64;
-        $x = $la->alloc([$rowsize,$colsize],NDArray::float32);
+        $x = $la->alloc([$rowsize,$colsize],dtype:NDArray::float32);
         $la->fill(1.0,$x);
         $max = $la->reduceMax($x,axis:1);
         $start = hrtime(true);
@@ -4352,7 +4969,7 @@ class Test extends TestCase
 
         $colsize = 64;
         $rowsize = 1000000;
-        $x = $la->alloc([$rowsize,$colsize],NDArray::float32);
+        $x = $la->alloc([$rowsize,$colsize],dtype:NDArray::float32);
         $la->fill(1.0,$x);
         $max = $la->reduceMax($x,axis:1);
         $start = hrtime(true);
@@ -4363,7 +4980,7 @@ class Test extends TestCase
 
         $colsize = 4096;
         $rowsize = 12500;#0;
-        $x = $la->alloc([$rowsize,$colsize],NDArray::float32);
+        $x = $la->alloc([$rowsize,$colsize],dtype:NDArray::float32);
         $la->fill(1.0,$x);
         $max = $la->reduceMax($x,axis:1);
         $start = hrtime(true);
@@ -4429,10 +5046,10 @@ class Test extends TestCase
         // large size
         $colsize = 500000;
         $rowsize = 64;
-        $x = $la->alloc([$rowsize,$colsize],NDArray::float32);
+        $x = $la->alloc([$rowsize,$colsize],dtype:NDArray::float32);
         $la->fill(1.0,$x);
         $max = $la->reduceArgMax($x,axis:1);
-        $trues = $la->alloc([$rowsize],NDArray::int32);
+        $trues = $la->alloc([$rowsize],dtype:NDArray::int32);
         $this->assertTrue($la->sum($max)==0);
     }
 
@@ -4451,7 +5068,7 @@ class Test extends TestCase
 
         $colsize = 1000000;
         $rowsize = 64;
-        $x = $la->alloc([$rowsize,$colsize],NDArray::float32);
+        $x = $la->alloc([$rowsize,$colsize],dtype:NDArray::float32);
         $la->fill(1.0,$x);
         $max = $la->reduceArgMax($x,axis:1);
         $start = hrtime(true);
@@ -4462,7 +5079,7 @@ class Test extends TestCase
 
         $colsize = 64;
         $rowsize = 1000000;
-        $x = $la->alloc([$rowsize,$colsize],NDArray::float32);
+        $x = $la->alloc([$rowsize,$colsize],dtype:NDArray::float32);
         $la->fill(1.0,$x);
         $max = $la->reduceArgMax($x,axis:1);
         $start = hrtime(true);
@@ -4473,7 +5090,7 @@ class Test extends TestCase
 
         $colsize = 4096;
         $rowsize = 12500;#0;
-        $x = $la->alloc([$rowsize,$colsize],NDArray::float32);
+        $x = $la->alloc([$rowsize,$colsize],dtype:NDArray::float32);
         $la->fill(1.0,$x);
         $max = $la->reduceArgMax($x,axis:1);
         $start = hrtime(true);
@@ -4523,33 +5140,33 @@ class Test extends TestCase
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
 
-        $X = $la->array([true,true,false],NDArray::bool);
-        $Y = $la->array([true,false,false],NDArray::bool);
+        $X = $la->array([true,true,false],dtype:NDArray::bool);
+        $Y = $la->array([true,false,false],dtype:NDArray::bool);
         $this->assertEquals([1,0,1],$la->equal($X,$Y)->toArray());
 
-        $X = $la->array([100,10,-1000],NDArray::int32);
-        $Y = $la->array([100,-10,-1000],NDArray::int32);
+        $X = $la->array([100,10,-1000],dtype:NDArray::int32);
+        $Y = $la->array([100,-10,-1000],dtype:NDArray::int32);
         $this->assertEquals([1,0,1],$la->equal($X,$Y)->toArray());
 
-        $X = $la->array([100,10,-1000],NDArray::uint32);
-        $Y = $la->array([100,-10,-1000],NDArray::uint32);
+        $X = $la->array([100,10,-1000],dtype:NDArray::uint32);
+        $Y = $la->array([100,-10,-1000],dtype:NDArray::uint32);
         $this->assertEquals([1,0,1],$la->equal($X,$Y)->toArray());
 
-        $X = $la->array([100,10,-1000],NDArray::int64);
-        $Y = $la->array([100,-10,-1000],NDArray::int64);
+        $X = $la->array([100,10,-1000],dtype:NDArray::int64);
+        $Y = $la->array([100,-10,-1000],dtype:NDArray::int64);
         $this->assertEquals([1,0,1],$la->equal($X,$Y)->toArray());
     
-        $X = $la->array([100,10,-1000],NDArray::uint64);
-        $Y = $la->array([100,-10,-1000],NDArray::uint64);
+        $X = $la->array([100,10,-1000],dtype:NDArray::uint64);
+        $Y = $la->array([100,-10,-1000],dtype:NDArray::uint64);
         $this->assertEquals([1,0,1],$la->equal($X,$Y)->toArray());
 
-        $X = $la->array([100,10,-1000],NDArray::float32);
-        $Y = $la->array([100,-10,-1000],NDArray::float32);
+        $X = $la->array([100,10,-1000],dtype:NDArray::float32);
+        $Y = $la->array([100,-10,-1000],dtype:NDArray::float32);
         $this->assertEquals([1,0,1],$la->equal($X,$Y)->toArray());
 
         if($la->fp64()) {
-            $X = $la->array([100,10,-1000],NDArray::float64);
-            $Y = $la->array([100,-10,-1000],NDArray::float64);
+            $X = $la->array([100,10,-1000],dtype:NDArray::float64);
+            $Y = $la->array([100,-10,-1000],dtype:NDArray::float64);
             $this->assertEquals([1,0,1],$la->equal($X,$Y)->toArray());
         }
     }
@@ -4559,19 +5176,19 @@ class Test extends TestCase
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
 
-        $X = $la->fill(1,$la->alloc([100,1000],NDArray::bool));
-        $Y = $la->fill(1,$la->alloc([100,1000],NDArray::bool));
-        $Z = $la->fill(1,$la->alloc([100,1000],NDArray::bool));
+        $X = $la->fill(1,$la->alloc([100,1000],dtype:NDArray::bool));
+        $Y = $la->fill(1,$la->alloc([100,1000],dtype:NDArray::bool));
+        $Z = $la->fill(1,$la->alloc([100,1000],dtype:NDArray::bool));
         $this->assertEquals($Z->toArray(),$la->equal($X,$Y)->toArray());
 
-        $X = $la->fill(1,$la->alloc([100,1000],NDArray::int32));
-        $Y = $la->fill(1,$la->alloc([100,1000],NDArray::int32));
-        $Z = $la->fill(1,$la->alloc([100,1000],NDArray::int32));
+        $X = $la->fill(1,$la->alloc([100,1000],dtype:NDArray::int32));
+        $Y = $la->fill(1,$la->alloc([100,1000],dtype:NDArray::int32));
+        $Z = $la->fill(1,$la->alloc([100,1000],dtype:NDArray::int32));
         $this->assertEquals($Z->toArray(),$la->equal($X,$Y)->toArray());
 
-        $X = $la->fill(1,$la->alloc([100,1000],NDArray::float32));
-        $Y = $la->fill(1,$la->alloc([100,1000],NDArray::float32));
-        $Z = $la->fill(1,$la->alloc([100,1000],NDArray::float32));
+        $X = $la->fill(1,$la->alloc([100,1000],dtype:NDArray::float32));
+        $Y = $la->fill(1,$la->alloc([100,1000],dtype:NDArray::float32));
+        $Z = $la->fill(1,$la->alloc([100,1000],dtype:NDArray::float32));
         $this->assertEquals($Z->toArray(),$la->equal($X,$Y)->toArray());
     }
 
@@ -4584,12 +5201,12 @@ class Test extends TestCase
         $Y = $la->array([100,-10,-1000]);
         $this->assertEquals([0,1,0],$la->notEqual($X,$Y)->toArray());
 
-        $X = $la->array([100,10,-1000],NDArray::int32);
-        $Y = $la->array([100,-10,-1000],NDArray::int32);
+        $X = $la->array([100,10,-1000],dtype:NDArray::int32);
+        $Y = $la->array([100,-10,-1000],dtype:NDArray::int32);
         $this->assertEquals([0,1,0],$la->notEqual($X,$Y)->toArray());
 
-        $X = $la->array([true,true,false],NDArray::bool);
-        $Y = $la->array([true,false,false],NDArray::bool);
+        $X = $la->array([true,true,false],dtype:NDArray::bool);
+        $Y = $la->array([true,false,false],dtype:NDArray::bool);
         $this->assertEquals([false,true,false],$la->notEqual($X,$Y)->toArray());
     }
 
@@ -4601,10 +5218,10 @@ class Test extends TestCase
         $X = $la->array([100,0,-1000]);
         $this->assertEquals([0,1,0],$la->not($X)->toArray());
 
-        $X = $la->array([100,0,-1000],NDArray::int32);
+        $X = $la->array([100,0,-1000],dtype:NDArray::int32);
         $this->assertEquals([0,1,0],$la->not($X)->toArray());
 
-        $X = $la->array([true,true,false],NDArray::bool);
+        $X = $la->array([true,true,false],dtype:NDArray::bool);
         $this->assertEquals([false,false,true],$la->not($X)->toArray());
     }
 
@@ -4647,10 +5264,10 @@ class Test extends TestCase
             // large size
         $colsize = 100000;//600000;
         $rowsize = 64;
-        $x = $la->alloc([$rowsize,$colsize],NDArray::float32);
+        $x = $la->alloc([$rowsize,$colsize],dtype:NDArray::float32);
         $la->fill(1.0,$x);
         $r = $la->softmax($x);
-        $trues = $la->alloc([$rowsize,$colsize],NDArray::float32);
+        $trues = $la->alloc([$rowsize,$colsize],dtype:NDArray::float32);
         $la->fill(1.0,$trues);
         $this->assertLessThan(1e-3,$la->amax($la->axpy(
             $trues,$r,-1)));
@@ -4658,10 +5275,10 @@ class Test extends TestCase
         // large size
         $colsize = 64;
         $rowsize = 100000;//800000;
-        $x = $la->alloc([$rowsize,$colsize],NDArray::float32);
+        $x = $la->alloc([$rowsize,$colsize],dtype:NDArray::float32);
         $la->fill(1.0,$x);
         $r = $la->softmax($x);
-        $trues = $la->alloc([$rowsize,$colsize],NDArray::float32);
+        $trues = $la->alloc([$rowsize,$colsize],dtype:NDArray::float32);
         $la->fill(1.0,$trues);
         $this->assertLessThan(1e-3,$la->amax($la->axpy(
             $trues,$r,-1)));
@@ -4683,7 +5300,7 @@ class Test extends TestCase
         // large size
         $colsize = 600000;
         $rowsize = 64;
-        $x = $la->alloc([$rowsize,$colsize],NDArray::float32);
+        $x = $la->alloc([$rowsize,$colsize],dtype:NDArray::float32);
         fwrite(STDERR,"fill-start\n");
         $la->fill(1.0,$x);
         fwrite(STDERR,"fill-end\n");
@@ -4698,7 +5315,7 @@ class Test extends TestCase
         // large size
         $colsize = 64;
         $rowsize = 1000000;
-        $x = $la->alloc([$rowsize,$colsize],NDArray::float32);
+        $x = $la->alloc([$rowsize,$colsize],dtype:NDArray::float32);
         fwrite(STDERR,"fill-start\n");
         $la->fill(1.0,$x);
         fwrite(STDERR,"fill-end\n");
@@ -4718,7 +5335,7 @@ class Test extends TestCase
         $math = $la;
 
         #### int to any
-        $X = $la->array([-1,0,1,2,3],NDArray::int32);
+        $X = $la->array([-1,0,1,2,3],dtype:NDArray::int32);
         $dtype = NDArray::float32;
         $Y = $math->astype($X, $dtype);
         $this->assertEquals(NDArray::float32,$Y->dtype());
@@ -4759,7 +5376,7 @@ class Test extends TestCase
         $this->assertEquals(NDArray::int32,$Z->dtype());
 
         #### float to any ######
-        $X = $la->array([-1,0,1,2,3],NDArray::float32);
+        $X = $la->array([-1,0,1,2,3],dtype:NDArray::float32);
         $dtype = NDArray::float32;
         $Y = $math->astype($X, $dtype);
         $this->assertEquals([-1,0,1,2,3],$Y->toArray());
@@ -4795,7 +5412,7 @@ class Test extends TestCase
         $this->assertEquals(NDArray::float32,$Z->dtype());
 
         #### bool to any ######
-        $X = $la->array([true,false,true,true,true],NDArray::bool);
+        $X = $la->array([true,false,true,true,true],dtype:NDArray::bool);
         $dtype = NDArray::float32;
         $Y = $math->astype($X, $dtype);
         $this->assertEquals([1,0,1,1,1],$Y->toArray());
@@ -4836,7 +5453,7 @@ class Test extends TestCase
             $devName = "CPU";
         }
         #### float to unsigned ######
-        $X = $la->array([-1,0,1,2,3],NDArray::float32);
+        $X = $la->array([-1,0,1,2,3],dtype:NDArray::float32);
         $dtype = NDArray::uint8;
         $Y = $math->astype($X, $dtype);
         if($devType===OpenCL::CL_DEVICE_TYPE_GPU) {
@@ -4862,7 +5479,7 @@ class Test extends TestCase
         }
 
         // ***** CAUTION ******
-        $X = $la->array([-1000,0,1,2,4294967295],NDArray::float32);
+        $X = $la->array([-1000,0,1,2,4294967295],dtype:NDArray::float32);
         if($la->accelerated()) {
             // GPU
             $dtype = NDArray::uint32;
@@ -4876,7 +5493,7 @@ class Test extends TestCase
             // CPU
             $dtype = NDArray::uint32;
             $Y = $math->astype($X, $dtype);
-            if(extension_loaded('rindow_openblas')) {
+            if($mo->service()->serviceLevel()>=Service::LV_ADVANCED) {
                 $this->assertEquals([4294966296,0,1,2,0],$Y->toArray());
             } else {
                 $this->assertEquals([4294966296,0,1,2,4294967295],$Y->toArray());
@@ -4884,7 +5501,7 @@ class Test extends TestCase
         }
 
         // ***** CAUTION ******
-        $X = $la->array([-1000,0,1,2,3],NDArray::float32);
+        $X = $la->array([-1000,0,1,2,3],dtype:NDArray::float32);
         if($la->accelerated()) {
             // GPU
             $dtype = NDArray::uint64;
@@ -5385,7 +6002,7 @@ class Test extends TestCase
             $im_h*$im_w*
             $channels,
             null,null,
-            NDArray::float32
+            dtype:NDArray::float32
         ));
         if($channels_first) {
             $images = $images->reshape([
@@ -5724,7 +6341,7 @@ class Test extends TestCase
             $im_h*$im_w*
             $channels,
             null,null,
-            NDArray::float32
+            dtype:NDArray::float32
         ));
         //$images = $la->array($mo->ones(
         //    [$batches*
@@ -5806,7 +6423,7 @@ class Test extends TestCase
             $im_h*$im_w*
             $channels,
             null,null,
-            NDArray::float32
+            dtype:NDArray::float32
         ))->reshape([
             $batches,
             $im_h,
@@ -6093,7 +6710,7 @@ class Test extends TestCase
             $im_w*
             $channels,
             null,null,
-            NDArray::float32
+            dtype:NDArray::float32
         ));
         if($channels_first) {
             $images = $images->reshape([
@@ -6257,7 +6874,7 @@ class Test extends TestCase
             $im_w*
             $channels,
             null,null,
-            NDArray::float32
+            dtype:NDArray::float32
         ))->reshape([
             $batches,
             $im_w,
@@ -7144,7 +7761,7 @@ class Test extends TestCase
             $im_d*$im_h*$im_w*
             $channels,
             null,null,
-            NDArray::float32
+            dtype:NDArray::float32
         ));
         if($channels_first) {
             $images = $images->reshape([
@@ -7371,7 +7988,7 @@ class Test extends TestCase
             $im_d*$im_h*$im_w*
             $channels,
             null,null,
-            NDArray::float32
+            dtype:NDArray::float32
         ))->reshape([
             $batches,
             $im_d,
@@ -7645,7 +8262,7 @@ class Test extends TestCase
             $x->toArray(),
             $y->toArray());
         $x = $la->astype($x,NDArray::float32);
-        if(extension_loaded('rindow_openblas')) {
+        if($this->service->serviceLevel()>=Service::LV_ADVANCED) {
             $this->assertEquals(1,$la->max($x));
             $this->assertEquals(-1,$la->min($x));
         } else {
@@ -7765,7 +8382,7 @@ class Test extends TestCase
         ],$y->toArray());
 
         // 2D
-        $x = $la->array($mo->arange(8,null,null,NDArray::float32)->reshape([2,4]));
+        $x = $la->array($mo->arange(8,null,null,dtype:NDArray::float32)->reshape([2,4]));
         $this->assertEquals(2,$x->ndim());
         $x = $la->array([
             [0,1,2,3],
@@ -7837,7 +8454,7 @@ class Test extends TestCase
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
 
-        $x = $la->array($mo->arange(12,null,null,NDArray::float32)->reshape([2,2,3]));
+        $x = $la->array($mo->arange(12,null,null,dtype:NDArray::float32)->reshape([2,2,3]));
         $y = $la->array($mo->zeros([2,4,3]));
         $la->stick(
             $x,
@@ -7856,7 +8473,7 @@ class Test extends TestCase
              [0,0,0]],
         ],$y->toArray());
 
-        $x = $la->array($mo->arange(6,null,null,NDArray::float32)->reshape([2,1,3]));
+        $x = $la->array($mo->arange(6,null,null,dtype:NDArray::float32)->reshape([2,1,3]));
         $y = $la->array($mo->zeros([2,4,3]));
         $la->stick(
             $x,
@@ -7875,7 +8492,7 @@ class Test extends TestCase
              [0,0,0]],
         ],$y->toArray());
 
-        $x = $la->array($mo->arange(6,null,null,NDArray::float32)->reshape([2,1,3]));
+        $x = $la->array($mo->arange(6,null,null,dtype:NDArray::float32)->reshape([2,1,3]));
         $y = $la->array($mo->zeros([2,4,3]));
         $la->stick(
             $x,
@@ -7894,7 +8511,7 @@ class Test extends TestCase
              [3,4,5]],
         ],$y->toArray());
 
-        $x = $la->array($mo->arange(12,null,null,NDArray::float32)->reshape([1,4,3]));
+        $x = $la->array($mo->arange(12,null,null,dtype:NDArray::float32)->reshape([1,4,3]));
         $y = $la->array($mo->zeros([2,4,3]));
         $la->stick(
             $x,
@@ -7913,7 +8530,7 @@ class Test extends TestCase
              [9,10,11]],
         ],$y->toArray());
 
-        $x = $la->array($mo->arange(4,null,null,NDArray::float32)->reshape([2,2]));
+        $x = $la->array($mo->arange(4,null,null,dtype:NDArray::float32)->reshape([2,2]));
         $y = $la->array($mo->zeros([2,4]));
         $la->stick(
             $x,
@@ -7971,8 +8588,8 @@ class Test extends TestCase
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
 
-        $a = $la->array($mo->arange(6,0,null,NDArray::float32)->reshape([2,3]));
-        $b = $la->array($mo->arange(6,6,null,NDArray::float32)->reshape([2,3]));
+        $a = $la->array($mo->arange(6,0,null,dtype:NDArray::float32)->reshape([2,3]));
+        $b = $la->array($mo->arange(6,6,null,dtype:NDArray::float32)->reshape([2,3]));
         $y = $la->stack(
             [$a,$b],
             axis:0
@@ -7984,8 +8601,8 @@ class Test extends TestCase
              [9,10,11]],
         ],$y->toArray());
 
-        $a = $la->array($mo->arange(6,0,null,NDArray::float32)->reshape([2,3]));
-        $b = $la->array($mo->arange(6,6,null,NDArray::float32)->reshape([2,3]));
+        $a = $la->array($mo->arange(6,0,null,dtype:NDArray::float32)->reshape([2,3]));
+        $b = $la->array($mo->arange(6,6,null,dtype:NDArray::float32)->reshape([2,3]));
         $y = $la->stack(
             [$a,$b],
             axis:1
@@ -7997,8 +8614,8 @@ class Test extends TestCase
              [9,10,11]],
         ],$y->toArray());
 
-        $a = $la->array($mo->arange(12,0,null,NDArray::float32)->reshape([2, 2,3]));
-        $b = $la->array($mo->arange(12,12,null,NDArray::float32)->reshape([2,2,3]));
+        $a = $la->array($mo->arange(12,0,null,dtype:NDArray::float32)->reshape([2, 2,3]));
+        $b = $la->array($mo->arange(12,12,null,dtype:NDArray::float32)->reshape([2,2,3]));
         $y = $la->stack(
             [$a,$b],
             axis:0
@@ -8014,8 +8631,8 @@ class Test extends TestCase
              [21,22,23]]],
         ],$y->toArray());
 
-        $a = $la->array($mo->arange(12,0,null,NDArray::float32)->reshape([2, 2,3]));
-        $b = $la->array($mo->arange(12,12,null,NDArray::float32)->reshape([2,2,3]));
+        $a = $la->array($mo->arange(12,0,null,dtype:NDArray::float32)->reshape([2, 2,3]));
+        $b = $la->array($mo->arange(12,12,null,dtype:NDArray::float32)->reshape([2,2,3]));
         $y = $la->stack(
             [$a,$b],
             axis:1
@@ -8032,8 +8649,8 @@ class Test extends TestCase
         ],$y->toArray());
 
         // 4D
-        $a = $la->array($mo->arange(24, 0,null,NDArray::float32)->reshape([2,2,2,3]));
-        $b = $la->array($mo->arange(24,24,null,NDArray::float32)->reshape([2,2,2,3]));
+        $a = $la->array($mo->arange(24, 0,null,dtype:NDArray::float32)->reshape([2,2,2,3]));
+        $b = $la->array($mo->arange(24,24,null,dtype:NDArray::float32)->reshape([2,2,2,3]));
         $y = $la->stack(
             [$a,$b],
             axis:2
@@ -8070,7 +8687,7 @@ class Test extends TestCase
         }
         foreach($dtypes as $dtype) {
             // forward slice
-            $x = $la->array($mo->arange(24,null,null,$dtype)->reshape([2,4,3]));
+            $x = $la->array($mo->arange(24,null,null,dtype:$dtype)->reshape([2,4,3]));
             $y = $la->slice(
                 $x,
                 $start=[0,1],
@@ -8084,8 +8701,8 @@ class Test extends TestCase
             ],$y->toArray());
 
             // reverse slice
-            $x = $la->array($mo->arange(12,null,null,$dtype)->reshape([2,2,3]));
-            $y = $la->array($mo->zeros([2,4,3],$dtype));
+            $x = $la->array($mo->arange(12,null,null,dtype:$dtype)->reshape([2,2,3]));
+            $y = $la->array($mo->zeros([2,4,3],dtype:$dtype));
             $la->stick(
                 $x,
                 $y,
@@ -8128,8 +8745,8 @@ class Test extends TestCase
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
 
-        $a = $la->array($mo->arange(6,$start=0,null,NDArray::float32)->reshape([3,2]));
-        $b = $la->array($mo->arange(4,$start=6,null,NDArray::float32)->reshape([2,2]));
+        $a = $la->array($mo->arange(6,$start=0,null,dtype:NDArray::float32)->reshape([3,2]));
+        $b = $la->array($mo->arange(4,$start=6,null,dtype:NDArray::float32)->reshape([2,2]));
         $y = $la->concat(
             [$a,$b],
             axis:0
@@ -8142,8 +8759,8 @@ class Test extends TestCase
             [8,9],
         ],$y->toArray());
 
-        $a = $la->array($mo->arange(6,$start=0,null,NDArray::float32)->reshape([2,3]));
-        $b = $la->array($mo->arange(4,$start=6,null,NDArray::float32)->reshape([2,2]));
+        $a = $la->array($mo->arange(6,$start=0,null,dtype:NDArray::float32)->reshape([2,3]));
+        $b = $la->array($mo->arange(4,$start=6,null,dtype:NDArray::float32)->reshape([2,2]));
         $y = $la->concat(
             [$a,$b],
             axis:1
@@ -8153,8 +8770,8 @@ class Test extends TestCase
             [3,4,5,8,9],
         ],$y->toArray());
 
-        $a = $la->array($mo->arange(12,$start=0,null,NDArray::float32)->reshape([3,2,2]));
-        $b = $la->array($mo->arange(8,$start=12,null,NDArray::float32)->reshape([2,2,2]));
+        $a = $la->array($mo->arange(12,$start=0,null,dtype:NDArray::float32)->reshape([3,2,2]));
+        $b = $la->array($mo->arange(8,$start=12,null,dtype:NDArray::float32)->reshape([2,2,2]));
         $y = $la->concat(
             [$a,$b],
             axis:0
@@ -8167,8 +8784,8 @@ class Test extends TestCase
             [[16,17],[18,19]],
         ],$y->toArray());
 
-        $a = $la->array($mo->arange(12,$start=0,null,NDArray::float32)->reshape([2,3,2]));
-        $b = $la->array($mo->arange(8,$start=12,null,NDArray::float32)->reshape([2,2,2]));
+        $a = $la->array($mo->arange(12,$start=0,null,dtype:NDArray::float32)->reshape([2,3,2]));
+        $b = $la->array($mo->arange(8,$start=12,null,dtype:NDArray::float32)->reshape([2,2,2]));
         $y = $la->concat(
             [$a,$b],
             axis:1
@@ -8185,8 +8802,8 @@ class Test extends TestCase
              [16,17],[18,19]],
         ],$y->toArray());
 
-        $a = $la->array($mo->arange(12,$start=0,null,NDArray::float32)->reshape([2,2,3]));
-        $b = $la->array($mo->arange(8,$start=12,null,NDArray::float32)->reshape([2,2,2]));
+        $a = $la->array($mo->arange(12,$start=0,null,dtype:NDArray::float32)->reshape([2,2,3]));
+        $b = $la->array($mo->arange(8,$start=12,null,dtype:NDArray::float32)->reshape([2,2,2]));
         $y = $la->concat(
             [$a,$b],
             axis:2
@@ -8457,8 +9074,8 @@ class Test extends TestCase
             [3,2],
             axis:0
         );
-        $a = $la->array($mo->arange(6,$start=0,null,NDArray::float32)->reshape([3,2]));
-        $b = $la->array($mo->arange(4,$start=6,null,NDArray::float32)->reshape([2,2]));
+        $a = $la->array($mo->arange(6,$start=0,null,dtype:NDArray::float32)->reshape([3,2]));
+        $b = $la->array($mo->arange(4,$start=6,null,dtype:NDArray::float32)->reshape([2,2]));
         $this->assertCount(2,$y);
         $this->assertEquals($a->toArray(),$y[0]->toArray());
         $this->assertEquals($b->toArray(),$y[1]->toArray());
@@ -8472,8 +9089,8 @@ class Test extends TestCase
             [3,2],
             axis:1
             );
-        $a = $la->array($mo->arange(6,$start=0,null,NDArray::float32)->reshape([2,3]));
-        $b = $la->array($mo->arange(4,$start=6,null,NDArray::float32)->reshape([2,2]));
+        $a = $la->array($mo->arange(6,$start=0,null,dtype:NDArray::float32)->reshape([2,3]));
+        $b = $la->array($mo->arange(4,$start=6,null,dtype:NDArray::float32)->reshape([2,2]));
         $this->assertCount(2,$y);
         $this->assertEquals($a->toArray(),$y[0]->toArray());
         $this->assertEquals($b->toArray(),$y[1]->toArray());
@@ -8490,8 +9107,8 @@ class Test extends TestCase
             [3,2],
             axis:0
             );
-        $a = $la->array($mo->arange(12,$start=0,null,NDArray::float32)->reshape([3,2,2]));
-        $b = $la->array($mo->arange(8,$start=12,null,NDArray::float32)->reshape([2,2,2]));
+        $a = $la->array($mo->arange(12,$start=0,null,dtype:NDArray::float32)->reshape([3,2,2]));
+        $b = $la->array($mo->arange(8,$start=12,null,dtype:NDArray::float32)->reshape([2,2,2]));
         $this->assertCount(2,$y);
         $this->assertEquals($a->toArray(),$y[0]->toArray());
         $this->assertEquals($b->toArray(),$y[1]->toArray());
@@ -8512,8 +9129,8 @@ class Test extends TestCase
             [3,2],
             axis:1
             );
-        $a = $la->array($mo->arange(12,$start=0,null,NDArray::float32)->reshape([2,3,2]));
-        $b = $la->array($mo->arange(8,$start=12,null,NDArray::float32)->reshape([2,2,2]));
+        $a = $la->array($mo->arange(12,$start=0,null,dtype:NDArray::float32)->reshape([2,3,2]));
+        $b = $la->array($mo->arange(8,$start=12,null,dtype:NDArray::float32)->reshape([2,2,2]));
         $this->assertCount(2,$y);
         $this->assertEquals($a->toArray(),$y[0]->toArray());
         $this->assertEquals($b->toArray(),$y[1]->toArray());
@@ -8529,8 +9146,8 @@ class Test extends TestCase
             [3,2],
             axis:2
             );
-        $a = $la->array($mo->arange(12,$start=0,null,NDArray::float32)->reshape([2,2,3]));
-        $b = $la->array($mo->arange(8,$start=12,null,NDArray::float32)->reshape([2,2,2]));
+        $a = $la->array($mo->arange(12,$start=0,null,dtype:NDArray::float32)->reshape([2,2,3]));
+        $b = $la->array($mo->arange(8,$start=12,null,dtype:NDArray::float32)->reshape([2,2,2]));
         $this->assertCount(2,$y);
         $this->assertEquals($a->toArray(),$y[0]->toArray());
         $this->assertEquals($b->toArray(),$y[1]->toArray());
@@ -8551,7 +9168,7 @@ class Test extends TestCase
         $la = $this->newLA($mo);
 
         // 1D
-        $a = $la->array([1,2,3,4,5,6],NDArray::float32);
+        $a = $la->array([1,2,3,4,5,6],dtype:NDArray::float32);
         $b = $la->transpose($a);
         $this->assertEquals(
             [1,2,3,4,5,6],
@@ -8576,7 +9193,7 @@ class Test extends TestCase
         $a = $la->array([
             [0,1,2],
             [3,4,5],
-        ],NDArray::int32);
+        ],dtype:NDArray::int32);
         $b = $la->transpose($a);
         $this->assertEquals([
             [0,3],
@@ -8594,7 +9211,7 @@ class Test extends TestCase
               [15, 16, 17]],
              [[18, 19, 20],
               [21, 22, 23]]],
-        NDArray::float32);
+              dtype:NDArray::float32);
         $b = $la->transpose($a);
         $this->assertEquals(
             [[[ 0,  6, 12, 18],
@@ -8642,7 +9259,7 @@ class Test extends TestCase
         [[42, 43],
          [44, 45],
          [46, 47]]]],
-        NDArray::float32);
+         dtype:NDArray::float32);
         $b = $la->transpose($a);
         $this->assertEquals(
             [[[[ 0, 24],
@@ -8690,7 +9307,7 @@ class Test extends TestCase
               [15, 16, 17]],
              [[18, 19, 20],
               [21, 22, 23]]],
-        NDArray::float32);
+              dtype:NDArray::float32);
         $b = $la->transpose(
             $a,$perm=[2,0,1],
         );
@@ -9189,7 +9806,7 @@ class Test extends TestCase
             [234,234,234],
         ],$b->toArray());
 
-        $x = $la->alloc([2,3],NDArray::bool);
+        $x = $la->alloc([2,3],dtype:NDArray::bool);
         $b = $la->fill(true,$x);
         $this->assertEquals([
             [true,true,true],
@@ -9201,7 +9818,7 @@ class Test extends TestCase
             [false,false,false],
         ],$b->toArray());
 
-        $x = $la->alloc([2,3],NDArray::bool);
+        $x = $la->alloc([2,3],dtype:NDArray::bool);
         $value = $mo->array(true); // value is not OpenCL buffer
         $b = $la->fill($value,$x);
         $this->assertEquals([
@@ -9400,6 +10017,11 @@ class Test extends TestCase
 
     public function testSvdFull1()
     {
+        if($this->service->serviceLevel()<Service::LV_ADVANCED) {
+            $this->markTestSkipped('Unsuppored function without openblas');
+            return;
+        }
+
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
         $a = $la->array([
@@ -9453,11 +10075,12 @@ class Test extends TestCase
         $this->assertTrue(true);
     }
 
-    /**
-    *   @requires extension rindow_openblas
-    */
     public function testSvdFull2()
     {
+        if($this->service->serviceLevel()<Service::LV_ADVANCED) {
+            $this->markTestSkipped('Unsuppored function without openblas');
+            return;
+        }
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
         $a = $la->array([
@@ -9568,11 +10191,12 @@ class Test extends TestCase
         $this->assertTrue(true);
     }
 
-    /**
-    *   @requires extension rindow_openblas
-    */
     public function testSvdSmallVT()
     {
+        if($this->service->serviceLevel()<Service::LV_ADVANCED) {
+            $this->markTestSkipped('Unsuppored function without openblas');
+            return;
+        }
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
         $a = $la->array([
@@ -9649,34 +10273,34 @@ class Test extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
-        $this->assertTrue($la->isInt($la->array(1,NDArray::int8)));
-        $this->assertTrue($la->isInt($la->array(1,NDArray::uint8)));
-        $this->assertTrue($la->isInt($la->array(1,NDArray::int32)));
-        $this->assertTrue($la->isInt($la->array(1,NDArray::uint32)));
-        $this->assertTrue($la->isInt($la->array(1,NDArray::int64)));
-        $this->assertTrue($la->isInt($la->array(1,NDArray::uint64)));
+        $this->assertTrue($la->isInt($la->array(1,dtype:NDArray::int8)));
+        $this->assertTrue($la->isInt($la->array(1,dtype:NDArray::uint8)));
+        $this->assertTrue($la->isInt($la->array(1,dtype:NDArray::int32)));
+        $this->assertTrue($la->isInt($la->array(1,dtype:NDArray::uint32)));
+        $this->assertTrue($la->isInt($la->array(1,dtype:NDArray::int64)));
+        $this->assertTrue($la->isInt($la->array(1,dtype:NDArray::uint64)));
 
-        $this->assertFalse($la->isInt($la->array(1,NDArray::float32)));
-        $this->assertFalse($la->isInt($la->array(1,NDArray::float64)));
+        $this->assertFalse($la->isInt($la->array(1,dtype:NDArray::float32)));
+        $this->assertFalse($la->isInt($la->array(1,dtype:NDArray::float64)));
 
-        $this->assertFalse($la->isInt($la->array(1,NDArray::bool)));
+        $this->assertFalse($la->isInt($la->array(1,dtype:NDArray::bool)));
     }
 
     public function testIsFloat()
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
-        $this->assertFalse($la->isFloat($la->array(1,NDArray::int8)));
-        $this->assertFalse($la->isFloat($la->array(1,NDArray::uint8)));
-        $this->assertFalse($la->isFloat($la->array(1,NDArray::int32)));
-        $this->assertFalse($la->isFloat($la->array(1,NDArray::uint32)));
-        $this->assertFalse($la->isFloat($la->array(1,NDArray::int64)));
-        $this->assertFalse($la->isFloat($la->array(1,NDArray::uint64)));
+        $this->assertFalse($la->isFloat($la->array(1,dtype:NDArray::int8)));
+        $this->assertFalse($la->isFloat($la->array(1,dtype:NDArray::uint8)));
+        $this->assertFalse($la->isFloat($la->array(1,dtype:NDArray::int32)));
+        $this->assertFalse($la->isFloat($la->array(1,dtype:NDArray::uint32)));
+        $this->assertFalse($la->isFloat($la->array(1,dtype:NDArray::int64)));
+        $this->assertFalse($la->isFloat($la->array(1,dtype:NDArray::uint64)));
 
-        $this->assertTrue($la->isFloat($la->array(1,NDArray::float32)));
-        $this->assertTrue($la->isFloat($la->array(1,NDArray::float64)));
+        $this->assertTrue($la->isFloat($la->array(1,dtype:NDArray::float32)));
+        $this->assertTrue($la->isFloat($la->array(1,dtype:NDArray::float64)));
 
-        $this->assertFalse($la->isFloat($la->array(1,NDArray::bool)));
+        $this->assertFalse($la->isFloat($la->array(1,dtype:NDArray::bool)));
     }
 
 }

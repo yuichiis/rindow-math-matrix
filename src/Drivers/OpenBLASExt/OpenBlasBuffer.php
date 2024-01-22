@@ -1,5 +1,5 @@
 <?php
-namespace Rindow\Math\Matrix;
+namespace Rindow\Math\Matrix\Drivers\OpenBLASExt;
 
 use Rindow\OpenBLAS\Buffer as BufferImplement;
 use Interop\Polite\Math\Matrix\LinearBuffer;

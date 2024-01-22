@@ -1,12 +1,11 @@
 <?php
-namespace Rindow\Math\Matrix;
+namespace Rindow\Math\Matrix\Drivers\PhpBLAS;
 
-use ArrayAccess as Buffer;
-use SplFixedArray;
 use LogicException;
 use InvalidArgumentException;
 use Interop\Polite\Math\Matrix\BLAS;
 use Interop\Polite\Math\Matrix\NDArray;
+use Interop\Polite\Math\Matrix\Buffer;
 
 class PhpBlas //implements BLASLevel1
 {
@@ -18,20 +17,23 @@ class PhpBlas //implements BLASLevel1
 
     public function __construct($blas=null,$forceBlas=null)
     {
-        $this->blas = $blas;
-        $this->forceBlas = $forceBlas;
+        //$this->blas = $blas;
+        //$this->forceBlas = $forceBlas;
+        $this->blas = null;
+        $this->forceBlas = null;
     }
 
-    public function forceBlas($forceBlas)
-    {
-        $this->forceBlas = $forceBlas;
-    }
+    //public function forceBlas($forceBlas)
+    //{
+    //    $this->forceBlas = $forceBlas;
+    //}
 
     protected function useBlas(Buffer $X)
     {
-        if($this->blas===null)
-            return false;
-        return $this->forceBlas || in_array($X->dtype(),$this->floatTypes);
+        //if($this->blas===null)
+        //    return false;
+        //return $this->forceBlas || in_array($X->dtype(),$this->floatTypes);
+        return false;
     }
 
     public function getNumThreads() : int
@@ -656,12 +658,17 @@ class PhpBlas //implements BLASLevel1
         }
     }
 
+
+    /**
+     *   B(m,n) = alpha * A(m,m)B(m,n)  : side=Left
+     *   B(m,n) = alpha * B(m,n)A(n,n)  : side=Right
+     */
     public function trmm(
         int $order,
-        int $side,
-        int $uplo,
-        int $trans,
-        int $diag,
+        int $side,  // left or right
+        int $uplo,  // upper or lower
+        int $trans, // trans A
+        int $diag,  // no unit or unit
         int $m,
         int $n,
         float $alpha,
@@ -673,7 +680,80 @@ class PhpBlas //implements BLASLevel1
                 $A,$offsetA,$ldA,$B,$offsetB,$ldB);
             return;
         }
-        throw new LogicException("Unsupported function yet without rindow_openblas");
+        //throw new LogicException("Unsupported function yet without openblas");
+
+        if($order==BLAS::ColMajor) {
+            [$m,$n] = [$n,$m];
+        } elseif($order!=BLAS::RowMajor) {
+            throw new InvalidArgumentException('Invalid Order type');
+        }
+        if($side==BLAS::Left) {
+            $sizeA = $m;
+            $sizeB = $n;
+            $right = false;
+        } elseif($side==BLAS::Right) {
+            $sizeA = $n;
+            $sizeB = $m;
+            $right = true;
+        } else {
+            throw new InvalidArgumentException('Invalid side value: '.$side);
+        }
+        if($uplo==BLAS::Upper) {
+            $lower = false;
+        } elseif($uplo==BLAS::Lower) {
+            $lower = true;
+        } else {
+            throw new InvalidArgumentException('Invalid uplo value: '.$uplo);
+        }
+        if($trans==BLAS::NoTrans) {
+            $trans = false;
+        } elseif($trans==BLAS::Trans) {
+            $trans = true;
+        } else {
+            throw new InvalidArgumentException('Invalid trans value: '.$trans);
+        }
+        if($diag==BLAS::NonUnit) {
+            $unit = false;
+        } elseif($diag==BLAS::Unit) {
+            $unit = true;
+        } else {
+            throw new InvalidArgumentException('Invalid diag value: '.$diag);
+        }
+        $rowsB = $m;
+        $colsB = $n;
+        if($offsetA+($sizeA-1)*$ldA+($sizeA-1)>=count($A)) {
+            throw new InvalidArgumentException('Matrix specification too large for bufferA.');
+        }
+        if($offsetB+($rowsB-1)*$ldB+($colsB-1)>=count($B)) {
+            throw new InvalidArgumentException('Matrix specification too large for bufferB.');
+        }
+
+        $trans = $right ? !$trans : $trans;
+        $lower = $trans ? !$lower : $lower;
+        $ldA_m = $trans ? 1 : $ldA;
+        $ldA_k = $trans ? $ldA : 1;
+        $ldB_k = $right ? 1 : $ldB;
+        $ldB_n = $right ? $ldB : 1;
+
+        $startm = $lower?($sizeA-1):0;
+        $stepm =  $lower?(-1):1;
+        for($cm=0,$im=$startm;$cm<$sizeA;$cm++,$im+=$stepm) {
+            for($in=0;$in<$sizeB;$in++) {
+                if($unit) {
+                    $startk = $lower?0:$im+1;
+                    $countk = $sizeA-$cm-1;
+                    $acc = $B[$offsetB+$im*$ldB_k+$in*$ldB_n];
+                } else {
+                    $startk = $lower?0:$im;
+                    $countk = $sizeA-$cm;
+                    $acc = 0.0;
+                }
+                for($ck=0,$ik=$startk; $ck<$countk; $ck++,$ik++) {
+                    $acc += $A[$offsetA+$im*$ldA_m+$ik*$ldA_k]*$B[$offsetB+$ik*$ldB_k+$in*$ldB_n];
+                }
+                $B[$offsetB+$im*$ldB_k+$in*$ldB_n] = $alpha * $acc;
+            }
+        }
     }
 
     public function trsm(
@@ -693,6 +773,104 @@ class PhpBlas //implements BLASLevel1
                 $A,$offsetA,$ldA,$B,$offsetB,$ldB);
             return;
         }
-        throw new LogicException("Unsupported function yet without rindow_openblas");
+
+        if($order==BLAS::ColMajor) {
+            [$m,$n] = [$n,$m];
+        } elseif($order!=BLAS::RowMajor) {
+            throw new InvalidArgumentException('Invalid Order type');
+        }
+        if($side==BLAS::Left) {
+            $sizeA = $m;
+            $sizeB = $n;
+            $right = false;
+        } elseif($side==BLAS::Right) {
+            $sizeA = $n;
+            $sizeB = $m;
+            $right = true;
+        } else {
+            throw new InvalidArgumentException('Invalid side value: '.$side);
+        }
+        if($uplo==BLAS::Upper) {
+            $lower = false;
+        } elseif($uplo==BLAS::Lower) {
+            $lower = true;
+        } else {
+            throw new InvalidArgumentException('Invalid uplo value: '.$uplo);
+        }
+        if($trans==BLAS::NoTrans) {
+            $trans = false;
+        } elseif($trans==BLAS::Trans) {
+            $trans = true;
+        } else {
+            throw new InvalidArgumentException('Invalid trans value: '.$trans);
+        }
+        if($diag==BLAS::NonUnit) {
+            $unit = false;
+        } elseif($diag==BLAS::Unit) {
+            $unit = true;
+        } else {
+            throw new InvalidArgumentException('Invalid diag value: '.$diag);
+        }
+        $rowsB = $m;
+        $colsB = $n;
+        if($offsetA+($sizeA-1)*$ldA+($sizeA-1)>=count($A)) {
+            throw new InvalidArgumentException('Matrix specification too large for bufferA.');
+        }
+        if($offsetB+($rowsB-1)*$ldB+($colsB-1)>=count($B)) {
+            throw new InvalidArgumentException('Matrix specification too large for bufferB.');
+        }
+
+        $trans = $right ? !$trans : $trans;
+        $lower = $trans ? !$lower : $lower;
+        $ldA_m = $trans ? 1 : $ldA;
+        $ldA_k = $trans ? $ldA : 1;
+        $ldB_k = $right ? 1 : $ldB;
+        $ldB_n = $right ? $ldB : 1;
+
+        //echo "\n";
+        $startm = $lower?0:($sizeA-1);
+        $stepm =  $lower?1:(-1);
+        // loop(i)
+        //echo "startm=$startm\n";
+        for($cm=0,$im=$startm;$cm<$sizeA;$cm++,$im+=$stepm) {
+            // A[i,i]
+            if($unit) {
+                $denomi = 1.0;
+            } else {
+                $denomi = $A[$offsetA+$im*$ldA_m+$im*$ldA_k];
+                if($denomi==0) {
+                    $denomi = NAN;
+                }
+            }
+            //echo "denomi:$denomi\n";
+            // loop(j)
+            for($in=0;$in<$sizeB;$in++) {
+                // acc = 0;
+                $startk = $lower?0:($im+1);
+                $countk = $cm;
+                $acc = 0.0;
+                // loop(k)
+                //echo "for[$startk,$countk]\n";
+                for($ck=0,$ik=$startk; $ck<$countk; $ck++,$ik++) {
+                    // acc += A[i,k] * B[k,j];
+                    //echo "a[$im,$ik]:";
+                    //echo $A[$offsetA+$im*$ldA_m+$ik*$ldA_k].",";
+                    //echo "b[$ik,$in],";
+                    //echo "b[".($offsetB+$ik*$ldB_k+$in*$ldB_n)."]:";
+                    //echo $B[$offsetB+$ik*$ldB_k+$in*$ldB_n].",";
+                    $acc += $A[$offsetA+$im*$ldA_m+$ik*$ldA_k]*$B[$offsetB+$ik*$ldB_k+$in*$ldB_n];
+                    //echo "acc:".$acc.",";
+                }
+                //echo $acc.",";
+                //echo "\n";
+                // B[i,j] = (B[i,j] - acc) / A[i,i];
+                //echo "B[$im,$in]";
+                //echo "[$ldB_k,$ldB_n]";
+                $B[$offsetB+$im*$ldB_k+$in*$ldB_n] = ($B[$offsetB+$im*$ldB_k+$in*$ldB_n] - $alpha*$acc) / $denomi;
+                //echo "B[".($offsetB+$im*$ldB_k+$in*$ldB_n)."]:";
+                //echo $B[$offsetB+$im*$ldB_k+$in*$ldB_n];
+                //echo "\n";
+            }
+        }
     }
 }

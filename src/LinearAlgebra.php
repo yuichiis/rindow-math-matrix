@@ -5,27 +5,33 @@ use Interop\Polite\Math\Matrix\BLAS;
 use Interop\Polite\Math\Matrix\NDArray;
 use InvalidArgumentException;
 use ArrayAccess as Buffer;
+use Rindow\Math\Matrix\Drivers\Service;
 
 class LinearAlgebra
 {
     const LAPACK_ROW_MAJOR = 101;
     const LAPACK_COL_MAJOR = 102;
 
-    protected $iaminwarning;
-    protected $blas;
-    protected $lapack;
-    protected $math;
-    protected $defaultFloatType = NDArray::float32;
-    protected $intTypes= [
+    protected bool $iaminwarning = false;
+    protected Service $service;
+    protected object $blas;
+    protected object $lapack;
+    protected object $math;
+    protected int $defaultFloatType = NDArray::float32;
+    protected array $intTypes= [
         NDArray::int8,NDArray::int16,NDArray::int32,NDArray::int64,
         NDArray::uint8,NDArray::uint16,NDArray::uint32,NDArray::uint64,
     ];
 
-    public function __construct($blas,$lapack,$math,$defaultFloatType=null)
+    public function __construct(
+        Service $service,
+        int $defaultFloatType=null,
+        int $serviceLevel=null)
     {
-        $this->blas = $blas;
-        $this->lapack = $lapack;
-        $this->math = $math;
+        $this->service = $service;
+        $this->blas = $service->blas($serviceLevel);
+        $this->lapack = $service->lapack($serviceLevel);
+        $this->math = $service->math($serviceLevel);
         if($defaultFloatType!==null)
             $this->defaultFloatType = $defaultFloatType;
     }
@@ -97,7 +103,7 @@ class LinearAlgebra
         if($array instanceof NDArray) {
             return $array;
         } elseif(is_array($array) || is_numeric($array)) {
-            return new NDArrayPhp($array,$dtype);
+            return new NDArrayPhp($array,$dtype,service:$this->service);
         } else {
             throw new InvalidArgumentException('input value must be NDArray or array');
         }
@@ -184,7 +190,7 @@ class LinearAlgebra
     {
         if($dtype===null)
             $dtype = $this->defaultFloatType;
-        return new NDArrayPhp(null,$dtype,$shape);
+        return new NDArrayPhp(null,$dtype,$shape,service:$this->service);
     }
 
     public function zeros(
@@ -944,8 +950,8 @@ class LinearAlgebra
     }
 
     /**
-    *    C := alpha * A B  (right=false)
-    *    C := alpha * B A  (right=true)
+    *    B(m,n) := alpha * A(m,m) B(m,n)  (right=false)
+    *    B(m,n) := alpha * B(m,n) A(n,n)  (right=true)
     */
     public function trmm(
         NDArray $A,
@@ -961,6 +967,10 @@ class LinearAlgebra
         }
         $shapeA = $A->shape();
         $shapeB = $B->shape();
+        if($shapeA[0]!=$shapeA[1]) {
+            throw new InvalidArgumentException('Matrix A must be square.: '.
+                '['.implode(',',$shapeA).']');
+        }
         if($right) {
             $sizeA = $shapeB[1];
         } else {
@@ -968,7 +978,7 @@ class LinearAlgebra
         }
         if($sizeA!=$shapeA[0]) {
             throw new InvalidArgumentException('Unmatch shape of Matrix A and B: '.
-                '['.implode(',',$shapeA).'] <=> ['.implode(',',$shapeA).']');
+                '['.implode(',',$shapeA).'] <=> ['.implode(',',$shapeB).']');
         }
         $AA   = $A->buffer();
         $offA = $A->offset();
@@ -3372,9 +3382,9 @@ class LinearAlgebra
     {
         if($perm===null) {
             $perm = range($A->ndim()-1,0,-1);
-            $perm = $this->array($perm,NDArray::int32);
+            $perm = $this->array($perm,dtype:NDArray::int32);
         }
-        $perm = $this->array($perm,NDArray::int32);
+        $perm = $this->array($perm,dtype:NDArray::int32);
         $shapeA = $A->shape();
         if(count($shapeA)!=count($perm)) {
             throw new InvalidArgumentException('unmatch sourceshape and perm');
@@ -3402,7 +3412,7 @@ class LinearAlgebra
         $BB = $B->buffer();
         $offsetA = $A->offset();
         $offsetB = $B->offset();
-        $sourceShape = $this->array($shapeA,NDArray::int32)->buffer();
+        $sourceShape = $this->array($shapeA,dtype:NDArray::int32)->buffer();
         $permBuf = $perm->buffer();
         $this->math->transpose(
             $sourceShape,

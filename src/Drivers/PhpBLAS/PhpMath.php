@@ -1,11 +1,10 @@
 <?php
-namespace Rindow\Math\Matrix;
+namespace Rindow\Math\Matrix\Drivers\PhpBLAS;
 
 use ArrayAccess as Buffer;
 use RuntimeException;
 use InvalidArgumentException;
 use Interop\Polite\Math\Matrix\NDArray;
-use SplFixedArray;
 
 class PhpMath
 {
@@ -21,20 +20,23 @@ class PhpMath
 
     public function __construct($math=null,$forceMath=null)
     {
-        $this->math = $math;
-        $this->forceMath = $forceMath;
+        //$this->math = $math;
+        //$this->forceMath = $forceMath;
+        $this->math = null;
+        $this->forceMath = null;
     }
 
-    public function forceMath($forceMath)
-    {
-        $this->forceMath = $forceMath;
-    }
+    //public function forceMath($forceMath)
+    //{
+    //    $this->forceMath = $forceMath;
+    //}
 
     protected function useMath(Buffer $X)
     {
-        if($this->math===null)
-            return false;
-        return $this->forceMath || in_array($X->dtype(),$this->floatTypes);
+        //if($this->math===null)
+        //    return false;
+        //return $this->forceMath || in_array($X->dtype(),$this->floatTypes);
+        return false;
     }
 
     public function logging($message)
@@ -2586,13 +2588,11 @@ class PhpMath
         if(count($sourceShape)!=count($perm)) {
             throw new InvalidArgumentException('unmatch sourceshape and perm');
         }
-        if(!($A instanceof SplFixedArray)) {
-            if($A->dtype()!=$B->dtype()) {
-                throw new InvalidArgumentException('unmatch sourceshape and perm');
-            }
+        if($A->dtype()!=$B->dtype()) {
+            throw new InvalidArgumentException('unmatch sourceshape and perm');
         }
-        $strides = new SplFixedArray(count($sourceShape));
-        $targetStrides = new SplFixedArray(count($sourceShape));
+        $strides = new PhpBuffer(count($sourceShape),NDArray::int32);
+        $targetStrides = new PhpBuffer(count($sourceShape),NDArray::int32);
         $stride = 1;
         $targetStride = 1;
         $ndim = count($sourceShape);
@@ -2672,9 +2672,9 @@ class PhpMath
         $ndim,$sourceShape,$strides,$targetStrides)
     {
         $n = $sourceShape[0];
-        $stackPos = new SplFixedArray(count($sourceShape));
-        $stackOfsA = new SplFixedArray(count($sourceShape));
-        $stackOfsB = new SplFixedArray(count($sourceShape));
+        $stackPos = new PhpBuffer(count($sourceShape),NDArray::int32);
+        $stackOfsA = new PhpBuffer(count($sourceShape),NDArray::int32);
+        $stackOfsB = new PhpBuffer(count($sourceShape),NDArray::int32);
         for($gid=0;$gid<$n;$gid++) {
             $this->transCopy2_kernel(
                 $surface=1,

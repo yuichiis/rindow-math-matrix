@@ -2,6 +2,7 @@
 namespace Rindow\Math\Matrix\Drivers\OpenCLExt;
 
 use Interop\Polite\Math\Matrix\LinearBuffer;
+use Interop\Polite\Math\Matrix\Buffer;
 use Rindow\OpenCL\PlatformList;
 use Rindow\OpenCL\Context;
 use Rindow\OpenCL\CommandQueue;
@@ -9,38 +10,18 @@ use Rindow\OpenCL\DeviceList;
 use Rindow\OpenCL\Program;
 use Rindow\OpenCL\Kernel;
 use Rindow\OpenCL\EventList;
-use Rindow\Math\Matrix\OpenCLBuffer;
+use Rindow\Math\Matrix\Drivers\AbstractDriver;
 
-class OpenCLFactory
+class OpenCLFactory extends AbstractDriver
 {
+    protected string $LOWEST_VERSION = '0.2.0';
+    protected string $OVER_VERSION   = '0.3.0';
+
     protected string $extName = 'rindow_opencl';
-
-    public function __construct()
-    {
-    }
-
-    public function name() : string
-    {
-        return $this->extName();
-    }
-
-    public function isAvailable() : bool
-    {
-        return extension_loaded($this->extName());
-    }
-
-    public function extName() : string
-    {
-        return $this->extName;
-    }
-
-    public function version() : string
-    {
-        return phpversion($this->extName());
-    }
 
     public function PlatformList() : PlatformList
     {
+        $this->assertVersion();
         return new PlatformList();
     }
 
@@ -50,6 +31,7 @@ class OpenCLFactory
         int $deviceType=NULL,
     ) : DeviceList
     {
+        $this->assertVersion();
         $index = $index ?? 0;
         $deviceType = $deviceType ?? 0;
         return new DeviceList($platforms,$index,$deviceType);
@@ -59,6 +41,7 @@ class OpenCLFactory
         DeviceList|int $arg
     ) : Context
     {
+        $this->assertVersion();
         return new Context($arg);
     }
 
@@ -75,6 +58,8 @@ class OpenCLFactory
         long $properties=null,
     ) : CommandQueue
     {
+        $deviceId = $deviceId ?? 0;
+        $properties = $properties ?? 0;
         return new CommandQueue($context, $deviceId, $properties);
     }
 
@@ -86,6 +71,7 @@ class OpenCLFactory
         string $options=null,
         ) : Program
     {
+        $mode = $mode ?? 0;
         return new Program($context, $source, $mode, $deviceList, $options);
     }
 

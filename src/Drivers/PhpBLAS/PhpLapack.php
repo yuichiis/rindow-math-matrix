@@ -1,13 +1,16 @@
 <?php
-namespace Rindow\Math\Matrix;
+namespace Rindow\Math\Matrix\Drivers\PhpBLAS;
 
 use ArrayAccess as Buffer;
 use RuntimeException;
 use InvalidArgumentException;
 use Interop\Polite\Math\Matrix\NDArray;
+use Rindow\Math\Matrix\NDArrayPhp;
+use Rindow\Math\Matrix\Drivers\Service;
 
 class PhpLapack
 {
+    protected Service $service;
     protected $defaultFloatType = NDArray::float32;
     protected $lapack;
     protected $forceLapack;
@@ -19,10 +22,38 @@ class PhpLapack
         NDArray::float16,NDArray::float32,NDArray::float64,
     ];
 
-    public function __construct($lapack=null,$forceLapack=null)
+    public function __construct(
+        $lapack=null,
+        $forceLapack=null
+        )
     {
         $this->lapack = $lapack;
         $this->forceLapack = $forceLapack;
+        $this->service = $this->dummyService();
+    }
+
+    protected function dummyService()
+    {
+        $service = new class implements Service
+        {
+            protected object $bufferFactory;
+
+            public function __construct()
+            {
+                $this->bufferFactory = new PhpBLASFactory();
+            }
+
+            public function serviceLevel() : int
+            {
+                return Service::LV_BASIC;
+            }
+
+            public function buffer(int $level=null) : object
+            {
+                return $this->bufferFactory;
+            }
+        };
+        return $service;
     }
 
     public function forceLapack($forceLapack)
@@ -83,7 +114,7 @@ class PhpLapack
         }
 
         $transposed = false;
-        $A = new NDArrayPhp($A,$dtype,[$m,$n],$offsetA);
+        $A = new NDArrayPhp($A,$dtype,[$m,$n],$offsetA,service:$this->service);
         $offsetV = $V = null;
         //if($m<$n) {
         //    throw new InvalidArgumentException('unsuppoted shape by PhpLapack. M must be greater than N or equal.');
@@ -97,8 +128,8 @@ class PhpLapack
          [$offsetU,$offsetV] = [$offsetV,$offsetU];
         }
 
-        $U = new NDArrayPhp($U,$dtype,[$m,$ldU],$offsetU);
-        $V = new NDArrayPhp($V,$dtype,[$n,$ldVT],$offsetV);
+        $U = new NDArrayPhp($U,$dtype,[$m,$ldU],$offsetU,service:$this->service);
+        $V = new NDArrayPhp($V,$dtype,[$n,$ldVT],$offsetV,service:$this->service);
 
         $min_num = min($m,$n);
         for($i=0;$i<$m;$i++) {
@@ -384,10 +415,10 @@ class PhpLapack
         if($transposed) {
             $UT = $this->transpose($V);
             $this->copy($UT,$V);
-            $VT = new NDArrayPhp($VT,$dtype,[$ldU,$m],$offsetVT);
+            $VT = new NDArrayPhp($VT,$dtype,[$ldU,$m],$offsetVT,service:$this->service);
             $this->copy($U,$VT);
         } else {
-            $VT = new NDArrayPhp($VT,$dtype,[$ldVT,$n],$offsetVT);
+            $VT = new NDArrayPhp($VT,$dtype,[$ldVT,$n],$offsetVT,service:$this->service);
             for($i=0;$i<$ldVT;$i++) {
                 for($j=0;$j<$n;$j++) {
                     $VT[$i][$j] = $V[$j][$i];
@@ -412,7 +443,7 @@ class PhpLapack
 
     private function alloc(array $shape, $dtype)
     {
-        return new NDArrayPhp(null,$dtype,$shape);
+        return new NDArrayPhp(null,$dtype,$shape,service:$this->service);
     }
 
     private function zeros(NDArray $X)

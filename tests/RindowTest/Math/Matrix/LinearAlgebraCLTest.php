@@ -17,23 +17,18 @@ use Interop\Polite\Math\Matrix\NDArray;
 use Interop\Polite\Math\Matrix\OpenCL;
 use Rindow\Math\Matrix\LinearAlgebraCL;
 use Rindow\Math\Matrix\NDArrayCL;
-use Rindow\Math\Matrix\OpenCLMath;
 use Rindow\Math\Matrix\OpenCLMathTunner;
-use Rindow\OpenCL\Context;
-use Rindow\OpenCL\CommandQueue;
-use Rindow\CLBlast\Blas as CLBlastBlas;
-use Rindow\CLBlast\Math as CLBlastMath;
-use Rindow\OpenBLAS\Math as OpenBLASMath;
-use Rindow\OpenBLAS\Lapack as OpenBLASLapack;
+use Rindow\Math\Matrix\Drivers\Selector;
+use Rindow\Math\Matrix\Drivers\Service;
+use Rindow\Math\Matrix\Drivers\CLBlast;
+
 
 class TestMatrixOperator extends MatrixOperator
 {
-    protected function createLinearAlgebraCL(
-        $context,$queue,$clblastblas,$openclmath,$clblastmath)
+    protected function createLinearAlgebraCL(array $options=null)
     {
-        $la = new TestLinearAlgebraCL($context,$queue,
-            $clblastblas,$openclmath,$clblastmath,
-            $this->openblasmath,$this->openblaslapack);
+        $queue = $this->service->createQueue($options);
+        $la = new TestLinearAlgebraCL($queue,service:$this->service);
         return $la;
     }
 }
@@ -49,7 +44,7 @@ class TestLinearAlgebraCL extends LinearAlgebraCL
         )
     {
         if($R==null) {
-            $R = $this->alloc([],$X->dtype(),OpenCL::CL_MEM_READ_WRITE);
+            $R = $this->alloc([],dtype:$X->dtype(),flags:OpenCL::CL_MEM_READ_WRITE);
         }
         $N = $X->size();
         $RR = $R->buffer();
@@ -720,19 +715,22 @@ class TestLinearAlgebraCL extends LinearAlgebraCL
         return $X;
     }
 }
-/**
-*   @requires extension rindow_clblast
-*/
+
 class Test extends ORGTest
 {
+    public function setUp() : void
+    {
+        $selector = new Selector();
+        $this->service = $selector->select();
+        if($this->service->serviceLevel()<Service::LV_ACCELERATED) {
+            $this->markTestSkipped("The service is not Accelerated.");
+            throw new \Exception("The service is not Accelerated.");
+        }
+    }
+
     public function newMatrixOperator()
     {
-        $mo = new TestMatrixOperator();
-        if(extension_loaded('rindow_openblas')) {
-            $mo->blas()->forceBlas(true);
-            $mo->lapack()->forceLapack(true);
-            $mo->math()->forceMath(true);
-        }
+        $mo = new TestMatrixOperator(service:$this->service);
         return $mo;
     }
 
@@ -812,8 +810,8 @@ class Test extends ORGTest
             return;
         }
 
-        //$kernel_mode = \Rindow\CLBlast\Math::CONVOLUTION;
-        $kernel_mode = \Rindow\CLBlast\Math::CROSS_CORRELATION;
+        //$kernel_mode = CLBlast::CONVOLUTION;
+        $kernel_mode = CLBlast::CROSS_CORRELATION;
         $batches = 1;
         $im_h = 5;
         $im_w = 5;
@@ -1045,8 +1043,8 @@ class Test extends ORGTest
             return;
         }
 
-        //$kernel_mode = \Rindow\CLBlast\Math::CONVOLUTION;
-        $kernel_mode = \Rindow\CLBlast\Math::CROSS_CORRELATION;
+        //$kernel_mode = CLBlast::CONVOLUTION;
+        $kernel_mode = CLBlast::CROSS_CORRELATION;
         $batches = 1;
         $im_h = 128;
         $im_w = 128;
@@ -1122,7 +1120,7 @@ class Test extends ORGTest
             return;
         }
         echo "\n";
-        $kernel_mode = \Rindow\CLBlast\Math::CROSS_CORRELATION;
+        $kernel_mode = CLBlast::CROSS_CORRELATION;
         $batches = 8;
         $im_h = 512;
         $im_w = 512;
@@ -1208,7 +1206,7 @@ class Test extends ORGTest
         $end = hrtime(true);
         echo (explode(' ',$la->getConfig()))[0].'CL='.number_format($end-$start)."\n";
 
-        $kernel_mode = \Rindow\CLBlast\Math::CROSS_CORRELATION;
+        $kernel_mode = CLBlast::CROSS_CORRELATION;
         $batches = 256;
         $im_h = 28;
         $im_w = 28;
@@ -1310,43 +1308,43 @@ class Test extends ORGTest
         $sum = array_sum($array);
         $this->assertLessThan(127,$sum);
 
-        $x = $la->array($array,NDArray::float32);
+        $x = $la->array($array,dtype:NDArray::float32);
         $y = $la->sum($x);
         $this->assertEquals($sum,$y);
 
-        $x = $la->array($array,NDArray::int32);
+        $x = $la->array($array,dtype:NDArray::int32);
         $y = $la->sum($x);
         $this->assertEquals($sum,$y);
 
-        $x = $la->array($array,NDArray::uint32);
+        $x = $la->array($array,dtype:NDArray::uint32);
         $y = $la->sum($x);
         $this->assertEquals($sum,$y);
 
-        $x = $la->array($array,NDArray::int64);
+        $x = $la->array($array,dtype:NDArray::int64);
         $y = $la->sum($x);
         $this->assertEquals($sum,$y);
 
-        $x = $la->array($array,NDArray::uint64);
+        $x = $la->array($array,dtype:NDArray::uint64);
         $y = $la->sum($x);
         $this->assertEquals($sum,$y);
 
-        $x = $la->array($array,NDArray::int16);
+        $x = $la->array($array,dtype:NDArray::int16);
         $y = $la->sum($x);
         $this->assertEquals($sum,$y);
 
-        $x = $la->array($array,NDArray::uint16);
+        $x = $la->array($array,dtype:NDArray::uint16);
         $y = $la->sum($x);
         $this->assertEquals($sum,$y);
 
-        $x = $la->array($array,NDArray::int8);
+        $x = $la->array($array,dtype:NDArray::int8);
         $y = $la->sum($x);
         $this->assertEquals($sum,$y);
 
-        $x = $la->array($array,NDArray::uint8);
+        $x = $la->array($array,dtype:NDArray::uint8);
         $y = $la->sum($x);
         $this->assertEquals($sum,$y);
 
-        $x = $la->array([123],NDArray::uint8);
+        $x = $la->array([123],dtype:NDArray::uint8);
         $y = $la->sum($x);
         $this->assertEquals(123,$y);
     }
@@ -1359,7 +1357,7 @@ class Test extends ORGTest
         $dtype = NDArray::float32;
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
-        $x = $la->array([[1,2,-3],[-4,5,-6]],$dtype);
+        $x = $la->array([[1,2,-3],[-4,5,-6]],dtype:$dtype);
         $ret = $la->sumTest($x,null,null,null,$mode);
         $this->assertEquals(1+2-3-4+5-6,$ret);
 
@@ -1640,9 +1638,9 @@ class Test extends ORGTest
         $la = $this->newLA($mo);
         $la->setOpenCLTestMode($mode);
         // float32
-        $x = $la->array([0,2],NDArray::int64);
-        $y = $la->array([[1,2,3],[7,8,9]],NDArray::float32);
-        $a = $la->array($mo->ones([4,3],NDArray::float32));
+        $x = $la->array([0,2],dtype:NDArray::int64);
+        $y = $la->array([[1,2,3],[7,8,9]],dtype:NDArray::float32);
+        $a = $la->array($mo->ones([4,3],dtype:NDArray::float32));
         $la->scatterAdd($x,$y,$a);
         #foreach($a->toArray() as $pr) {
         #    echo "\n";
@@ -1661,9 +1659,9 @@ class Test extends ORGTest
         );
         // float64
         if($la->fp64()) {
-            $x = $la->array([0,2],NDArray::int64);
-            $y = $la->array([[1,2,3],[7,8,9]],NDArray::float64);
-            $a = $la->array($mo->ones([4,3],NDArray::float64));
+            $x = $la->array([0,2],dtype:NDArray::int64);
+            $y = $la->array([[1,2,3],[7,8,9]],dtype:NDArray::float64);
+            $a = $la->array($mo->ones([4,3],dtype:NDArray::float64));
             $la->scatterAdd($x,$y,$a);
             $this->assertEquals(
                 [[2,3,4],
@@ -1674,9 +1672,9 @@ class Test extends ORGTest
             );
         }
         // int64
-        $x = $la->array([0,2],NDArray::int64);
-        $y = $la->array([[1,2,3],[7,8,9]],NDArray::int64);
-        $a = $la->array($mo->ones([4,3],NDArray::int64));
+        $x = $la->array([0,2],dtype:NDArray::int64);
+        $y = $la->array([[1,2,3],[7,8,9]],dtype:NDArray::int64);
+        $a = $la->array($mo->ones([4,3],dtype:NDArray::int64));
         $la->scatterAdd($x,$y,$a);
         $this->assertEquals(
            [[2,3,4],
@@ -1686,9 +1684,9 @@ class Test extends ORGTest
             $a->toArray()
         );
         // int16
-        $x = $la->array([0,2],NDArray::int32);
-        $y = $la->array([[1,2,3],[7,8,9]],NDArray::int16);
-        $a = $la->array($mo->ones([4,3],NDArray::int16));
+        $x = $la->array([0,2],dtype:NDArray::int32);
+        $y = $la->array([[1,2,3],[7,8,9]],dtype:NDArray::int16);
+        $a = $la->array($mo->ones([4,3],dtype:NDArray::int16));
         $la->scatterAdd($x,$y,$a);
         $this->assertEquals(
            [[2,3,4],
@@ -1698,9 +1696,9 @@ class Test extends ORGTest
             $a->toArray()
         );
         // uint16
-        $x = $la->array([0,2],NDArray::int32);
-        $y = $la->array([[1,2,3],[7,8,9]],NDArray::uint16);
-        $a = $la->array($mo->ones([4,3],NDArray::uint16));
+        $x = $la->array([0,2],dtype:NDArray::int32);
+        $y = $la->array([[1,2,3],[7,8,9]],dtype:NDArray::uint16);
+        $a = $la->array($mo->ones([4,3],dtype:NDArray::uint16));
         $la->scatterAdd($x,$y,$a);
         $this->assertEquals(
            [[2,3,4],
@@ -1710,9 +1708,9 @@ class Test extends ORGTest
             $a->toArray()
         );
         // int8
-        $x = $la->array([0,2],NDArray::int32);
-        $y = $la->array([[1,2,3],[7,8,9]],NDArray::int8);
-        $a = $la->array($mo->ones([4,3],NDArray::int8));
+        $x = $la->array([0,2],dtype:NDArray::int32);
+        $y = $la->array([[1,2,3],[7,8,9]],dtype:NDArray::int8);
+        $a = $la->array($mo->ones([4,3],dtype:NDArray::int8));
         $la->scatterAdd($x,$y,$a);
         $this->assertEquals(
            [[2,3,4],
@@ -1722,9 +1720,9 @@ class Test extends ORGTest
             $a->toArray()
         );
         // uint8
-        $x = $la->array([0,2],NDArray::int32);
-        $y = $la->array([[1,2,3],[7,8,9]],NDArray::uint8);
-        $a = $la->array($mo->ones([4,3],NDArray::uint8));
+        $x = $la->array([0,2],dtype:NDArray::int32);
+        $y = $la->array([[1,2,3],[7,8,9]],dtype:NDArray::uint8);
+        $a = $la->array($mo->ones([4,3],dtype:NDArray::uint8));
         $la->scatterAdd($x,$y,$a);
         $this->assertEquals(
            [[2,3,4],

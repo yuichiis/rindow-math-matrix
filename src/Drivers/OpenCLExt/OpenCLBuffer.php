@@ -1,11 +1,11 @@
 <?php
-namespace Rindow\Math\Matrix;
+namespace Rindow\Math\Matrix\Drivers\OpenCLExt;
 
 use Rindow\OpenCL\Buffer as BufferImplement;
-use Interop\Polite\Math\Matrix\Buffer;
+use Interop\Polite\Math\Matrix\DeviceBuffer;
 use LogicException;
 
-class OpenCLBuffer extends BufferImplement implements Buffer
+class OpenCLBuffer extends BufferImplement implements DeviceBuffer
 {
     public function count() : int
     {

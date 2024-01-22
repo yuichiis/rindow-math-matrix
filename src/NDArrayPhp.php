@@ -1,7 +1,6 @@
 <?php
 namespace Rindow\Math\Matrix;
 
-use SplFixedArray;
 use ArrayObject;
 use ArrayAccess;
 use Countable;
@@ -14,17 +13,38 @@ use LogicException;
 use RuntimeException;
 use Interop\Polite\Math\Matrix\BLAS;
 use Interop\Polite\Math\Matrix\NDArray;
+use Interop\Polite\Math\Matrix\Buffer;
+use Rindow\Math\Matrix\Drivers\Service;
+use Rindow\Math\Matrix\Drivers\Selector;
 
 class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
 {
-    protected $_shape;
-    protected $_buffer;
-    protected $_offset;
-    protected $_dtype;
-    protected $_portableSerializeMode = false;
+    static public $unserializeWarning = 2;
 
-    public function __construct($array = null, $dtype=null ,array $shape = null,$offset=null)
+    protected array $_shape;
+    protected object $_buffer;
+    protected int $_offset;
+    protected int $_dtype;
+    protected bool $_portableSerializeMode = false;
+    protected ?Service $service = null;
+
+    public function __construct(
+        mixed $array = null,
+        int $dtype=null,
+        array $shape = null,
+        int $offset=null,
+        Service $service=null,
+        )
     {
+        if($service===null) {
+            throw new InvalidArgumentException("No service specified.");
+        }
+        $this->service = $service;
+        if($array===null && $dtype===null && $shape===null && $offset===null) {
+            // Empty definition for Unserialize
+            return;
+        }
+
         if($dtype===null) {
             if(is_bool($array)) {
                 $dtype = NDArray::bool;
@@ -86,16 +106,12 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
 
     protected function newBuffer($size,$dtype)
     {
-        if(extension_loaded('rindow_openblas')) {
-            return new OpenBlasBuffer($size,$dtype);
-        } else {
-            return new SplFixedArray($size);
-        }
+        return $this->service->buffer()->Buffer($size,$dtype);
     }
 
     protected function isBuffer($buffer)
     {
-        if($buffer instanceof SplFixedArray || $buffer instanceof OpenBlasBuffer) {
+        if($buffer instanceof Buffer) {
             return true;
         } else {
             return false;
@@ -175,6 +191,11 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         return $shape;
     }
 
+    public function service() : ?Service
+    {
+        return $this->service;
+    }
+
     public function shape() : array
     {
         return $this->_shape;
@@ -212,7 +233,7 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
             throw new InvalidArgumentException("Unmatch size to reshape: ".
                 "[".implode(',',$this->shape())."]=>[".implode(',',$shape)."]");
         }
-        $newArray = new self($this->buffer(),$this->dtype(),$shape,$this->offset());
+        $newArray = new self($this->buffer(),$this->dtype(),$shape,$this->offset(),service:$this->service);
         return $newArray;
     }
 
@@ -271,7 +292,7 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
             }
             array_unshift($shape,$rowsCount);
             $size = (int)array_product($shape);
-            $new = new self($this->_buffer,$this->_dtype,$shape,$this->_offset+$offset[0]*$itemSize);
+            $new = new self($this->_buffer,$this->_dtype,$shape,$this->_offset+$offset[0]*$itemSize,service:$this->service);
             return $new;
         }
 
@@ -282,7 +303,7 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
             return $this->_buffer[$this->_offset+$offset];
         }
         $size = (int)array_product($shape);
-        $new = new self($this->_buffer,$this->_dtype,$shape,$this->_offset+$offset*$size);
+        $new = new self($this->_buffer,$this->_dtype,$shape,$this->_offset+$offset*$size,service:$this->service);
         return $new;
     }
 
@@ -348,77 +369,99 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         return $this->_portableSerializeMode;
     }
 
-    public function serialize()
+    public function serialize() : string
     {
-        // Never called at the time of serialization.
-        // Interface for convenience.
         return serialize($this->__serialize());
     }
 
-    public function unserialize($data)
+    public function unserialize(string $data) : void
     {
-        // Never called at the time of unserialization.
-        // Interface for convenience.
-        $this->__unserialize(unserialize($data));
-    }
-
-    public function __serialize()
-    {
-        if(extension_loaded('rindow_openblas')) {
-            if(!$this->_portableSerializeMode) {
-                return [
-                    'm'=>'rindow_openblas',
-                    's'=>$this->_shape,
-                    'o'=>$this->_offset,
-                    't'=>$this->_dtype,
-                    'z'=>count($this->_buffer),
-                    'b'=>$this->_buffer->dump()
-                ];
-            }
-            $count = count($this->_buffer);
-            $array = [];
-            for($i=0;$i<$count;$i++) {
-                $array[$i] = $this->_buffer[$i];
-            }
-            return [
-                'm'=>'linear-array',
-                's'=>$this->_shape,
-                'o'=>$this->_offset,
-                't'=>$this->_dtype,
-                'z'=>count($this->_buffer),
-                'b'=>$array
-            ];
-
-        } else {
-            return [
-                'm'=>'linear-array',
-                's'=>$this->_shape,
-                'o'=>$this->_offset,
-                't'=>$this->_dtype,
-                'z'=>count($this->_buffer),
-                'b'=>$this->_buffer->toArray()
-            ];
+        $data = unserialize($data);
+        if(is_array($data)) {
+            $this->__unserialize($data);
+            return;
         }
+        if(!($data instanceof self)) {
+            throw new RuntimeException("Invalid saved data.");
+        }
+        if(self::$unserializeWarning>=1) {
+            echo "Warning: NDarayPhp data is saved using old procedure. We recommend that you resave using the new procedure.\n";
+        }
+        $buffer = $data->buffer();
+        if(get_class($data->service())!==get_class($this->service)) {
+            $newBuffer = $this->service->buffer()->Buffer($buffer->count(),$buffer->dtype());
+            if($data->service()->serviceLevel()>=Service::LV_ADVANCED &&
+                $this->service->serviceLevel()>=Service::LV_ADVANCED) {
+                $newBuffer->load($buffer->dump());
+            } else {
+                $count = $buffer->count();
+                for($i=0;$i<$count;$i++) {
+                    $newBuffer[$i] = $buffer[$i];
+                }
+            }
+            $buffer = $newBuffer;
+        }
+        $this->__construct(
+            $buffer,
+            dtype:$data->dtype(),
+            shape:$data->shape(),
+            offset:$data->offset(),
+            service:$this->service,
+        );
     }
 
-    public function __unserialize($data)
+    public function __serialize() : array
     {
+        if($this->service->serviceLevel()<Service::LV_ADVANCED ||
+            $this->_portableSerializeMode) {
+            $mode = 'linear-array';
+            if($this->service->serviceLevel()<Service::LV_ADVANCED) {
+                $buffer = $this->_buffer->toArray();
+            } else {
+                $count = count($this->_buffer);
+                $buffer = [];
+                for($i=0;$i<$count;$i++) {
+                    $buffer[$i] = $this->_buffer[$i];
+                }
+            }
+        } else {
+            $mode = 'rindow_openblas';
+            $buffer = $this->_buffer->dump();
+        }
+        return [
+            'm'=>$mode,
+            's'=>$this->_shape,
+            'o'=>$this->_offset,
+            't'=>$this->_dtype,
+            'z'=>count($this->_buffer),
+            'b'=>$buffer,
+        ];
+    }
+
+    public function __unserialize(array $data) : void
+    {
+        if($this->service===null) {
+            if(self::$unserializeWarning>=2) {
+                throw new RuntimeException("Please unserialize using the unserialize method.");
+            }
+            if(self::$unserializeWarning>=1) {
+                echo "Warning: NDArrayPhp is not initialized. Please unserialize using the unserialize method.\n";
+            }
+            $selector = new Selector();
+            $this->service = $selector->select();
+        }
         $mode = $data['m'];
         $this->_shape = $data['s'];
         $this->_offset = $data['o'];
         $this->_dtype = $data['t'];
         if($mode=='rindow_openblas') {
-            if(!extension_loaded('rindow_openblas')) {
-                throw new RuntimeException('"rindow_openblas" extension is not loaded.');
+            if($this->service->serviceLevel()<Service::LV_ADVANCED) {
+                throw new RuntimeException('Advanced drivers are not loaded.');
             }
-            $this->_buffer = new OpenBlasBuffer($data['z'],$data['t']);
+            $this->_buffer = $this->service->buffer()->Buffer($data['z'],$data['t']);
             $this->_buffer->load($data['b']);
         } elseif($mode=='linear-array') {
-            if(!extension_loaded('rindow_openblas')) {
-                $this->_buffer = SplFixedArray::fromArray($data['b']);
-                return;
-            }
-            $this->_buffer = new OpenBlasBuffer($data['z'],$data['t']);
+            $this->_buffer = $this->service->buffer()->Buffer($data['z'],$data['t']);
             foreach($data['b'] as $key => $value) {
                 $this->_buffer[$key] = $value;
             }
@@ -429,12 +472,12 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
 
     public function __clone()
     {
-        if($this->_buffer instanceof OpenBlasBuffer) {
-            $newBuffer =  new OpenBlasBuffer(
+        if($this->service->serviceLevel()>=Service::LV_ADVANCED) {
+            $newBuffer = $this->service->buffer()->Buffer(
                 count($this->_buffer),$this->_buffer->dtype());
             $newBuffer->load($this->_buffer->dump());
             $this->_buffer = $newBuffer;
-        } elseif($this->_buffer instanceof SplFixedArray) {
+        } elseif($this->service->serviceLevel()>=Service::LV_BASIC) {
             $this->_buffer = clone $this->_buffer;
         } else {
             throw new RuntimeException('Unknown buffer type is uncloneable:'.get_class($this->_buffer));

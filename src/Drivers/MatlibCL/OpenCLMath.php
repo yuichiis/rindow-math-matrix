@@ -1,17 +1,18 @@
 <?php
-namespace Rindow\Math\Matrix;
+namespace Rindow\Math\Matrix\Drivers\MatlibCL;
 
-use Rindow\OpenCL\Buffer as Buffer;
+//use Rindow\OpenCL\Buffer as Buffer;
 use RuntimeException;
 use InvalidArgumentException;
 use LogicException;
 use Interop\Polite\Math\Matrix\NDArray;
 use Interop\Polite\Math\Matrix\OpenCL;
-use Interop\Polite\Math\Matrix\LinearBuffer;
+use Interop\Polite\Math\Matrix\LinearBuffer as HostBufferInterface;
+use Interop\Polite\Math\Matrix\DeviceBuffer as BufferInterface;
 use Interop\Polite\Math\Matrix\Buffer as AnyBuffer;
-use Rindow\OpenCL\Program;
-use Rindow\OpenCL\Kernel;
-use Rindow\OpenCL\EventList;
+use Rindow\Math\Matrix\NDArrayPhp;
+use Rindow\Math\Matrix\NDArrayCL;
+use Rindow\Math\Matrix\Drivers\Service;
 
 class OpenCLMath
 {
@@ -149,9 +150,10 @@ class OpenCLMath
 
     protected $context;
     protected $queue;
+    protected Service $service;
     protected $sources = [];
     protected $program = [];
-    protected $fp64;
+    protected $fp64=null;
     protected $maxWorkItem;
     protected $kernelMultiple;
     protected $hasDiv5Bug;
@@ -159,11 +161,12 @@ class OpenCLMath
     protected $timesPredictionScatterAdd = [];
     protected $timesPredictionReduceSum = [];
 
-    public function __construct(object $context,object $queue)
+    public function __construct(object $queue, Service $service)
     {
-        $this->context = $context;
         $this->queue = $queue;
-        $devices = $context->getInfo(OpenCL::CL_CONTEXT_DEVICES);
+        $this->context = $queue->getContext();
+        $this->service = $service;
+        $devices = $this->context->getInfo(OpenCL::CL_CONTEXT_DEVICES);
         $extensions = $devices->getInfo(0,OpenCL::CL_DEVICE_EXTENSIONS);
         if(strpos($extensions,'cl_khr_fp64')===false) {
             $this->fp64 = false;
@@ -201,7 +204,7 @@ class OpenCLMath
         return $this->maxWorkItem;
     }
 
-    public function kernelMultiple($kernel)
+    protected function kernelMultiple($kernel)
     {
         if($this->kernelMultiple) {
             return $this->kernelMultiple;
@@ -214,7 +217,7 @@ class OpenCLMath
     {
         if(!isset($this->program[$name])) {
             $source = $this->sources[$name];
-            $program = new Program($this->context,$source);
+            $program = $this->service->opencl()->Program($this->context,$source);
             try {
                 $program->build();
             } catch (\RuntimeException $e) {
@@ -232,7 +235,7 @@ class OpenCLMath
         } else {
             $program = $this->program[$name];
         }
-        $kernel = new Kernel($program,$name);
+        $kernel = $this->service->opencl()->Kernel($program,$name);
         return $kernel;
     }
 
@@ -254,12 +257,13 @@ class OpenCLMath
 
         $alpha = 3;
         $beta = 5;
-        $results = new NDArrayPhp([0,0],NDArray::int32);
+        $results = new NDArrayPhp([0,0],NDArray::int32,service:$this->service);
         $flags = OpenCL::CL_MEM_READ_WRITE | OpenCL::CL_MEM_COPY_HOST_PTR;
         $resultsCL = new NDArrayCL(
             $this->context, $this->queue,
             $results->buffer(), $results->dtype(), $results->shape(),
-            $results->offset(), $flags
+            $results->offset(), $flags,
+            service:$this->service
         );
         
         $kernel = $this->createKernel($kernel_name);
@@ -278,7 +282,7 @@ class OpenCLMath
         }
     }
 
-    public function hasDiv5Bug()
+    public function hasDiv5Bug() : bool
     {
         return $this->hasDiv5Bug;
     }
@@ -658,22 +662,22 @@ class OpenCLMath
 
     protected function newEventList()
     {
-        return new EventList();
+        return $this->service->opencl()->EventList();
     }
 
     protected function newBuffer(
         int $size,int $flags=null,
-        LinearBuffer $hostBuffer=null, int $hostOffset=null,
+        HostBufferInterface $hostBuffer=null, int $hostOffset=null,
         int $dtype=null)
     {
         $hostOffset = $hostOffset ?? 0;
-        return new OpenCLBuffer($this->context,
+        return $this->service->buffer(Service::LV_ACCELERATED)->Buffer($this->context,
             $size,$flags,$hostBuffer,$hostOffset,$dtype);
     }
 
     protected function newHostBuffer($size,$dtype)
     {
-        return new OpenBlasBuffer($size,$dtype);
+        return $this->service->buffer(Service::LV_ADVANCED)->Buffer($size,$dtype);
     }
 
     protected function ceil($value,$base)
@@ -692,9 +696,9 @@ class OpenCLMath
      */
     public function sum(
         int $n,
-        Buffer $R, int $offsetR,
-        Buffer $X, int $offsetX, int $incX,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $R, int $offsetR,
+        BufferInterface $X, int $offsetX, int $incX,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtype = $X->dtype();
@@ -756,9 +760,9 @@ class OpenCLMath
      */
     public function sum1(
         int $n,
-        Buffer $R, int $offsetR,
-        Buffer $X, int $offsetX, int $incX,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $R, int $offsetR,
+        BufferInterface $X, int $offsetX, int $incX,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtype = $X->dtype();
@@ -813,9 +817,9 @@ class OpenCLMath
      */
     public function sum2(
         int $n,
-        Buffer $R, int $offsetR,
-        Buffer $X, int $offsetX, int $incX,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $R, int $offsetR,
+        BufferInterface $X, int $offsetX, int $incX,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtype = $X->dtype();
@@ -881,9 +885,9 @@ class OpenCLMath
      */
     public function sum3(
         int $n,
-        Buffer $R, int $offsetR,
-        Buffer $X, int $offsetX, int $incX,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $R, int $offsetR,
+        BufferInterface $X, int $offsetX, int $incX,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtype = $X->dtype();
@@ -972,9 +976,9 @@ class OpenCLMath
     public function increment(
         int $n,
         float $alpha,
-        Buffer $X, int $offsetX, int $incX,
+        BufferInterface $X, int $offsetX, int $incX,
         float $beta,
-        EventList $events=null, EventList $waitEvents=null
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -1013,9 +1017,9 @@ class OpenCLMath
     public function reciprocal(
         int $n,
         float $alpha,
-        Buffer $X, int $offsetX, int $incX,
+        BufferInterface $X, int $offsetX, int $incX,
         float $beta,
-        EventList $events=null, EventList $waitEvents=null
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -1055,9 +1059,9 @@ class OpenCLMath
     public function maximum(
         int $m,
         int $n,
-        Buffer $A, int $offsetA, int $ldA,
-        Buffer $X, int $offsetX, int $incX,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $A, int $offsetA, int $ldA,
+        BufferInterface $X, int $offsetX, int $incX,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -1119,9 +1123,9 @@ class OpenCLMath
     public function minimum(
         int $m,
         int $n,
-        Buffer $A, int $offsetA, int $ldA,
-        Buffer $X, int $offsetX, int $incX,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $A, int $offsetA, int $ldA,
+        BufferInterface $X, int $offsetX, int $incX,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -1183,9 +1187,9 @@ class OpenCLMath
     public function greater(
         int $m,
         int $n,
-        Buffer $A, int $offsetA, int $ldA,
-        Buffer $X, int $offsetX, int $incX,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $A, int $offsetA, int $ldA,
+        BufferInterface $X, int $offsetX, int $incX,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -1254,9 +1258,9 @@ class OpenCLMath
     public function greaterEqual(
         int $m,
         int $n,
-        Buffer $A, int $offsetA, int $ldA,
-        Buffer $X, int $offsetX, int $incX,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $A, int $offsetA, int $ldA,
+        BufferInterface $X, int $offsetX, int $incX,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -1324,9 +1328,9 @@ class OpenCLMath
     public function less(
         int $m,
         int $n,
-        Buffer $A, int $offsetA, int $ldA,
-        Buffer $X, int $offsetX, int $incX,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $A, int $offsetA, int $ldA,
+        BufferInterface $X, int $offsetX, int $incX,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -1388,9 +1392,9 @@ class OpenCLMath
     public function lessEqual(
         int $m,
         int $n,
-        Buffer $A, int $offsetA, int $ldA,
-        Buffer $X, int $offsetX, int $incX,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $A, int $offsetA, int $ldA,
+        BufferInterface $X, int $offsetX, int $incX,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -1452,9 +1456,9 @@ class OpenCLMath
         bool $trans,
         int $m,
         int $n,
-        Buffer $X, int $offsetX, int $incX,
-        Buffer $A, int $offsetA, int $ldA,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $X, int $offsetX, int $incX,
+        BufferInterface $A, int $offsetA, int $ldA,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         if($trans) {
@@ -1515,9 +1519,9 @@ class OpenCLMath
         int $m,
         int $n,
         float $alpha,
-        Buffer $X, int $offsetX, int $incX,
-        Buffer $A, int $offsetA, int $ldA,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $X, int $offsetX, int $incX,
+        BufferInterface $A, int $offsetA, int $ldA,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         if($trans) {
@@ -1578,8 +1582,8 @@ class OpenCLMath
 
     public function square(
         int $n,
-        Buffer $X, int $offsetX, int $incX,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $X, int $offsetX, int $incX,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -1619,8 +1623,8 @@ class OpenCLMath
      */
     public function sqrt(
         int $n,
-        Buffer $X, int $offsetX, int $incX,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $X, int $offsetX, int $incX,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -1655,9 +1659,9 @@ class OpenCLMath
     public function rsqrt(
         int $n,
         float $alpha,
-        Buffer $X, int $offsetX, int $incX,
+        BufferInterface $X, int $offsetX, int $incX,
         float $beta,
-        EventList $events=null, EventList $waitEvents=null
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -1697,9 +1701,9 @@ class OpenCLMath
         bool $trans,
         int $m,
         int $n,
-        Buffer $A, int $offsetA, int $ldA,
-        Buffer $X, int $offsetX, int $incX,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $A, int $offsetA, int $ldA,
+        BufferInterface $X, int $offsetX, int $incX,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         if($trans) {
@@ -1758,8 +1762,8 @@ class OpenCLMath
      */
     public function exp(
         int $n,
-        Buffer $X, int $offsetX, int $incX,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $X, int $offsetX, int $incX,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -1793,8 +1797,8 @@ class OpenCLMath
      */
     public function log(
         int $n,
-        Buffer $X, int $offsetX, int $incX,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $X, int $offsetX, int $incX,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -1828,8 +1832,8 @@ class OpenCLMath
      */
     public function tanh(
         int $n,
-        Buffer $X, int $offsetX, int $incX,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $X, int $offsetX, int $incX,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -1863,8 +1867,8 @@ class OpenCLMath
      */
     public function sin(
         int $n,
-        Buffer $X, int $offsetX, int $incX,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $X, int $offsetX, int $incX,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -1898,8 +1902,8 @@ class OpenCLMath
      */
     public function cos(
         int $n,
-        Buffer $X, int $offsetX, int $incX,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $X, int $offsetX, int $incX,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -1933,8 +1937,8 @@ class OpenCLMath
      */
     public function tan(
         int $n,
-        Buffer $X, int $offsetX, int $incX,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $X, int $offsetX, int $incX,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -1969,9 +1973,9 @@ class OpenCLMath
      */
     public function equal(
         int $n,
-        Buffer $X, int $offsetX, int $incX,
-        Buffer $Y, int $offsetY, int $incY,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $X, int $offsetX, int $incX,
+        BufferInterface $Y, int $offsetY, int $incY,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -2023,9 +2027,9 @@ class OpenCLMath
      */
     public function notEqual(
         int $n,
-        Buffer $X, int $offsetX, int $incX,
-        Buffer $Y, int $offsetY, int $incY,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $X, int $offsetX, int $incX,
+        BufferInterface $Y, int $offsetY, int $incY,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -2077,8 +2081,8 @@ class OpenCLMath
      */
     public function not(
         int $n,
-        Buffer $X, int $offsetX, int $incX,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $X, int $offsetX, int $incX,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -2120,9 +2124,9 @@ class OpenCLMath
         bool $trans,
         int $m,
         int $n,
-        Buffer $X, int $offsetX, int $incX,
-        Buffer $A, int $offsetA, int $ldA,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $X, int $offsetX, int $incX,
+        BufferInterface $A, int $offsetA, int $ldA,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         if($trans) {
@@ -2178,9 +2182,9 @@ class OpenCLMath
     public function astype(
         int $n,
         int $dtype,
-        Buffer $X, int $offsetX, int $incX,
-        Buffer $Y, int $offsetY, int $incY,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $X, int $offsetX, int $incX,
+        BufferInterface $Y, int $offsetY, int $incY,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -2255,10 +2259,10 @@ class OpenCLMath
         int $n,
         int $k,
         int $numClass,
-        Buffer $X, int $offsetX,
-        Buffer $A, int $offsetA,
-        Buffer $B, int $offsetB,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $X, int $offsetX,
+        BufferInterface $A, int $offsetA,
+        BufferInterface $B, int $offsetB,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         if($reverse==true && $addMode==true) {
@@ -2361,10 +2365,10 @@ class OpenCLMath
         int $m,
         int $n,
         int $numClass,
-        Buffer $X, int $offsetX,
-        Buffer $A, int $offsetA,
-        Buffer $B, int $offsetB,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $X, int $offsetX,
+        BufferInterface $A, int $offsetA,
+        BufferInterface $B, int $offsetB,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -2494,10 +2498,10 @@ class OpenCLMath
         int $n,
         int $k,
         int $numClass,
-        Buffer $X, int $offsetX,
-        Buffer $A, int $offsetA,
-        Buffer $B, int $offsetB,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $X, int $offsetX,
+        BufferInterface $A, int $offsetA,
+        BufferInterface $B, int $offsetB,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         if($X->dtype()!=NDArray::int32 && $X->dtype()!=NDArray::uint32) {
@@ -2609,10 +2613,10 @@ class OpenCLMath
         int $n,
         int $k,
         int $numClass,
-        Buffer $X, int $offsetX,
-        Buffer $A, int $offsetA,
-        Buffer $B, int $offsetB,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $X, int $offsetX,
+        BufferInterface $A, int $offsetA,
+        BufferInterface $B, int $offsetB,
+        object $events=null, object $waitEvents=null
         ) : void
     {
 //echo "mode=0\n";
@@ -2673,10 +2677,10 @@ class OpenCLMath
         int $n,
         int $k,
         int $numClass,
-        Buffer $X, int $offsetX,
-        Buffer $A, int $offsetA,
-        Buffer $B, int $offsetB,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $X, int $offsetX,
+        BufferInterface $A, int $offsetA,
+        BufferInterface $B, int $offsetB,
+        object $events=null, object $waitEvents=null
         ) : void
     {
 //echo "mode=1\n";
@@ -2750,10 +2754,10 @@ class OpenCLMath
         int $n,
         int $k,
         int $numClass,
-        Buffer $X, int $offsetX,
-        Buffer $A, int $offsetA,
-        Buffer $B, int $offsetB,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $X, int $offsetX,
+        BufferInterface $A, int $offsetA,
+        BufferInterface $B, int $offsetB,
+        object $events=null, object $waitEvents=null
         ) : void
     {
 //echo "mode=2\n";
@@ -2832,10 +2836,10 @@ class OpenCLMath
         int $n,
         int $k,
         int $numClass,
-        Buffer $X, int $offsetX,
-        Buffer $A, int $offsetA,
-        Buffer $B, int $offsetB,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $X, int $offsetX,
+        BufferInterface $A, int $offsetA,
+        BufferInterface $B, int $offsetB,
+        object $events=null, object $waitEvents=null
         ) : void
     {
 //echo "mode=3\n";
@@ -2945,10 +2949,10 @@ class OpenCLMath
          int $n,
          int $k,
          int $numClass,
-         Buffer $X, int $offsetX,
-         Buffer $A, int $offsetA,
-         Buffer $B, int $offsetB,
-         EventList $events=null, EventList $waitEvents=null
+         BufferInterface $X, int $offsetX,
+         BufferInterface $A, int $offsetA,
+         BufferInterface $B, int $offsetB,
+         object $events=null, object $waitEvents=null
          ) : void
     {
 //echo "mode=4\n";
@@ -3008,9 +3012,9 @@ class OpenCLMath
          int $m,
          int $k,
          int $repeats,
-         Buffer $A, int $offsetA,
-         Buffer $B, int $offsetB,
-         EventList $events=null, EventList $waitEvents=null
+         BufferInterface $A, int $offsetA,
+         BufferInterface $B, int $offsetB,
+         object $events=null, object $waitEvents=null
          ) : void
     {
 //echo "mode=4\n";
@@ -3062,10 +3066,10 @@ class OpenCLMath
         int $m,
         int $n,
         float $alpha,
-        Buffer $X, int $offsetX, int $incX,
-        Buffer $Y, int $offsetY, int $ldY,
+        BufferInterface $X, int $offsetX, int $incX,
+        BufferInterface $Y, int $offsetY, int $ldY,
         bool $addMode,
-        EventList $events=null, EventList $waitEvents=null
+        object $events=null, object $waitEvents=null
         ) : void
     {
         if($X->dtype()!=NDArray::int32 && $X->dtype()!=NDArray::uint32) {
@@ -3142,9 +3146,9 @@ class OpenCLMath
         int $m,
         int $n,
         int $k,
-        Buffer $A, int $offsetA,
-        Buffer $B, int $offsetB,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $A, int $offsetA,
+        BufferInterface $B, int $offsetB,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -3232,9 +3236,9 @@ class OpenCLMath
         int $m,
         int $n,
         int $k,
-        Buffer $A, int $offsetA,
-        Buffer $B, int $offsetB,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $A, int $offsetA,
+        BufferInterface $B, int $offsetB,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -3282,7 +3286,7 @@ class OpenCLMath
         $kernel->setArg(6,$B);
         $kernel->setArg(7,$offsetB,NDArray::uint32);
         $kernel->setArg(8,$ldB,NDArray::uint32);
-        $multiple = $this->kernelMultiple($kernel);
+        //$multiple = $this->kernelMultiple($kernel);
         //$global_work_size = [$this->ceil($rows*$k,$multiple)];
         //$local_work_size = [$multiple];
         $global_work_size = [$rows*$k];
@@ -3298,9 +3302,9 @@ class OpenCLMath
         int $m,
         int $n,
         int $k,
-        Buffer $A, int $offsetA,
-        Buffer $B, int $offsetB,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $A, int $offsetA,
+        BufferInterface $B, int $offsetB,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -3366,9 +3370,9 @@ class OpenCLMath
         int $m,
         int $n,
         int $k,
-        Buffer $A, int $offsetA,
-        Buffer $B, int $offsetB,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $A, int $offsetA,
+        BufferInterface $B, int $offsetB,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -3444,9 +3448,9 @@ class OpenCLMath
         int $m,
         int $n,
         int $k,
-        Buffer $A, int $offsetA,
-        Buffer $B, int $offsetB,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $A, int $offsetA,
+        BufferInterface $B, int $offsetB,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -3549,9 +3553,9 @@ class OpenCLMath
         int $m,
         int $n,
         int $k,
-        Buffer $A, int $offsetA,
-        Buffer $B, int $offsetB,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $A, int $offsetA,
+        BufferInterface $B, int $offsetB,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -3639,9 +3643,9 @@ class OpenCLMath
         int $m,
         int $n,
         int $k,
-        Buffer $A, int $offsetA,
-        Buffer $B, int $offsetB,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $A, int $offsetA,
+        BufferInterface $B, int $offsetB,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -3696,7 +3700,7 @@ class OpenCLMath
         $kernel->setArg(6,$B);
         $kernel->setArg(7,$offsetB,NDArray::uint32);
         $kernel->setArg(8,$ldB,NDArray::uint32);
-        $multiple = $this->kernelMultiple($kernel);
+        //$multiple = $this->kernelMultiple($kernel);
         //$global_work_size = [$this->ceil($rows*$k,$multiple)];
         //$local_work_size = [$multiple];
         $global_work_size = [$rows*$k];
@@ -3712,9 +3716,9 @@ class OpenCLMath
         int $m,
         int $n,
         int $k,
-        Buffer $A, int $offsetA,
-        Buffer $B, int $offsetB,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $A, int $offsetA,
+        BufferInterface $B, int $offsetB,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -3781,9 +3785,9 @@ class OpenCLMath
         int $m,
         int $n,
         int $k,
-        Buffer $A, int $offsetA,
-        Buffer $B, int $offsetB,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $A, int $offsetA,
+        BufferInterface $B, int $offsetB,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -3860,9 +3864,9 @@ class OpenCLMath
         int $m,
         int $n,
         int $k,
-        Buffer $A, int $offsetA,
-        Buffer $B, int $offsetB,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $A, int $offsetA,
+        BufferInterface $B, int $offsetB,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -3966,9 +3970,9 @@ class OpenCLMath
         int $m,
         int $n,
         int $k,
-        Buffer $A, int $offsetA,
-        Buffer $B, int $offsetB,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $A, int $offsetA,
+        BufferInterface $B, int $offsetB,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -4056,9 +4060,9 @@ class OpenCLMath
         int $m,
         int $n,
         int $k,
-        Buffer $A, int $offsetA,
-        Buffer $B, int $offsetB,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $A, int $offsetA,
+        BufferInterface $B, int $offsetB,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -4113,7 +4117,7 @@ class OpenCLMath
         $kernel->setArg(6,$B);
         $kernel->setArg(7,$offsetB,NDArray::uint32);
         $kernel->setArg(8,$ldB,NDArray::uint32);
-        $multiple = $this->kernelMultiple($kernel);
+        //$multiple = $this->kernelMultiple($kernel);
         //$global_work_size = [$this->ceil($rows*$k,$multiple)];
         //$local_work_size = [$multiple];
         $global_work_size = [$rows*$k];
@@ -4129,9 +4133,9 @@ class OpenCLMath
         int $m,
         int $n,
         int $k,
-        Buffer $A, int $offsetA,
-        Buffer $B, int $offsetB,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $A, int $offsetA,
+        BufferInterface $B, int $offsetB,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -4202,9 +4206,9 @@ class OpenCLMath
         int $m,
         int $n,
         int $k,
-        Buffer $A, int $offsetA,
-        Buffer $B, int $offsetB,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $A, int $offsetA,
+        BufferInterface $B, int $offsetB,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -4287,9 +4291,9 @@ class OpenCLMath
         int $m,
         int $n,
         int $k,
-        Buffer $A, int $offsetA,
-        Buffer $B, int $offsetB,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $A, int $offsetA,
+        BufferInterface $B, int $offsetB,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -4403,8 +4407,8 @@ class OpenCLMath
     public function softmax(
         int $m,
         int $n,
-        Buffer $A, int $offsetA, int $ldA,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $A, int $offsetA, int $ldA,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -4437,8 +4441,8 @@ class OpenCLMath
     public function softmax0(
         int $m,
         int $n,
-        Buffer $A, int $offsetA, int $ldA,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $A, int $offsetA, int $ldA,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $trans = false;
@@ -4509,8 +4513,8 @@ class OpenCLMath
     public function softmax1(
         int $m,
         int $n,
-        Buffer $A, int $offsetA, int $ldA,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $A, int $offsetA, int $ldA,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $trans = false;
@@ -4589,8 +4593,8 @@ class OpenCLMath
     public function softmax2(
         int $m,
         int $n,
-        Buffer $A, int $offsetA, int $ldA,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $A, int $offsetA, int $ldA,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $trans = false;
@@ -4696,15 +4700,15 @@ class OpenCLMath
         int $n,
         int $k,
         int $size,
-        Buffer $A, int $offsetA, int $incA,
-        Buffer $Y, int $offsetY, int $incY,
+        BufferInterface $A, int $offsetA, int $incA,
+        BufferInterface $Y, int $offsetY, int $incY,
         int $startAxis0,
         int $sizeAxis0,
         int $startAxis1,
         int $sizeAxis1,
         int $startAxis2,
         int $sizeAxis2,
-        EventList $events=null, EventList $waitEvents=null
+        object $events=null, object $waitEvents=null
         )
     {
         if($A->dtype()!=$Y->dtype()) {
@@ -4802,12 +4806,12 @@ class OpenCLMath
      */
     public function searchsorted(
         int $m,
-        Buffer $A, int $offsetA, int $incA, // float
+        BufferInterface $A, int $offsetA, int $incA, // float
         int $n,
-        Buffer $X, int $offsetX, int $incX, // float
+        BufferInterface $X, int $offsetX, int $incX, // float
         bool $right,
-        Buffer $Y, int $offsetY, int $incY, // int
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $Y, int $offsetY, int $incY, // int
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -4878,11 +4882,11 @@ class OpenCLMath
      */
     public function cumsum(
         int $n,
-        Buffer $X, int $offsetX, int $incX, // float
+        BufferInterface $X, int $offsetX, int $incX, // float
         bool $exclusive,
         bool $reverse,
-        Buffer $Y, int $offsetY, int $incY, // float
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $Y, int $offsetY, int $incY, // float
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -4948,9 +4952,9 @@ class OpenCLMath
      */
     public function nan2num(
         int $n,
-        Buffer $X, int $offsetX, int $incX,
+        BufferInterface $X, int $offsetX, int $incX,
         float $alpha,
-        EventList $events=null, EventList $waitEvents=null
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -4988,8 +4992,8 @@ class OpenCLMath
      */
     public function isnan(
         int $n,
-        Buffer $X, int $offsetX, int $incX,
-        EventList $events=null, EventList $waitEvents=null
+        BufferInterface $X, int $offsetX, int $incX,
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -5029,15 +5033,15 @@ class OpenCLMath
         int $height,
         int $width,
         int $channels,
-        Buffer $A, int $offsetA,
-        Buffer $B, int $offsetB,
+        BufferInterface $A, int $offsetA,
+        BufferInterface $B, int $offsetB,
         bool $channelsFirst,
         int $heightShift,
         int $widthShift,
         bool $verticalFlip,
         bool $horizontalFlip,
         bool $rgbFlip,
-        EventList $events=null, EventList $waitEvents=null
+        object $events=null, object $waitEvents=null
         )
     {
         if($A->dtype()!=$B->dtype()) {
@@ -5150,7 +5154,7 @@ class OpenCLMath
     */
     public function im2col1d(
         bool $reverse,
-        Buffer $images,
+        BufferInterface $images,
         int $images_offset,
         int $images_size,
         int $batches,
@@ -5162,10 +5166,10 @@ class OpenCLMath
         bool $channels_first,
         int $dilation_w,
         bool $cols_channels_first,
-        Buffer $cols,
+        BufferInterface $cols,
         int $cols_offset,
         int $cols_size,
-        EventList $events=null, EventList $waitEvents=null
+        object $events=null, object $waitEvents=null
         )
     {
         $dtype = $images->dtype();
@@ -5329,7 +5333,7 @@ class OpenCLMath
     */
     public function im2col2d(
         bool $reverse,
-        Buffer $images,
+        BufferInterface $images,
         int $images_offset,
         int $images_size,
         int $batches,
@@ -5345,10 +5349,10 @@ class OpenCLMath
         int $dilation_h,
         int $dilation_w,
         bool $cols_channels_first,
-        Buffer $cols,
+        BufferInterface $cols,
         int $cols_offset,
         int $cols_size,
-        EventList $events=null, EventList $waitEvents=null
+        object $events=null, object $waitEvents=null
         )
     {
         $dtype = $images->dtype();
@@ -5545,7 +5549,7 @@ class OpenCLMath
     */
     public function im2col3d(
         bool $reverse,
-        Buffer $images,
+        BufferInterface $images,
         int $images_offset,
         int $images_size,
         int $batches,
@@ -5565,10 +5569,10 @@ class OpenCLMath
         int $dilation_h,
         int $dilation_w,
         bool $cols_channels_first,
-        Buffer $cols,
+        BufferInterface $cols,
         int $cols_offset,
         int $cols_size,
-        EventList $events=null, EventList $waitEvents=null
+        object $events=null, object $waitEvents=null
         )
     {
         $dtype = $images->dtype();
@@ -5790,11 +5794,11 @@ class OpenCLMath
     */
     public function randomUniform(
         int $n,
-        Buffer $X, int $offsetX, int $incX,
+        BufferInterface $X, int $offsetX, int $incX,
         $low,
         $high,
         int $seed,
-        EventList $events=null, EventList $waitEvents=null
+        object $events=null, object $waitEvents=null
         )
     {
         $dtype = $X->dtype();
@@ -5881,11 +5885,11 @@ class OpenCLMath
     */
     public function randomNormal(
         int $n,
-        Buffer $X, int $offsetX, int $incX,
+        BufferInterface $X, int $offsetX, int $incX,
         float $mean,
         float $scale,
         int $seed,
-        EventList $events=null, EventList $waitEvents=null
+        object $events=null, object $waitEvents=null
         )
     {
         $dtype = $X->dtype();
@@ -5944,9 +5948,9 @@ class OpenCLMath
 
     public function fill(
         int $n,
-        Buffer $X, int $offsetX, int $incX,
+        BufferInterface $X, int $offsetX, int $incX,
         $pattern,
-        EventList $events=null, EventList $waitEvents=null
+        object $events=null, object $waitEvents=null
         )
     {
         if(!is_scalar($pattern)) {
@@ -5995,16 +5999,16 @@ class OpenCLMath
     }
 
     protected function toHostBuffer(
-        Buffer $clBuffer,
+        BufferInterface $clBuffer,
         int $offset,
-        bool $blocking_read=true,EventList $waitEvents=null,
+        bool $blocking_read=true,object $waitEvents=null,
         EventList &$events=null) : NDArray
     {
         $dtype = $clBuffer->dtype();
         $bytes = $clBuffer->bytes();
         $valueSize = $clBuffer->value_size();
         $size = $clBuffer->count();
-        $hostBuffer = new OpenBlasBuffer($size,$dtype);
+        $hostBuffer = $this->newHostBuffer($size,$dtype);
         $event = $clBuffer->read($this->queue,$hostBuffer,$bytes,
             $offset*$valueSize,$hostoffset=0,$blocking_read,$waitEvents);
         $events = $event;
@@ -6012,11 +6016,11 @@ class OpenCLMath
     }
 
     public function transpose(
-        AnyBuffer $shape,
-        AnyBuffer $perm,
-        Buffer $A, int $offsetA,
-        Buffer $B, int $offsetB, 
-        EventList $events=null, EventList $waitEvents=null
+        AnyBuffer $shape,   // DeviceBuffer or HostBuffer
+        AnyBuffer $perm,    // DeviceBuffer or HostBuffer
+        BufferInterface $A, int $offsetA,
+        BufferInterface $B, int $offsetB, 
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -6032,8 +6036,8 @@ class OpenCLMath
             throw new InvalidArgumentException('data type of shape buffer must be int32.');
         }
         $orgShape = $shape;
-        if(!($shape instanceof OpenBlasBuffer)) {
-            $shape = $this->toHostBuffer($shape);
+        if($shape instanceof BufferInterface) {
+            $shape = $this->toHostBuffer($shape,0);
         }
         $size = 1;
         for($i=0;$i<$ndim;$i++) {
@@ -6048,8 +6052,8 @@ class OpenCLMath
             throw new InvalidArgumentException('data type of perm buffer must be int32.');
         }
         $orgPerm = $perm;
-        if(!($perm instanceof OpenBlasBuffer)) {
-            $perm = $this->toHostBuffer($perm);
+        if($perm instanceof BufferInterface) {
+            $perm = $this->toHostBuffer($perm,0);
         }
 
         if($dtype!=$B->dtype()) {
@@ -6084,7 +6088,7 @@ class OpenCLMath
         $targetStride = $targetStrides[0];
 
         $shape = $orgShape;
-        if(!($shape instanceof OpenCLBuffer)) {
+        if(!($shape instanceof DeviceBuffer)) {
             $valueSize = $shape->value_size();
             $shape = $this->newBuffer(
                 count($shape)*$valueSize,
@@ -6233,10 +6237,10 @@ class OpenCLMath
         int $m,
         int $n,
         int $k,
-        Buffer $A, int $offset,
+        BufferInterface $A, int $offset,
         int $lower,
         int $upper,
-        EventList $events=null, EventList $waitEvents=null
+        object $events=null, object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
