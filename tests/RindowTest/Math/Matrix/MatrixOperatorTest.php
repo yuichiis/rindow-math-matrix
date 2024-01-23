@@ -1586,4 +1586,59 @@ class Test extends TestCase
         $this->assertEquals(NDArray::float32,$mo->op(1.5,'+',$float32)->dtype());
         $this->assertEquals(NDArray::float64,$mo->op(1.5,'+',$float64)->dtype());
     }
+
+    public function testSerializeArray()
+    {
+        $mo = $this->newMatrixOperator();
+
+        $array = $mo->array([1,2,3],dtype:NDArray::int32);
+
+        $data = $mo->serializeArray($array);
+
+        $newMo = $this->newMatrixOperator();
+        $newArray = $newMo->unserializeArray($data);
+
+        $this->assertEquals($array->toArray(),$newArray->toArray());
+        $this->assertEquals($array->dtype(),$newArray->dtype());
+        $this->assertEquals(
+            $array->service()->serviceLevel(),
+            $newArray->service()->serviceLevel()
+        );
+
+        // array in array
+        $arraySet = [
+            'one' =>  $mo->array([1,2,3],dtype:NDArray::int32),
+            'two' =>  $mo->array([4,5,6],dtype:NDArray::float32),
+            'three' => [
+                $mo->array([2,3,4],dtype:NDArray::int32),
+                $mo->array([5,6,7],dtype:NDArray::int8),
+            ]
+        ];
+
+        $data = $mo->serializeArray($arraySet);
+
+        $newArraySet = $newMo->unserializeArray($data);
+
+        $this->assertEquals($arraySet['one']->toArray(),$newArraySet['one']->toArray());
+        $this->assertEquals($arraySet['two']->toArray(),$newArraySet['two']->toArray());
+        $this->assertEquals($arraySet['one']->dtype(),$newArraySet['one']->dtype());
+        $this->assertEquals($arraySet['two']->dtype(),$newArraySet['two']->dtype());
+        $this->assertEquals(
+            $arraySet['one']->service()->serviceLevel(),
+            $newArraySet['one']->service()->serviceLevel()
+        );
+        $this->assertEquals(
+            $arraySet['two']->service()->serviceLevel(),
+            $newArraySet['two']->service()->serviceLevel()
+        );
+
+        $this->assertEquals(
+            $arraySet['three'][0]->toArray(),
+            $newArraySet['three'][0]->toArray()
+        );
+        $this->assertEquals(
+            $arraySet['three'][1]->toArray(),
+            $newArraySet['three'][1]->toArray()
+        );
+    }
 }

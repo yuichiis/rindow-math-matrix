@@ -132,6 +132,34 @@ class LinearAlgebra
         return $ndarray;
     }
 
+    public function serializeArray(NDArray|array $array) : string
+    {
+        if($array instanceof NDArray) {
+            return $array->serialize();
+        }
+        $list = [];
+        foreach($array as $key => $value) {
+            $list[$key] = $this->serializeArray($value);
+        }
+        return '_RindowArraySet_'.serialize($list);
+    }
+
+    public function unserializeArray(string $data) : mixed
+    {
+        if(strpos($data,'_RindowArraySet_')!==0) {
+            $array = new NDArrayPhp(service:$this->service);
+            $array->unserialize($data);
+            return $array;
+        }
+        $data = substr($data,strlen('_RindowArraySet_'));
+        $array = unserialize($data);
+        $list = [];
+        foreach($array as $key => $value) {
+            $list[$key] = $this->unserializeArray($value);
+        }
+        return $list;
+    }
+
     public function scalar($array)
     {
         if($array instanceof NDArray) {

@@ -1428,4 +1428,14 @@ class MatrixOperator
     {
         return $this->service->info();
     }
+
+    public function serializeArray(NDArray|array $array) : string
+    {
+        return $this->la()->serializeArray($array);
+    }
+
+    public function unserializeArray(string $data) : mixed
+    {
+        return $this->la()->unserializeArray($data);
+    }
 }
