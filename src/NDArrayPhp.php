@@ -19,6 +19,8 @@ use Rindow\Math\Matrix\Drivers\Selector;
 
 class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
 {
+    const SERIALIZE_NDARRAY_KEYWORD = 'NDArray:';
+    const SERIALIZE_OLDSTYLE_KEYWORD = 'O:29:"Rindow\Math\Matrix\NDArrayPhp"';
     static public $unserializeWarning = 2;
 
     protected array $_shape;
@@ -371,15 +373,22 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
 
     public function serialize() : string
     {
-        return serialize($this->__serialize());
+        return static::SERIALIZE_NDARRAY_KEYWORD.serialize($this->__serialize());
     }
 
     public function unserialize(string $data) : void
     {
-        $data = unserialize($data);
-        if(is_array($data)) {
-            $this->__unserialize($data);
-            return;
+        if(strpos($data,static::SERIALIZE_NDARRAY_KEYWORD)===0) {
+            $data = substr($data,strlen(static::SERIALIZE_NDARRAY_KEYWORD));
+            $data = unserialize($data);
+            if(is_array($data)) {
+                $this->__unserialize($data);
+                return;
+            }
+        } elseif(strpos($data,static::SERIALIZE_OLDSTYLE_KEYWORD)===0) {
+            $data = unserialize($data);
+        } else {
+            throw new RuntimeException("Invalid saved data.");
         }
         if(!($data instanceof self)) {
             throw new RuntimeException("Invalid saved data.");

@@ -151,6 +151,7 @@ class OpenCLMath
     protected $context;
     protected $queue;
     protected Service $service;
+    protected $deviceTypes = [];
     protected $sources = [];
     protected $program = [];
     protected $fp64=null;
@@ -174,6 +175,16 @@ class OpenCLMath
             $this->fp64 = true;
         }
         $this->maxWorkItem = $devices->getInfo(0,OpenCL::CL_DEVICE_MAX_WORK_ITEM_SIZES);
+        $deviceType = $devices->getInfo(0,OpenCL::CL_DEVICE_TYPE);
+        $nDev = count($devices);
+        $types = [];
+        for($i=0;$i<$nDev;$i++) {
+            if($deviceType&OpenCL::CL_DEVICE_TYPE_CPU) { $types[] = "CPU"; }
+            if($deviceType&OpenCL::CL_DEVICE_TYPE_GPU) { $types[] = "GPU"; }
+            if($deviceType&OpenCL::CL_DEVICE_TYPE_ACCELERATOR) { $types[] = "ACCEL"; }
+            if($deviceType&OpenCL::CL_DEVICE_TYPE_CUSTOM) { $types[] = "CUSTOM"; }
+        }
+        $this->deviceTypes = $types;
         $this->checkDiv5Bug();
     }
 
@@ -202,6 +213,11 @@ class OpenCLMath
     public function maxWorkItem()
     {
         return $this->maxWorkItem;
+    }
+
+    public function deviceTypes()
+    {
+        return $this->deviceTypes;
     }
 
     protected function kernelMultiple($kernel)

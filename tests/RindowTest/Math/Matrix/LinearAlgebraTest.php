@@ -4554,7 +4554,7 @@ class Test extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
-        $x = $la->array([0,1,2,0]);
+        $x = $la->array([0,1,2,0],NDArray::int32);
 
         $y = $la->onehot($x,3);
         $this->assertEquals([

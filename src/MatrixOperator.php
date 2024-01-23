@@ -12,6 +12,10 @@ use Rindow\Math\Matrix\Drivers\Selector;
 
 class MatrixOperator
 {
+    const SERIALIZE_NDARRAYSET_KEYWORD = 'NDArraySet:';
+    const SERIALIZE_NDARRAY_KEYWORD = 'NDArray:';
+    const SERIALIZE_OLDSTYLE_KEYWORD = 'O:29:"Rindow\Math\Matrix\NDArrayPhp"';
+
     protected $service;
     protected $blas;
     protected $openblas;
@@ -1431,11 +1435,32 @@ class MatrixOperator
 
     public function serializeArray(NDArray|array $array) : string
     {
-        return $this->la()->serializeArray($array);
+        if($array instanceof NDArray) {
+            return $array->serialize();
+        }
+        $list = [];
+        foreach($array as $key => $value) {
+            $list[$key] = $this->serializeArray($value);
+        }
+        return static::SERIALIZE_NDARRAYSET_KEYWORD.serialize($list);
     }
 
     public function unserializeArray(string $data) : mixed
     {
-        return $this->la()->unserializeArray($data);
+        if(strpos($data,static::SERIALIZE_NDARRAYSET_KEYWORD)===0) {
+            $data = substr($data,strlen(static::SERIALIZE_NDARRAYSET_KEYWORD));
+            $array = unserialize($data);
+            $list = [];
+            foreach($array as $key => $value) {
+                $list[$key] = $this->unserializeArray($value);
+            }
+            return $list;
+        } elseif(strpos($data,static::SERIALIZE_NDARRAY_KEYWORD)===0) {
+            $array = new NDArrayPhp(service:$this->service);
+            $array->unserialize($data);
+            return $array;
+        }
+        $array = unserialize($data);
+        return $array;
     }
 }
