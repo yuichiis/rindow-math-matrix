@@ -23,21 +23,26 @@ class MatlibFFI extends AbstractMatlibService
         object $bufferCLFactory=null,
         )
     {
-        $bufferFactory = $bufferFactory ?? new BufferFactory();
-
-        $openblasFactory = $openblasFactory ?? new OpenBLASFactory();
-
-        $mathFactory = $mathFactory ?? new MatlibFactory();
-
+        if($bufferFactory===null && class_exists(BufferFactory::class)) {
+            $bufferFactory = new BufferFactory();
+        }
+        if($openblasFactory===null && class_exists(OpenBLASFactory::class)) {
+            $openblasFactory = new OpenBLASFactory();
+        }
+        if($mathFactory===null && class_exists(MatlibFactory::class)) {
+            $mathFactory = new MatlibFactory();
+        }
         if($openclFactory===null && class_exists(OpenCLFactory::class)) {
             $openclFactory = new OpenCLFactory();
         }
         $bufferCLFactory = $bufferCLFactory ?? $openclFactory;
-
-        $clblastFactory = $clblastFactory ?? new CLBlastFactory();
+        if($clblastFactory===null && class_exists(CLBlastFactory::class)) {
+            $clblastFactory = new CLBlastFactory();
+        }
         $blasCLFactory = $blasCLFactory ?? $clblastFactory;
-
-        $mathCLFactory = $mathCLFactory ?? new MatlibCLFactory();
+        if($mathCLFactory===null && class_exists(MatlibCLFactory::class)) {
+            $mathCLFactory = new MatlibCLFactory();
+        }
 
         parent::__construct(
             bufferFactory:$bufferFactory,
