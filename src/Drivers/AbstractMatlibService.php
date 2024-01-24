@@ -83,6 +83,10 @@ abstract class AbstractMatlibService implements Service
             }
             $level = Service::LV_ADVANCED;
 
+            if($this->openclFactory==null||
+                $this->clblastFactory==null) {
+                break;
+            }
             if(!$this->openclFactory->isAvailable()||
                 !$this->clblastFactory->isAvailable()) {
                 break;
