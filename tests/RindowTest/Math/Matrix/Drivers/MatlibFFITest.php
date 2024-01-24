@@ -55,17 +55,17 @@ class Test extends TestCase
     {
         $service = $this->newService();
         if($this->isAvailable(['libopenblas.dll','libopenblas.so'])&&
-            $this->isAvailable(['matlib.dll','librindowmatlib.so'])&&
+            $this->isAvailable(['rindowmatlib.dll','librindowmatlib.so'])&&
             $this->isAvailable(['OpenCL.dll','libopencl.so'])&&
             $this->isAvailable(['clblast.dll','libclblast.so'])) {
             $this->assertEquals(Service::LV_ACCELERATED,$service->serviceLevel());
         } elseif($this->isAvailable(['libopenblas.dll','libopenblas.so'])&&
-            $this->isAvailable(['matlib.dll','librindowmatlib.so']) &&
+            $this->isAvailable(['rindowmatlib.dll','librindowmatlib.so']) &&
             (!$this->isAvailable(['OpenCL.dll','libopencl.so'])||
             !$this->isAvailable(['clblast.dll','libclblast.so']))) {
             $this->assertEquals(Service::LV_ADVANCED,$service->serviceLevel());
         } elseif(!$this->isAvailable(['libopenblas.dll','libopenblas.so'])||
-                !$this->isAvailable(['matlib.dll','librindowmatlib.so'])) {
+                !$this->isAvailable(['rindowmatlib.dll','librindowmatlib.so'])) {
             $this->assertEquals(Service::LV_BASIC,$service->serviceLevel());
         }
     }
