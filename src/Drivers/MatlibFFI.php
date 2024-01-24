@@ -29,7 +29,9 @@ class MatlibFFI extends AbstractMatlibService
 
         $mathFactory = $mathFactory ?? new MatlibFactory();
 
-        $openclFactory = $openclFactory ?? new OpenCLFactory();
+        if($openclFactory===null && class_exists(OpenCLFactory::class)) {
+            $openclFactory = new OpenCLFactory();
+        }
         $bufferCLFactory = $bufferCLFactory ?? $openclFactory;
 
         $clblastFactory = $clblastFactory ?? new CLBlastFactory();
