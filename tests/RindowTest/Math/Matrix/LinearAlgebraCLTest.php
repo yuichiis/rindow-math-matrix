@@ -737,8 +737,11 @@ class Test extends ORGTest
     public function newLA($mo)
     {
         //$la = $mo->laAccelerated('clblast');
-        $la = $mo->laAccelerated('clblast',['deviceType'=>OpenCL::CL_DEVICE_TYPE_GPU]);
-        //$la = $mo->laAccelerated('clblast',['deviceType'=>OpenCL::CL_DEVICE_TYPE_CPU]);
+        try {
+            $la = $mo->laAccelerated('clblast',['deviceType'=>OpenCL::CL_DEVICE_TYPE_GPU]);
+        } catch(\Exception $e) {
+            $la = $mo->laAccelerated('clblast',['deviceType'=>OpenCL::CL_DEVICE_TYPE_DEFAULT]);
+        }
         $la->blocking(true);
         $la->scalarNumeric(true);
         return $la;
