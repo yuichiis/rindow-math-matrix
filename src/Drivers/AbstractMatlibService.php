@@ -241,15 +241,15 @@ abstract class AbstractMatlibService implements Service
 
     protected function searchDevice($deviceType) : object
     {
-        if($deviceType==OpenCL::CL_DEVICE_TYPE_DEFAULT) {
-            return $deviceType;
-        }
         $platformList = $this->openclFactory->PlatformList();
         $platformCount = $platformList->count();
         for($p=0;$p<$platformCount;$p++) {
             $deviceList = $this->openclFactory->DeviceList($platformList->getOne($p));
             $deviceCount = $deviceList->count();
             for($d=0;$d<$deviceCount;$d++) {
+                if($deviceType==OpenCL::CL_DEVICE_TYPE_DEFAULT) {
+                    return $deviceList->getOne($d);
+                }
                 if($deviceList->getInfo($d,OpenCL::CL_DEVICE_TYPE)===$deviceType) {
                     return $deviceList->getOne($d);
                 }
