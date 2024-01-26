@@ -788,7 +788,11 @@ class Test extends ORGTest
     public function testOriginalLaAccelerated()
     {
         $mo = new MatrixOperator();
-        $la = $mo->laAccelerated('clblast',['deviceType'=>OpenCL::CL_DEVICE_TYPE_GPU]);
+        try {
+            $la = $mo->laAccelerated('clblast',['deviceType'=>OpenCL::CL_DEVICE_TYPE_GPU]);
+        } catch(InvalidArgumentException $e) {
+            $la = $mo->laAccelerated('clblast',['deviceType'=>OpenCL::CL_DEVICE_TYPE_CPU]);
+        }
         $this->assertInstanceOf(LinearAlgebraCL::class,$la);
     }
 

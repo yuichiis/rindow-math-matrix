@@ -18,7 +18,8 @@ class Test extends TestCase
 {
     protected bool $skipDisplayInfo = true;
     //protected int $default_device_type = OpenCL::CL_DEVICE_TYPE_DEFAULT;
-    protected int $default_device_type = OpenCL::CL_DEVICE_TYPE_GPU;
+    //protected int $default_device_type = OpenCL::CL_DEVICE_TYPE_GPU;
+    static protected int $default_device_type = OpenCL::CL_DEVICE_TYPE_GPU;
     protected $service;
 
     public function setUp() : void
@@ -32,7 +33,17 @@ class Test extends TestCase
 
     public function getContext()
     {
-        return $this->service->openCL()->Context($this->default_device_type);
+        //return $this->service->openCL()->Context($this->default_device_type);
+        try {
+            $context = $this->service->openCL()->Context(self::$default_device_type);
+        } catch(RuntimeException $e) {
+            if(strpos('clCreateContextFromType',$e->getMessage())===null) {
+                throw $e;
+            }
+            self::$default_device_type = OpenCL::CL_DEVICE_TYPE_DEFAULT;
+            $context = $this->service->openCL()->Context(self::$default_device_type);
+        }
+        return $context;
     }
 
     public function getQueue($context)

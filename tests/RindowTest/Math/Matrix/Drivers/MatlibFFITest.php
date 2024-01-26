@@ -25,6 +25,8 @@ use FFI\Env\Runtime as FFIEnvRuntime;
 use FFI\Env\Status as FFIEnvStatus;
 use FFI\Location\Locator as FFIEnvLocator;
 
+use InvalidArgumentException;
+
 /**
  * @requires extension ffi
  */
@@ -123,7 +125,11 @@ class Test extends TestCase
             $this->markTestSkipped("The service is not Accelerated.");
             return;
         }
-        $queue = $service->createQueue(['deviceType'=>OpenCL::CL_DEVICE_TYPE_GPU]);
+        try {
+            $queue = $service->createQueue(['deviceType'=>OpenCL::CL_DEVICE_TYPE_GPU]);
+        } catch(InvalidArgumentException $e) {
+            $queue = $service->createQueue(['deviceType'=>OpenCL::CL_DEVICE_TYPE_CPU]);
+        }
         $this->assertInstanceOf(\Rindow\OpenCL\FFI\CommandQueue::class,$queue);
         $this->assertInstanceOf(\Rindow\CLBlast\FFI\Blas::class,$service->blasCL($queue));
         $this->assertInstanceOf(\Rindow\Math\Matrix\Drivers\MatlibCL\OpenCLMath::class,$service->mathCL($queue));
@@ -137,7 +143,7 @@ class Test extends TestCase
             $this->markTestSkipped("The service is not Accelerated.");
             return;
         }
-        $queue = $service->createQueue(['device'=>"0,1"]);
+        $queue = $service->createQueue(['device'=>"0,0"]);
         $this->assertInstanceOf(\Rindow\OpenCL\FFI\CommandQueue::class,$queue);
         $this->assertInstanceOf(\Rindow\CLBlast\FFI\Blas::class,$service->blasCL($queue));
         $this->assertInstanceOf(\Rindow\Math\Matrix\Drivers\MatlibCL\OpenCLMath::class,$service->mathCL($queue));
