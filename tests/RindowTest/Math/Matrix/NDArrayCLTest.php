@@ -13,6 +13,7 @@ use ArrayObject;
 use OutOfRangeException;
 use InvalidArgumentException;
 use LogicException;
+use RuntimeException;
 
 class Test extends TestCase
 {
