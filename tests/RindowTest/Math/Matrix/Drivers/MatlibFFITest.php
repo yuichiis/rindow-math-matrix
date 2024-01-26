@@ -21,10 +21,11 @@ use Rindow\Math\Matrix\Drivers\Service;
 use Interop\Polite\Math\Matrix\NDArray;
 use Interop\Polite\Math\Matrix\OpenCL;
 
-use FFI\Env\Runtime as FFIEnvRuntime;
-use FFI\Env\Status as FFIEnvStatus;
-use FFI\Location\Locator as FFIEnvLocator;
-
+//use FFI\Env\Runtime as FFIEnvRuntime;
+//use FFI\Env\Status as FFIEnvStatus;
+//use FFI\Location\Locator as FFIEnvLocator;
+use FFI;
+use FFI\Exception as FFIException;
 use InvalidArgumentException;
 
 /**
@@ -39,12 +40,18 @@ class Test extends TestCase
 
     public function isAvailable(array $libs) : bool
     {
-        $isAvailable = FFIEnvRuntime::isAvailable();
-        if(!$isAvailable) {
-            return false;
+        $found = false;
+        $code = '#define FFI_SCOPE "Rindow\\Matlib\\FFI"'."\n";
+        foreach ($libs as $filename) {
+            try {
+                $ffi = FFI::cdef($code,$filename);
+            } catch(FFIException $e) {
+                continue;
+            }
+            $found = true;
+            break;
         }
-        $pathname = FFIEnvLocator::resolve(...$libs);
-        return $pathname!==null;
+        return $found;
     }
 
     public function testName()
@@ -58,12 +65,12 @@ class Test extends TestCase
         $service = $this->newService();
         if($this->isAvailable(['libopenblas.dll','libopenblas.so'])&&
             $this->isAvailable(['rindowmatlib.dll','librindowmatlib.so'])&&
-            $this->isAvailable(['OpenCL.dll','libopencl.so'])&&
+            $this->isAvailable(['OpenCL.dll','libOpenCL.so.1'])&&
             $this->isAvailable(['clblast.dll','libclblast.so'])) {
             $this->assertEquals(Service::LV_ACCELERATED,$service->serviceLevel());
         } elseif($this->isAvailable(['libopenblas.dll','libopenblas.so'])&&
             $this->isAvailable(['rindowmatlib.dll','librindowmatlib.so']) &&
-            (!$this->isAvailable(['OpenCL.dll','libopencl.so'])||
+            (!$this->isAvailable(['OpenCL.dll','libOpenCL.so.1'])||
             !$this->isAvailable(['clblast.dll','libclblast.so']))) {
             $this->assertEquals(Service::LV_ADVANCED,$service->serviceLevel());
         } elseif(!$this->isAvailable(['libopenblas.dll','libopenblas.so'])||
