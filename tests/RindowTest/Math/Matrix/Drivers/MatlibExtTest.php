@@ -22,6 +22,8 @@ use Rindow\Math\Matrix\Drivers\Service;
 use Interop\Polite\Math\Matrix\NDArray;
 use Interop\Polite\Math\Matrix\OpenCL;
 
+use InvalidArgumentException;
+
 /**
  * @requires extension rindow_openblas
  */
@@ -106,7 +108,15 @@ class Test extends TestCase
     public function testCreateQueuebyDeviceType()
     {
         $service = $this->newService();
-        $queue = $service->createQueue(['deviceType'=>OpenCL::CL_DEVICE_TYPE_GPU]);
+        if($service->serviceLevel()<Service::LV_ACCELERATED) {
+            $this->markTestSkipped("The service is not Accelerated.");
+            return;
+        }
+        try {
+            $queue = $service->createQueue(['deviceType'=>OpenCL::CL_DEVICE_TYPE_GPU]);
+        } catch(InvalidArgumentException $e) {
+            $queue = $service->createQueue(['deviceType'=>OpenCL::CL_DEVICE_TYPE_CPU]);
+        }
         $this->assertInstanceOf(\Rindow\OpenCL\CommandQueue::class,$queue);
         $this->assertInstanceOf(\Rindow\CLBlast\Blas::class,$service->blasCL($queue));
         $this->assertInstanceOf(\Rindow\Math\Matrix\Drivers\MatlibCL\OpenCLMath::class,$service->mathCL($queue));
@@ -116,7 +126,11 @@ class Test extends TestCase
     public function testCreateQueuebyDeviceId()
     {
         $service = $this->newService();
-        $queue = $service->createQueue(['device'=>"0,1"]);
+        if($service->serviceLevel()<Service::LV_ACCELERATED) {
+            $this->markTestSkipped("The service is not Accelerated.");
+            return;
+        }
+        $queue = $service->createQueue(['device'=>"0,0"]);
         $this->assertInstanceOf(\Rindow\OpenCL\CommandQueue::class,$queue);
         $this->assertInstanceOf(\Rindow\CLBlast\Blas::class,$service->blasCL($queue));
         $this->assertInstanceOf(\Rindow\Math\Matrix\Drivers\MatlibCL\OpenCLMath::class,$service->mathCL($queue));
