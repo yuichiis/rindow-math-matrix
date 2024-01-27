@@ -16,6 +16,7 @@ use Interop\Polite\Math\Matrix\OpenCL;
 
 use Rindow\Math\Matrix\Drivers\OpenBLASExt\OpenBlasBuffer as HostBuffer;
 
+use RuntimeException;
 /**
  * @requires extension rindow_opencl
  */
