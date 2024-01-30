@@ -14,7 +14,7 @@ use OutOfRangeException;
 use InvalidArgumentException;
 use LogicException;
 
-class Test extends TestCase
+class NDArrayPhpTest extends TestCase
 {
     protected $service;
 

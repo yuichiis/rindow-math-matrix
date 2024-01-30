@@ -7,7 +7,7 @@ use Rindow\Math\Matrix\MatrixOperator;
 use ArrayObject;
 use InvalidArgumentException;
 
-class Test extends TestCase
+class RandomTest extends TestCase
 {
     public function newMatrixOperator()
     {

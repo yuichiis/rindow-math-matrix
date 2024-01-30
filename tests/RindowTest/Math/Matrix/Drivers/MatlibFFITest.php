@@ -31,7 +31,7 @@ use InvalidArgumentException;
 /**
  * @requires extension ffi
  */
-class Test extends TestCase
+class MatlibFFITest extends TestCase
 {
     public function newService()
     {

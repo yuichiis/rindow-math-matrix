@@ -20,7 +20,7 @@ use RuntimeException;
 /**
  * @requires extension rindow_opencl
  */
-class Test extends TestCase
+class OpenCLFactoryTest extends TestCase
 {
     static protected int $default_device_type = OpenCL::CL_DEVICE_TYPE_GPU;
 

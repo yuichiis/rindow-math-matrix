@@ -6,12 +6,12 @@ use Rindow\Math\Matrix\MatrixOperator;
 use Rindow\Math\Matrix\Drivers\MatlibPhp;
 use Rindow\Math\Matrix\Drivers\Service;
 
-if(!class_exists('RindowTest\Math\Matrix\MatrixOperatorTest\Test')) {
+if(!class_exists('RindowTest\Math\Matrix\MatrixOperatorTest\MatrixOperatorTest')) {
     require_once __DIR__.'/MatrixOperatorTest.php';
 }
-use RindowTest\Math\Matrix\MatrixOperatorTest\Test as ORGTest;
+use RindowTest\Math\Matrix\MatrixOperatorTest\MatrixOperatorTest as ORGTest;
 
-class Test extends ORGTest
+class MatrixOperatorPhpModeTest extends ORGTest
 {
     public function newMatrixOperator()
     {

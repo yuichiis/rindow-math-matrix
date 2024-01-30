@@ -14,7 +14,7 @@ use InvalidArgumentException;
 
 use Rindow\Math\Matrix\Drivers\MatlibExt;
 
-class Test extends TestCase
+class LinearAlgebraTest extends TestCase
 {
     static protected $speedtest = false;
     protected $equalEpsilon = 1e-04;
@@ -2148,7 +2148,7 @@ class Test extends TestCase
         $C = $la->matmul($A,$B,null,null,$C);
     }
 
-    public function providerSumNormal()
+    public static function providerSumNormal()
     {
         return [
             'float32' => [NDArray::float32],
@@ -5525,7 +5525,7 @@ class Test extends TestCase
         }
     }
 
-    public function providerIm2col2dNormal()
+    public static function providerIm2col2dNormal()
     {
         return [
             'normal' => [[
@@ -5951,7 +5951,7 @@ class Test extends TestCase
         ];
     }
 
-    public function providerIm2col2dNormalDEBUG()
+    public static function providerIm2col2dNormalDEBUG()
     {
         return [
             'kernel_h' => [[
@@ -6503,7 +6503,7 @@ class Test extends TestCase
         //);
     }
 
-    public function providerIm2col1dNormal()
+    public static function providerIm2col1dNormal()
     {
         return [
             'normal' => [[
@@ -6934,7 +6934,7 @@ class Test extends TestCase
         //);
     }
 
-    public function providerIm2col3dNormal()
+    public static function providerIm2col3dNormal()
     {
         return [
             'normal' => [[
@@ -7701,7 +7701,7 @@ class Test extends TestCase
     }
 
 
-    public function providerIm2col3dNormalDEBUG()
+    public static function providerIm2col3dNormalDEBUG()
     {
         return [
             'kernel_h' => [[

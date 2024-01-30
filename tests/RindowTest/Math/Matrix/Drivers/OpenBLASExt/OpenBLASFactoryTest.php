@@ -12,7 +12,7 @@ use Interop\Polite\Math\Matrix\NDArray;
 /**
  * @requires extension rindow_openblas
  */
-class Test extends TestCase
+class OpenBLASFactoryTest extends TestCase
 {
     public function newDriverFactory()
     {

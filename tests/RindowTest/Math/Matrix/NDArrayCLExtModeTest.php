@@ -6,15 +6,15 @@ use Rindow\Math\Matrix\MatrixOperator;
 use Rindow\Math\Matrix\Drivers\MatlibExt;
 use Rindow\Math\Matrix\Drivers\Service;
 
-if(!class_exists('RindowTest\Math\Matrix\NDArrayCLExtModeTest\Test')) {
+if(!class_exists('RindowTest\Math\Matrix\NDArrayCLTest\NDArrayCLTest')) {
     require_once __DIR__.'/NDArrayCLTest.php';
 }
-use RindowTest\Math\Matrix\NDArrayCLTest\Test as ORGTest;
+use RindowTest\Math\Matrix\NDArrayCLTest\NDArrayCLTest as ORGTest;
 
 /**
  * @requires extension rindow_opencl
  */
-class Test extends ORGTest
+class NDArrayCLExtModeTest extends ORGTest
 {
     public function setUp() : void
     {

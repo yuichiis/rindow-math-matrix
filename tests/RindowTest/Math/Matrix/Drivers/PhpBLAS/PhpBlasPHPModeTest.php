@@ -4,12 +4,12 @@ namespace RindowTest\Math\Matrix\Drivers\PhpBLAS\PhpBlasPHPModeTest;
 if(!class_exists('RindowTest\Math\Matrix\Drivers\PhpBLAS\PhpBlasTest\Test')) {
     include __DIR__.'/PhpBlasTest.php';
 }
-use RindowTest\Math\Matrix\Drivers\PhpBLAS\PhpBlasTest\Test as ORGTest;
+use RindowTest\Math\Matrix\Drivers\PhpBLAS\PhpBlasTest\PhpBlasTest as ORGTest;
 use Rindow\Math\Matrix\PhpBlas;
 use Rindow\Math\Matrix\Drivers\Service;
 use Rindow\Math\Matrix\MatrixOperator;
 
-class Test extends ORGTest
+class PhpBlasPHPModeTest extends ORGTest
 {
     public function getBlas($mo)
     {

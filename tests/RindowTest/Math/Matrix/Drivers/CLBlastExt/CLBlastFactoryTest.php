@@ -11,7 +11,7 @@ use Interop\Polite\Math\Matrix\NDArray;
 /**
  * @requires extension rindow_clblast
  */
-class Test extends TestCase
+class CLBlastFactoryTest extends TestCase
 {
     protected $service;
     protected $queue;

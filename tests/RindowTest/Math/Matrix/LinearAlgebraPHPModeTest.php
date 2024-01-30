@@ -12,12 +12,12 @@ use Rindow\Math\Matrix\PhpMath;
 use ArrayObject;
 use InvalidArgumentException;
 
-if(!class_exists('RindowTest\Math\Matrix\LinearAlgebraTest\Test')) {
+if(!class_exists('RindowTest\Math\Matrix\LinearAlgebraTest\LinearAlgebraTest')) {
     require_once __DIR__.'/LinearAlgebraTest.php';
 }
-use RindowTest\Math\Matrix\LinearAlgebraTest\Test as ORGTest;
+use RindowTest\Math\Matrix\LinearAlgebraTest\LinearAlgebraTest as ORGTest;
 
-class Test extends ORGTest
+class LinearAlgebraPHPModeTest extends ORGTest
 {
     public function setUp() : void
     {

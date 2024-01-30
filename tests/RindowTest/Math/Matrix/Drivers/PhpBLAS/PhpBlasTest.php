@@ -8,7 +8,7 @@ use Rindow\Math\Matrix\MatrixOperator;
 use Rindow\Math\Matrix\Drivers\Service;
 use InvalidArgumentException;
 
-class Test extends TestCase
+class PhpBlasTest extends TestCase
 {
     public function getBlas($mo)
     {

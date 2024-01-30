@@ -9,7 +9,7 @@ use Rindow\Math\Matrix\Drivers\PhpBLAS\PhpLapack;
 use Rindow\Math\Matrix\Drivers\PhpBLAS\PhpMath;
 use Interop\Polite\Math\Matrix\NDArray;
 
-class Test extends TestCase
+class PhpBLASFactoryTest extends TestCase
 {
     public function newDriverFactory()
     {

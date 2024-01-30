@@ -22,7 +22,7 @@ use Rindow\Math\Matrix\Drivers\Service;
 
 use Interop\Polite\Math\Matrix\NDArray;
 
-class Test extends TestCase
+class SelectorTest extends TestCase
 {
     public function newSelector($catalog=null)
     {

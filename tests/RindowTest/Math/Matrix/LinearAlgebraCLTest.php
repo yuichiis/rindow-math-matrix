@@ -4,12 +4,12 @@ namespace RindowTest\Math\Matrix\LinearAlgebraCLTest;
 //if(!class_exists('RindowTest\Math\Matrix\LinearAlgebraTest\Test')) {
 //    require_once __DIR__.'/../../../../../../rindow-math-matrix/tests/RindowTest/Math/Matrix/LinearAlgebraTest.php';
 //}
-if(!class_exists('RindowTest\Math\Matrix\LinearAlgebraTest\Test')) {
+if(!class_exists('RindowTest\Math\Matrix\LinearAlgebraTest\LinearAlgebraTest')) {
     require_once __DIR__.'/LinearAlgebraTest.php';
 }
 
 use Rindow\Math\Plot\Plot;
-use RindowTest\Math\Matrix\LinearAlgebraTest\Test as ORGTest;
+use RindowTest\Math\Matrix\LinearAlgebraTest\LinearAlgebraTest as ORGTest;
 use InvalidArgumentException;
 use Rindow\Math\Matrix\MatrixOperator;
 
@@ -716,7 +716,7 @@ class TestLinearAlgebraCL extends LinearAlgebraCL
     }
 }
 
-class Test extends ORGTest
+class LinearAlgebraCLTest extends ORGTest
 {
     public function setUp() : void
     {
@@ -755,7 +755,7 @@ class Test extends ORGTest
         return $x;
     }
 
-    public function modeProviderNoZero()
+    public static function modeProviderNoZero()
     {
         return [
             'mode 1' => [1],
@@ -764,7 +764,7 @@ class Test extends ORGTest
         ];
     }
 
-    public function modeProvider()
+    public static function modeProvider()
     {
         return [
             'mode 0' => [0],
@@ -774,7 +774,7 @@ class Test extends ORGTest
         ];
     }
 
-    public function modeProvider4mode()
+    public static function modeProvider4mode()
     {
         return [
             'mode 0' => [0],
@@ -872,6 +872,8 @@ class Test extends ORGTest
         //echo "image=($im_h,$im_w)\n";
         $out_h = intval(floor(($im_h-($kernel_h-1)*$dilation_h-1)/$stride_h)+1);
         $out_w = intval(floor(($im_w-($kernel_w-1)*$dilation_w-1)/$stride_w)+1);
+        $padding_h = 0;
+        $padding_w = 0;
         if($padding) {
             $out_h = $im_h;
             $out_w = $im_w;

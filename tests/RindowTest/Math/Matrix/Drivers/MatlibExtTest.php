@@ -27,7 +27,7 @@ use InvalidArgumentException;
 /**
  * @requires extension rindow_openblas
  */
-class Test extends TestCase
+class MatlibExtTest extends TestCase
 {
     public function newService()
     {

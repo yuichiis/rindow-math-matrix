@@ -6,15 +6,15 @@ use Rindow\Math\Matrix\MatrixOperator;
 use Rindow\Math\Matrix\Drivers\MatlibExt;
 use Rindow\Math\Matrix\Drivers\Service;
 
-if(!class_exists('RindowTest\Math\Matrix\LinearAlgebraTest\Test')) {
+if(!class_exists('RindowTest\Math\Matrix\LinearAlgebraTest\LinearAlgebraTest')) {
     require_once __DIR__.'/LinearAlgebraTest.php';
 }
-use RindowTest\Math\Matrix\LinearAlgebraTest\Test as ORGTest;
+use RindowTest\Math\Matrix\LinearAlgebraTest\LinearAlgebraTest as ORGTest;
 
 /**
  * @requires extension rindow_openblas
  */
-class Test extends ORGTest
+class LinearAlgebraExtModeTest extends ORGTest
 {
     public function setUp() : void
     {

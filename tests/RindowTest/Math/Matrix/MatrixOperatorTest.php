@@ -9,7 +9,7 @@ use Rindow\Math\Matrix\Drivers\Service;
 use ArrayObject;
 
 
-class Test extends TestCase
+class MatrixOperatorTest extends TestCase
 {
     public function newMatrixOperator()
     {
