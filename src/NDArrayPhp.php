@@ -17,6 +17,17 @@ use Interop\Polite\Math\Matrix\Buffer;
 use Rindow\Math\Matrix\Drivers\Service;
 use Rindow\Math\Matrix\Drivers\Selector;
 
+function R(
+    int $start,
+    int $limit,
+) : Range
+{
+    if(func_num_args()!=2) {
+        throw new InvalidArgumentException('R must have only two arguments: "start" and "limit".');
+    }
+    return new Range(start:$start,limit:$limit);
+}
+
 class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
 {
     const SERIALIZE_NDARRAY_KEYWORD = 'NDArray:';
@@ -262,14 +273,22 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
                     throw new OutOfRangeException("Illegal range specification.".$det);
             }
             $start = $offset[0];
-            $end   = $offset[1];
+            $limit = $offset[1]+1;
         } elseif(is_int($offset)) {
             $start = $offset;
-            $end   = $offset;
+            $limit = $offset+1;
+        } elseif($offset instanceof Range) {
+            $start = $offset->start();
+            $limit = $offset->limit();
+            $delta = $offset->delta();
+            if($start>=$limit||$delta!=1) {
+                    $det = ":[$start,$limit".(($delta!=1)?",$delta":"").']';
+                    throw new OutOfRangeException("Illegal range specification.".$det);
+            }
         } else {
             throw new OutOfRangeException("Dimension must be integer");
         }
-        if($start < 0 || $end >= $this->_shape[0])
+        if($start < 0 || $limit > $this->_shape[0])
             return false;
         return true;
     }
@@ -279,33 +298,40 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         if(!$this->offsetExists($offset))
             throw new OutOfRangeException("Index is out of range");
 
-        // for range spesification
-        if(is_array($offset)) {
+        // for single index specification
+        if(is_numeric($offset)) {
             $shape = $this->_shape;
-            array_shift($shape);
-            $rowsCount = $offset[1]-$offset[0]+1;
-            if(count($shape)>0) {
-                $itemSize = (int)array_product($shape);
-            } else {
-                $itemSize = 1;
+            $max = array_shift($shape);
+            if(count($shape)==0) {
+                return $this->_buffer[$this->_offset+$offset];
             }
-            if($rowsCount<0) {
-                throw new OutOfRangeException('Invalid range');
-            }
-            array_unshift($shape,$rowsCount);
             $size = (int)array_product($shape);
-            $new = new self($this->_buffer,$this->_dtype,$shape,$this->_offset+$offset[0]*$itemSize,service:$this->service);
+            $new = new self($this->_buffer,$this->_dtype,$shape,$this->_offset+$offset*$size,service:$this->service);
             return $new;
         }
 
-        // for single index specification
+        // for range spesification
         $shape = $this->_shape;
-        $max = array_shift($shape);
-        if(count($shape)==0) {
-            return $this->_buffer[$this->_offset+$offset];
+        array_shift($shape);
+        if(is_array($offset)) {
+            $start = $offset[0];
+            $limit = $offset[1]+1;
+        } else {
+            $start = $offset->start();
+            $limit = $offset->limit();
         }
+        $rowsCount = $limit-$start;
+        if(count($shape)>0) {
+            $itemSize = (int)array_product($shape);
+        } else {
+            $itemSize = 1;
+        }
+        if($rowsCount<0) {
+            throw new OutOfRangeException('Invalid range');
+        }
+        array_unshift($shape,$rowsCount);
         $size = (int)array_product($shape);
-        $new = new self($this->_buffer,$this->_dtype,$shape,$this->_offset+$offset*$size,service:$this->service);
+        $new = new self($this->_buffer,$this->_dtype,$shape,$this->_offset+$start*$itemSize,service:$this->service);
         return $new;
     }
 
@@ -315,6 +341,9 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
             throw new OutOfRangeException("Index is out of range");
         // for range spesification
         if(is_array($offset)) {
+            throw new OutOfRangeException("Unsuppored to set for range specification.");
+        }
+        if($offset instanceof Range) {
             throw new OutOfRangeException("Unsuppored to set for range specification.");
         }
         // for single index specification

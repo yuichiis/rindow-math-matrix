@@ -4822,8 +4822,8 @@ class OpenCLMath
      */
     public function searchsorted(
         int $m,
-        BufferInterface $A, int $offsetA, int $incA, // float
         int $n,
+        BufferInterface $A, int $offsetA, int $ldA, // float
         BufferInterface $X, int $offsetX, int $incX, // float
         bool $right,
         BufferInterface $Y, int $offsetY, int $incY, // int
@@ -4853,10 +4853,10 @@ class OpenCLMath
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint m,\n".
+                "    const        uint n,\n".
                 "        __global {$type} * a,\n".
                 "    const        uint offset_a,\n".
-                "    const        uint inca,\n".
+                "    const        uint lda,\n".
                 "        __global {$type} * x,\n".
                 "    const        uint offset_x,\n".
                 "    const        uint incx,\n".
@@ -4864,31 +4864,33 @@ class OpenCLMath
                 "    const        uint offset_y,\n".
                 "    const        uint incy)\n".
                 "{\n".
+                "    uint ida = get_global_id(0)*lda+offset_a;\n".
                 "    uint idx = get_global_id(0)*incx+offset_x;\n".
                 "    uint idy = get_global_id(0)*incy+offset_y;\n".
                 "    uint i;\n".
                 "    {$type} v = x[idx];\n".
-                "    for(i=0;i<m;i++) {\n".
-                "        if(!(v {$cmp} a[offset_a+i*inca])) {\n".
+                "    for(i=0;i<n;i++) {\n".
+                "        if(!(v {$cmp} a[ida])) {\n".
                 "            break;\n".
                 "        }\n".
+                "        ++ida;\n".
                 "    }\n".
                 "    y[idy] = i;\n".
                 "}\n";
         }
 
         $kernel = $this->createKernel($kernel_name);
-        $kernel->setArg(0,$m,NDArray::uint32);
+        $kernel->setArg(0,$n,NDArray::uint32);
         $kernel->setArg(1,$A);
         $kernel->setArg(2,$offsetA,NDArray::uint32);
-        $kernel->setArg(3,$incA,NDArray::uint32);
+        $kernel->setArg(3,$ldA,NDArray::uint32);
         $kernel->setArg(4,$X);
         $kernel->setArg(5,$offsetX,NDArray::uint32);
         $kernel->setArg(6,$incX,NDArray::uint32);
         $kernel->setArg(7,$Y);
         $kernel->setArg(8,$offsetY,NDArray::uint32);
         $kernel->setArg(9,$incY,NDArray::uint32);
-        $global_work_size = [$n];
+        $global_work_size = [$m];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
     }

@@ -3600,8 +3600,12 @@ class LinearAlgebra
         NDArray $Y=null
         ) : NDArray
     {
-        if($A->ndim()!=1) {
-            throw new InvalidArgumentException('A must be 1D NDArray.');
+        if($A->ndim()==1) {
+            $individual = false;
+        } elseif($A->ndim()==2) {
+            $individual = true;
+        } else {
+            throw new InvalidArgumentException('A must be 1D or 2D NDArray.');
         }
         if($right===null) {
             $right = false;
@@ -3621,10 +3625,20 @@ class LinearAlgebra
             $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
             throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
         }
-        $m = $A->size();
+        if($individual) {
+            [$m,$n] = $A->shape();
+            if($m!=$X->size()) {
+                $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$X->shape()).')';
+                throw new InvalidArgumentException("Unmatch shape of dimension A,X: ".$shapeError);
+            }
+            $ldA = $n;
+        } else {
+            $m = $X->size();
+            $n = $A->size();
+            $ldA = 0;
+        }
         $AA = $A->buffer();
         $offA = $A->offset();
-        $n = $X->size();
         $XX = $X->buffer();
         $offX = $X->offset();
         $YY = $Y->buffer();
@@ -3632,8 +3646,8 @@ class LinearAlgebra
 
         $this->math->searchsorted(
             $m,
-            $AA,$offA,1,
             $n,
+            $AA,$offA,$ldA,
             $XX,$offX,1,
             $right,
             $YY,$offY,1

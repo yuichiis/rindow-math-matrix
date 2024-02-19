@@ -1439,41 +1439,43 @@ class PhpMath
 
     public function searchsorted(
         int $m,
-        Buffer $A, int $offsetA, int $incA, // float
         int $n,
+        Buffer $A, int $offsetA, int $ldA,  // float
         Buffer $X, int $offsetX, int $incX, // float
         bool $right,
         Buffer $Y, int $offsetY, int $incY // int
         ) : void
     {
         if($this->math) {
-            $this->math->searchsorted($m,$A,$offsetA,$incA,$n,$X,$offsetX,$incX,$right,$Y,$offsetY,$incY);
+            $this->math->searchsorted($m,$n,$A,$offsetA,$ldA,$X,$offsetX,$incX,$right,$Y,$offsetY,$incY);
             return;
         }
 
         $idx = $offsetX;
         $idy = $offsetY;
-        for($i=0;$i<$n;$i++) {
+        $startA = $offsetA;
+        for($i=0;$i<$m;$i++) {
             $v = $X[$idx];
-            $ida = $offsetA;
+            $ida = $startA;
             if($right) {
-                for($j=0;$j<$m;$j++) {
+                for($j=0;$j<$n;$j++) {
                     if(!($v>=$A[$ida])) {
                         break;
                     }
-                    $ida += $incA;
+                    $ida++;
                 }
             } else {
-                for($j=0;$j<$m;$j++) {
+                for($j=0;$j<$n;$j++) {
                     if(!($v>$A[$ida])) {
                         break;
                     }
-                    $ida += $incA;
+                    $ida++;
                 }
             }
             $Y[$idy] = $j;
             $idx+=$incX;
             $idy+=$incY;
+            $startA += $ldA;
         }
     }
 

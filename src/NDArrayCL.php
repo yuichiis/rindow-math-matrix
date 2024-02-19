@@ -216,14 +216,22 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
                     throw new OutOfRangeException("Illegal range specification.".$det);
             }
             $start = $offset[0];
-            $end   = $offset[1];
+            $limit = $offset[1]+1;
         } elseif(is_int($offset)) {
             $start = $offset;
-            $end   = $offset;
+            $limit = $offset+1;
+        } elseif($offset instanceof Range) {
+            $start = $offset->start();
+            $limit = $offset->limit();
+            $delta = $offset->delta();
+            if($start>=$limit||$delta!=1) {
+                $det = ":[$start,$limit".(($delta!=1)?",$delta":"").']';
+                throw new OutOfRangeException("Illegal range specification.".$det);
+            }
         } else {
             throw new OutOfRangeException("Dimension must be integer");
         }
-        if($start < 0 || $end >= $this->shape[0])
+        if($start < 0 || $limit > $this->shape[0])
             return false;
         return true;
     }
@@ -238,37 +246,47 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
             }
         }
 
-        // for range spesification
-        if(is_array($offset)) {
-            $shape = $this->shape;
-            array_shift($shape);
-            $rowsCount = $offset[1]-$offset[0]+1;
-            if(count($shape)>0) {
-                $itemSize = (int)array_product($shape);
-            } else {
-                $itemSize = 1;
-            }
-            if($rowsCount<0) {
-                throw new OutOfRangeException('Invalid range');
-            }
-            array_unshift($shape,$rowsCount);
-            $size = (int)array_product($shape);
-            $new = new static($this->context,$this->queue,$this->buffer,$this->dtype,
-                $shape,$this->offset+$offset[0]*$itemSize, $this->flags, service:$this->service);
-            return $new;
-        }
-
         // for single index specification
-        $shape = $this->shape;
-        $max = array_shift($shape);
-        if(count($shape)==0) {
-            $new = new static($this->context,$this->queue,$this->buffer,$this->dtype,
-                $shape, $this->offset+$offset, $this->flags, service:$this->service);
+        if(is_numeric($offset)) {
+            $shape = $this->shape;
+            $max = array_shift($shape);
+            if(count($shape)==0) {
+                $new = new static($this->context,$this->queue,$this->buffer,$this->dtype,
+                    $shape, $this->offset+$offset, $this->flags, service:$this->service);
+                return $new;
+            }
+            $size = (int)array_product($shape);
+            $new = new static($this->context, $this->queue, $this->buffer, $this->dtype,
+                $shape, $this->offset+$offset*$size, $this->flags, service:$this->service);
             return $new;
         }
+        
+        // for range spesification
+        $shape = $this->shape;
+        array_shift($shape);
+        if(is_array($offset)) {
+            $start = $offset[0];
+            $limit = $offset[1]+1;
+        } else {
+            $start = $offset->start();
+            $limit = $offset->limit();
+            if($offset->delta()!=1) {
+                throw new OutOfRangeException("Illegal range specification.:delta=".$offset->delta());
+            }
+        }
+        $rowsCount = $limit-$start;
+        if(count($shape)>0) {
+            $itemSize = (int)array_product($shape);
+        } else {
+            $itemSize = 1;
+        }
+        if($rowsCount<0) {
+            throw new OutOfRangeException('Invalid range');
+        }
+        array_unshift($shape,$rowsCount);
         $size = (int)array_product($shape);
-        $new = new static($this->context, $this->queue, $this->buffer, $this->dtype,
-            $shape, $this->offset+$offset*$size, $this->flags, service:$this->service);
+        $new = new static($this->context,$this->queue,$this->buffer,$this->dtype,
+            $shape,$this->offset+$start*$itemSize, $this->flags, service:$this->service);
         return $new;
     }
 

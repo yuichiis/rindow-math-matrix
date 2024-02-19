@@ -3960,7 +3960,7 @@ class LinearAlgebraTest extends TestCase
         $this->assertEquals($mo_gather->toArray(),$a->toArray());
         $this->assertEquals($trues->toArray(),$b->toArray());
 
-        // 1D by 2D
+        // 2D by 2D
         $x = $la->array([[3,2,1],[5,6,7]],dtype:NDArray::int32);
         $a = $la->array([[13,12,11],[15,16,17]]);
         $b = $la->scatter($x,$a,$numClass=10);
@@ -3996,7 +3996,7 @@ class LinearAlgebraTest extends TestCase
         $this->assertEquals($mo_gather->toArray(),$a->toArray());
         $this->assertEquals($trues->toArray(),$b->toArray());
 
-        // 2D by 2D
+        // 3D by 2D
         $x = $la->array([
             [2, 1, 0],
             [1, 2, 3],
@@ -9856,6 +9856,36 @@ class LinearAlgebraTest extends TestCase
         $Y = $la->searchsorted($A,$X,true);
         $this->assertEquals(
             [0,3,5],
+            $Y->toArray()
+        );
+
+        // individual mode
+        $A = $mo->array([
+            [1,   3,  5,   7,   9],
+            [1,   2,  3,   4,   5],
+            [0, 100, 20, 300, 400]
+        ]);
+        $A = $la->array($A);
+        $X = $mo->array([0, 5, 10]);
+        $X = $la->array($X);
+        $Y = $la->searchsorted($A,$X);
+        $this->assertEquals(
+            [0, 4, 1],
+            $Y->toArray()
+        );
+
+        // individual mode & right=true
+        $A = $mo->array([
+            [1,   3,  5,   7,   9],
+            [1,   2,  3,   4,   5],
+            [0, 100, 20, 300, 400]
+        ]);
+        $A = $la->array($A);
+        $X = $mo->array([0, 5, 10]);
+        $X = $la->array($X);
+        $Y = $la->searchsorted($A,$X,true);
+        $this->assertEquals(
+            [0, 5, 1],
             $Y->toArray()
         );
 
