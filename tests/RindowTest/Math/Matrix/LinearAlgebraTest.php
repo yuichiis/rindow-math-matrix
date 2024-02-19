@@ -11,6 +11,7 @@ use Rindow\Math\Matrix\Drivers\Service;
 use Rindow\Math\Plot\Plot;
 use ArrayObject;
 use InvalidArgumentException;
+use function Rindow\Math\Matrix\R;
 
 use Rindow\Math\Matrix\Drivers\MatlibExt;
 
@@ -9898,7 +9899,7 @@ class LinearAlgebraTest extends TestCase
         $this->assertEquals(1.0,$total);
         $size = $A->size();
         $this->assertEquals(5,$size);
-        $A = $la->cumsum($A[[0,$size-2]]);
+        $A = $la->cumsum($A[R(0,$size-1)]);
         $this->assertEquals([0.0,0.0,0.5,0.5],$A->toArray());
         $X = $mo->array([0.0,0.4,0.6,$total]);
         $X = $la->array($X);

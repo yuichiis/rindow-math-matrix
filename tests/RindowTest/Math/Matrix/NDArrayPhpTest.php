@@ -8,6 +8,7 @@ use Interop\Polite\Math\Matrix\Buffer as BufferInterface;
 use Rindow\Math\Matrix\Drivers\PhpBLAS\PhpBuffer;
 use Rindow\Math\Matrix\Drivers\Selector;
 use Rindow\Math\Matrix\Drivers\Service;
+use function Rindow\Math\Matrix\R;
 
 use ArrayObject;
 use OutOfRangeException;
@@ -356,37 +357,37 @@ class NDArrayPhpTest extends TestCase
     {
         $array = [1,2,3,4,5,6,7,8,9,10];
         $a = new NDArrayPhp($array,NDArray::int32,service:$this->service);
-        $this->assertEquals([3,4,5],$a[[2,4]]->toArray());
+        $this->assertEquals([3,4,5],$a[R(2,5)]->toArray());
         $this->assertEquals(
             spl_object_hash($a->buffer()),
-            spl_object_hash($a[[2,4]]->buffer()));
+            spl_object_hash($a[R(2,5)]->buffer()));
 
-        $this->assertEquals([3],$a[[2,2]]->toArray());
+        $this->assertEquals([3],$a[R(2,3)]->toArray());
         $this->assertEquals(
             spl_object_hash($a->buffer()),
-            spl_object_hash($a[[2,2]]->buffer()));
+            spl_object_hash($a[R(2,3)]->buffer()));
 
-        $this->assertEquals([1,2,3,4,5,6,7,8,9,10],$a[[0,9]]->toArray());
+        $this->assertEquals([1,2,3,4,5,6,7,8,9,10],$a[R(0,10)]->toArray());
         $this->assertEquals(
             spl_object_hash($a->buffer()),
-            spl_object_hash($a[[0,9]]->buffer()));
+            spl_object_hash($a[R(0,10)]->buffer()));
 
         $array = [[[1,2],[3,4]],[[5,6],[7,8]],[[9,10],[11,12]]];
         $a = new NDArrayPhp($array,NDArray::int32,service:$this->service);
-        $this->assertEquals([[[1,2],[3,4]],[[5,6],[7,8]]],$a[[0,1]]->toArray());
-        $this->assertEquals([[[5,6],[7,8]],[[9,10],[11,12]]],$a[[1,2]]->toArray());
+        $this->assertEquals([[[1,2],[3,4]],[[5,6],[7,8]]],$a[R(0,2)]->toArray());
+        $this->assertEquals([[[5,6],[7,8]],[[9,10],[11,12]]],$a[R(1,3)]->toArray());
     }
 
     public function testOffsetExistsForRange()
     {
         $array = [1,2,3,4,5,6,7,8,9,10];
         $a = new NDArrayPhp($array,NDArray::int32,service:$this->service);
-        $this->assertTrue($a->offsetExists([2,4]));
-        $this->assertTrue($a->offsetExists([0,4]));
-        $this->assertTrue($a->offsetExists([4,9]));
-        $this->assertTrue($a->offsetExists([0,9]));
-        $this->assertFalse($a->offsetExists([-1,9]));
-        $this->assertFalse($a->offsetExists([0,10]));
+        $this->assertTrue($a->offsetExists(R(2,5)));
+        $this->assertTrue($a->offsetExists(R(0,5)));
+        $this->assertTrue($a->offsetExists(R(4,10)));
+        $this->assertTrue($a->offsetExists(R(0,10)));
+        $this->assertFalse($a->offsetExists(R(-1,10)));
+        $this->assertFalse($a->offsetExists(R(0,11)));
     }
 
     public function testOffsetExistsForIllegalRange()
@@ -395,7 +396,7 @@ class NDArrayPhpTest extends TestCase
         $a = new NDArrayPhp($array,NDArray::int32,service:$this->service);
         $this->expectException(OutOfRangeException::class);
         $this->expectExceptionMessage('Illegal range specification');
-        $b = $a->offsetExists([1,0]);
+        $b = $a->offsetExists(R(1,1));
     }
 
     public function testCount()

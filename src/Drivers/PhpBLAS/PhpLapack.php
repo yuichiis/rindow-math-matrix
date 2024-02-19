@@ -7,6 +7,7 @@ use InvalidArgumentException;
 use Interop\Polite\Math\Matrix\NDArray;
 use Rindow\Math\Matrix\NDArrayPhp;
 use Rindow\Math\Matrix\Drivers\Service;
+use function Rindow\Math\Matrix\R;
 
 class PhpLapack
 {
@@ -133,12 +134,12 @@ class PhpLapack
 
         $min_num = min($m,$n);
         for($i=0;$i<$m;$i++) {
-            $this->copy($A[$i][[0,(int)($min_num-1)]],
-                $U[$i][[0,(int)($min_num-1)]]);
+            $this->copy($A[$i][R(0,(int)($min_num))],
+                $U[$i][R(0,(int)($min_num))]);
         }
         for($i=0;$i<$min_num;$i++) {
-            $this->copy($A[$i][[0,(int)($n-1)]],
-                $V[$i][[0,(int)($n-1)]]);
+            $this->copy($A[$i][R(0,(int)($n))],
+                $V[$i][R(0,(int)($n))]);
         }
 
         #echo "--- a ---\n";

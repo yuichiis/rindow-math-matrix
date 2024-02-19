@@ -12,6 +12,7 @@ use Rindow\Math\Matrix\Drivers\Service;
 #use Rindow\Math\Matrix\NDArrayPhp;
 use InvalidArgumentException;
 use LogicException;
+use function Rindow\Math\Matrix\R;
 
 class LinearAlgebraCL
 {
@@ -4439,7 +4440,7 @@ class LinearAlgebraCL
             $size,
             $XX,$offX,1,
             $seed);
-        $hostX = $hostX[[0,$size-1]];
+        $hostX = $hostX[R(0,$size)];
         if($output==null) {
             $output = $this->array($hostX);
         } else {

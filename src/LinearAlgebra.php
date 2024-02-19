@@ -6,6 +6,7 @@ use Interop\Polite\Math\Matrix\NDArray;
 use InvalidArgumentException;
 use ArrayAccess as Buffer;
 use Rindow\Math\Matrix\Drivers\Service;
+use function Rindow\Math\Matrix\R;
 
 class LinearAlgebra
 {
@@ -2889,7 +2890,7 @@ class LinearAlgebra
             $size,
             $XX,$offX,1,
             $seed);
-        $X = $X[[0,$size-1]];
+        $X = $X[R(0,$size)];
         return $X;
     }
 
@@ -3345,7 +3346,7 @@ class LinearAlgebra
         );
         if(!$fullMatrices) {
             // bug in the lapacke ???
-            $VT = $this->copy($VT[[0,min($m,$n)-1]]);
+            $VT = $this->copy($VT[R(0,min($m,$n))]);
         }
         return [$U,$S,$VT];
     }

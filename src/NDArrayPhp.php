@@ -261,6 +261,9 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
 
     public function offsetExists( $offset ) : bool
     {
+        if(is_array($offset)) {
+            throw new InvalidArgumentException("offset style is old renge style.");
+        }
         if(count($this->_shape)==0)
             return false;
         if(is_array($offset)) {
