@@ -8245,6 +8245,8 @@ class LinearAlgebraTest extends TestCase
             $y->toArray());
         $this->assertLessThanOrEqual(1,$la->max($x));
         $this->assertGreaterThanOrEqual(-1,$la->min($x));
+        $fluct = $this->chi2(20*30, $la->toNDArray($x), $la->min($x), $la->max($x), 10);
+        $this->assertLessThan(16.919,$fluct);
 
         $x = $la->randomUniform(
             $shape=[20,30],
@@ -8270,6 +8272,35 @@ class LinearAlgebraTest extends TestCase
             $this->assertEquals(1,round($la->max($x)));
             $this->assertEquals(-1,round($la->min($x)));
         }
+        $fluct = $this->chi2(20*30, $la->toNDArray($x), $la->min($x), $la->max($x), 3);
+        $this->assertLessThan(16.919,$fluct);
+    }
+
+    protected function chi2(int $n, NDArray $X, float $min, float $max, int $density) : float
+    {
+        $xx = $X->reshape([(int)array_product($X->shape())]);
+        $hist_size = $density;
+        $histogram = [];
+        for($i=0;$i<$hist_size;++$i) {
+            $histogram[$i] = 0;
+        }
+
+        for($i=0;$i<$n;++$i) {
+            $index = (int)(($xx[$i]-$min)/(($max-$min)/$hist_size));
+            if($index>=$hist_size) {
+                $index = $hist_size-1;
+            }
+            $histogram[$index]++;
+        }
+        //echo get_class($this)."\n";
+        $chi_square = 0.0;
+        for($i = 0; $i < $hist_size; $i++) {
+            echo $histogram[$i]."\n";
+            $chi_square += ($histogram[$i] - $n/$hist_size) * ($histogram[$i] - $n/$hist_size) / ($n/$hist_size);
+        }
+        //echo "\n";
+        //echo "chi_square=$chi_square\n";
+        return $chi_square;
     }
 
     public function testRandomNormal()
