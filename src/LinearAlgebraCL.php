@@ -5279,7 +5279,7 @@ class LinearAlgebraCL
         if(!$fullMatrices) {
             // bug in the lapacke ???
             $copyEvents = $this->newEventList();
-            $VT = $this->copy($VT[[0,min($m,$n)-1]],null,$copyEvents);
+            $VT = $this->copy($VT[R(0,min($m,$n))],null,$copyEvents);
             $copyEvents->wait();
         }
         if($this->blocking) {

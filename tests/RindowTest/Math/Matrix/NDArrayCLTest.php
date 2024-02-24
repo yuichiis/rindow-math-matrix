@@ -14,6 +14,7 @@ use OutOfRangeException;
 use InvalidArgumentException;
 use LogicException;
 use RuntimeException;
+use function Rindow\Math\Matrix\R;
 
 class NDArrayCLTest extends TestCase
 {
@@ -81,7 +82,7 @@ class NDArrayCLTest extends TestCase
         $this->assertEquals([3,4],$newArray->toNDArray()->toArray());
 
         // offsetGet range axis
-        $newArray = $array[[1,2]];
+        $newArray = $array[R(1,3)];
         $this->assertEquals(2,$newArray->ndim());
         $this->assertEquals([2,2],$newArray->shape());
         $this->assertEquals([[3,4],[5,6]],$newArray->toNDArray()->toArray());

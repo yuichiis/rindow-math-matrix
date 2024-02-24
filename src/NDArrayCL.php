@@ -207,6 +207,9 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
     public function offsetExists( $offset ) : bool
     {
         if(is_array($offset)) {
+            throw new InvalidArgumentException("offset style is old renge style.");
+        }
+        if(is_array($offset)) {
             if(count($offset)!=2 ||
                 !array_key_exists(0,$offset) || !array_key_exists(1,$offset) ||
                 $offset[0]>$offset[1]) {

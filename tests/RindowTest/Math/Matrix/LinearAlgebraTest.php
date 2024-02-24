@@ -4925,12 +4925,12 @@ class LinearAlgebraTest extends TestCase
         foreach($colslist as $cols) {
             $x = $la->alloc([6,$cols],dtype:NDArray::float32);
             $la->fill(0.0,$x);
-            $la->copy($la->array([1.0, 2.0]),   $x[0][[0,1]]);
-            $la->copy($la->array([INF, 1.0]),   $x[1][[0,1]]);
-            $la->copy($la->array([INF, INF]),   $x[2][[0,1]]);
-            $la->copy($la->array([-INF,INF]),   $x[3][[0,1]]);
-            $la->copy($la->array([1.0, NAN]),   $x[4][[0,1]]);
-            $la->copy($la->array([INF, NAN]),   $x[5][[0,1]]);
+            $la->copy($la->array([1.0, 2.0]),   $x[0][R(0,2)]);
+            $la->copy($la->array([INF, 1.0]),   $x[1][R(0,2)]);
+            $la->copy($la->array([INF, INF]),   $x[2][R(0,2)]);
+            $la->copy($la->array([-INF,INF]),   $x[3][R(0,2)]);
+            $la->copy($la->array([1.0, NAN]),   $x[4][R(0,2)]);
+            $la->copy($la->array([INF, NAN]),   $x[5][R(0,2)]);
 
             $x = $la->reduceMax($x,axis:1);
             $x = $la->toNDArray($x);

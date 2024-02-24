@@ -298,8 +298,9 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
 
     public function offsetGet( $offset ) : mixed
     {
-        if(!$this->offsetExists($offset))
+        if(!$this->offsetExists($offset)) {
             throw new OutOfRangeException("Index is out of range");
+        }
 
         // for single index specification
         if(is_numeric($offset)) {
@@ -322,6 +323,9 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         } else {
             $start = $offset->start();
             $limit = $offset->limit();
+            if($offset->delta()!=1) {
+                throw new OutOfRangeException("Illegal range specification.:delta=".$offset->delta());
+            }
         }
         $rowsCount = $limit-$start;
         if(count($shape)>0) {
@@ -334,7 +338,8 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         }
         array_unshift($shape,$rowsCount);
         $size = (int)array_product($shape);
-        $new = new self($this->_buffer,$this->_dtype,$shape,$this->_offset+$start*$itemSize,service:$this->service);
+        $new = new self($this->_buffer,$this->_dtype,
+            $shape,$this->_offset+$start*$itemSize,service:$this->service);
         return $new;
     }
 

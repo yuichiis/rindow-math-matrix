@@ -3777,22 +3777,22 @@ class LinearAlgebra
             $h2 = $h*2 ;
             for($i=0;$i<$size;$i++) {
                 //    $value = $xx[$idx];
-                $value = $this->copy($xx[[$i,$i]]);
+                $value = $this->copy($xx[R($i,$i+1)]);
                 //    $xx[$idx] = $value + $h;
-                $this->copy($this->increment($this->copy($value),$h),$xx[[$i,$i]]);
+                $this->copy($this->increment($this->copy($value),$h),$xx[R($i,$i+1)]);
                 //echo $value[0]."-h =>".$xx[$i]."\n";
                 $y1 = $f(...$variables);
                 //    $xx[$idx] = $value - $h;
-                $this->copy($this->increment($this->copy($value),-$h),$xx[[$i,$i]]);
+                $this->copy($this->increment($this->copy($value),-$h),$xx[R($i,$i+1)]);
                 //echo $value[0]."-h =>".$xx[$i]."\n";
                 $y2 = $f(...$variables);
                 $d = $this->axpy($y2,$this->copy($y1),-1);
                 //    $gg[$gidx] = $this->sum($d)/$h2;
                 $sum = $this->reduceSum($d->reshape([$d->size(),1]));
                 //echo "d=".$sum[0]."\n";
-                $this->copy($this->scal(1/$h2,$sum),$gg[[$i,$i]]);
+                $this->copy($this->scal(1/$h2,$sum),$gg[R($i,$i+1)]);
                 //    $xx[$idx] = $value;
-                $this->copy($value,$xx[[$i,$i]]);
+                $this->copy($value,$xx[R($i,$i+1)]);
             }
         }
         return $grads;
