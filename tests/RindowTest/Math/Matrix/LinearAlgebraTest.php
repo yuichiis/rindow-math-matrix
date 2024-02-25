@@ -279,12 +279,15 @@ class LinearAlgebraTest extends TestCase
         $ret = $la->imin($x);
         $this->assertEquals(5,$ret);
 
-        if(!$la->accelerated()) {
-            // int on matlib
-            $x = $la->array([[-1,2,-3],[-4,5,-6]],dtype:NDArray::int32);
-            $ret = $la->imin($x);
-            $this->assertEquals(5,$ret);
-        }
+        $x = $la->array([[-1,2,-3],[-4,5,-6]],dtype:NDArray::int32);
+        $ret = $la->imin($x);
+        $this->assertEquals(5,$ret);
+
+        $x = $mo->arange(1024,start:10,dtype:NDArray::int32);
+        $x[500] = 5;
+        $x = $la->array($x);
+        $ret = $la->imin($x);
+        $this->assertEquals(500,$ret);
 
     }
 
@@ -311,6 +314,9 @@ class LinearAlgebraTest extends TestCase
         $ret = $la->max($x);
         $this->assertEquals(5,$ret);
 
+        $x = $la->array([[-1,2,-3],[-4,5,-6]],dtype:NDArray::int32);
+        $ret = $la->max($x);
+        $this->assertEquals(5,$ret);
 
         // INFINITY & NaN
         // *** CAUTION ****
@@ -378,6 +384,16 @@ class LinearAlgebraTest extends TestCase
         $x = $la->array([[-1,2,-3],[-4,5,-6]],dtype:NDArray::float32);
         $ret = $la->min($x);
         $this->assertEquals(-6,$ret);
+
+        $x = $la->array([[-1,2,-3],[-4,5,-6]],dtype:NDArray::int32);
+        $ret = $la->min($x);
+        $this->assertEquals(-6,$ret);
+
+        $x = $mo->arange(1024,start:10,dtype:NDArray::int32);
+        $x[500] = 5;
+        $x = $la->array($x);
+        $ret = $la->min($x);
+        $this->assertEquals(5,$ret);
 
         // INFINITY & NaN
         // *** CAUTION ****
@@ -2282,6 +2298,24 @@ class LinearAlgebraTest extends TestCase
             $sum = $sum->toArray();
         }
         $this->assertLessThan(1e-3,$size-$sum);
+    }
+
+    public function testIminLarge()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        if(!$la->accelerated()) {
+            $this->markTestSkipped('Skip due to high load');
+            return;
+        }
+
+        // large size
+        $size = 2000000;
+        $x = $mo->arange($size,start:10,dtype:NDArray::int32);
+        $x[1000] = 1;
+        $x = $la->array($x);
+        $imin = $la->imin($x);
+        $this->assertEquals(1000,$imin);
     }
 
     public function testIncrement()

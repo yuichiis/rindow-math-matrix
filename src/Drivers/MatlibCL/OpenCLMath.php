@@ -53,6 +53,15 @@ class OpenCLMath
         NDArray::float16 => -1.0e+14,
         NDArray::float32 => -1.0e+37, NDArray::float64 => -1.0e+37,
     ];
+    protected $largests = [
+        NDArray::bool  => 1,
+        NDArray::int8  => 127,          NDArray::uint8  => 255,
+        NDArray::int16 => 32767,        NDArray::uint16 => 65535,
+        NDArray::int32 => 2147483647,  NDArray::uint32 => 4294967295,
+        NDArray::int64 => 9223372036854775807, NDArray::uint64 => 9223372036854775807, //
+        NDArray::float16 => 1.0e+14,
+        NDArray::float32 => 1.0e+37, NDArray::float64 => 1.0e+37,
+    ];
 
     protected $intTypes= [
         NDArray::int8,NDArray::int16,NDArray::int32,NDArray::int64,
@@ -84,6 +93,18 @@ class OpenCLMath
             //   if NaN set NaN
             //   Compatible with reduce_max of tensorflow 2.6
             "    if(!(local_work[lid] >= local_work[lid + i])) {\n".
+            "        local_work[lid]  = local_work[lid + i];\n".
+            "        local_iwork[lid] = local_iwork[lid + i];\n".
+            "    }\n".
+            "}\n".
+            "barrier(CLK_LOCAL_MEM_FENCE);\n",
+        'qimin' =>
+            "i >>= 1;\n".
+            "if(lid < i) {\n".
+            //   *** CAUTION ***
+            //   if NaN set NaN
+            //   Compatible with reduce_max of tensorflow 2.6
+            "    if(!(local_work[lid] <= local_work[lid + i])) {\n".
             "        local_work[lid]  = local_work[lid + i];\n".
             "        local_iwork[lid] = local_iwork[lid + i];\n".
             "    }\n".
@@ -146,6 +167,7 @@ class OpenCLMath
             "    local_work[lid] = temp_buffer[parallel_item_id*lws*2 + lid];\n".
             "    local_iwork[lid] = temp_ibuffer[parallel_item_id*lws*2 + lid];\n".
             "}\n",
+
     ];
 
     protected $context;
@@ -431,6 +453,20 @@ class OpenCLMath
         $operation4 = $this->kernelCoreOperation['lrimax-4'];
         return $this->kernelLTemplate2(
             $operation2,$operation4,$output);
+    }
+
+    public function kernelTemplateQiMin($inputs,$outputs,$dtype)
+    {
+        $operation = $this->kernelCoreOperation['qimin'];
+        $initial = $this->largests[$dtype];
+        return $this->kernelQiTemplate($operation,$inputs,$outputs,$initial);
+    }
+
+    public function kernelTemplateSiMin($inputs,$outputs,$dtype)
+    {
+        $operation = $this->kernelCoreOperation['qimin'];
+        $initial = $this->largests[$dtype];
+        return $this->kernelSiTemplate($operation,$inputs,$outputs,$initial);
     }
 
     public function kernelQTemplate($operation,$inputs,$outputs,$initial)
@@ -984,6 +1020,202 @@ class OpenCLMath
         $local_work_size = [$work_items2];
         $kernel2->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
                 $events,$sum1Events);
+    }
+
+    /**
+     * Y := imin( X )
+     */
+    public function imin(
+        int $n,
+        BufferInterface $R, int $offsetR,
+        BufferInterface $X, int $offsetX, int $incX,
+        object $events=null, object $waitEvents=null
+        ) : void
+    {
+        $dtype = $X->dtype();
+        if($R->dtype()!=NDArray::int32 && $R->dtype()!=NDArray::uint32) {
+            throw new InvalidArgumentException("R must be 32bit integer:".
+                                            $this->dtypeToString($R->dtype()));
+        }
+        //if($dtype!=NDArray::float64 && $dtype!=NDArray::float32)
+        if($dtype==NDArray::bool) {
+            throw new InvalidArgumentException("Unsuppored data type:".
+                                            $this->dtypeToString($dtype));
+        }
+
+        if($dtype==NDArray::float64) {
+            $this->assertFP64();
+        }
+        $max_work_items = $this->maxWorkItem[0];
+        if($n <= $max_work_items) {
+            $mode = 1;
+        } else {
+            $mode = 2;
+        }
+        if($this->testMode!==null) {
+            $mode = $this->testMode;
+        }
+        //echo "mode=$mode($m,$n,$k)\n";
+        switch($mode) {
+            case 1:{
+                $this->imin1(
+                    $n,
+                    $R, $offsetR,
+                    $X, $offsetX, $incX,
+                    $events, $waitEvents
+                );
+                break;
+            }
+            case 2:{
+                $this->imin2(
+                    $n,
+                    $R, $offsetR,
+                    $X, $offsetX, $incX,
+                    $events, $waitEvents
+                );
+                break;
+            }
+            default: {
+                throw new LogicException('Invalid Mode in imin(): mode='.$mode);
+            }
+        }
+    }
+
+    /**
+     * Y := imin( X )
+     */
+    public function imin1(
+        int $n,
+        BufferInterface $R, int $offsetR,
+        BufferInterface $X, int $offsetX, int $incX,
+        object $events=null, object $waitEvents=null
+        ) : void
+    {
+        $dtype = $X->dtype();
+
+        $index_x = 'lid+offset_x';
+        $total_local_items = $n;
+        $max_work_items = $this->maxWorkItem[0];
+        if($total_local_items>$max_work_items) {
+            throw new InvalidArgumentException('too large array');
+        } else {
+            for($max_work_items=1; $max_work_items<$total_local_items;$max_work_items<<=1) {
+                ;
+            }
+        }
+        $value_size = $X->value_size();
+        $index_value_size = (int)(32/8); // uint32 size
+        $type = $this->dtypeToOpenCLType[$dtype];
+        $kernel_name = "imin_S_{$type}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+                "__kernel void {$kernel_name}(\n".
+                "    const        uint total_local_items,\n".
+                "        __global {$type} * r,\n".
+                "    const        uint offset_r,\n".
+                "        __global {$type} * x,\n".
+                "    const        uint offset_x,\n".
+                "    const        uint incx,\n".
+                "         __local {$type} * local_work,\n".
+                "         __local uint * local_iwork)\n".
+                "{\n".
+                    $this->kernelTemplateSiMin(
+                        "local_work[lid] = x[{$index_x}];\n".
+                        "local_iwork[lid] = lid;",
+                        "r[offset_r] = local_iwork[0];\n",
+                        $dtype
+                    ).
+               "}\n";
+        }
+        $kernel = $this->createKernel($kernel_name);
+
+        $kernel->setArg(0,$total_local_items,NDArray::uint32);
+        $kernel->setArg(1,$R);
+        $kernel->setArg(2,$offsetR,NDArray::uint32);
+        $kernel->setArg(3,$X);
+        $kernel->setArg(4,$offsetX,NDArray::uint32);
+        $kernel->setArg(5,$incX,NDArray::uint32);
+        $kernel->setArg(6,null,$this->adjBoundary($max_work_items*$value_size));
+        $kernel->setArg(7,null,$this->adjBoundary($max_work_items*$index_value_size));
+        $global_work_size = [$max_work_items];
+        $local_work_size = [$max_work_items];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
+                $events,$waitEvents);
+    }
+
+    /**
+     * Y := imin( X )
+     */
+    public function imin2(
+        int $n,
+        BufferInterface $R, int $offsetR,
+        BufferInterface $X, int $offsetX, int $incX,
+        object $events=null, object $waitEvents=null
+        ) : void
+    {
+        $dtype = $X->dtype();
+
+        $index_x = '(seg*lws+lid)+offset_x';
+        $total_local_items = $n;
+        $max_work_items = $this->maxWorkItem[0];
+        if($total_local_items>$max_work_items) {
+            $segments = (int)ceil($total_local_items/$max_work_items); // round up float
+            $work_items = $max_work_items;
+        } else {
+            for($max_work_items=1; $max_work_items<$total_local_items;$max_work_items<<=1) {
+                ;
+            }
+            $segments = 1; // round up float
+            $work_items = $total_local_items;
+        }
+        $value_size = $X->value_size();
+        $index_value_size = (int)(32/8); // uint32 size
+        $type = $this->dtypeToOpenCLType[$dtype];
+        $kernel_name = "imin_M_{$type}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+                "__kernel void {$kernel_name}(\n".
+                "    const        uint total_local_items,\n".
+                "    const        uint segments,\n".
+                "        __global {$type} * r,\n".
+                "    const        uint offset_r,\n".
+                "        __global {$type} * x,\n".
+                "    const        uint offset_x,\n".
+                "    const        uint incx,\n".
+                "         __local {$type} * local_work,\n".
+                "         __local {$type} * seg_work,\n".
+                "         __local uint * local_iwork,\n".
+                "         __local uint * seg_iwork,\n".
+                "    const        uint work_items)\n".
+                "{\n".
+                    $this->kernelTemplateQiMin(
+                        "local_work[lid] = x[{$index_x}];\n".
+                        "local_iwork[lid] = {$index_x};\n",
+                        "r[offset_r] = seg_iwork[0];\n",
+                        $dtype
+                    ).
+                    "}\n";
+        }
+        $kernel = $this->createKernel($kernel_name);
+
+        //$seg_work_bytes = $segments*$value_size;
+        //$seg_work_bytes += ($seg_work_bytes%4) ? 4-($seg_work_bytes%4) : 0; // Adjust Addressing Boundary
+        $kernel->setArg(0,$total_local_items,NDArray::uint32);
+        $kernel->setArg(1,$segments,NDArray::uint32);
+        $kernel->setArg(2,$R);
+        $kernel->setArg(3,$offsetR,NDArray::uint32);
+        $kernel->setArg(4,$X);
+        $kernel->setArg(5,$offsetX,NDArray::uint32);
+        $kernel->setArg(6,$incX,NDArray::uint32);
+        $kernel->setArg(7,null,$this->adjBoundary($max_work_items*$value_size));
+        $kernel->setArg(8,null,$this->adjBoundary($segments*$value_size));
+        $kernel->setArg(9,null,$this->adjBoundary($max_work_items*$index_value_size));
+        $kernel->setArg(10,null,$this->adjBoundary($segments*$index_value_size));
+        $kernel->setArg(11,$work_items,NDArray::uint32);
+        $global_work_size = [$max_work_items];
+        $local_work_size = [$max_work_items];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
+                $events,$waitEvents);
     }
 
     /**
@@ -4169,7 +4401,8 @@ class OpenCLMath
             }
         }
         $value_size = $A->value_size();
-        $index_value_size = $B->value_size();
+        //$index_value_size = $B->value_size();
+        $index_value_size = (int)(32/8); // uint32 size
         $type = $this->dtypeToOpenCLType[$dtype];
         $kernel_name = "reduceArgMax_S_{$type}";
         if(!isset($this->sources[$kernel_name])) {
@@ -4245,7 +4478,8 @@ class OpenCLMath
             $work_items = $total_local_items;
         }
         $value_size = $A->value_size();
-        $index_value_size = $B->value_size();
+        //$index_value_size = $B->value_size();
+        $index_value_size = (int)(32/8); // uint32 size
         $type = $this->dtypeToOpenCLType[$dtype];
         $kernel_name = "reduceArgMax_M_{$type}";
         if(!isset($this->sources[$kernel_name])) {

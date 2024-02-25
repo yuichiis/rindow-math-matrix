@@ -1871,7 +1871,8 @@ class LinearAlgebraCL
         if($this->isFloat($X)) {
             $this->math->imin($N,$RR,$offR,$XX,$offX,1,$this->queue,$events);
         } else {
-            throw new InvalidArgumentException("Unsuppored data type. Only float types are supported.");
+            $this->openclmath->imin($N,$RR,$offR,$XX,$offX,1,$events);
+            //throw new InvalidArgumentException("Unsuppored data type. Only float types are supported.");
         }
         if($this->blocking) {
             $this->finish();
@@ -1908,7 +1909,18 @@ class LinearAlgebraCL
         $XX = $X->buffer();
         $offX = $X->offset();
         $imaxEvents = $this->newEventList();
-        $this->math->imax($N,$IRR,$offIR,$XX,$offX,1,$this->queue,$imaxEvents);
+        if($this->isFloat($X)) {
+            $this->math->imax($N,$IRR,$offIR,$XX,$offX,1,$this->queue,$imaxEvents);
+        } else {
+            $this->openclmath->reduceArgMax(
+                1,          // $m
+                $N,         // $n
+                1,          // $k
+                $XX, $offX,
+                $IRR, $offIR,
+                $imaxEvents
+            );
+        }
 
         $RR = $R->buffer();
         $offR = $R->offset();
@@ -1949,7 +1961,12 @@ class LinearAlgebraCL
         $XX = $X->buffer();
         $offX = $X->offset();
         $imaxEvents = $this->newEventList();
-        $i = $this->math->imin($N,$IRR,$offIR,$XX,$offX,1,$this->queue,$imaxEvents);
+        if($this->isFloat($X)) {
+            $this->math->imin($N,$IRR,$offIR,$XX,$offX,1,$this->queue,$imaxEvents);
+        } else {
+            $this->openclmath->imin($N,$IRR,$offIR,$XX,$offX,1,$imaxEvents);
+            //throw new InvalidArgumentException("Unsuppored data type. Only float types are supported.");
+        }
 
         $RR = $R->buffer();
         $offR = $R->offset();
