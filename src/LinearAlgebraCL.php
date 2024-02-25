@@ -40,8 +40,14 @@ class LinearAlgebraCL
     protected $isOpenCL110;
 
     protected $intTypes= [
-        NDArray::int8,NDArray::int16,NDArray::int32,NDArray::int64,
-        NDArray::uint8,NDArray::uint16,NDArray::uint32,NDArray::uint64,
+        NDArray::int8   => true,
+        NDArray::int16  => true,
+        NDArray::int32  => true,
+        NDArray::int64  => true,
+        NDArray::uint8  => true,
+        NDArray::uint16 => true,
+        NDArray::uint32 => true,
+        NDArray::uint64 => true,
     ];
 
     public function __construct(
@@ -236,7 +242,7 @@ class LinearAlgebraCL
 
     public function isInt(NDArray $value)
     {
-        return in_array($value->dtype(),$this->intTypes);
+        return array_key_exists($value->dtype(),$this->intTypes);
     }
 
     public function isFloat(NDArray $value)
@@ -1817,7 +1823,18 @@ class LinearAlgebraCL
         $offR = $R->offset();
         $XX = $X->buffer();
         $offX = $X->offset();
-        $this->math->imax($N,$RR,$offR,$XX,$offX,1,$this->queue,$events);
+        if($this->isFloat($X)) {
+            $this->math->imax($N,$RR,$offR,$XX,$offX,1,$this->queue,$events);
+        } else {
+            $this->openclmath->reduceArgMax(
+                1,          // $m
+                $N,         // $n
+                1,          // $k
+                $XX, $offX,
+                $RR, $offR,
+                $events
+            );
+        }
         if($this->blocking) {
             $this->finish();
         }
@@ -1851,7 +1868,11 @@ class LinearAlgebraCL
         $offR = $R->offset();
         $XX = $X->buffer();
         $offX = $X->offset();
-        $this->math->imin($N,$RR,$offR,$XX,$offX,1,$this->queue,$events);
+        if($this->isFloat($X)) {
+            $this->math->imin($N,$RR,$offR,$XX,$offX,1,$this->queue,$events);
+        } else {
+            throw new InvalidArgumentException("Unsuppored data type. Only float types are supported.");
+        }
         if($this->blocking) {
             $this->finish();
         }

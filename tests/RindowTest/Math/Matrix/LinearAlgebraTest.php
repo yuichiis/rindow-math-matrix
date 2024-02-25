@@ -248,6 +248,12 @@ class LinearAlgebraTest extends TestCase
         $x = $la->array([[-1,2,-3],[-4,5,-6]],dtype:NDArray::float32);
         $ret = $la->imax($x);
         $this->assertEquals(4,$ret);
+
+        // int on matlib
+        $x = $la->array([[-1,2,-3],[-4,5,-6]],dtype:NDArray::int32);
+        $ret = $la->imax($x);
+        $this->assertEquals(4,$ret);
+
     }
 
     /**
@@ -272,6 +278,14 @@ class LinearAlgebraTest extends TestCase
         $x = $la->array([[-1,2,-3],[-4,5,-6]],dtype:NDArray::float32);
         $ret = $la->imin($x);
         $this->assertEquals(5,$ret);
+
+        if(!$la->accelerated()) {
+            // int on matlib
+            $x = $la->array([[-1,2,-3],[-4,5,-6]],dtype:NDArray::int32);
+            $ret = $la->imin($x);
+            $this->assertEquals(5,$ret);
+        }
+
     }
 
     /**
@@ -8292,14 +8306,10 @@ class LinearAlgebraTest extends TestCase
             }
             $histogram[$index]++;
         }
-        //echo get_class($this)."\n";
         $chi_square = 0.0;
         for($i = 0; $i < $hist_size; $i++) {
-            echo $histogram[$i]."\n";
             $chi_square += ($histogram[$i] - $n/$hist_size) * ($histogram[$i] - $n/$hist_size) / ($n/$hist_size);
         }
-        //echo "\n";
-        //echo "chi_square=$chi_square\n";
         return $chi_square;
     }
 

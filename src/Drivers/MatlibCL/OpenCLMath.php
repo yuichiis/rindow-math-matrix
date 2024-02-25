@@ -3996,7 +3996,8 @@ class OpenCLMath
             throw new InvalidArgumentException("B must be 32bit integer:".
                                             $this->dtypeToString($B->dtype()));
         }
-        if($dtype!=NDArray::float64 && $dtype!=NDArray::float32) {
+        //if($dtype!=NDArray::float64 && $dtype!=NDArray::float32)
+        if($dtype==NDArray::bool) {
             throw new InvalidArgumentException("Unsuppored data type:".
                                             $this->dtypeToString($dtype));
         }
