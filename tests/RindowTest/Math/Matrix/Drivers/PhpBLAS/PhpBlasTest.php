@@ -1,5 +1,5 @@
 <?php
-namespace RindowTest\Math\Matrix\Drivers\PhpBLAS\PhpBlasTest;
+namespace RindowTest\Math\Matrix\Drivers\MatlibPHP\PhpBlasTest;
 
 use PHPUnit\Framework\TestCase;
 use Interop\Polite\Math\Matrix\NDArray;

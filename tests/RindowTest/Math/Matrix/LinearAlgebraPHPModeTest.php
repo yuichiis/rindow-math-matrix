@@ -4,11 +4,8 @@ namespace RindowTest\Math\Matrix\LinearAlgebraPHPModeTest;
 use PHPUnit\Framework\TestCase;
 use Interop\Polite\Math\Matrix\NDArray;
 use Rindow\Math\Matrix\MatrixOperator;
-use Rindow\Math\Matrix\Drivers\MatlibPhp;
+use Rindow\Math\Matrix\Drivers\MatlibPHP\MatlibPhp;
 use Rindow\Math\Matrix\Drivers\Service;
-use Rindow\Math\Matrix\PhpBlas;
-use Rindow\Math\Matrix\PhpLapack;
-use Rindow\Math\Matrix\PhpMath;
 use ArrayObject;
 use InvalidArgumentException;
 

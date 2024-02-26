@@ -4,20 +4,8 @@ namespace RindowTest\Math\Matrix\Drivers\SelectorTest;
 use PHPUnit\Framework\TestCase;
 use Rindow\Math\Matrix\Drivers\MatlibExt\MatlibExt;
 use Rindow\Math\Matrix\Drivers\MatlibFFI\MatlibFFI;
-use Rindow\Math\Matrix\Drivers\MatlibPhp;
-
-
+use Rindow\Math\Matrix\Drivers\MatlibPHP\MatlibPhp;
 use Rindow\Math\Matrix\Drivers\Selector;
-use Rindow\OpenBLAS\Blas;
-use Rindow\OpenBLAS\Lapack;
-use Rindow\OpenBLAS\Math;
-
-use Rindow\Math\Matrix\Drivers\PhpBLAS\PhpBLASFactory;
-use Rindow\Math\Matrix\Drivers\PhpBLAS\PhpBuffer;
-use Rindow\Math\Matrix\Drivers\PhpBLAS\PhpBlas;
-use Rindow\Math\Matrix\Drivers\PhpBLAS\PhpLapack;
-use Rindow\Math\Matrix\Drivers\PhpBLAS\PhpMath;
-
 use Rindow\Math\Matrix\Drivers\Service;
 
 use Interop\Polite\Math\Matrix\NDArray;

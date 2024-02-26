@@ -1,5 +1,5 @@
 <?php
-namespace Rindow\Math\Matrix\Drivers\PhpBLAS;
+namespace Rindow\Math\Matrix\Drivers\MatlibPHP;
 
 use Interop\Polite\Math\Matrix\Buffer as BufferInterface;
 use Interop\Polite\Math\Matrix\NDArray;

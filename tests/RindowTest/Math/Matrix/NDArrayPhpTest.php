@@ -5,7 +5,7 @@ use PHPUnit\Framework\TestCase;
 use Rindow\Math\Matrix\NDArrayPhp;
 use Interop\Polite\Math\Matrix\NDArray;
 use Interop\Polite\Math\Matrix\Buffer as BufferInterface;
-use Rindow\Math\Matrix\Drivers\PhpBLAS\PhpBuffer;
+use Rindow\Math\Matrix\Drivers\MatlibPHP\PhpBuffer;
 use Rindow\Math\Matrix\Drivers\Selector;
 use Rindow\Math\Matrix\Drivers\Service;
 use function Rindow\Math\Matrix\R;

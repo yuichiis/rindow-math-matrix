@@ -1,5 +1,5 @@
 <?php
-namespace Rindow\Math\Matrix\Drivers\PhpBLAS;
+namespace Rindow\Math\Matrix\Drivers\MatlibPHP;
 
 use LogicException;
 use InvalidArgumentException;

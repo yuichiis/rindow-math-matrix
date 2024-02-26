@@ -3,7 +3,7 @@ namespace RindowTest\Math\Matrix\MatrixOperatorPhpModeTest;
 
 use PHPUnit\Framework\TestCase;
 use Rindow\Math\Matrix\MatrixOperator;
-use Rindow\Math\Matrix\Drivers\MatlibPhp;
+use Rindow\Math\Matrix\Drivers\MatlibPHP\MatlibPhp;
 use Rindow\Math\Matrix\Drivers\Service;
 
 if(!class_exists('RindowTest\Math\Matrix\MatrixOperatorTest\MatrixOperatorTest')) {

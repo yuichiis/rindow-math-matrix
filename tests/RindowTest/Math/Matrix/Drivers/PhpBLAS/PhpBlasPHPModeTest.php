@@ -1,11 +1,10 @@
 <?php
-namespace RindowTest\Math\Matrix\Drivers\PhpBLAS\PhpBlasPHPModeTest;
+namespace RindowTest\Math\Matrix\Drivers\MatlibPHP\PhpBlasPHPModeTest;
 
-if(!class_exists('RindowTest\Math\Matrix\Drivers\PhpBLAS\PhpBlasTest\Test')) {
+if(!class_exists('RindowTest\Math\Matrix\Drivers\MatlibPHP\PhpBlasTest\Test')) {
     include __DIR__.'/PhpBlasTest.php';
 }
-use RindowTest\Math\Matrix\Drivers\PhpBLAS\PhpBlasTest\PhpBlasTest as ORGTest;
-use Rindow\Math\Matrix\PhpBlas;
+use RindowTest\Math\Matrix\Drivers\MatlibPHP\PhpBlasTest\PhpBlasTest as ORGTest;
 use Rindow\Math\Matrix\Drivers\Service;
 use Rindow\Math\Matrix\MatrixOperator;
 

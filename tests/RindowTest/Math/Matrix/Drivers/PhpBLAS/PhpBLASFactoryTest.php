@@ -1,12 +1,12 @@
 <?php
-namespace RindowTest\Math\Matrix\Drivers\PhpBLAS\PhpBLASFactoryTest;
+namespace RindowTest\Math\Matrix\Drivers\MatlibPHP\PhpBLASFactoryTest;
 
 use PHPUnit\Framework\TestCase;
-use Rindow\Math\Matrix\Drivers\PhpBLAS\PhpBLASFactory;
-use Rindow\Math\Matrix\Drivers\PhpBLAS\PhpBuffer;
-use Rindow\Math\Matrix\Drivers\PhpBLAS\PhpBlas;
-use Rindow\Math\Matrix\Drivers\PhpBLAS\PhpLapack;
-use Rindow\Math\Matrix\Drivers\PhpBLAS\PhpMath;
+use Rindow\Math\Matrix\Drivers\MatlibPHP\PhpBLASFactory;
+use Rindow\Math\Matrix\Drivers\MatlibPHP\PhpBuffer;
+use Rindow\Math\Matrix\Drivers\MatlibPHP\PhpBlas;
+use Rindow\Math\Matrix\Drivers\MatlibPHP\PhpLapack;
+use Rindow\Math\Matrix\Drivers\MatlibPHP\PhpMath;
 use Interop\Polite\Math\Matrix\NDArray;
 
 class PhpBLASFactoryTest extends TestCase

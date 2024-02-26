@@ -2,7 +2,7 @@
 namespace Rindow\Math\Matrix\Drivers;
 
 use Interop\Polite\Math\Matrix\OpenCL;
-use Rindow\Math\Matrix\Drivers\PhpBLAS\PhpBLASFactory;
+use Rindow\Math\Matrix\Drivers\MatlibPHP\PhpBLASFactory;
 use Rindow\Math\Matrix\Drivers\MatlibCL\OpenCLMath;
 use Rindow\Math\Matrix\Drivers\MatlibCL\OpenCLMathFixDiv5Bug;
 
