@@ -28,13 +28,13 @@ class PhpBlas //implements BLASLevel1
     //    $this->forceBlas = $forceBlas;
     //}
 
-    protected function useBlas(Buffer $X)
-    {
-        //if($this->blas===null)
-        //    return false;
-        //return $this->forceBlas || in_array($X->dtype(),$this->floatTypes);
-        return false;
-    }
+    //protected function useBlas(Buffer $X)
+    //{
+    //    //if($this->blas===null)
+    //    //    return false;
+    //    //return $this->forceBlas || in_array($X->dtype(),$this->floatTypes);
+    //    return false;
+    //}
 
     public function getNumThreads() : int
     {
@@ -69,10 +69,10 @@ class PhpBlas //implements BLASLevel1
         float $alpha,
         Buffer $X, int $offsetX, int $incX) : void
     {
-        if($this->useBlas($X)) {
-            $this->blas->scal($n,$alpha,$X,$offsetX,$incX);
-            return;
-        }
+        //if($this->useBlas($X)) {
+        //    $this->blas->scal($n,$alpha,$X,$offsetX,$incX);
+        //    return;
+        //}
 
         if($offsetX+($n-1)*$incX>=count($X))
             throw new InvalidArgumentException('Vector specification too large for buffer.');
@@ -113,9 +113,9 @@ class PhpBlas //implements BLASLevel1
         Buffer $X, int $offsetX, int $incX,
         Buffer $Y, int $offsetY, int $incY ) : float
     {
-        if($this->useBlas($X)) {
-            return $this->blas->dot($n,$X,$offsetX,$incX,$Y,$offsetY,$incY);
-        }
+        //if($this->useBlas($X)) {
+        //    return $this->blas->dot($n,$X,$offsetX,$incX,$Y,$offsetY,$incY);
+        //}
 
         if($offsetX+($n-1)*$incX>=count($X))
             throw new InvalidArgumentException('Vector X specification too large for buffer.');
@@ -134,9 +134,9 @@ class PhpBlas //implements BLASLevel1
         int $n,
         Buffer $X, int $offsetX, int $incX ) : float
     {
-        if($this->useBlas($X)) {
-            return $this->blas->asum($n,$X,$offsetX,$incX);
-        }
+        //if($this->useBlas($X)) {
+        //    return $this->blas->asum($n,$X,$offsetX,$incX);
+        //}
 
         if($offsetX+($n-1)*$incX>=count($X))
             throw new InvalidArgumentException('Vector X specification too large for buffer.');
@@ -152,9 +152,9 @@ class PhpBlas //implements BLASLevel1
         int $n,
         Buffer $X, int $offsetX, int $incX ) : int
     {
-        if($this->useBlas($X)) {
-            return $this->blas->iamax($n,$X,$offsetX,$incX);
-        }
+        //if($this->useBlas($X)) {
+        //    return $this->blas->iamax($n,$X,$offsetX,$incX);
+        //}
 
         if($offsetX+($n-1)*$incX>=count($X))
             throw new InvalidArgumentException('Vector X specification too large for buffer.');
@@ -174,9 +174,9 @@ class PhpBlas //implements BLASLevel1
         int $n,
         Buffer $X, int $offsetX, int $incX ) : int
     {
-        if($this->blas!=null && method_exists($this->blas,'iamin')&&$this->useBlas($X)) {
-            return $this->blas->iamin($n,$X,$offsetX,$incX);
-        }
+        //if($this->blas!=null && method_exists($this->blas,'iamin')&&$this->useBlas($X)) {
+        //    return $this->blas->iamin($n,$X,$offsetX,$incX);
+        //}
 
         if($offsetX+($n-1)*$incX>=count($X))
             throw new InvalidArgumentException('Vector X specification too large for buffer.');
@@ -197,10 +197,10 @@ class PhpBlas //implements BLASLevel1
         Buffer $X, int $offsetX, int $incX,
         Buffer $Y, int $offsetY, int $incY ) : void
     {
-        if($this->useBlas($X)) {
-            $this->blas->copy($n,$X,$offsetX,$incX,$Y,$offsetY,$incY);
-            return;
-        }
+        //if($this->useBlas($X)) {
+        //    $this->blas->copy($n,$X,$offsetX,$incX,$Y,$offsetY,$incY);
+        //    return;
+        //}
 
         if($offsetX+($n-1)*$incX>=count($X))
             throw new InvalidArgumentException('Vector X specification too large for buffer.');
@@ -219,9 +219,9 @@ class PhpBlas //implements BLASLevel1
         Buffer $X, int $offsetX, int $incX
         ) : float
     {
-        if($this->useBlas($X)) {
-            return $this->blas->nrm2($n,$X,$offsetX,$incX);
-        }
+        //if($this->useBlas($X)) {
+        //    return $this->blas->nrm2($n,$X,$offsetX,$incX);
+        //}
         if($offsetX+($n-1)*$incX>=count($X))
             throw new InvalidArgumentException('Vector X specification too large for buffer.');
         $idxX = $offsetX;
@@ -241,10 +241,10 @@ class PhpBlas //implements BLASLevel1
         Buffer $S, int $offsetS
         ) : void
     {
-        if($this->useBlas($A)) {
-            $this->blas->rotg($A,$offsetA,$B,$offsetB,$C,$offsetC,$S,$offsetS);
-            return;
-        }
+        //if($this->useBlas($A)) {
+        //    $this->blas->rotg($A,$offsetA,$B,$offsetB,$C,$offsetC,$S,$offsetS);
+        //    return;
+        //}
         $a = $A[$offsetA];
         $b = $B[$offsetB];
         // r
@@ -301,10 +301,10 @@ class PhpBlas //implements BLASLevel1
         Buffer $S, int $offsetS
         ) : void
     {
-        if($this->useBlas($X)) {
-            $this->blas->rot($n,$X,$offsetX,$incX,$Y,$offsetY,$incY,$C,$offsetC,$S,$offsetS);
-            return;
-        }
+        //if($this->useBlas($X)) {
+        //    $this->blas->rot($n,$X,$offsetX,$incX,$Y,$offsetY,$incY,$C,$offsetC,$S,$offsetS);
+        //    return;
+        //}
         $cc = $C[$offsetC];
         $ss = $S[$offsetS];
         $idX = $offsetX;
@@ -322,10 +322,10 @@ class PhpBlas //implements BLASLevel1
         Buffer $X, int $offsetX, int $incX,
         Buffer $Y, int $offsetY, int $incY ) : void
     {
-        if($this->useBlas($X)) {
-            $this->blas->swap($n,$X,$offsetX,$incX,$Y,$offsetY,$incY);
-            return;
-        }
+        //if($this->useBlas($X)) {
+        //    $this->blas->swap($n,$X,$offsetX,$incX,$Y,$offsetY,$incY);
+        //    return;
+        //}
 
         if($offsetX+($n-1)*$incX>=count($X))
             throw new InvalidArgumentException('Vector X specification too large for buffer.');
@@ -352,11 +352,11 @@ class PhpBlas //implements BLASLevel1
         float $beta,
         Buffer $Y, int $offsetY, int $incY ) : void
     {
-        if($this->useBlas($X)) {
-            $this->blas->gemv($order,$trans,$m,$n,$alpha,
-                $A,$offsetA,$ldA,$X,$offsetX,$incX,$beta,$Y,$offsetY,$incY);
-            return;
-        }
+        //if($this->useBlas($X)) {
+        //    $this->blas->gemv($order,$trans,$m,$n,$alpha,
+        //        $A,$offsetA,$ldA,$X,$offsetX,$incX,$beta,$Y,$offsetY,$incY);
+        //    return;
+        //}
 
         if($order==BLAS::ColMajor) {
             [$m,$n] = [$n,$m];
@@ -406,11 +406,11 @@ class PhpBlas //implements BLASLevel1
         float $beta,
         Buffer $C, int $offsetC, int $ldC ) : void
     {
-        if($this->useBlas($A)) {
-            $this->blas->gemm($order,$transA,$transB,$m,$n,$k,$alpha,
-                $A,$offsetA,$ldA,$B,$offsetB,$ldB,$beta,$C,$offsetC,$ldC);
-            return;
-        }
+        //if($this->useBlas($A)) {
+        //    $this->blas->gemm($order,$transA,$transB,$m,$n,$k,$alpha,
+        //        $A,$offsetA,$ldA,$B,$offsetB,$ldB,$beta,$C,$offsetC,$ldC);
+        //    return;
+        //}
 
         if($order==BLAS::ColMajor) {
             [$m,$n] = [$n,$m];
@@ -466,11 +466,11 @@ class PhpBlas //implements BLASLevel1
         float $beta,
         Buffer $C, int $offsetC, int $ldC ) : void
     {
-        if($this->useBlas($A)) {
-            $this->blas->symm($order,$side,$uplo,$m,$n,$alpha,
-                $A,$offsetA,$ldA,$B,$offsetB,$ldB,$beta,$C,$offsetC,$ldC);
-            return;
-        }
+        //if($this->useBlas($A)) {
+        //    $this->blas->symm($order,$side,$uplo,$m,$n,$alpha,
+        //        $A,$offsetA,$ldA,$B,$offsetB,$ldB,$beta,$C,$offsetC,$ldC);
+        //    return;
+        //}
 
         if($order==BLAS::ColMajor) {
             [$m,$n] = [$n,$m];
@@ -531,11 +531,11 @@ class PhpBlas //implements BLASLevel1
         float $beta,
         Buffer $C, int $offsetC, int $ldC ) : void
     {
-        if($this->useBlas($A)) {
-            $this->blas->syrk($order,$uplo,$trans,$n,$k,$alpha,
-                $A,$offsetA,$ldA,$beta,$C,$offsetC,$ldC);
-            return;
-        }
+        //if($this->useBlas($A)) {
+        //    $this->blas->syrk($order,$uplo,$trans,$n,$k,$alpha,
+        //        $A,$offsetA,$ldA,$beta,$C,$offsetC,$ldC);
+        //    return;
+        //}
         if($order==BLAS::ColMajor) {
             [$n,$k] = [$k,$n];
         } elseif($order!=BLAS::RowMajor) {
@@ -598,11 +598,11 @@ class PhpBlas //implements BLASLevel1
         float $beta,
         Buffer $C, int $offsetC, int $ldC ) : void
     {
-        if($this->useBlas($A)) {
-            $this->blas->syr2k($order,$uplo,$trans,$n,$k,$alpha,
-                $A,$offsetA,$ldA,$B,$offsetB,$ldB,$beta,$C,$offsetC,$ldC);
-            return;
-        }
+        //if($this->useBlas($A)) {
+        //    $this->blas->syr2k($order,$uplo,$trans,$n,$k,$alpha,
+        //        $A,$offsetA,$ldA,$B,$offsetB,$ldB,$beta,$C,$offsetC,$ldC);
+        //    return;
+        //}
         if($order==BLAS::ColMajor) {
             [$n,$k] = [$k,$n];
         } elseif($order!=BLAS::RowMajor) {
@@ -675,11 +675,11 @@ class PhpBlas //implements BLASLevel1
         Buffer $A, int $offsetA, int $ldA,
         Buffer $B, int $offsetB, int $ldB) : void
     {
-        if($this->useBlas($A)) {
-            $this->blas->trmm($order,$side,$uplo,$trans,$diag,$m,$n,$alpha,
-                $A,$offsetA,$ldA,$B,$offsetB,$ldB);
-            return;
-        }
+        //if($this->useBlas($A)) {
+        //    $this->blas->trmm($order,$side,$uplo,$trans,$diag,$m,$n,$alpha,
+        //        $A,$offsetA,$ldA,$B,$offsetB,$ldB);
+        //    return;
+        //}
         //throw new LogicException("Unsupported function yet without openblas");
 
         if($order==BLAS::ColMajor) {
@@ -768,11 +768,11 @@ class PhpBlas //implements BLASLevel1
         Buffer $A, int $offsetA, int $ldA,
         Buffer $B, int $offsetB, int $ldB) : void
     {
-        if($this->useBlas($A)) {
-            $this->blas->trsm($order,$side,$uplo,$trans,$diag,$m,$n,$alpha,
-                $A,$offsetA,$ldA,$B,$offsetB,$ldB);
-            return;
-        }
+        //if($this->useBlas($A)) {
+        //    $this->blas->trsm($order,$side,$uplo,$trans,$diag,$m,$n,$alpha,
+        //        $A,$offsetA,$ldA,$B,$offsetB,$ldB);
+        //    return;
+        //}
 
         if($order==BLAS::ColMajor) {
             [$m,$n] = [$n,$m];

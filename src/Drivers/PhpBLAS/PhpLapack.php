@@ -28,8 +28,8 @@ class PhpLapack
         $forceLapack=null
         )
     {
-        $this->lapack = $lapack;
-        $this->forceLapack = $forceLapack;
+        //$this->lapack = $lapack;
+        //$this->forceLapack = $forceLapack;
         $this->service = $this->dummyService();
     }
 
@@ -57,17 +57,17 @@ class PhpLapack
         return $service;
     }
 
-    public function forceLapack($forceLapack)
-    {
-        $this->forceLapack = $forceLapack;
-    }
+    //public function forceLapack($forceLapack)
+    //{
+    //    $this->forceLapack = $forceLapack;
+    //}
 
-    protected function useLapack(Buffer $X)
-    {
-        if($this->lapack===null)
-            return false;
-        return $this->forceLapack || in_array($X->dtype(),$this->floatTypes);
-    }
+    //protected function useLapack(Buffer $X)
+    //{
+    //    if($this->lapack===null)
+    //        return false;
+    //    return $this->forceLapack || in_array($X->dtype(),$this->floatTypes);
+    //}
 
     /**
      * Below is the author of the original code
@@ -93,21 +93,21 @@ class PhpLapack
         Buffer $SuperB,  int $offsetSuperB
     ) : void
     {
-        if($this->useLapack($A)) {
-            $this->lapack->gesvd(
-                $matrix_layout,
-                $jobu,
-                $jobvt,
-                $m,
-                $n,
-                $A,  $offsetA,  $ldA,
-                $S,  $offsetS,
-                $U,  $offsetU,  $ldU,
-                $VT, $offsetVT, $ldVT,
-                $SuperB,  $offsetSuperB
-            );
-            return;
-        }
+        //if($this->useLapack($A)) {
+        //    $this->lapack->gesvd(
+        //        $matrix_layout,
+        //        $jobu,
+        //        $jobvt,
+        //        $m,
+        //        $n,
+        //        $A,  $offsetA,  $ldA,
+        //        $S,  $offsetS,
+        //        $U,  $offsetU,  $ldU,
+        //        $VT, $offsetVT, $ldVT,
+        //        $SuperB,  $offsetSuperB
+        //    );
+        //    return;
+        //}
         if(method_exists($A,'dtype')) {
             $dtype = $A->dtype();
         } else {
