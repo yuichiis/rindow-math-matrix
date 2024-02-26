@@ -1,6 +1,8 @@
 <?php
 namespace Rindow\Math\Matrix\Drivers;
 
+//use MatlibPhp
+
 class Selector 
 {
     protected array $catalog;
@@ -9,8 +11,8 @@ class Selector
     public function __construct(array $catalog = null)
     {
         $catalog = $catalog ?? [
-            MatlibFFI::class,
-            MatlibExt::class,
+            'Rindow\Math\Matrix\Drivers\MatlibFFI\MatlibFFI',
+            'Rindow\Math\Matrix\Drivers\MatlibExt\MatlibExt',
         ];
         $this->catalog = $catalog;
     }

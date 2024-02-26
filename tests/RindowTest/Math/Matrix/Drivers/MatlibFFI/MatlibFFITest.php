@@ -1,10 +1,9 @@
 <?php
-namespace RindowTest\Math\Matrix\Drivers\MatlibFFITest;
+namespace RindowTest\Math\Matrix\Drivers\MatlibFFI\MatlibFFITest;
 
 use PHPUnit\Framework\TestCase;
-use Rindow\Math\Matrix\Drivers\MatlibFFI;
+use Rindow\Math\Matrix\Drivers\MatlibFFI\MatlibFFI;
 
-use Rindow\Math\Matrix\Drivers\OpenBLASExt\OpenBLASFactory;
 use Rindow\Math\Buffer\FFI\Buffer;
 use Rindow\OpenBLAS\FFI\Blas;
 use Rindow\OpenBLAS\FFI\Lapack;

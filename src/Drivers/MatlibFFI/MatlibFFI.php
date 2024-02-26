@@ -1,5 +1,5 @@
 <?php
-namespace Rindow\Math\Matrix\Drivers;
+namespace Rindow\Math\Matrix\Drivers\MatlibFFI;
 
 use Rindow\Math\Buffer\FFI\BufferFactory;
 use Rindow\OpenBLAS\FFI\OpenBLASFactory;
@@ -7,6 +7,7 @@ use Rindow\Matlib\FFI\MatlibFactory;
 use Rindow\OpenCL\FFI\OpenCLFactory;
 use Rindow\CLBlast\FFI\CLBlastFactory;
 use Rindow\Math\Matrix\Drivers\MatlibCL\MatlibCLFactory;
+use Rindow\Math\Matrix\Drivers\AbstractMatlibService;
 
 class MatlibFFI extends AbstractMatlibService
 {

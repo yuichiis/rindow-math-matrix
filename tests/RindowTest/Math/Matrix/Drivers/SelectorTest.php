@@ -2,8 +2,8 @@
 namespace RindowTest\Math\Matrix\Drivers\SelectorTest;
 
 use PHPUnit\Framework\TestCase;
-use Rindow\Math\Matrix\Drivers\MatlibExt;
-use Rindow\Math\Matrix\Drivers\MatlibFFI;
+use Rindow\Math\Matrix\Drivers\MatlibExt\MatlibExt;
+use Rindow\Math\Matrix\Drivers\MatlibFFI\MatlibFFI;
 use Rindow\Math\Matrix\Drivers\MatlibPhp;
 
 
@@ -31,13 +31,16 @@ class SelectorTest extends TestCase
 
     public function testDefault()
     {
-        $ext = new MatlibExt();
+        $ext = null;
+        if(class_exists('Rindow\Math\Matrix\Drivers\MatlibExt\MatlibExt')) {
+            $ext = new MatlibExt();
+        }
         $ffi = new MatlibFFI();
         $php = new MatlibPhp();
         $selector = $this->newSelector();
         $service = $selector->select();
         if($ffi->serviceLevel()<=Service::LV_BASIC && 
-            $ext->serviceLevel()>Service::LV_BASIC ) {
+          ($ext!==null && $ext->serviceLevel()>Service::LV_BASIC) ) {
             $this->assertInstanceOf(MatlibExt::class,$service);
         } elseif($service->serviceLevel()>=Service::LV_ADVANCED) {
             $this->assertInstanceOf(MatlibFFI::class,$service);
@@ -48,10 +51,14 @@ class SelectorTest extends TestCase
 
     public function testCatalog()
     {
-        $ext = new MatlibExt();
+        $ext = null;
+        if(class_exists('Rindow\Math\Matrix\Drivers\MatlibExt\MatlibExt')) {
+            $ext = new MatlibExt();
+        }
         $ffi = new MatlibFFI();
         $php = new MatlibPhp();
-        if($ext->serviceLevel()>$ffi->serviceLevel()) {
+        if(($ext!==null) &&
+            ($ext->serviceLevel()>$ffi->serviceLevel())) {
             $truesrv = $ext;
         } else {
             $truesrv = $ffi;
