@@ -4,6 +4,7 @@ namespace RindowTest\Math\Matrix\LinearAlgebraTest;
 use PHPUnit\Framework\TestCase;
 use Interop\Polite\Math\Matrix\NDArray;
 use Interop\Polite\Math\Matrix\OpenCL;
+use Interop\Polite\Math\Matrix\DeviceBuffer;
 use Rindow\Math\Matrix\MatrixOperator;
 use Rindow\Math\Matrix\NDArrayPhp;
 use Rindow\Math\Matrix\Drivers\Selector;
@@ -12,6 +13,7 @@ use Rindow\Math\Plot\Plot;
 use ArrayObject;
 use InvalidArgumentException;
 use function Rindow\Math\Matrix\R;
+use function Rindow\Math\Matrix\C;
 
 use Rindow\Math\Matrix\Drivers\MatlibExt;
 
@@ -20,6 +22,17 @@ class LinearAlgebraTest extends TestCase
     static protected $speedtest = false;
     protected $equalEpsilon = 1e-04;
     protected $service;
+
+    protected $dtypeToString = [
+        NDArray::bool=>'bool',
+        NDArray::int8=>'int8',   NDArray::uint8=>'uint8',
+        NDArray::int16=>'int16', NDArray::uint16=>'uint16',
+        NDArray::int32=>'int32', NDArray::uint32=>'uint32',
+        NDArray::int64=>'int64', NDArray::uint64=>'uint64',
+        NDArray::float16=>'float16',
+        NDArray::float32=>'float32', NDArray::float64=>'float64',
+        NDArray::complex64=>'complex64', NDArray::complex128=>'complex128',
+    ];
 
     public function setUp() : void
     {
@@ -91,6 +104,22 @@ class LinearAlgebraTest extends TestCase
         }
     }
 
+    protected function toComplex(mixed $array) : mixed
+    {
+        if(!is_array($array)) {
+            if(is_numeric($array)) {
+                return C($array,i:0);
+            } else {
+                return C($array->real,i:$array->imag);
+            }
+        }
+        $cArray = [];
+        foreach($array as $value) {
+            $cArray[] = $this->toComplex($value);
+        }
+        return $cArray;
+    }
+
     public function testSpeedTest()
     {
         // ==============================================
@@ -99,6 +128,67 @@ class LinearAlgebraTest extends TestCase
         // the corresponding test individually.
         // ==============================================
         $this->assertFalse(self::$speedtest);
+    }
+
+    public function testArray()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // arrays
+        $x = $la->array([1,2],dtype:NDArray::float32);
+        $this->assertEquals([1,2],$x->toArray());
+
+        $x = $la->array([1,2],dtype:NDArray::int32);
+        $this->assertEquals([1,2],$x->toArray());
+
+        $x = $la->array([true,false],dtype:NDArray::bool);
+        $this->assertEquals([true,false],$x->toArray());
+
+        $x = $la->array([C(1,i:1),C(2,i:2)],dtype:NDArray::complex64);
+        $this->assertEquals([C(1,i:1),C(2,i:2)],$x->toArray());
+
+        // scalars
+        $x = $la->array(1,dtype:NDArray::float32);
+        $this->assertEquals(1,$x->toArray());
+
+        $x = $la->array(1,dtype:NDArray::int32);
+        $this->assertEquals(1,$x->toArray());
+
+        $x = $la->array(true,dtype:NDArray::bool);
+        $this->assertEquals(true,$x->toArray());
+
+        $x = $la->array(C(1,i:1),dtype:NDArray::complex64);
+        $this->assertEquals(C(1,i:1),$x->toArray());
+    }
+
+    public function testToNDArray()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $x = $la->alloc([2,3]);
+        $ndarray = $la->toNDArray($x);
+        $this->assertInstanceOf(NDArray::class,$ndarray);
+        $this->assertNotInstanceOf(DeviceBuffer::class,$ndarray->buffer());
+    }
+
+    public function testScalar()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $x = $la->array(1,dtype:NDArray::float32);
+        $this->assertEquals(1,$la->scalar($x));
+
+        $x = $la->array(1,dtype:NDArray::int32);
+        $this->assertEquals(1,$la->scalar($x));
+
+        $x = $la->array(true,dtype:NDArray::bool);
+        $this->assertEquals(true,$la->scalar($x));
+
+        $x = $la->array(C(1,i:1),dtype:NDArray::complex64);
+        $this->assertEquals(C(1,i:1),$la->scalar($x));
     }
 
     public function testExpandDims()
@@ -176,6 +266,40 @@ class LinearAlgebraTest extends TestCase
         $this->assertEquals(NDArray::float32,$x->dtype());
         $this->assertEquals(6,$x->size());
         $this->assertEquals(6,count($x->buffer()));
+
+        $x = $la->alloc([2,3],dtype:NDArray::complex64);
+        $this->assertEquals([2,3],$x->shape());
+        $this->assertEquals(NDArray::complex64,$x->dtype());
+        $this->assertEquals(6,$x->size());
+        $this->assertEquals(6,count($x->buffer()));
+    }
+
+    public function testZeros()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $x = $la->alloc([10]);
+        $la->zeros($x);
+        $this->assertEquals(array_fill(0,10,0),$x->toArray());
+
+        $x = $la->alloc([10],dtype:NDArray::complex64);
+        $la->zeros($x);
+        $this->assertEquals(array_fill(0,10,C(0)),$x->toArray());
+    }
+
+    public function testOnes()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $x = $la->alloc([10]);
+        $la->ones($x);
+        $this->assertEquals(array_fill(0,10,1),$x->toArray());
+
+        $x = $la->alloc([10],dtype:NDArray::complex64);
+        $la->ones($x);
+        $this->assertEquals(array_fill(0,10,C(1)),$x->toArray());
     }
 
     public function testZerosLike()
@@ -198,6 +322,18 @@ class LinearAlgebraTest extends TestCase
         $x = $la->array([[1,2,3],[4,5,6],[7,8,9]],dtype:NDArray::float32);
         $la->scal(2,$x);
         $this->assertEquals([[2,4,6],[8,10,12],[14,16,18]],$x->toArray());
+
+        $x = $la->array([
+            [C(1,i:9),C(2,i:8),C(3,i:7)],
+            [C(4,i:6),C(5,i:5),C(6,i:4)],
+            [C(7,i:3),C(8,i:2),C(9,i:1)]
+        ],dtype:NDArray::complex64);
+        $la->scal(C(2,i:1),$x);
+        $this->assertEquals([
+            [C(-7,i:19),C(-4,i:18),C(-1,i:17)],
+            [C( 2,i:16),C( 5,i:15),C( 8,i:14)],
+            [C(11,i:13),C(14,i:12),C(17,i:11)]
+        ],$x->toArray());
     }
 
     /**
@@ -211,6 +347,11 @@ class LinearAlgebraTest extends TestCase
         $y = $la->array([[10,20,30],[40,50,60]],dtype:NDArray::float32);
         $la->axpy($x,$y,2);
         $this->assertEquals([[12,24,36],[48,60,72]],$y->toArray());
+
+        $x = $la->array([[C( 1),C( 2),C( 3)],[C( 4),C( 5),C( 6)]],dtype:NDArray::complex64);
+        $y = $la->array([[C(10),C(20),C(30)],[C(40),C(50),C(60)]],dtype:NDArray::complex64);
+        $la->axpy($x,$y,C(2));
+        $this->assertEquals([[C(12),C(24),C(36)],[C(48),C(60),C(72)]],$y->toArray());
     }
 
     /**
@@ -224,6 +365,13 @@ class LinearAlgebraTest extends TestCase
         $y = $la->array([[10,20,30],[40,50,60]],dtype:NDArray::float32);
         $ret = $la->dot($x,$y);
         $this->assertEquals(1*10+2*20+3*30+4*40+5*50+6*60,$ret);
+
+        $x = $la->array([[C( 1),C( 2),C( 3)],[C( 4),C( 5),C( 6)]],dtype:NDArray::complex64);
+        $y = $la->array([[C(10),C(20),C(30)],[C(40),C(50),C(60)]],dtype:NDArray::complex64);
+        $ret = $la->dot($x,$y);
+        $this->assertEquals(C(1*10+2*20+3*30+4*40+5*50+6*60),$ret);
+        $ret = $la->dot($x,$y,conj:false);
+        $this->assertEquals(C(1*10+2*20+3*30+4*40+5*50+6*60),$ret);
     }
 
     /**
@@ -234,6 +382,10 @@ class LinearAlgebraTest extends TestCase
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
         $x = $la->array([[-1,2,-3],[-4,5,-6]],dtype:NDArray::float32);
+        $ret = $la->asum($x);
+        $this->assertEquals(1+2+3+4+5+6,$ret);
+
+        $x = $la->array([[C(-1),C(2),C(-3)],[C(-4),C(5),C(-6)]],dtype:NDArray::complex64);
         $ret = $la->asum($x);
         $this->assertEquals(1+2+3+4+5+6,$ret);
     }
@@ -253,7 +405,6 @@ class LinearAlgebraTest extends TestCase
         $x = $la->array([[-1,2,-3],[-4,5,-6]],dtype:NDArray::int32);
         $ret = $la->imax($x);
         $this->assertEquals(4,$ret);
-
     }
 
     /**
@@ -263,7 +414,12 @@ class LinearAlgebraTest extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
+
         $x = $la->array([[-1,2,-3],[-4,5,-6]],dtype:NDArray::float32);
+        $ret = $la->iamax($x);
+        $this->assertEquals(5,$ret);
+
+        $x = $la->array([[C(-1),C(2),C(-3)],[C(-4),C(5),C(-6)]],dtype:NDArray::complex64);
         $ret = $la->iamax($x);
         $this->assertEquals(5,$ret);
     }
@@ -298,7 +454,12 @@ class LinearAlgebraTest extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
+
         $x = $la->array([[-1,2,-3],[-4,5,-6]],dtype:NDArray::float32);
+        $ret = $la->iamin($x);
+        $this->assertEquals(0,$ret);
+
+        $x = $la->array([[C(-1),C(2),C(-3)],[C(-4),C(5),C(-6)]],dtype:NDArray::complex64);
         $ret = $la->iamin($x);
         $this->assertEquals(0,$ret);
     }
@@ -348,7 +509,11 @@ class LinearAlgebraTest extends TestCase
         $la = $this->newLA($mo);
         $x = $la->array([[-1,2,-3],[-4,5,-6]],dtype:NDArray::float32);
         $ret = $la->amax($x);
-        $this->assertEquals(-6,$ret);
+        $this->assertEquals(6,$ret);
+
+        $x = $la->array([[C(-1),C(2),C(-3)],[C(-4),C(5),C(-6)]],dtype:NDArray::complex64);
+        $ret = $la->amax($x);
+        $this->assertEquals(6,$ret);
 
         // INFINITY & NaN
         // *** CAUTION ****
@@ -419,9 +584,14 @@ class LinearAlgebraTest extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
+
         $x = $la->array([[-1,2,-3],[-4,5,-6]],dtype:NDArray::float32);
         $ret = $la->amin($x);
-        $this->assertEquals(-1,$ret);
+        $this->assertEquals(1,$ret);
+
+        $x = $la->array([[C(-1),C(2),C(-3)],[C(-4),C(5),C(-6)]],dtype:NDArray::complex64);
+        $ret = $la->amin($x);
+        $this->assertEquals(1,$ret);
 
         // INFINITY & NaN
         // *** CAUTION ****
@@ -453,9 +623,18 @@ class LinearAlgebraTest extends TestCase
         $la = $this->newLA($mo);
         $x = $la->array([[-1,2,-3],[-4,5,-6]],dtype:NDArray::float32);
         $y = $la->zerosLike($x);
+ 
         $ret = $la->copy($x,$y);
-
         $this->assertEquals([[-1,2,-3],[-4,5,-6]],$y->toArray());
+        $this->assertEquals(spl_object_id($ret),spl_object_id($y));
+
+        $z = $la->copy($x);
+        $this->assertEquals([[-1,2,-3],[-4,5,-6]],$z->toArray());
+
+        $x = $la->array([[C(-1),C(2),C(-3)],[C(-4),C(5),C(-6)]],dtype:NDArray::complex64);
+        $z = $la->copy($x);
+        $this->assertEquals([[C(-1),C(2),C(-3)],[C(-4),C(5),C(-6)]],$z->toArray());
+
     }
 
     /**
@@ -466,6 +645,12 @@ class LinearAlgebraTest extends TestCase
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
         $x = $la->array([[1,2],[3,4]],dtype:NDArray::float32);
+        $nrm2 = sqrt(1+2**2+3**2+4**2);
+        $this->assertLessThan(0.00001,abs($nrm2-
+            $la->nrm2($x)
+        ));
+
+        $x = $la->array([[C(1),C(2)],[C(3),C(4)]],dtype:NDArray::complex64);
         $nrm2 = sqrt(1+2**2+3**2+4**2);
         $this->assertLessThan(0.00001,abs($nrm2-
             $la->nrm2($x)
@@ -533,17 +718,25 @@ class LinearAlgebraTest extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
-        $x = $la->array($mo->arange(16,null,null,dtype:NDArray::float32));
-        $y = $la->array($mo->arange(16,15,-1,dtype:NDArray::float32));
+
+        $x = $la->array($mo->array(range(0,15),dtype:NDArray::float32));
+        $y = $la->array($mo->array(range(15,0,-1),dtype:NDArray::float32));
         $la->swap($x,$y);
+        $x = $la->toNDArray($x);
+        $y = $la->toNDArray($y);
         for($i=0;$i<16;$i++) {
-            if(is_scalar($x[$i])) {
-                $this->assertEquals(15-$i,$x[$i]);
-                $this->assertEquals($i,$y[$i]);
-            } else {
-                $this->assertEquals(15-$i,$x[$i]->toArray());
-                $this->assertEquals($i,$y[$i]->toArray());
-            }
+            $this->assertEquals(15-$i,$x[$i]);
+            $this->assertEquals($i,$y[$i]);
+        }
+
+        $x = $la->array($mo->array($this->toComplex(range(0,15)),dtype:NDArray::complex64));
+        $y = $la->array($mo->array($this->toComplex(range(15,0,-1)),dtype:NDArray::complex64));
+        $la->swap($x,$y);
+        $x = $la->toNDArray($x);
+        $y = $la->toNDArray($y);
+        for($i=0;$i<16;$i++) {
+            $this->assertEquals(C(15-$i),$x[$i]);
+            $this->assertEquals(C($i),$y[$i]);
         }
     }
 
@@ -551,12 +744,19 @@ class LinearAlgebraTest extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
+
         $A = $la->array([[1,2,3],[4,5,6]]);
         $X = $la->array([100,10,1]);
-
         $Y = $la->gemv($A,$X);
         $this->assertEquals(
             [123,456]
+        ,$Y->toArray());
+
+        $A = $la->array($this->toComplex([[1,2,3],[4,5,6]]),dtype:NDArray::complex64);
+        $X = $la->array($this->toComplex([100,10,1]),dtype:NDArray::complex64);
+        $Y = $la->gemv($A,$X);
+        $this->assertEquals(
+            $this->toComplex([123,456])
         ,$Y->toArray());
     }
 
@@ -564,12 +764,29 @@ class LinearAlgebraTest extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
+
+        // float32
         $A = $la->array([[1,2,3],[4,5,6]]);
         $X = $la->array([10,1]);
-
-        $Y = $la->gemv($A,$X,null,null,null,$trans=true);
+        $Y = $la->gemv($A,$X,trans:true);
         $this->assertEquals(
             [14,25,36]
+        ,$Y->toArray());
+
+        // complex64 trans with conj
+        $A = $la->array([[C(1,i:6),C(2,i:5),C(3,i:4)],[C(4,i:3),C(5,i:2),C(6,i:1)]],dtype:NDArray::complex64);
+        $X = $la->array([C(10,i:1),C(1,i:1)],dtype:NDArray::complex64);
+        $Y = $la->gemv($A,$X,trans:true,alpha:C(1.0),beta:C(0.0));
+        $this->assertEquals(
+            [C(23,i:-58),C(32,i:-45),C(41,i:-32)]
+        ,$Y->toArray());
+
+        // complex64 trans with no_conj
+        $A = $la->array([[C(1,i:6),C(2,i:5),C(3,i:4)],[C(4,i:3),C(5,i:2),C(6,i:1)]],dtype:NDArray::complex64);
+        $X = $la->array([C(10,i:1),C(1,i:1)],dtype:NDArray::complex64);
+        $Y = $la->gemv($A,$X,trans:true,conj:false);
+        $this->assertEquals(
+            [C(5,i:68),C(18,i:59),C(31,i:50)]
         ,$Y->toArray());
     }
 
@@ -577,45 +794,85 @@ class LinearAlgebraTest extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
+
+        // float32
         $A = $la->array([[1,2,3],[4,5,6],[7,8,9]]);
         $B = $la->array([[1,0,0],[0,1,0],[0,0,1]]);
-
         $C = $la->gemm($A,$B);
         $this->assertEquals([
             [1,2,3],
             [4,5,6],
             [7,8,9]
         ],$C->toArray());
+
+        // complex64
+        $A = $la->array([
+            [C(1,i:9),C(2,i:8),C(3,i:7)],
+            [C(4,i:6),C(5,i:5),C(6,i:4)],
+            [C(7,i:3),C(8,i:2),C(9,i:1)]
+        ],dtype:NDArray::complex64);
+        $B = $la->array($this->toComplex([[1,0,0],[0,1,0],[0,0,1]]),dtype:NDArray::complex64);
+        $C = $la->gemm($A,$B);
+        $this->assertEquals([
+            [C(1,i:9),C(2,i:8),C(3,i:7)],
+            [C(4,i:6),C(5,i:5),C(6,i:4)],
+            [C(7,i:3),C(8,i:2),C(9,i:1)]
+        ],$C->toArray());
+
     }
 
     public function testGemmScaleAlpha()
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
+
+        // float32
         $A = $la->array([[1,2,3],[4,5,6],[7,8,9]]);
         $B = $la->array([[1,0,0],[0,1,0],[0,0,1]]);
-
-        $C = $la->gemm($A,$B,10);
+        $C = $la->gemm($A,$B,alpha:10);
         $this->assertEquals([
             [10,20,30],
             [40,50,60],
             [70,80,90]
         ],$C->toArray());
+
+        // complex64
+        $A = $la->array($this->toComplex([[1,2,3],[4,5,6],[7,8,9]]),dtype:NDArray::complex64);
+        $B = $la->array($this->toComplex([[1,0,0],[0,1,0],[0,0,1]]),dtype:NDArray::complex64);
+        $C = $la->gemm($A,$B,alpha:C(10,i:1));
+        $this->assertEquals([
+            [C(10,i:1),C(20,i:2),C(30,i:3)],
+            [C(40,i:4),C(50,i:5),C(60,i:6)],
+            [C(70,i:7),C(80,i:8),C(90,i:9)]
+        ],$C->toArray());
+
     }
 
     public function testGemmScaleBeta()
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
+
+        // float32
         $A = $la->array([[1,2,3],[4,5,6],[7,8,9]]);
         $B = $la->array([[1,0,0],[0,1,0],[0,0,1]]);
-
         $C = $la->array($mo->ones([$A->shape()[0],$B->shape()[1]]));
-        $la->gemm($A,$B,null,10,$C);
+        $la->gemm($A,$B,beta:10,C:$C);
         $this->assertEquals([
             [11,12,13],
             [14,15,16],
             [17,18,19]
+        ],$C->toArray());
+
+        // complex64
+        $A = $la->array($this->toComplex([[1,2,3],[4,5,6],[7,8,9]]),dtype:NDArray::complex64);
+        $B = $la->array($this->toComplex([[1,0,0],[0,1,0],[0,0,1]]),dtype:NDArray::complex64);
+        $C = $la->array($mo->ones([$A->shape()[0],$B->shape()[1]],dtype:NDArray::complex64));
+        $la->gemm($A,$B,beta:C(10,i:1),C:$C);
+        $this->assertEquals([
+            [C(11,i:1),C(12,i:1),C(13,i:1)],
+            [C(14,i:1),C(15,i:1),C(16,i:1)],
+            [C(17,i:1),C(18,i:1),C(19,i:1)]
         ],$C->toArray());
     }
 
@@ -623,14 +880,43 @@ class LinearAlgebraTest extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
+
+        // float32
         $A = $la->array([[1,2,3],[4,5,6],[7,8,9]]);
         $B = $la->array([[1,0,0],[0,1,0],[0,0,1]]);
-
-        $C = $la->gemm($A,$B,null,null,null,$transA=true);
+        $C = $la->gemm($A,$B,transA:true);
         $this->assertEquals([
             [1,4,7],
             [2,5,8],
             [3,6,9]
+        ],$C->toArray());
+
+        // complex64 trans with conj
+        $A = $la->array([
+            [C(1,i:9),C(2,i:8),C(3,i:7)],
+            [C(4,i:6),C(5,i:5),C(6,i:4)],
+            [C(7,i:3),C(8,i:2),C(9,i:1)]
+        ],dtype:NDArray::complex64);
+        $B = $la->array($this->toComplex([[1,0,0],[0,1,0],[0,0,1]]),dtype:NDArray::complex64);
+        $C = $la->gemm($A,$B,transA:true);
+        $this->assertEquals([
+            [C(1,i:-9),C(4,i:-6),C(7,i:-3)],
+            [C(2,i:-8),C(5,i:-5),C(8,i:-2)],
+            [C(3,i:-7),C(6,i:-4),C(9,i:-1)]
+        ],$C->toArray());
+
+        // complex64 trans with no_conj
+        $A = $la->array([
+            [C(1,i:9),C(2,i:8),C(3,i:7)],
+            [C(4,i:6),C(5,i:5),C(6,i:4)],
+            [C(7,i:3),C(8,i:2),C(9,i:1)]
+        ],dtype:NDArray::complex64);
+        $B = $la->array($this->toComplex([[1,0,0],[0,1,0],[0,0,1]]),dtype:NDArray::complex64);
+        $C = $la->gemm($A,$B,transA:true,conjA:false);
+        $this->assertEquals([
+            [C(1,i:9),C(4,i:6),C(7,i:3)],
+            [C(2,i:8),C(5,i:5),C(8,i:2)],
+            [C(3,i:7),C(6,i:4),C(9,i:1)]
         ],$C->toArray());
     }
 
@@ -638,14 +924,43 @@ class LinearAlgebraTest extends TestCase
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
+
+        // float32
         $A = $la->array([[1,0,0],[0,1,0],[0,0,1]]);
         $B = $la->array([[1,2,3],[4,5,6],[7,8,9]]);
-
-        $C = $la->gemm($A,$B,null,null,null,null,$transB=true);
+        $C = $la->gemm($A,$B,transB:true);
         $this->assertEquals([
             [1,4,7],
             [2,5,8],
             [3,6,9]
+        ],$C->toArray());
+
+        // complex64 trans with conj
+        $A = $la->array($this->toComplex([[1,0,0],[0,1,0],[0,0,1]]),dtype:NDArray::complex64);
+        $B = $la->array([
+            [C(1,i:9),C(2,i:8),C(3,i:7)],
+            [C(4,i:6),C(5,i:5),C(6,i:4)],
+            [C(7,i:3),C(8,i:2),C(9,i:1)]
+        ],dtype:NDArray::complex64);
+        $C = $la->gemm($A,$B,transB:true);
+        $this->assertEquals([
+            [C(1,i:-9),C(4,i:-6),C(7,i:-3)],
+            [C(2,i:-8),C(5,i:-5),C(8,i:-2)],
+            [C(3,i:-7),C(6,i:-4),C(9,i:-1)]
+        ],$C->toArray());
+
+        // complex64 trans with no_conj
+        $A = $la->array($this->toComplex([[1,0,0],[0,1,0],[0,0,1]]),dtype:NDArray::complex64);
+        $B = $la->array([
+            [C(1,i:9),C(2,i:8),C(3,i:7)],
+            [C(4,i:6),C(5,i:5),C(6,i:4)],
+            [C(7,i:3),C(8,i:2),C(9,i:1)]
+        ],dtype:NDArray::complex64);
+        $C = $la->gemm($A,$B,transB:true,conjB:false);
+        $this->assertEquals([
+            [C(1,i:9),C(4,i:6),C(7,i:3)],
+            [C(2,i:8),C(5,i:5),C(8,i:2)],
+            [C(3,i:7),C(6,i:4),C(9,i:1)]
         ],$C->toArray());
     }
 
@@ -669,7 +984,7 @@ class LinearAlgebraTest extends TestCase
         $la = $this->newLA($mo);
         $A = $la->array([[1,2],[3,4],[5,6]]);
         $B = $la->array([[1,0,0],[0,1,0],[0,0,1]]);
-        $C = $la->gemm($A,$B,null,null,null,$transA=true);
+        $C = $la->gemm($A,$B,transA:true);
         $this->assertEquals([
             [1,3,5],
             [2,4,6],
@@ -696,7 +1011,7 @@ class LinearAlgebraTest extends TestCase
         $la = $this->newLA($mo);
         $A = $la->array([[1,0,0],[0,1,0],[0,0,1]]);
         $B = $la->array([[1,2,3],[4,5,6]]);
-        $C = $la->gemm($A,$B,null,null,null,null,$transB=true);
+        $C = $la->gemm($A,$B,transB:true);
         $this->assertEquals([
             [1,4],
             [2,5],
@@ -723,7 +1038,7 @@ class LinearAlgebraTest extends TestCase
         $B = $la->array([[1,0,0],[0,1,0],[0,0,1]]);
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('The number of columns in "A" and the number of rows in "B" must be the same');
-        $C = $la->gemm($A,$B,null,null,null,$transA=true);
+        $C = $la->gemm($A,$B,transA:true);
     }
 
     public function testGemmUnmatchShapeNoTransRectangleB23()
@@ -745,7 +1060,7 @@ class LinearAlgebraTest extends TestCase
         $B = $la->array([[1,2],[3,4],[5,6]]);
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('The number of columns in "A" and the number of rows in "B" must be the same');
-        $C = $la->gemm($A,$B,null,null,null,null,$transB=true);
+        $C = $la->gemm($A,$B,transB:true);
     }
 
     public function testGemmUnmatchOutputShapeNoTransA()
@@ -758,7 +1073,7 @@ class LinearAlgebraTest extends TestCase
         $C = $la->array($mo->zeros([3,3]));
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('"A" and "C" must have the same number of rows."B" and "C" must have the same number of columns');
-        $la->gemm($A,$B,null,null,$C);
+        $la->gemm($A,$B,C:$C);
     }
 
     public function testGemmUnmatchOutputShapeNoTransB()
@@ -771,7 +1086,7 @@ class LinearAlgebraTest extends TestCase
         $C = $la->array($mo->zeros([2,2]));
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('"A" and "C" must have the same number of rows."B" and "C" must have the same number of columns');
-        $la->gemm($A,$B,null,null,$C);
+        $la->gemm($A,$B,C:$C);
     }
 
     public function testGemmUnmatchOutputShapeTransposeA()
@@ -784,7 +1099,7 @@ class LinearAlgebraTest extends TestCase
         $C = $la->array($mo->zeros([3,3]));
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('"A" and "C" must have the same number of rows."B" and "C" must have the same number of columns');
-        $la->gemm($A,$B,null,null,$C,$transA=true);
+        $la->gemm($A,$B,C:$C,transA:true);
     }
 
     public function testGemmUnmatchOutputShapeTransposeB()
@@ -797,7 +1112,7 @@ class LinearAlgebraTest extends TestCase
         $C = $la->array($mo->zeros([3,3]));
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('"A" and "C" must have the same number of rows."B" and "C" must have the same number of columns');
-        $la->gemm($A,$B,null,null,$C,null,$transB=true);
+        $la->gemm($A,$B,C:$C,transB:true);
     }
 
     public function testGemmSpeed()
@@ -863,13 +1178,49 @@ class LinearAlgebraTest extends TestCase
             [2,4,0],
             [3,5,6],
         ]);
-        $C = $la->symm($A,$B,null,null,null,null,true);
+        $C = $la->symm($A,$B,lower:true);
         $this->assertEquals($trues->toArray(),$C->toArray());
         $this->assertEquals([
             [38, 44, 50, 56],
             [67, 78, 89,100],
             [82, 96,110,124]
         ],$C->toArray());
+
+        // complex64
+        $A = $la->array($this->toComplex([
+            [1,2,3],
+            [2,4,5],
+            [3,5,6],
+        ]),dtype:NDArray::complex64);
+        $B = $la->array($this->toComplex([
+            [1,2,3,4],
+            [5,6,7,8],
+            [9,10,11,12],
+        ]),dtype:NDArray::complex64);
+        $C = $la->symm($A,$B);
+        $this->assertEquals($this->toComplex([
+            [38, 44, 50, 56],
+            [67, 78, 89,100],
+            [82, 96,110,124]
+        ]),$this->toComplex($C->toArray()));
+
+        // complex64 with alpha
+        $A = $la->array($this->toComplex([
+            [1,2,3],
+            [2,4,5],
+            [3,5,6],
+        ]),dtype:NDArray::complex64);
+        $B = $la->array($this->toComplex([
+            [1,2,3,4],
+            [5,6,7,8],
+            [9,10,11,12],
+        ]),dtype:NDArray::complex64);
+        $C = $la->symm($A,$B,alpha:C(1.0),beta:C(0.0));
+        $this->assertEquals($this->toComplex([
+            [38, 44, 50, 56],
+            [67, 78, 89,100],
+            [82, 96,110,124]
+        ]),$this->toComplex($C->toArray()));
 
     }
 
@@ -894,7 +1245,7 @@ class LinearAlgebraTest extends TestCase
             [0,4,5],
             [0,0,6],
         ]);
-        $C = $la->symm($A,$B,null,null,null,true);
+        $C = $la->symm($A,$B,right:true);
         $this->assertEquals($trues->toArray(),$C->toArray());
         $this->assertEquals([
             [14, 25, 31],
@@ -908,7 +1259,7 @@ class LinearAlgebraTest extends TestCase
             [2,4,0],
             [3,5,6],
         ]);
-        $C = $la->symm($A,$B,null,null,null,true,true);
+        $C = $la->symm($A,$B,right:true,lower:true);
         $this->assertEquals($trues->toArray(),$C->toArray());
         $this->assertEquals([
             [14, 25, 31],
@@ -952,7 +1303,7 @@ class LinearAlgebraTest extends TestCase
                 $trues[$i][$j] = 0;
             }
         }
-        $C = $la->syrk($A,null,null,null,true);
+        $C = $la->syrk($A,lower:true);
         $this->assertEquals($trues,$C->toArray());
         $this->assertEquals([
             [14,  0,  0,  0],
@@ -960,6 +1311,23 @@ class LinearAlgebraTest extends TestCase
             [50,122,194,  0],
             [68,167,266,365],
         ],$C->toArray());
+
+
+        // complex64
+        $A = $la->array($this->toComplex([
+            [1,2,3],
+            [4,5,6],
+            [7,8,9],
+            [10,11,12],
+        ]),dtype:NDArray::complex64);
+        $C = $la->syrk($A);
+        $this->assertEquals($this->toComplex([
+            [14, 32, 50, 68],
+            [ 0, 77,122,167],
+            [ 0,  0,194,266],
+            [ 0,  0,  0,365],
+        ]),$this->toComplex($C->toArray()));
+
     }
 
     public function testSyrkTranspose()
@@ -980,7 +1348,7 @@ class LinearAlgebraTest extends TestCase
                 $trues[$i][$j] = 0;
             }
         }
-        $C = $la->syrk($A,null,null,null,null,true);
+        $C = $la->syrk($A,trans:true);
         $this->assertEquals($trues,$C->toArray());
         $this->assertEquals([
             [ 166, 188, 210],
@@ -995,12 +1363,26 @@ class LinearAlgebraTest extends TestCase
                 $trues[$i][$j] = 0;
             }
         }
-        $C = $la->syrk($A,null,null,null,true,true);
+        $C = $la->syrk($A,lower:true,trans:true);
         $this->assertEquals($trues,$C->toArray());
         $this->assertEquals([
             [ 166,   0,   0],
             [ 188, 214,   0],
             [ 210, 240, 270]
+        ],$C->toArray());
+
+        // complex64 
+        $A = $la->array([
+            [C( 1,i:1),C( 2,i:1),C( 3,i:1)],
+            [C( 4,i:1),C( 5,i:1),C( 6,i:1)],
+            [C( 7,i:1),C( 8,i:1),C( 9,i:1)],
+            [C(10,i:1),C(11,i:1),C(12,i:1)],
+        ],dtype:NDArray::complex64);
+        $C = $la->syrk($A,trans:true,alpha:C(1.0),beta:C(0.0));
+        $this->assertEquals([
+            [C(162,i:44),C(184,i:48),C(206,i:52)],
+            [C(  0,i: 0),C(210,i:52),C(236,i:56)],
+            [C(  0,i: 0),C(  0,i: 0),C(266,i:60)]
         ],$C->toArray());
     }
 
@@ -1024,7 +1406,7 @@ class LinearAlgebraTest extends TestCase
         $BT = $la->transpose($B);
         [$n,$k] = $A->shape();
         $trues = $la->gemm($A,$BT);
-        $trues = $la->gemm($B,$AT,null,1.0,$trues)->toArray();
+        $trues = $la->gemm($B,$AT,beta:1.0,C:$trues)->toArray();
         for($i=0;$i<$n;$i++) {
             for($j=0;$j<$i;$j++) {
                 $trues[$i][$j] = 0;
@@ -1041,13 +1423,13 @@ class LinearAlgebraTest extends TestCase
 
         // lower
         $trues = $la->gemm($A,$BT);
-        $trues = $la->gemm($B,$AT,null,1.0,$trues)->toArray();
+        $trues = $la->gemm($B,$AT,beta:1.0,C:$trues)->toArray();
         for($i=0;$i<$n;$i++) {
             for($j=$i+1;$j<$n;$j++) {
                 $trues[$i][$j] = 0;
             }
         }
-        $C = $la->syr2k($A,$B,null,null,null,true);
+        $C = $la->syr2k($A,$B,lower:true);
         $this->assertEquals($trues,$C->toArray());
         $this->assertEquals([
             [ 44,  0,  0,  0],
@@ -1055,12 +1437,34 @@ class LinearAlgebraTest extends TestCase
             [134,239,440,  0],
             [167,290,545,668]
         ],$C->toArray());
+
+        // complex64
+        $A = $la->array($this->toComplex([
+            [1,2,3],
+            [4,5,6],
+            [7,8,9],
+            [10,11,12],
+        ]),dtype:NDArray::complex64);
+        $B = $la->array($this->toComplex([
+            [1,3,5],
+            [2,4,6],
+            [7,9,11],
+            [8,10,12],
+        ]),dtype:NDArray::complex64);
+        $C = $la->syr2k($A,$B);
+        $this->assertEquals($this->toComplex([
+            [44, 77,134,167],
+            [ 0,128,239,290],
+            [ 0,  0,440,545],
+            [ 0,  0,  0,668]
+        ]),$C->toArray());
     }
 
     public function testSyr2kTranspose()
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
+ 
         $A = $la->array([
             [1,2,3],
             [4,5,6],
@@ -1077,13 +1481,13 @@ class LinearAlgebraTest extends TestCase
         $BT = $la->transpose($B);
         [$n,$k] = $A->shape();
         $trues = $la->gemm($BT,$A);
-        $trues = $la->gemm($AT,$B,null,1.0,$trues)->toArray();
+        $trues = $la->gemm($AT,$B,beta:1.0,C:$trues)->toArray();
         for($i=0;$i<$k;$i++) {
             for($j=0;$j<$i;$j++) {
                 $trues[$i][$j] = 0;
             }
         }
-        $C = $la->syr2k($A,$B,null,null,null,null,true);
+        $C = $la->syr2k($A,$B,trans:true);
         $this->assertEquals($trues,$C->toArray());
         $this->assertEquals([
             [276,338,400],
@@ -1093,18 +1497,38 @@ class LinearAlgebraTest extends TestCase
 
         // lower
         $trues = $la->gemm($BT,$A);
-        $trues = $la->gemm($AT,$B,null,1.0,$trues)->toArray();
+        $trues = $la->gemm($AT,$B,beta:1.0,C:$trues)->toArray();
         for($i=0;$i<$k;$i++) {
             for($j=$i+1;$j<$k;$j++) {
                 $trues[$i][$j] = 0;
             }
         }
-        $C = $la->syr2k($A,$B,null,null,null,true,true);
+        $C = $la->syr2k($A,$B,lower:true,trans:true);
         $this->assertEquals($trues,$C->toArray());
         $this->assertEquals([
             [276,  0,  0],
             [338,416,  0],
             [400,494,588]
+        ],$C->toArray());
+
+        // complex64
+        $A = $la->array([
+            [C( 1,i:1),C( 2,i:1),C( 3,i:1)],
+            [C( 4,i:1),C( 5,i:1),C( 6,i:1)],
+            [C( 7,i:1),C( 8,i:1),C( 9,i:1)],
+            [C(10,i:1),C(11,i:1),C(12,i:1)],
+        ],dtype:NDArray::complex64);
+        $B = $la->array([
+            [C( 1,i:1),C( 3,i:1),C( 5,i:1)],
+            [C( 2,i:1),C( 4,i:1),C( 6,i:1)],
+            [C( 7,i:1),C( 9,i:1),C(11,i:1)],
+            [C( 8,i:1),C(10,i:1),C(12,i:1)],
+        ],dtype:NDArray::complex64);
+        $C = $la->syr2k($A,$B,trans:true,alpha:C(1.0),beta:C(0.0));
+        $this->assertEquals([
+            [C(268,i:80),C(330,i: 92),C(392,i:104)],
+            [C(  0,i: 0),C(408,i:104),C(486,i:116)],
+            [C(  0,i: 0),C(  0,i:  0),C(580,i:128)]
         ],$C->toArray());
     }
 
@@ -1153,13 +1577,32 @@ class LinearAlgebraTest extends TestCase
             [2,4,9],
             [3,5,6],
         ]);
-        $C = $la->trmm($A,$B,null,null,true);
+        $C = $la->trmm($A,$B,lower:true);
         $this->assertEquals($trues->toArray(),$C->toArray());
         $this->assertEquals([
             [  1,  2,  3,  4],
             [ 22, 28, 34, 40],
             [ 82, 96,110,124]
         ],$trues->toArray());
+
+        // complex64
+        $A = $la->array($this->toComplex([
+            [1,2,3],
+            [0,4,5],
+            [0,0,6],
+        ]),dtype:NDArray::complex64);
+        $B = $la->array($this->toComplex([
+            [1, 2, 3, 4],
+            [5, 6, 7, 8],
+            [9,10,11,12],
+        ]),dtype:NDArray::complex64);
+        $la->trmm($A,$B);
+        $this->assertEquals($this->toComplex([
+            [ 38, 44, 50, 56],
+            [ 65, 74, 83, 92],
+            [ 54, 60, 66, 72]
+        ]),$B->toArray());
+
     }
 
     public function testTrmmTranspose()
@@ -1182,7 +1625,7 @@ class LinearAlgebraTest extends TestCase
             [9,4,5],
             [9,9,6],
         ]);
-        $la->trmm($A,$B,null,null,null,true);
+        $la->trmm($A,$B,trans:true);
         $this->assertEquals($trues->toArray(),$B->toArray());
         $this->assertEquals([
             [  1,  2,  3,  4],
@@ -1207,13 +1650,50 @@ class LinearAlgebraTest extends TestCase
             [2,4,9],
             [3,5,6],
         ]);
-        $C = $la->trmm($A,$B,null,null,true,true);
+        $C = $la->trmm($A,$B,lower:true,trans:true);
         $this->assertEquals($trues->toArray(),$C->toArray());
         $this->assertEquals([
             [ 38, 44, 50, 56],
             [ 65, 74, 83, 92],
             [ 54, 60, 66, 72]
         ],$trues->toArray());
+
+        // complex64 trans with conj
+        $A = $la->array([
+            [C(1,i:6),C(2,i:5),C(3,i:4)],
+            [C(0,i:0),C(4,i:3),C(5,i:2)],
+            [C(0,i:0),C(0,i:0),C(6,i:1)],
+        ],dtype:NDArray::complex64);
+        $B = $la->array([
+            [C(1,i:1),C( 2,i:1),C( 3,i:1),C( 4,i:1)],
+            [C(5,i:1),C( 6,i:1),C( 7,i:1),C( 8,i:1)],
+            [C(9,i:1),C(10,i:1),C(11,i:1),C(12,i:1)],
+        ],dtype:NDArray::complex64);
+        $la->trmm($A,$B,trans:true,alpha:C(1.0));
+        $this->assertEquals([
+            [C(  7,i: -5),C(  8,i:-11),C(  9,i:-17),C( 10,i:-23)],
+            [C( 30,i:-14),C( 36,i:-22),C( 42,i:-30),C( 48,i:-38)],
+            [C( 89,i: -9),C(103,i:-16),C(117,i:-23),C(131,i:-30)]
+        ],$B->toArray());
+
+        // complex64 trans with no_conj
+        $A = $la->array([
+            [C(1,i:6),C(2,i:5),C(3,i:4)],
+            [C(0,i:0),C(4,i:3),C(5,i:2)],
+            [C(0,i:0),C(0,i:0),C(6,i:1)],
+        ],dtype:NDArray::complex64);
+        $B = $la->array([
+            [C(1,i:1),C( 2,i:1),C( 3,i:1),C( 4,i:1)],
+            [C(5,i:1),C( 6,i:1),C( 7,i:1),C( 8,i:1)],
+            [C(9,i:1),C(10,i:1),C(11,i:1),C(12,i:1)],
+        ],dtype:NDArray::complex64);
+        $la->trmm($A,$B,trans:true,conj:false);
+        $this->assertEquals([
+            [C( -5,i:  7),C( -4,i: 13),C( -3,i: 19),C( -2,i: 25)],
+            [C( 14,i: 26),C( 20,i: 34),C( 26,i: 42),C( 32,i: 50)],
+            [C( 75,i: 37),C( 89,i: 44),C(103,i: 51),C(117,i: 58)]
+        ],$B->toArray());
+
     }
 
     public function testTrmmUnit()
@@ -1236,7 +1716,7 @@ class LinearAlgebraTest extends TestCase
             [9,9,5],
             [9,9,9],
         ]);
-        $la->trmm($A,$B,null,null,null,null,true);
+        $la->trmm($A,$B,unit:true);
         $this->assertEquals($trues->toArray(),$B->toArray());
         $this->assertEquals([
             [ 38, 44, 50, 56],
@@ -1261,7 +1741,7 @@ class LinearAlgebraTest extends TestCase
             [2,9,9],
             [3,5,9],
         ]);
-        $C = $la->trmm($A,$B,null,null,true,null,true);
+        $C = $la->trmm($A,$B,lower:true,unit:true);
         $this->assertEquals($trues->toArray(),$C->toArray());
         $this->assertEquals([
             [  1,  2,  3,  4],
@@ -1291,7 +1771,7 @@ class LinearAlgebraTest extends TestCase
             [9,4,5],
             [9,9,6],
         ]);
-        $la->trmm($A,$B,null,true);
+        $la->trmm($A,$B,right:true);
         $this->assertEquals($trues->toArray(),$B->toArray());
         $this->assertEquals([
             [  1, 10, 31],
@@ -1318,7 +1798,7 @@ class LinearAlgebraTest extends TestCase
             [2,4,9],
             [3,5,6],
         ]);
-        $la->trmm($A,$B,null,true,true);
+        $la->trmm($A,$B,right:true,lower:true);
         $this->assertEquals($trues->toArray(),$B->toArray());
         $this->assertEquals([
             [ 14, 23, 18],
@@ -1826,6 +2306,70 @@ class LinearAlgebraTest extends TestCase
         ]);
         $Y = $la->gemm($B,$A);
         $this->assertTrue($mo->la()->isclose($la->toNDArray($origB),$la->toNDArray($Y)));
+
+        // complex64
+        $A = $la->array($this->toComplex([
+            [1,2,3],
+            [9,4,5],
+            [9,9,6],
+        ]),dtype:NDArray::complex64);
+        $B = $la->array($this->toComplex([
+            [ 7, 8],
+            [10,11],
+            [13,14],
+        ]),dtype:NDArray::complex64);
+        $origB = $la->copy($B);
+        $la->trsm($A,$B);
+        $A = $la->array($this->toComplex([
+            [1,2,3],
+            [0,4,5],
+            [0,0,6],
+        ]),dtype:NDArray::complex64);
+        $Y = $la->gemm($A,$B);
+        $this->assertTrue($mo->la()->isclose($la->toNDArray($origB),$la->toNDArray($Y)));
+
+        // complex64 trans with conj
+        $A = $la->array($this->toComplex([
+            [1,2,3],
+            [9,4,5],
+            [9,9,6],
+        ]),dtype:NDArray::complex64);
+        $B = $la->array($this->toComplex([
+            [ 7, 8],
+            [10,11],
+            [13,14],
+        ]),dtype:NDArray::complex64);
+        $origB = $la->copy($B);
+        $la->trsm($A,$B,trans:true,alpha:C(1.0));
+        $A = $la->array($this->toComplex([
+            [1,2,3],
+            [0,4,5],
+            [0,0,6],
+        ]),dtype:NDArray::complex64);
+        $Y = $la->gemm($A,$B,transA:true);
+        $this->assertTrue($mo->la()->isclose($la->toNDArray($origB),$la->toNDArray($Y)));
+
+        // complex64 trans with no_conj
+        $A = $la->array($this->toComplex([
+            [1,2,3],
+            [9,4,5],
+            [9,9,6],
+        ]),dtype:NDArray::complex64);
+        $B = $la->array($this->toComplex([
+            [ 7, 8],
+            [10,11],
+            [13,14],
+        ]),dtype:NDArray::complex64);
+        $origB = $la->copy($B);
+        $la->trsm($A,$B,trans:true,conj:false);
+        $A = $la->array($this->toComplex([
+            [1,2,3],
+            [0,4,5],
+            [0,0,6],
+        ]),dtype:NDArray::complex64);
+        $Y = $la->gemm($A,$B,transA:true,conjA:false);
+        $this->assertTrue($mo->la()->isclose($la->toNDArray($origB),$la->toNDArray($Y)));
+
     }
 
     public function testTrsmAllCombinations()
@@ -1978,6 +2522,55 @@ class LinearAlgebraTest extends TestCase
 
     }
 
+    public function testomatcopy()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // float32
+        $A = $la->array([
+            [1,2,3],
+            [4,5,6],
+        ]);
+        $B = $la->omatcopy($A,alpha:2.0);
+        $this->assertEquals([
+            [2,4,6],
+            [8,10,12],
+        ],$B->toArray());
+        $B = $la->omatcopy($A,trans:true);
+        $this->assertEquals([
+            [1,4],
+            [2,5],
+            [3,6],
+        ],$B->toArray());
+
+        // complex64
+        $A = $la->array([
+            [C(1,i:1),C(2,i:2),C(3,i:3)],
+            [C(4,i:1),C(5,i:2),C(6,i:3)],
+        ],dtype:NDArray::complex64);
+
+        $B = $la->omatcopy($A,alpha:C(2.0));
+        $this->assertEquals([
+            [C(2,i:2),C( 4,i:4),C( 6,i:6)],
+            [C(8,i:2),C(10,i:4),C(12,i:6)],
+        ],$B->toArray());
+
+        $B = $la->omatcopy($A,trans:true);
+        $this->assertEquals([
+            [C(1,i:-1),C(4,i:-1)],
+            [C(2,i:-2),C(5,i:-2)],
+            [C(3,i:-3),C(6,i:-3)],
+        ],$B->toArray());
+
+        $B = $la->omatcopy($A,trans:true,conj:false);
+        $this->assertEquals([
+            [C(1,i:1),C(4,i:1)],
+            [C(2,i:2),C(5,i:2)],
+            [C(3,i:3),C(6,i:3)],
+        ],$B->toArray());
+    }
+
     public function testMatmulNormal()
     {
         $mo = $this->newMatrixOperator();
@@ -2024,6 +2617,18 @@ class LinearAlgebraTest extends TestCase
              [30,20,10],
              [0,0,0]],
         ],$C->toArray());
+
+        // complex64
+        $A = $la->array($this->toComplex([[[1,2,3],[4,5,6]],  [[60,50,40],[30,20,10]]]),dtype:NDArray::complex64);
+        $B = $la->array($this->toComplex([[[1,0],[0,1],[0,0]],[[2,0],[0,2],[0,0]]]),dtype:NDArray::complex64);
+
+        $C = $la->matmul($A,$B);
+        $this->assertEquals($this->toComplex([
+            [[1,2],
+             [4,5]],
+            [[120,100],
+             [60,40]],
+        ]),$C->toArray());
     }
 
     public function testMatmulTransposeA()
@@ -2033,7 +2638,7 @@ class LinearAlgebraTest extends TestCase
         $A = $la->array([[[1,2,3],[4,5,6]],  [[60,50,40],[30,20,10]]]);
         $B = $la->array([[[1,0,0],[0,1,0]],[[2,0,0],[0,2,0]]]);
 
-        $C = $la->matmul($A,$B,$transA=true);
+        $C = $la->matmul($A,$B,transA:true);
         $this->assertEquals([
             [[1,4,0],
              [2,5,0],
@@ -2043,7 +2648,7 @@ class LinearAlgebraTest extends TestCase
              [80,20,0]],
         ],$C->toArray());
 
-        $C = $la->matmul($B,$A,$transA=true);
+        $C = $la->matmul($B,$A,transA:true);
         $this->assertEquals([
             [[1,2,3],
              [4,5,6],
@@ -2056,7 +2661,7 @@ class LinearAlgebraTest extends TestCase
         $A = $la->array([[[1,2,3],[4,5,6]],  [[60,50,40],[30,20,10]]]);
         $B = $la->array([[1,0,0],[0,1,0]]);
 
-        $C = $la->matmul($A,$B,$transA=true);
+        $C = $la->matmul($A,$B,transA:true);
         $this->assertEquals([
             [[1,4,0],
              [2,5,0],
@@ -2066,7 +2671,7 @@ class LinearAlgebraTest extends TestCase
              [40,10,0]],
         ],$C->toArray());
 
-        $C = $la->matmul($B,$A,$transA=true);
+        $C = $la->matmul($B,$A,transA:true);
         $this->assertEquals([
             [[1,2,3],
              [4,5,6],
@@ -2075,6 +2680,44 @@ class LinearAlgebraTest extends TestCase
              [30,20,10],
              [0,0,0]],
         ],$C->toArray());
+
+        // complex64 trans with conj
+        $A = $la->array($this->toComplex([
+            [[ 1, 2, 3],
+             [ 4, 5, 6]],
+            [[60,50,40],
+             [30,20,10]]
+        ]),dtype:NDArray::complex64);
+        $B = $la->array($this->toComplex([[[1,0,0],[0,1,0]],[[2,0,0],[0,2,0]]]),dtype:NDArray::complex64);
+
+        $C = $la->matmul($A,$B,transA:true,alpha:C(1.0),beta:C(0.0));
+        $this->assertEquals($this->toComplex([
+            [[1,4,0],
+             [2,5,0],
+             [3,6,0]],
+            [[120,60,0],
+             [100,40,0],
+             [80,20,0]],
+        ]),$C->toArray());
+
+        // complex64 trans with no_conj
+        $A = $la->array($this->toComplex([
+            [[ 1, 2, 3],
+             [ 4, 5, 6]],
+            [[60,50,40],
+             [30,20,10]]
+        ]),dtype:NDArray::complex64);
+        $B = $la->array($this->toComplex([[[1,0,0],[0,1,0]],[[2,0,0],[0,2,0]]]),dtype:NDArray::complex64);
+
+        $C = $la->matmul($A,$B,transA:true,conjA:false,alpha:C(1.0),beta:C(0.0));
+        $this->assertEquals($this->toComplex([
+            [[1,4,0],
+             [2,5,0],
+             [3,6,0]],
+            [[120,60,0],
+             [100,40,0],
+             [80,20,0]],
+        ]),$C->toArray());
     }
 
     public function testMatmulTransposeB()
@@ -2084,7 +2727,7 @@ class LinearAlgebraTest extends TestCase
         $A = $la->array([[[1,2,3],[4,5,6]],  [[60,50,40],[30,20,10]]]);
         $B = $la->array([[[1,0,0],[0,1,0]],[[2,0,0],[0,2,0]]]);
 
-        $C = $la->matmul($A,$B,null,$transB=true);
+        $C = $la->matmul($A,$B,transB:true);
         $this->assertEquals([
             [[1,2],
              [4,5]],
@@ -2092,7 +2735,7 @@ class LinearAlgebraTest extends TestCase
              [60,40]],
         ],$C->toArray());
 
-        $C = $la->matmul($B,$A,null,$transB=true);
+        $C = $la->matmul($B,$A,transB:true);
         $this->assertEquals([
             [[1,4],
              [2,5]],
@@ -2103,7 +2746,7 @@ class LinearAlgebraTest extends TestCase
         $A = $la->array([[[1,2,3],[4,5,6]],  [[60,50,40],[30,20,10]]]);
         $B = $la->array([[1,0,0],[0,1,0]]);
 
-        $C = $la->matmul($A,$B,null,$transB=true);
+        $C = $la->matmul($A,$B,transB:true);
         $this->assertEquals([
             [[1,2],
              [4,5]],
@@ -2111,13 +2754,37 @@ class LinearAlgebraTest extends TestCase
              [30,20]],
         ],$C->toArray());
 
-        $C = $la->matmul($B,$A,null,$transB=true);
+        $C = $la->matmul($B,$A,transB:true);
         $this->assertEquals([
             [[1,4],
              [2,5]],
             [[60,30],
              [50,20]],
         ],$C->toArray());
+
+        // complex64 trans with conj
+        $A = $la->array($this->toComplex([[[1,2,3],[4,5,6]],  [[60,50,40],[30,20,10]]]),dtype:NDArray::complex64);
+        $B = $la->array($this->toComplex([[[1,0,0],[0,1,0]],[[2,0,0],[0,2,0]]]),dtype:NDArray::complex64);
+
+        $C = $la->matmul($A,$B,transB:true);
+        $this->assertEquals($this->toComplex([
+            [[1,2],
+             [4,5]],
+            [[120,100],
+             [60,40]],
+        ]),$C->toArray());
+
+        // complex64 trans with no_conj
+        $A = $la->array($this->toComplex([[[1,2,3],[4,5,6]],  [[60,50,40],[30,20,10]]]),dtype:NDArray::complex64);
+        $B = $la->array($this->toComplex([[[1,0,0],[0,1,0]],[[2,0,0],[0,2,0]]]),dtype:NDArray::complex64);
+
+        $C = $la->matmul($A,$B,transB:true,conjB:false);
+        $this->assertEquals($this->toComplex([
+            [[1,2],
+             [4,5]],
+            [[120,100],
+             [60,40]],
+        ]),$C->toArray());
     }
 
     public function testMatmul4d()
@@ -2176,7 +2843,7 @@ class LinearAlgebraTest extends TestCase
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('"A" and "C" must have the same number of rows."B" and "C" must have the same number of columns:[2,3,2] , [2,2,2] => [2,2,2]');
-        $C = $la->matmul($A,$B,null,null,$C);
+        $C = $la->matmul($A,$B,C:$C);
     }
 
     public static function providerSumNormal()
@@ -2325,19 +2992,19 @@ class LinearAlgebraTest extends TestCase
         $X = $la->array([[1,2,3],[4,5,6]]);
 
         // X := X + 1
-        $la->increment($X,1.0);
+        $la->increment($X,beta:1.0);
         $this->assertEquals(
             [[2,3,4],[5,6,7]]
         ,$X->toArray());
 
         // X := 8 - X
-        $la->increment($X,8.0,-1.0);
+        $la->increment($X,beta:8.0,alpha:-1.0);
         $this->assertEquals(
             [[6,5,4],[3,2,1]]
         ,$X->toArray());
 
         // X := 2 * X
-        $la->increment($X,null,2.0);
+        $la->increment($X,alpha:2.0);
         $this->assertEquals(
             [[12,10,8],[6,4,2]]
         ,$X->toArray());
@@ -2357,14 +3024,14 @@ class LinearAlgebraTest extends TestCase
 
         // X := 1 / (X + 1)
         $X = $la->array([[0,1,3],[7,15,31]]);
-        $la->reciprocal($X,1.0);
+        $la->reciprocal($X,beta:1.0);
         $this->assertEquals(
             [[1,0.5,0.25],[0.125,0.0625, 0.03125]]
         ,$X->toArray());
 
         // X := 1 / (32 - X)
         $X = $la->array([[31,30,28],[24,16,0]]);
-        $la->reciprocal($X,32,-1.0);
+        $la->reciprocal($X,beta:32,alpha:-1.0);
         $this->assertEquals(
             [[1,0.5,0.25],[0.125,0.0625, 0.03125]]
         ,$X->toArray());
@@ -2761,7 +3428,7 @@ class LinearAlgebraTest extends TestCase
         // transpose and broadcast
         $X = $la->array([1,2,3]);
         $Y = $la->array([[1,10],[100,-1],[-10,-100]]);
-        $la->multiply($X,$Y,$trans=true);
+        $la->multiply($X,$Y,trans:true);
         $this->assertEquals(
             [1,2,3]
         ,$X->toArray());
@@ -2845,7 +3512,7 @@ class LinearAlgebraTest extends TestCase
         // broadcast and alpha = -1
         $X = $la->array([1,2,3]);
         $Y = $la->array([[1,10,100],[-1,-10,-100]]);
-        $la->add($X,$Y,-1);
+        $la->add($X,$Y,alpha:-1);
         $this->assertEquals(
             [1,2,3]
         ,$X->toArray());
@@ -2856,7 +3523,7 @@ class LinearAlgebraTest extends TestCase
         // transpose and broadcast
         $X = $la->array([1,2,3]);
         $Y = $la->array([[1,10],[100,-1],[-10,-100]]);
-        $la->add($X,$Y,null,$trans=true);
+        $la->add($X,$Y,trans:true);
         $this->assertEquals(
             [1,2,3]
         ,$X->toArray());
@@ -2971,7 +3638,7 @@ class LinearAlgebraTest extends TestCase
 
         // X := 1 / ( 1 - sqrt(X))
         $X = $la->array([[10,40],[80,160]]);
-        $la->rsqrt($X,1,-1);
+        $la->rsqrt($X,beta:1,alpha:-1);
 
         $la->reciprocal($X);
         $la->increment($X,1,-1);
@@ -3170,7 +3837,7 @@ class LinearAlgebraTest extends TestCase
 
         // transpose
         $X = $la->array([[1,2,3],[4,5,6]]);
-        $Y = $la->duplicate($X,2,true);
+        $Y = $la->duplicate($X,2,trans:true);
         $this->assertEquals(
             [[1,2,3],[4,5,6]]
         ,$X->toArray());
@@ -3332,7 +3999,7 @@ class LinearAlgebraTest extends TestCase
         // 1D 2D
         $x = $la->array([0,2],dtype:NDArray::int64);
         $y = $la->array([[1,2,3],[7,8,9]],dtype:NDArray::float32);
-        $a = $la->scatter($x,$y,$numClass=4);
+        $a = $la->scatter($x,$y,numClass:4);
 
         $this->assertEquals([2],$x->shape());
         $this->assertEquals([2,3],$y->shape());
@@ -3349,7 +4016,7 @@ class LinearAlgebraTest extends TestCase
         // 1D 1D (must be same shape)
         $x = $la->array([0,2],dtype:NDArray::int64);
         $y = $la->array([1,2],dtype:NDArray::float32);
-        $a = $la->scatter($x,$y,$numClass=4);
+        $a = $la->scatter($x,$y,numClass:4);
 
         $this->assertEquals([2],$x->shape());
         $this->assertEquals([2],$y->shape());
@@ -3363,7 +4030,7 @@ class LinearAlgebraTest extends TestCase
         // 2D 3D
         $x = $la->array([[0,1,2],[5,4,3]],dtype:NDArray::int64);
         $y = $la->array([[[1,2],[3,4],[5,6]],[[7,8],[9,10],[11,12]]],dtype:NDArray::float32);
-        $a = $la->scatter($x,$y,$numClass=8);
+        $a = $la->scatter($x,$y,numClass:8);
 
         $this->assertEquals([2,3],$x->shape());
         $this->assertEquals([2,3,2],$y->shape());
@@ -3386,7 +4053,7 @@ class LinearAlgebraTest extends TestCase
         if($la->fp64()) {
             $x = $la->array([0,2],dtype:NDArray::int64);
             $y = $la->array([[1,2,3],[7,8,9]],dtype:NDArray::float64);
-            $a = $la->scatter($x,$y,$numClass=4);
+            $a = $la->scatter($x,$y,numClass:4);
             $this->assertEquals(
                 [[1,2,3],
                 [0,0,0],
@@ -3398,7 +4065,7 @@ class LinearAlgebraTest extends TestCase
         // int64
         $x = $la->array([0,2],dtype:NDArray::int64);
         $y = $la->array([[1,2,3],[7,8,9]],dtype:NDArray::int64);
-        $a = $la->scatter($x,$y,$numClass=4);
+        $a = $la->scatter($x,$y,numClass:4);
         $this->assertEquals(
            [[1,2,3],
             [0,0,0],
@@ -3409,7 +4076,7 @@ class LinearAlgebraTest extends TestCase
         // uint8
         $x = $la->array([0,2],dtype:NDArray::int64);
         $y = $la->array([[1,2,3],[7,8,9]],dtype:NDArray::uint8);
-        $a = $la->scatter($x,$y,$numClass=4);
+        $a = $la->scatter($x,$y,numClass:4);
         $this->assertEquals(
            [[1,2,3],
             [0,0,0],
@@ -3421,7 +4088,7 @@ class LinearAlgebraTest extends TestCase
         // float32
         $x = $la->array([0,2],dtype:NDArray::int64);
         $y = $la->array([1,3],dtype:NDArray::float32);
-        $a = $la->scatter($x,$y,$numClass=4);
+        $a = $la->scatter($x,$y,numClass:4);
         $this->assertEquals(
            [1,0,3,0],
             $a->toArray()
@@ -3430,7 +4097,7 @@ class LinearAlgebraTest extends TestCase
         // int32
         $x = $la->array([0,2],dtype:NDArray::int64);
         $y = $la->array([1,3],dtype:NDArray::int32);
-        $a = $la->scatter($x,$y,$numClass=4);
+        $a = $la->scatter($x,$y,numClass:4);
         $this->assertEquals(
            [1,0,3,0],
             $a->toArray()
@@ -3440,7 +4107,7 @@ class LinearAlgebraTest extends TestCase
         if($la->fp64()) {
             $x = $la->array([0,2],dtype:NDArray::int64);
             $y = $la->array([1,3],dtype:NDArray::float64);
-            $a = $la->scatter($x,$y,$numClass=4);
+            $a = $la->scatter($x,$y,numClass:4);
             $this->assertEquals(
                 [1,0,3,0],
                 $a->toArray()
@@ -3449,7 +4116,7 @@ class LinearAlgebraTest extends TestCase
         // int64
         $x = $la->array([0,2],dtype:NDArray::int64);
         $y = $la->array([1,3],dtype:NDArray::int64);
-        $a = $la->scatter($x,$y,$numClass=4);
+        $a = $la->scatter($x,$y,numClass:4);
         $this->assertEquals(
            [1,0,3,0],
             $a->toArray()
@@ -3457,7 +4124,7 @@ class LinearAlgebraTest extends TestCase
         // uint8
         $x = $la->array([0,2],dtype:NDArray::int64);
         $y = $la->array([252,254],dtype:NDArray::uint8);
-        $a = $la->scatter($x,$y,$numClass=4);
+        $a = $la->scatter($x,$y,numClass:4);
         $this->assertEquals(
            [252,0,254,0],
             $a->toArray()
@@ -3465,7 +4132,7 @@ class LinearAlgebraTest extends TestCase
         // x=uint8
         $x = $la->array([0,255],dtype:NDArray::uint8);
         $y = $la->array([252,254],dtype:NDArray::uint8);
-        $a = $la->scatter($x,$y,$numClass=256);
+        $a = $la->scatter($x,$y,numClass:256);
         if(is_scalar($a[0])) {
             $this->assertEquals(252,$a[0]);
             $this->assertEquals(254,$a[255]);
@@ -4313,13 +4980,7 @@ class LinearAlgebraTest extends TestCase
         $y = $la->array([[1,2,3],[7,8,9]],dtype:NDArray::float32);
         $a = $la->array($mo->ones([4,3],dtype:NDArray::float32));
         $la->scatterAdd($x,$y,$a);
-        #foreach($a->toArray() as $pr) {
-        #    echo "\n";
-        #    foreach($pr as $value) {
-        #        echo $value.",";
-        #    }
-        #}
-        #echo "\n";
+        //echo $mo->toString($a,indent:true)."\n";
         #$this->assertTrue(false);
         $this->assertEquals(
            [[2,3,4],
@@ -4370,53 +5031,65 @@ class LinearAlgebraTest extends TestCase
 
     public function testScatterAddLarge()
     {
+        // parallel addition algorithm
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
-        if(!$la->accelerated()) {
+        if($la->service()->serviceLevel()<Service::LV_ADVANCED) {
             $this->markTestSkipped('Skip due to high load');
             return;
         }
-        // medium size
+        // medium alloc size
         $rows = 8;
         $cols = 8;
-        $numClass = 65536;
-        $x = $la->alloc([$rows],dtype:NDArray::int32);
-        $la->fill(1,$x);
-        $y = $la->alloc([$rows,$cols],dtype:NDArray::float32);
-        $la->fill(1.0,$y);
-        $a = $la->alloc([$numClass,$cols],dtype:NDArray::float32);
-        $la->fill(0.0,$a);
+        $numClass = 25536;
+        $x = $la->ones($la->alloc([$rows],dtype:NDArray::int32));
+        $y = $la->ones($la->alloc([$rows,$cols],dtype:NDArray::float32));
+        $a = $la->zeros($la->alloc([$numClass,$cols],dtype:NDArray::float32));
+        $trues = $la->zeros($la->alloc([$numClass,$cols],dtype:NDArray::float32));
+        $la->axpy($la->scal($rows,$la->ones($la->alloc([$cols]))),$trues[1]);
         $la->scatterAdd($x,$y,$a);
-        $trues = $la->alloc([$numClass,$cols],dtype:NDArray::float32);
-        $la->fill($rows,$trues);
-        $this->assertLessThan(1e-3,$la->amax($la->axpy(
-            $trues,$a,-1)));
-        // large size
+        $res = $la->amax($la->axpy($trues,$la->copy($a),-1));
+        if(1e-3<$res) {
+            echo "numClass=$numClass\n";
+            echo "x:".$mo->toString($x)."\n";
+            echo "y:".$mo->toString($y)."\n";
+            echo "trues:".$mo->toString($trues[1])."\n";
+            echo "a:".$mo->toString($a[1])."\n";
+        }
+        $this->assertLessThan(1e-3,$res);
+
+        // large alloc size
         $rows = 8;
         $cols = 8;
         $numClass = 1000000;
-        $x = $la->alloc([$rows],dtype:NDArray::int32);
-        $la->fill(1,$x);
-        $y = $la->alloc([$rows,$cols],dtype:NDArray::float32);
-        $la->fill(1.0,$y);
-        $a = $la->alloc([$numClass,$cols],dtype:NDArray::float32);
-        $la->fill(0.0,$a);
+        $x = $la->ones($la->alloc([$rows],dtype:NDArray::int32));
+        $y = $la->ones($la->alloc([$rows,$cols],dtype:NDArray::float32));
+        $a = $la->zeros($la->alloc([$numClass,$cols],dtype:NDArray::float32));
+        $trues = $la->zeros($la->alloc([$numClass,$cols],dtype:NDArray::float32));
+        $la->axpy($la->scal($rows,$la->ones($la->alloc([$cols]))),$trues[1]);
         $la->scatterAdd($x,$y,$a);
-        $trues = $la->alloc([$numClass,$cols],dtype:NDArray::float32);
-        $la->fill($rows,$trues);
-        $this->assertLessThan(1e-3,$la->amax($la->axpy(
-            $trues,$a,-1)));
+        $res = $la->amax($la->axpy($trues,$la->copy($a),-1));
+        if(1e-3<$res) {
+            echo "numClass=$numClass\n";
+            echo "x:".$mo->toString($x)."\n";
+            echo "y:".$mo->toString($y)."\n";
+            echo "trues:".$mo->toString($trues[1])."\n";
+            echo "a:".$mo->toString($a[1])."\n";
+        }
+        $this->assertLessThan(1e-3,$res);
+
     }
 
     public function testScatterAddAxis0Speed()
     {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
         if(!self::$speedtest) {
             $this->markTestSkipped('Speed measurement');
             return;
         }
-        $mo = $this->newMatrixOperator();
-        $la = $this->newLA($mo);
-        if($la->getConfig()=='PhpBlas') {
+        if($la->service()->serviceLevel()<Service::LV_ADVANCED) {
+            // if PhpBlas too slow
             $this->assertTrue(true);
             return;
         }
@@ -4619,7 +5292,7 @@ class LinearAlgebraTest extends TestCase
             [ 1,-1, 1],
             [ 1, 1,-1],
             [-1, 1, 1],
-        ],$la->onehot($x,3,-2,$y)->toArray());
+        ],$la->onehot($x,3,alpha:-2,output:$y)->toArray());
     }
 /*
     public function testReduceSumOLDNormal()
@@ -5313,22 +5986,18 @@ class LinearAlgebraTest extends TestCase
             // large size
         $colsize = 100000;//600000;
         $rowsize = 64;
-        $x = $la->alloc([$rowsize,$colsize],dtype:NDArray::float32);
-        $la->fill(1.0,$x);
+        $x = $la->ones($la->alloc([$rowsize,$colsize],dtype:NDArray::float32));
+        $trues = $la->fill(1/$colsize,$la->alloc([$rowsize,$colsize],dtype:NDArray::float32));
         $r = $la->softmax($x);
-        $trues = $la->alloc([$rowsize,$colsize],dtype:NDArray::float32);
-        $la->fill(1.0,$trues);
         $this->assertLessThan(1e-3,$la->amax($la->axpy(
             $trues,$r,-1)));
 
         // large size
         $colsize = 64;
         $rowsize = 100000;//800000;
-        $x = $la->alloc([$rowsize,$colsize],dtype:NDArray::float32);
-        $la->fill(1.0,$x);
+        $x = $la->ones($la->alloc([$rowsize,$colsize],dtype:NDArray::float32));
+        $trues = $la->fill(1/$colsize,$la->alloc([$rowsize,$colsize],dtype:NDArray::float32));
         $r = $la->softmax($x);
-        $trues = $la->alloc([$rowsize,$colsize],dtype:NDArray::float32);
-        $la->fill(1.0,$trues);
         $this->assertLessThan(1e-3,$la->amax($la->axpy(
             $trues,$r,-1)));
     }
@@ -6070,15 +6739,15 @@ class LinearAlgebraTest extends TestCase
         }
         $cols = $la->im2col(
             $images,
-            $filterSize=[
+            filterSize:[
                 $kernel_h,$kernel_w],
-            $strides=[
+            strides:[
                 $stride_h,$stride_w],
-            $padding,
-            $channels_first,
-            $dilation_rate=[
+            padding:$padding,
+            channels_first:$channels_first,
+            dilation_rate:[
                 $dilation_h,$dilation_w],
-            $cols_channels_first
+            cols_channels_first:$cols_channels_first
         );
         $out_h = intval(floor(($im_h-($kernel_h-1)*$dilation_h-1)/$stride_h)+1);
         $out_w = intval(floor(($im_w-($kernel_w-1)*$dilation_w-1)/$stride_w)+1);
@@ -6266,15 +6935,15 @@ class LinearAlgebraTest extends TestCase
         $la->col2im(
             $cols,
             $newImages,
-            $filterSize=[
+            filterSize:[
                 $kernel_h,$kernel_w],
-            $strides=[
+            strides:[
                 $stride_h,$stride_w],
-            $padding,
-            $channels_first,
-            $dilation_rate=[
+            padding:$padding,
+            channels_first:$channels_first,
+            dilation_rate:[
                 $dilation_h,$dilation_w],
-            $cols_channels_first
+            cols_channels_first:$cols_channels_first
         );
         // result is Not equal to original
         // because to sum for back propagation
@@ -9895,17 +10564,24 @@ class LinearAlgebraTest extends TestCase
         ],$b->toArray());
 
         $x = $la->alloc([2,3],dtype:NDArray::bool);
-        $value = $mo->array(true); // value is not OpenCL buffer
+        $value = $mo->array(true,dtype:NDArray::bool); // value is not OpenCL buffer
         $b = $la->fill($value,$x);
         $this->assertEquals([
             [true,true,true],
             [true,true,true],
         ],$b->toArray());
-        $value = $mo->array(false); // value is not OpenCL buffer
+        $value = $mo->array(false,dtype:NDArray::bool); // value is not OpenCL buffer
         $b = $la->fill($value,$x);
         $this->assertEquals([
             [false,false,false],
             [false,false,false],
+        ],$b->toArray());
+
+        $x = $la->alloc([2,3],NDArray::complex64);
+        $b = $la->fill(C(12,i:3),$x);
+        $this->assertEquals([
+            [C(12,i:3),C(12,i:3),C(12,i:3)],
+            [C(12,i:3),C(12,i:3),C(12,i:3)],
         ],$b->toArray());
     }
 

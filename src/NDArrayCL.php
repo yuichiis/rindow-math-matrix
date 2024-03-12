@@ -1,6 +1,9 @@
 <?php
 namespace Rindow\Math\Matrix;
 
+require_once __DIR__.'/C.php';
+require_once __DIR__.'/R.php';
+
 use ArrayAccess;
 use Countable;
 use IteratorAggregate;
@@ -32,6 +35,10 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
         NDArray::float16 => 2,
         NDArray::float32 => 4,
         NDArray::float64 => 8,
+        NDArray::complex16 => 2,
+        NDArray::complex32 => 4,
+        NDArray::complex64 => 8,
+        NDArray::complex128 => 16,
     ];
     protected $service;
     protected $clBufferFactory;
@@ -46,7 +53,7 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
     protected $events;
 
     public function __construct(
-        object $context, object $queue, $buffer=null, int $dtype=null, array $shape = null,
+        object $queue, mixed $buffer=null, int $dtype=null, array $shape = null,
         int $offset=null, int $flags=null,
         Service $service=null)
     {
@@ -55,7 +62,8 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
         }
         $this->service = $service;
         $this->clBufferFactory = $service->buffer(Service::LV_ACCELERATED);
-        $this->context = $context;
+        $context = $queue->getContext();
+        $this->context = $context; 
         $this->queue = $queue;
         if($dtype===null) {
             $dtype = NDArray::float32;
@@ -181,7 +189,7 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
             throw new InvalidArgumentException("Unmatch size to reshape: ".
                 "[".implode(',',$this->shape())."]=>[".implode(',',$shape)."]");
         }
-        $newArray = new static($this->context,$this->queue,$this->buffer,
+        $newArray = new static($this->queue,$this->buffer,
             $this->dtype,$shape,$this->offset,$this->flags, service:$this->service);
         return $newArray;
     }
@@ -192,9 +200,10 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
     }
 
     public function toNDArray(
-        bool $blocking_read=true,EventList $waitEvents=null,
+        bool $blocking_read=null,EventList $waitEvents=null,
         EventList &$events=null) : NDArray
     {
+        $blocking_read = $blocking_read ?? true;
         $array = new NDArrayPhp(null,$this->dtype,$this->shape,service:$this->service);
         $valueSize = static::$valueSizeTable[$this->dtype];
         $size = array_product($this->shape);
@@ -254,12 +263,12 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
             $shape = $this->shape;
             $max = array_shift($shape);
             if(count($shape)==0) {
-                $new = new static($this->context,$this->queue,$this->buffer,$this->dtype,
+                $new = new static($this->queue,$this->buffer,$this->dtype,
                     $shape, $this->offset+$offset, $this->flags, service:$this->service);
                 return $new;
             }
             $size = (int)array_product($shape);
-            $new = new static($this->context, $this->queue, $this->buffer, $this->dtype,
+            $new = new static($this->queue, $this->buffer, $this->dtype,
                 $shape, $this->offset+$offset*$size, $this->flags, service:$this->service);
             return $new;
         }
@@ -288,7 +297,7 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
         }
         array_unshift($shape,$rowsCount);
         $size = (int)array_product($shape);
-        $new = new static($this->context,$this->queue,$this->buffer,$this->dtype,
+        $new = new static($this->queue,$this->buffer,$this->dtype,
             $shape,$this->offset+$start*$itemSize, $this->flags, service:$this->service);
         return $new;
     }

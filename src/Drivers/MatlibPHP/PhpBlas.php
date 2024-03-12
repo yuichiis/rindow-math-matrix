@@ -6,9 +6,13 @@ use InvalidArgumentException;
 use Interop\Polite\Math\Matrix\BLAS;
 use Interop\Polite\Math\Matrix\NDArray;
 use Interop\Polite\Math\Matrix\Buffer;
+use Rindow\Math\Matrix\ComplexUtils;
 
 class PhpBlas //implements BLASLevel1
 {
+    use Utils;
+    use ComplexUtils;
+
     protected $blas;
     protected $forceBlas;
     protected $floatTypes= [
@@ -64,22 +68,56 @@ class PhpBlas //implements BLASLevel1
         return $this->blas->getCorename();
     }
 
+    protected function sign(float $x,float $y) : float
+    {
+        if($y<0) {
+            $x = -$x;
+        }
+        return $x;
+    }
+
+    /**
+     * @param  int $trans BLAS::NoTrans, BLAS::Trans, BLAS::ConjTrans, BLAS::ConjNoTrans
+     * @return array [bool $trans, bool $conj]
+     */
+    protected function codeToTrans(int $trans) : array
+    {
+        switch($trans) {
+            case BLAS::NoTrans: {
+                return [false,false];
+            }
+            case BLAS::Trans: {
+                return [true,false];
+            }
+            case BLAS::ConjTrans: {
+                return [true,true];
+            }
+            case BLAS::ConjNoTrans: {
+                return [false,true];
+            }
+            default: {
+                throw new InvalidArgumentException('Unknown Tranpose Code: '.$trans);
+            }
+        }
+    }
+
     public function scal(
         int $n,
-        float $alpha,
+        float|object $alpha,
         Buffer $X, int $offsetX, int $incX) : void
     {
-        //if($this->useBlas($X)) {
-        //    $this->blas->scal($n,$alpha,$X,$offsetX,$incX);
-        //    return;
-        //}
-
-        if($offsetX+($n-1)*$incX>=count($X))
-            throw new InvalidArgumentException('Vector specification too large for buffer.');
+        $this->assertShapeParameter('n',$n);
+        $this->assertVectorBufferSpec('X', $X, $n, $offsetX, $incX);
 
         $idx = $offsetX;
-        for ($i=0; $i<$n; $i++,$idx+=$incX) {
-            $X[$idx] = $X[$idx] * $alpha;
+        if($this->cistype($X->dtype())) {
+            for ($i=0; $i<$n; $i++,$idx+=$incX) {
+                $X[$idx] = $this->cmul($X[$idx],$alpha);
+            }
+        } else {
+            for ($i=0; $i<$n; $i++,$idx+=$incX) {
+                $X[$idx] = $X[$idx] * $alpha;
+            }
         }
     }
     /**
@@ -87,23 +125,29 @@ class PhpBlas //implements BLASLevel1
      */
     public function axpy(
         int $n,
-        float $alpha,
+        float|object $alpha,
         Buffer $X, int $offsetX, int $incX,
         Buffer $Y, int $offsetY, int $incY ) : void
     {
-        if($offsetX+($n-1)*$incX>=count($X))
-            throw new InvalidArgumentException('Vector X specification too large for buffer.');
-        if($offsetY+($n-1)*$incY>=count($Y))
-            throw new InvalidArgumentException('Vector Y specification too large for buffer.');
+        $this->assertShapeParameter('n',$n);
+        $this->assertVectorBufferSpec('X', $X, $n, $offsetX, $incX);
+        $this->assertVectorBufferSpec('Y', $Y, $n, $offsetY, $incY);
+
         $idxX = $offsetX;
         $idxY = $offsetY;
-        if($alpha==1.0) {   // Y := X + Y
+        if($this->cistype($X->dtype())) {
             for ($i=0; $i<$n; $i++,$idxX+=$incX,$idxY+=$incY) {
-                $Y[$idxY] = $X[$idxX] + $Y[$idxY];
+                $Y[$idxY] = $this->cadd($this->cmul($alpha,$X[$idxX]),$Y[$idxY]);
             }
-        } else {            // Y := a*X + Y
-            for ($i=0; $i<$n; $i++,$idxX+=$incX,$idxY+=$incY) {
-                $Y[$idxY] = $alpha * $X[$idxX] + $Y[$idxY];
+        } else {
+            if($alpha==1.0) {   // Y := X + Y
+                for ($i=0; $i<$n; $i++,$idxX+=$incX,$idxY+=$incY) {
+                    $Y[$idxY] = $X[$idxX] + $Y[$idxY];
+                }
+            } else {            // Y := a*X + Y
+                for ($i=0; $i<$n; $i++,$idxX+=$incX,$idxY+=$incY) {
+                    $Y[$idxY] = $alpha * $X[$idxX] + $Y[$idxY];
+                }
             }
         }
     }
@@ -111,21 +155,69 @@ class PhpBlas //implements BLASLevel1
     public function dot(
         int $n,
         Buffer $X, int $offsetX, int $incX,
-        Buffer $Y, int $offsetY, int $incY ) : float
+        Buffer $Y, int $offsetY, int $incY ) : float|object
     {
-        //if($this->useBlas($X)) {
-        //    return $this->blas->dot($n,$X,$offsetX,$incX,$Y,$offsetY,$incY);
-        //}
+        if($this->cistype($X->dtype())) {
+            throw new InvalidArgumentException('Unsuppored data type.');
+        }
+        $this->assertShapeParameter('n',$n);
+        $this->assertVectorBufferSpec('X', $X, $n, $offsetX, $incX);
+        $this->assertVectorBufferSpec('Y', $Y, $n, $offsetY, $incY);
 
-        if($offsetX+($n-1)*$incX>=count($X))
-            throw new InvalidArgumentException('Vector X specification too large for buffer.');
-        if($offsetY+($n-1)*$incY>=count($Y))
-            throw new InvalidArgumentException('Vector Y specification too large for buffer.');
         $idxX = $offsetX;
         $idxY = $offsetY;
-        $acc = 0.0;
+        if($this->cistype($X->dtype())) {
+            $acc = $this->cbuild(0.0);
+            for ($i=0; $i<$n; $i++,$idxX+=$incX,$idxY+=$incY) {
+                $acc = $this->cadd($acc,$this->cmul($X[$idxX],$Y[$idxY]));
+            }
+        } else {
+            $acc = 0.0;
+            for ($i=0; $i<$n; $i++,$idxX+=$incX,$idxY+=$incY) {
+                $acc += $X[$idxX] * $Y[$idxY];
+            }
+        }
+        return $acc;
+    }
+
+    public function dotu(
+        int $n,
+        Buffer $X, int $offsetX, int $incX,
+        Buffer $Y, int $offsetY, int $incY ) : float|object
+    {
+        if(!$this->cistype($X->dtype())) {
+            throw new InvalidArgumentException('Unsuppored data type.');
+        }
+        $this->assertShapeParameter('n',$n);
+        $this->assertVectorBufferSpec('X', $X, $n, $offsetX, $incX);
+        $this->assertVectorBufferSpec('Y', $Y, $n, $offsetY, $incY);
+
+        $idxX = $offsetX;
+        $idxY = $offsetY;
+        $acc = $this->cbuild(0.0);
         for ($i=0; $i<$n; $i++,$idxX+=$incX,$idxY+=$incY) {
-            $acc += $X[$idxX] * $Y[$idxY];
+            $acc = $this->cadd($acc,$this->cmul($X[$idxX],$Y[$idxY]));
+        }
+        return $acc;
+    }
+
+    public function dotc(
+        int $n,
+        Buffer $X, int $offsetX, int $incX,
+        Buffer $Y, int $offsetY, int $incY ) : float|object
+    {
+        if(!$this->cistype($X->dtype())) {
+            throw new InvalidArgumentException('Unsuppored data type.');
+        }
+        $this->assertShapeParameter('n',$n);
+        $this->assertVectorBufferSpec('X', $X, $n, $offsetX, $incX);
+        $this->assertVectorBufferSpec('Y', $Y, $n, $offsetY, $incY);
+
+        $idxX = $offsetX;
+        $idxY = $offsetY;
+        $acc = $this->cbuild(0.0);
+        for ($i=0; $i<$n; $i++,$idxX+=$incX,$idxY+=$incY) {
+            $acc = $this->cadd($acc,$this->cmul($this->cconj($X[$idxX]),$Y[$idxY]));
         }
         return $acc;
     }
@@ -134,16 +226,20 @@ class PhpBlas //implements BLASLevel1
         int $n,
         Buffer $X, int $offsetX, int $incX ) : float
     {
-        //if($this->useBlas($X)) {
-        //    return $this->blas->asum($n,$X,$offsetX,$incX);
-        //}
+        $this->assertShapeParameter('n',$n);
+        $this->assertVectorBufferSpec('X', $X, $n, $offsetX, $incX);
 
-        if($offsetX+($n-1)*$incX>=count($X))
-            throw new InvalidArgumentException('Vector X specification too large for buffer.');
         $idxX = $offsetX;
-        $acc = 0.0;
-        for ($i=0; $i<$n; $i++,$idxX+=$incX) {
-            $acc += abs($X[$idxX]);
+        if($this->cistype($X->dtype())) {
+            $acc = 0.0;
+            for ($i=0; $i<$n; $i++,$idxX+=$incX) {
+                $acc += $this->cabs($X[$idxX]);
+            }
+        } else {
+            $acc = 0.0;
+            for ($i=0; $i<$n; $i++,$idxX+=$incX) {
+                $acc += abs($X[$idxX]);
+            }
         }
         return $acc;
     }
@@ -152,19 +248,28 @@ class PhpBlas //implements BLASLevel1
         int $n,
         Buffer $X, int $offsetX, int $incX ) : int
     {
-        //if($this->useBlas($X)) {
-        //    return $this->blas->iamax($n,$X,$offsetX,$incX);
-        //}
+        $this->assertShapeParameter('n',$n);
+        $this->assertVectorBufferSpec('X', $X, $n, $offsetX, $incX);
 
-        if($offsetX+($n-1)*$incX>=count($X))
-            throw new InvalidArgumentException('Vector X specification too large for buffer.');
         $idxX = $offsetX+$incX;
-        $acc = abs($X[$offsetX]);
         $idx = 0;
-        for($i=1; $i<$n; $i++,$idxX+=$incX) {
-            if($acc < abs($X[$idxX])) {
-                $acc = abs($X[$idxX]);
-                $idx = $i;
+        if($this->cistype($X->dtype())) {
+            $acc = $this->cabs($X[$offsetX]);
+            for($i=1; $i<$n; $i++,$idxX+=$incX) {
+                $abs = $this->cabs($X[$idxX]);
+                if($acc < $abs) {
+                    $acc = $abs;
+                    $idx = $i;
+                }
+            }
+        } else {
+            $acc = abs($X[$offsetX]);
+            for($i=1; $i<$n; $i++,$idxX+=$incX) {
+                $abs = abs($X[$idxX]);
+                if($acc < $abs) {
+                    $acc = $abs;
+                    $idx = $i;
+                }
             }
         }
         return $idx;
@@ -174,19 +279,28 @@ class PhpBlas //implements BLASLevel1
         int $n,
         Buffer $X, int $offsetX, int $incX ) : int
     {
-        //if($this->blas!=null && method_exists($this->blas,'iamin')&&$this->useBlas($X)) {
-        //    return $this->blas->iamin($n,$X,$offsetX,$incX);
-        //}
+        $this->assertShapeParameter('n',$n);
+        $this->assertVectorBufferSpec('X', $X, $n, $offsetX, $incX);
 
-        if($offsetX+($n-1)*$incX>=count($X))
-            throw new InvalidArgumentException('Vector X specification too large for buffer.');
         $idxX = $offsetX+$incX;
-        $acc = abs($X[$offsetX]);
         $idx = 0;
-        for($i=1; $i<$n; $i++,$idxX+=$incX) {
-            if($acc > abs($X[$idxX])) {
-                $acc = abs($X[$idxX]);
-                $idx = $i;
+        if($this->cistype($X->dtype())) {
+            $acc = $this->cabs($X[$offsetX]);
+            for($i=1; $i<$n; $i++,$idxX+=$incX) {
+                $abs = $this->cabs($X[$idxX]);
+                if($acc > $abs) {
+                    $acc = $abs;
+                    $idx = $i;
+                }
+            }
+        } else {
+            $acc = abs($X[$offsetX]);
+            for($i=1; $i<$n; $i++,$idxX+=$incX) {
+                $abs = abs($X[$idxX]);
+                if($acc > $abs) {
+                    $acc = $abs;
+                    $idx = $i;
+                }
             }
         }
         return $idx;
@@ -197,15 +311,9 @@ class PhpBlas //implements BLASLevel1
         Buffer $X, int $offsetX, int $incX,
         Buffer $Y, int $offsetY, int $incY ) : void
     {
-        //if($this->useBlas($X)) {
-        //    $this->blas->copy($n,$X,$offsetX,$incX,$Y,$offsetY,$incY);
-        //    return;
-        //}
-
-        if($offsetX+($n-1)*$incX>=count($X))
-            throw new InvalidArgumentException('Vector X specification too large for buffer.');
-        if($offsetY+($n-1)*$incY>=count($Y))
-            throw new InvalidArgumentException('Vector Y specification too large for buffer.');
+        $this->assertShapeParameter('n',$n);
+        $this->assertVectorBufferSpec('X', $X, $n, $offsetX, $incX);
+        $this->assertVectorBufferSpec('Y', $Y, $n, $offsetY, $incY);
 
         $idxX = $offsetX;
         $idxY = $offsetY;
@@ -219,18 +327,27 @@ class PhpBlas //implements BLASLevel1
         Buffer $X, int $offsetX, int $incX
         ) : float
     {
-        //if($this->useBlas($X)) {
-        //    return $this->blas->nrm2($n,$X,$offsetX,$incX);
-        //}
-        if($offsetX+($n-1)*$incX>=count($X))
-            throw new InvalidArgumentException('Vector X specification too large for buffer.');
+        $this->assertShapeParameter('n',$n);
+        $this->assertVectorBufferSpec('X', $X, $n, $offsetX, $incX);
+
         $idxX = $offsetX;
         // Y := sqrt(sum(Xn ** 2))
-        $sum = 0.0;
-        for ($i=0; $i<$n; $i++,$idxX+=$incX) {
-            $sum += $X[$idxX] ** 2;
+        if($this->cistype($X->dtype())) {
+            $sum = 0.0;
+            for ($i=0; $i<$n; $i++,$idxX+=$incX) {
+                $real = $X[$idxX]->real;
+                $imag = $X[$idxX]->imag;
+                $sum += $real*$real +  $imag*$imag;
+            }
+            $Y = sqrt($sum);
+        } else {
+            $sum = 0.0;
+            for ($i=0; $i<$n; $i++,$idxX+=$incX) {
+                $v = $X[$idxX];
+                $sum += $v*$v;
+            }
+            $Y = sqrt($sum);
         }
-        $Y = sqrt($sum);
         return $Y;
     }
 
@@ -241,10 +358,9 @@ class PhpBlas //implements BLASLevel1
         Buffer $S, int $offsetS
         ) : void
     {
-        //if($this->useBlas($A)) {
-        //    $this->blas->rotg($A,$offsetA,$B,$offsetB,$C,$offsetC,$S,$offsetS);
-        //    return;
-        //}
+        if($this->cistype($A->dtype())) {
+            throw new InvalidArgumentException('Unsuppored data type.');
+        }
         $a = $A[$offsetA];
         $b = $B[$offsetB];
         // r
@@ -285,14 +401,6 @@ class PhpBlas //implements BLASLevel1
         $S[$offsetS] = $s;
     }
 
-    protected function sign(float $x,float $y) : float
-    {
-        if($y<0) {
-            $x = -$x;
-        }
-        return $x;
-    }
-
     public function rot(
         int $n,
         Buffer $X, int $offsetX, int $incX,
@@ -301,10 +409,9 @@ class PhpBlas //implements BLASLevel1
         Buffer $S, int $offsetS
         ) : void
     {
-        //if($this->useBlas($X)) {
-        //    $this->blas->rot($n,$X,$offsetX,$incX,$Y,$offsetY,$incY,$C,$offsetC,$S,$offsetS);
-        //    return;
-        //}
+        if($this->cistype($X->dtype())) {
+            throw new InvalidArgumentException('Unsuppored data type.');
+        }
         $cc = $C[$offsetC];
         $ss = $S[$offsetS];
         $idX = $offsetX;
@@ -322,15 +429,9 @@ class PhpBlas //implements BLASLevel1
         Buffer $X, int $offsetX, int $incX,
         Buffer $Y, int $offsetY, int $incY ) : void
     {
-        //if($this->useBlas($X)) {
-        //    $this->blas->swap($n,$X,$offsetX,$incX,$Y,$offsetY,$incY);
-        //    return;
-        //}
-
-        if($offsetX+($n-1)*$incX>=count($X))
-            throw new InvalidArgumentException('Vector X specification too large for buffer.');
-        if($offsetY+($n-1)*$incY>=count($Y))
-            throw new InvalidArgumentException('Vector Y specification too large for buffer.');
+        $this->assertShapeParameter('n',$n);
+        $this->assertVectorBufferSpec('X', $X, $n, $offsetX, $incX);
+        $this->assertVectorBufferSpec('Y', $Y, $n, $offsetY, $incY);
 
         $idxX = $offsetX;
         $idxY = $offsetY;
@@ -346,49 +447,77 @@ class PhpBlas //implements BLASLevel1
         int $trans,
         int $m,
         int $n,
-        float $alpha,
+        float|object $alpha,
         Buffer $A, int $offsetA, int $ldA,
         Buffer $X, int $offsetX, int $incX,
-        float $beta,
+        float|object $beta,
         Buffer $Y, int $offsetY, int $incY ) : void
     {
-        //if($this->useBlas($X)) {
-        //    $this->blas->gemv($order,$trans,$m,$n,$alpha,
-        //        $A,$offsetA,$ldA,$X,$offsetX,$incX,$beta,$Y,$offsetY,$incY);
-        //    return;
-        //}
-
         if($order==BLAS::ColMajor) {
             [$m,$n] = [$n,$m];
         } elseif($order!=BLAS::RowMajor) {
             throw new InvalidArgumentException('Invalid Order type');
         }
-        $rows = ($trans==BLAS::NoTrans) ? $m : $n;
-        $cols = ($trans==BLAS::NoTrans) ? $n : $m;
+        [$trans,$conj] = $this->codeToTrans($trans);
+        $rows = (!$trans) ? $m : $n;
+        $cols = (!$trans) ? $n : $m;
 
-        if($offsetA+($m-1)*$ldA+($n-1)*$incX>=count($A))
-            throw new InvalidArgumentException('Matrix specification too large for bufferA.');
-        if($offsetX+($cols-1)*$incX>=count($X))
-            throw new InvalidArgumentException('Vector specification too large for bufferX.');
-        if($offsetY+($rows-1)*$incY>=count($Y))
-            throw new InvalidArgumentException('Vector specification too large for bufferY.');
+        $this->assertShapeParameter('m',$m);
+        $this->assertShapeParameter('n',$n);
+        $this->assertMatrixBufferSpec("A", $A, $m, $n, $offsetA, $ldA);
 
-        $ldA_i = ($trans==BLAS::NoTrans) ? $ldA : 1;
-        $ldA_j = ($trans==BLAS::NoTrans) ? 1 : $ldA;
+        $this->assertVectorBufferSpec('X', $X, $cols, $offsetX, $incX);
+        $this->assertVectorBufferSpec('Y', $Y, $rows, $offsetY, $incY);
+
+        $ldA_i = (!$trans) ? $ldA : 1;
+        $ldA_j = (!$trans) ? 1 : $ldA;
 
         $idA_i = $offsetA;
         $idY = $offsetY;
-        for ($i=0; $i<$rows; $i++,$idA_i+=$ldA_i,$idY+=$incY) {
-            $idA = $idA_i;
-            $idX = $offsetX;
-            $acc = 0.0;
-            for ($j=0; $j<$cols; $j++,$idA+=$ldA_j,$idX+=$incX) {
-                 $acc += $alpha * $A[$idA] * $X[$idX];
-            }
-            if($beta==0.0) {
+        if($this->cistype($X->dtype())) {
+            $hasAlpha = !$this->cisone($alpha);
+            $hasBeta = !$this->ciszero($beta);
+            $betaIsNotOne = !$this->cisone($beta);
+            for($i=0; $i<$rows; $i++,$idA_i+=$ldA_i,$idY+=$incY) {
+                $idA = $idA_i;
+                $idX = $offsetX;
+                $acc = $this->cbuild(0.0);
+                for($j=0; $j<$cols; $j++,$idA+=$ldA_j,$idX+=$incX) {
+                    // acc += alpha*A*X
+                    $v = $A[$idA];
+                    if($conj) {
+                        $v = $this->cconj($v);
+                    }
+                    $v = $this->cmul($v,$X[$idX]);
+                    if($hasAlpha) {
+                        $v = $this->cmul($alpha,$v);
+                    }
+                    $acc = $this->cadd($acc,$v);
+                }
+                // Y = acc+beta*Y
+                if($hasBeta) {
+                    $v = $Y[$idY];
+                    if($betaIsNotOne) {
+                        $v = $this->cmul($beta,$v);
+                    }
+                    $acc = $this->cadd($acc,$v);
+                }
                 $Y[$idY] = $acc;
-            } else {
-                $Y[$idY] = $acc + $beta * $Y[$idY];
+            }
+        } else {
+            $hasBeta  = $beta!=0.0;
+            for ($i=0; $i<$rows; $i++,$idA_i+=$ldA_i,$idY+=$incY) {
+                $idA = $idA_i;
+                $idX = $offsetX;
+                $acc = 0.0;
+                for ($j=0; $j<$cols; $j++,$idA+=$ldA_j,$idX+=$incX) {
+                    $acc += $alpha * $A[$idA] * $X[$idX];
+                }
+                if($hasBeta) {
+                    $Y[$idY] = $acc + $beta * $Y[$idY];
+                } else {
+                    $Y[$idY] = $acc;
+                }
             }
         }
     }
@@ -400,55 +529,91 @@ class PhpBlas //implements BLASLevel1
         int $m,
         int $n,
         int $k,
-        float $alpha,
+        float|object $alpha,
         Buffer $A, int $offsetA, int $ldA,
         Buffer $B, int $offsetB, int $ldB,
-        float $beta,
+        float|object $beta,
         Buffer $C, int $offsetC, int $ldC ) : void
     {
-        //if($this->useBlas($A)) {
-        //    $this->blas->gemm($order,$transA,$transB,$m,$n,$k,$alpha,
-        //        $A,$offsetA,$ldA,$B,$offsetB,$ldB,$beta,$C,$offsetC,$ldC);
-        //    return;
-        //}
-
         if($order==BLAS::ColMajor) {
             [$m,$n] = [$n,$m];
         } elseif($order!=BLAS::RowMajor) {
             throw new InvalidArgumentException('Invalid Order type');
         }
-        $rowsA = ($transA==BLAS::NoTrans) ? $m : $k;
-        $colsA = ($transA==BLAS::NoTrans) ? $k : $m;
-        $rowsB = ($transB==BLAS::NoTrans) ? $k : $n;
-        $colsB = ($transB==BLAS::NoTrans) ? $n : $k;
-        if($offsetA+($rowsA-1)*$ldA+($colsA-1)>=count($A))
-            throw new InvalidArgumentException('Matrix specification too large for bufferA.');
-        if($offsetB+($rowsB-1)*$ldB+($colsB-1)>=count($B))
-            throw new InvalidArgumentException('Matrix specification too large for bufferB.');
-        if($offsetC+($m-1)*$ldC+($n-1)>=count($C))
-            throw new InvalidArgumentException('Matrix specification too large for bufferC.');
+        [$transA,$conjA] = $this->codeToTrans($transA);
+        [$transB,$conjB] = $this->codeToTrans($transB);
 
-        $ldA_m = ($transA==BLAS::NoTrans) ? $ldA : 1;
-        $ldA_k = ($transA==BLAS::NoTrans) ? 1 : $ldA;
-        $ldB_k = ($transB==BLAS::NoTrans) ? $ldB : 1;
-        $ldB_n = ($transB==BLAS::NoTrans) ? 1 : $ldB;
+        $this->assertShapeParameter('m',$m);
+        $this->assertShapeParameter('n',$n);
+        $this->assertShapeParameter('k',$k);
+
+        $rowsA = (!$transA) ? $m : $k;
+        $colsA = (!$transA) ? $k : $m;
+        $rowsB = (!$transB) ? $k : $n;
+        $colsB = (!$transB) ? $n : $k;
+
+        $this->assertMatrixBufferSpec("A", $A, $rowsA, $colsA, $offsetA, $ldA);
+        $this->assertMatrixBufferSpec("B", $B, $rowsB, $colsB, $offsetB, $ldB);
+        $this->assertMatrixBufferSpec("C", $C, $m, $n, $offsetC, $ldC);
+
+        $ldA_m = (!$transA) ? $ldA : 1;
+        $ldA_k = (!$transA) ? 1 : $ldA;
+        $ldB_k = (!$transB) ? $ldB : 1;
+        $ldB_n = (!$transB) ? 1 : $ldB;
 
         $idA_m = $offsetA;
         $idC_m = $offsetC;
-        for ($im=0; $im<$m; $im++,$idA_m+=$ldA_m,$idC_m+=$ldC) {
-            $idB_n = $offsetB;
-            $idC = $idC_m;
-            for ($in=0; $in<$n; $in++,$idB_n+=$ldB_n,$idC++) {
-                $idA = $idA_m;
-                $idB = $idB_n;
-                $acc = 0.0;
-                for ($ik=0; $ik<$k; $ik++,$idA+=$ldA_k,$idB+=$ldB_k) {
-                    $acc += $A[$idA] * $B[$idB];
+        if($this->cistype($A->dtype())) {
+            $hasAlpha = !$this->cisone($alpha);
+            $hasBeta = !$this->ciszero($beta);
+            $betaIsNotOne = !$this->cisone($beta);
+            for ($im=0; $im<$m; $im++,$idA_m+=$ldA_m,$idC_m+=$ldC) {
+                $idB_n = $offsetB;
+                $idC = $idC_m;
+                for ($in=0; $in<$n; $in++,$idB_n+=$ldB_n,$idC++) {
+                    $idA = $idA_m;
+                    $idB = $idB_n;
+                    $acc = $this->cbuild(0.0);
+                    for ($ik=0; $ik<$k; $ik++,$idA+=$ldA_k,$idB+=$ldB_k) {
+                        $valueA = $A[$idA];
+                        $valueB = $B[$idB];
+                        if($conjA) {
+                            $valueA = $this->cconj($valueA);
+                        }
+                        if($conjB) {
+                            $valueB = $this->cconj($valueB);
+                        }
+                        $acc = $this->cadd($acc,$this->cmul($valueA,$valueB));
+                    }
+                    if($hasAlpha) {
+                        $acc = $this->cmul($alpha,$acc);
+                    }
+                    if($hasBeta) {
+                        $v = $C[$idC];
+                        if($betaIsNotOne) {
+                            $v = $this->cmul($beta,$v);
+                        }
+                        $acc = $this->cadd($acc,$v);
+                    }
+                    $C[$idC] = $acc;
                 }
-                if($beta==0.0) {
-                    $C[$idC] = $alpha * $acc;
-                } else {
-                    $C[$idC] = $alpha * $acc + $beta * $C[$idC];
+            }
+        } else {
+            for ($im=0; $im<$m; $im++,$idA_m+=$ldA_m,$idC_m+=$ldC) {
+                $idB_n = $offsetB;
+                $idC = $idC_m;
+                for ($in=0; $in<$n; $in++,$idB_n+=$ldB_n,$idC++) {
+                    $idA = $idA_m;
+                    $idB = $idB_n;
+                    $acc = 0.0;
+                    for ($ik=0; $ik<$k; $ik++,$idA+=$ldA_k,$idB+=$ldB_k) {
+                        $acc += $A[$idA] * $B[$idB];
+                    }
+                    if($beta==0.0) {
+                        $C[$idC] = $alpha * $acc;
+                    } else {
+                        $C[$idC] = $alpha * $acc + $beta * $C[$idC];
+                    }
                 }
             }
         }
@@ -460,30 +625,24 @@ class PhpBlas //implements BLASLevel1
         int $uplo,
         int $m,
         int $n,
-        float $alpha,
+        float|object $alpha,
         Buffer $A, int $offsetA, int $ldA,
         Buffer $B, int $offsetB, int $ldB,
-        float $beta,
+        float|object $beta,
         Buffer $C, int $offsetC, int $ldC ) : void
     {
-        //if($this->useBlas($A)) {
-        //    $this->blas->symm($order,$side,$uplo,$m,$n,$alpha,
-        //        $A,$offsetA,$ldA,$B,$offsetB,$ldB,$beta,$C,$offsetC,$ldC);
-        //    return;
-        //}
-
         if($order==BLAS::ColMajor) {
             [$m,$n] = [$n,$m];
         } elseif($order!=BLAS::RowMajor) {
             throw new InvalidArgumentException('Invalid Order type');
         }
+        $this->assertShapeParameter('m',$m);
+        $this->assertShapeParameter('n',$n);
+
         $sizeA = ($side==BLAS::Left) ? $m : $n;
-        if($offsetA+($sizeA-1)*$ldA+($sizeA-1)>=count($A))
-            throw new InvalidArgumentException('Matrix specification too large for bufferA.');
-        if($offsetB+($m-1)*$ldB+($n-1)>=count($B))
-            throw new InvalidArgumentException('Matrix specification too large for bufferB.');
-        if($offsetC+($m-1)*$ldC+($n-1)>=count($C))
-            throw new InvalidArgumentException('Matrix specification too large for bufferC.');
+        $this->assertMatrixBufferSpec("A", $A, $sizeA, $sizeA, $offsetA, $ldA);
+        $this->assertMatrixBufferSpec("B", $B, $m, $n, $offsetB, $ldB);
+        $this->assertMatrixBufferSpec("C", $C, $m, $n, $offsetC, $ldC);
 
         $ldA_m = ($uplo==BLAS::Upper) ? $ldA : 1;
         $ldA_k = ($uplo==BLAS::Upper) ? 1 : $ldA;
@@ -497,24 +656,57 @@ class PhpBlas //implements BLASLevel1
 
         $idA_m = $offsetA;
         $idC_m = $offsetC;
-        for ($im=0; $im<$m; $im++,$idC_m+=$ldC_m) {
-            $idB_n = $offsetB;
-            $idC = $idC_m;
-            for ($in=0; $in<$n; $in++,$idB_n+=$ldB_n,$idC+=$ldC_n) {
-                $idB = $idB_n;
-                $acc = 0.0;
-                for ($ik=0; $ik<$sizeA; $ik++,$idB+=$ldB_k) {
-                    if($ik<$im) {
-                        $idA = $offsetA+$ik*$ldA_m+$im*$ldA_k;
-                    } else {
-                        $idA = $offsetA+$im*$ldA_m+$ik*$ldA_k;
+        if($this->cistype($A->dtype())) {
+            $hasAlpha = !$this->cisone($alpha);
+            $hasBeta = !$this->ciszero($beta);
+            $betaIsNotOne = !$this->cisone($beta);
+            for($im=0; $im<$m; $im++,$idC_m+=$ldC_m) {
+                $idB_n = $offsetB;
+                $idC = $idC_m;
+                for ($in=0; $in<$n; $in++,$idB_n+=$ldB_n,$idC+=$ldC_n) {
+                    $idB = $idB_n;
+                    $acc = $this->cbuild(0.0);
+                    for ($ik=0; $ik<$sizeA; $ik++,$idB+=$ldB_k) {
+                        if($ik<$im) {
+                            $idA = $offsetA+$ik*$ldA_m+$im*$ldA_k;
+                        } else {
+                            $idA = $offsetA+$im*$ldA_m+$ik*$ldA_k;
+                        }
+                        $acc = $this->cadd($acc,$this->cmul($A[$idA],$B[$idB]));
                     }
-                    $acc += $A[$idA] * $B[$idB];
+                    if($hasAlpha) {
+                        $acc = $this->cmul($alpha,$acc);
+                    }
+                    if($hasBeta) {
+                        $v = $C[$idC];
+                        if($betaIsNotOne) {
+                            $v = $this->cmul($beta,$v);
+                        }
+                        $acc = $this->cadd($acc,$v);
+                    }
+                    $C[$idC] = $acc;
                 }
-                if($beta==0.0) {
-                    $C[$idC] = $alpha * $acc;
-                } else {
-                    $C[$idC] = $alpha * $acc + $beta * $C[$idC];
+            }
+        } else {
+            for ($im=0; $im<$m; $im++,$idC_m+=$ldC_m) {
+                $idB_n = $offsetB;
+                $idC = $idC_m;
+                for ($in=0; $in<$n; $in++,$idB_n+=$ldB_n,$idC+=$ldC_n) {
+                    $idB = $idB_n;
+                    $acc = 0.0;
+                    for ($ik=0; $ik<$sizeA; $ik++,$idB+=$ldB_k) {
+                        if($ik<$im) {
+                            $idA = $offsetA+$ik*$ldA_m+$im*$ldA_k;
+                        } else {
+                            $idA = $offsetA+$im*$ldA_m+$ik*$ldA_k;
+                        }
+                        $acc += $A[$idA] * $B[$idB];
+                    }
+                    if($beta==0.0) {
+                        $C[$idC] = $alpha * $acc;
+                    } else {
+                        $C[$idC] = $alpha * $acc + $beta * $C[$idC];
+                    }
                 }
             }
         }
@@ -526,61 +718,97 @@ class PhpBlas //implements BLASLevel1
         int $trans,
         int $n,
         int $k,
-        float $alpha,
+        float|object $alpha,
         Buffer $A, int $offsetA, int $ldA,
-        float $beta,
+        float|object $beta,
         Buffer $C, int $offsetC, int $ldC ) : void
     {
-        //if($this->useBlas($A)) {
-        //    $this->blas->syrk($order,$uplo,$trans,$n,$k,$alpha,
-        //        $A,$offsetA,$ldA,$beta,$C,$offsetC,$ldC);
-        //    return;
-        //}
         if($order==BLAS::ColMajor) {
             [$n,$k] = [$k,$n];
         } elseif($order!=BLAS::RowMajor) {
             throw new InvalidArgumentException('Invalid Order type');
         }
-        if($n<1)
-            throw new InvalidArgumentException('Argument n must be greater than 0.');
-        if($k<1)
-            throw new InvalidArgumentException('Argument k must be greater than 0.');
-        $rows = ($trans==BLAS::NoTrans) ? $n : $k;
-        $cols = ($trans==BLAS::NoTrans) ? $k : $n;
-        if($offsetA+($rows-1)*$ldA+($cols-1)>=count($A))
-            throw new InvalidArgumentException('Matrix specification too large for bufferA.');
-        if($offsetC+($n-1)*$ldC+($n-1)>=count($C))
-            throw new InvalidArgumentException('Matrix specification too large for bufferC.');
+        [$trans,$conj] = $this->codeToTrans($trans);
+        $this->assertShapeParameter('n',$n);
+        $this->assertShapeParameter('k',$k);
 
-        $ldA_m  = ($trans==BLAS::NoTrans) ? $ldA : 1;
-        $ldA_k  = ($trans==BLAS::NoTrans) ? 1 : $ldA;
-        $ldAT_k = ($trans!=BLAS::NoTrans) ? $ldA : 1;
-        $ldAT_n = ($trans!=BLAS::NoTrans) ? 1 : $ldA;
+        $rows = (!$trans) ? $n : $k;
+        $cols = (!$trans) ? $k : $n;
+        $this->assertMatrixBufferSpec("A", $A, $rows, $cols, $offsetA, $ldA);
+        $this->assertMatrixBufferSpec("C", $C, $n, $n, $offsetC, $ldC);
+
+        $ldA_m  = (!$trans) ? $ldA : 1;
+        $ldA_k  = (!$trans) ? 1 : $ldA;
+        $ldAT_k = ($trans)  ? $ldA : 1;
+        $ldAT_n = ($trans)  ? 1 : $ldA;
 
         $idA_m = $offsetA;
         $idC_m = $offsetC;
-        for ($im=0; $im<$n; $im++,$idA_m+=$ldA_m,$idC_m+=$ldC) {
-            $idAT_n = $offsetA;
-            $idC = $idC_m;
-            if($uplo==Blas::Upper) {
-                $start_n = $im;
-                $end_n = $n;
-            } else {
-                $start_n = 0;
-                $end_n = $im+1;
-            }
-            for ($in=$start_n; $in<$end_n; $in++,$idAT_n+=$ldAT_n,$idC++) {
-                $acc = 0.0;
-                for ($ik=0; $ik<$k; $ik++) {
-                    $idA  = $offsetA+$im*$ldA_m+$ik*$ldA_k;
-                    $idAT = $offsetA+$ik*$ldAT_k+$in*$ldAT_n;
-                    $acc += $A[$idA] * $A[$idAT];
-                }
-                $idC = $im*$ldC+$in;
-                if($beta==0.0) {
-                    $C[$idC] = $alpha * $acc;
+        if($this->cistype($A->dtype())) {
+            $hasAlpha = !$this->cisone($alpha);
+            $hasBeta = !$this->ciszero($beta);
+            $betaIsNotOne = !$this->cisone($beta);
+            for ($im=0; $im<$n; $im++,$idA_m+=$ldA_m,$idC_m+=$ldC) {
+                $idAT_n = $offsetA;
+                $idC = $idC_m;
+                if($uplo==Blas::Upper) {
+                    $start_n = $im;
+                    $end_n = $n;
                 } else {
-                    $C[$idC] = $alpha * $acc + $beta * $C[$idC];
+                    $start_n = 0;
+                    $end_n = $im+1;
+                }
+                for ($in=$start_n; $in<$end_n; $in++,$idAT_n+=$ldAT_n,$idC++) {
+                    $acc = $this->cbuild(0.0);
+                    for ($ik=0; $ik<$k; $ik++) {
+                        $idA  = $offsetA+$im*$ldA_m+$ik*$ldA_k;
+                        $idAT = $offsetA+$ik*$ldAT_k+$in*$ldAT_n;
+                        $valueA  = $A[$idA];
+                        $valueAT = $A[$idAT];
+                        if($conj) {
+                            $valueA  = $this->cconj($valueA);
+                            $valueAT = $this->cconj($valueAT);
+                        }
+                        $acc = $this->cadd($acc,$this->cmul($valueA,$valueAT));
+                    }
+                    $idC = $im*$ldC+$in;
+                    if($hasAlpha) {
+                        $acc = $this->cmul($alpha,$acc);
+                    }
+                    if($hasBeta) {
+                        $v = $C[$idC];
+                        if($betaIsNotOne) {
+                            $v = $this->cmul($beta,$v);
+                        }
+                        $acc = $this->cadd($acc,$v);
+                    }
+                    $C[$idC] = $acc;
+                }
+            }
+        } else {
+            for ($im=0; $im<$n; $im++,$idA_m+=$ldA_m,$idC_m+=$ldC) {
+                $idAT_n = $offsetA;
+                $idC = $idC_m;
+                if($uplo==Blas::Upper) {
+                    $start_n = $im;
+                    $end_n = $n;
+                } else {
+                    $start_n = 0;
+                    $end_n = $im+1;
+                }
+                for ($in=$start_n; $in<$end_n; $in++,$idAT_n+=$ldAT_n,$idC++) {
+                    $acc = 0.0;
+                    for ($ik=0; $ik<$k; $ik++) {
+                        $idA  = $offsetA+$im*$ldA_m+$ik*$ldA_k;
+                        $idAT = $offsetA+$ik*$ldAT_k+$in*$ldAT_n;
+                        $acc += $A[$idA] * $A[$idAT];
+                    }
+                    $idC = $im*$ldC+$in;
+                    if($beta==0.0) {
+                        $C[$idC] = $alpha * $acc;
+                    } else {
+                        $C[$idC] = $alpha * $acc + $beta * $C[$idC];
+                    }
                 }
             }
         }
@@ -592,67 +820,111 @@ class PhpBlas //implements BLASLevel1
         int $trans,
         int $n,
         int $k,
-        float $alpha,
+        float|object $alpha,
         Buffer $A, int $offsetA, int $ldA,
         Buffer $B, int $offsetB, int $ldB,
-        float $beta,
+        float|object $beta,
         Buffer $C, int $offsetC, int $ldC ) : void
     {
-        //if($this->useBlas($A)) {
-        //    $this->blas->syr2k($order,$uplo,$trans,$n,$k,$alpha,
-        //        $A,$offsetA,$ldA,$B,$offsetB,$ldB,$beta,$C,$offsetC,$ldC);
-        //    return;
-        //}
         if($order==BLAS::ColMajor) {
             [$n,$k] = [$k,$n];
         } elseif($order!=BLAS::RowMajor) {
             throw new InvalidArgumentException('Invalid Order type');
         }
-        $rows = ($trans==BLAS::NoTrans) ? $n : $k;
-        $cols = ($trans==BLAS::NoTrans) ? $k : $n;
-        if($offsetA+($rows-1)*$ldA+($cols-1)>=count($A))
-            throw new InvalidArgumentException('Matrix specification too large for bufferA.');
-        if($offsetB+($rows-1)*$ldB+($cols-1)>=count($B))
-            throw new InvalidArgumentException('Matrix specification too large for bufferB.');
-        if($offsetC+($n-1)*$ldC+($n-1)>=count($C))
-            throw new InvalidArgumentException('Matrix specification too large for bufferC.');
+        [$trans,$conj] = $this->codeToTrans($trans);
 
-        $ldA_m  = ($trans==BLAS::NoTrans) ? $ldA : 1;
-        $ldA_k  = ($trans==BLAS::NoTrans) ? 1 : $ldA;
-        $ldAT_k = ($trans!=BLAS::NoTrans) ? $ldA : 1;
-        $ldAT_n = ($trans!=BLAS::NoTrans) ? 1 : $ldA;
-        $ldB_m  = ($trans==BLAS::NoTrans) ? $ldB : 1;
-        $ldB_k  = ($trans==BLAS::NoTrans) ? 1 : $ldB;
-        $ldBT_k = ($trans!=BLAS::NoTrans) ? $ldB : 1;
-        $ldBT_n = ($trans!=BLAS::NoTrans) ? 1 : $ldB;
+        $this->assertShapeParameter('n',$n);
+        $this->assertShapeParameter('k',$k);
+
+        $rows = (!$trans) ? $n : $k;
+        $cols = (!$trans) ? $k : $n;
+
+        $this->assertMatrixBufferSpec("A", $A, $rows, $cols, $offsetA, $ldA);
+        $this->assertMatrixBufferSpec("B", $B, $rows, $cols, $offsetB, $ldB);
+        $this->assertMatrixBufferSpec("C", $C, $n, $n, $offsetC, $ldC);
+
+        $ldA_m  = (!$trans) ? $ldA : 1;
+        $ldA_k  = (!$trans) ? 1 : $ldA;
+        $ldAT_k = ($trans) ? $ldA : 1;
+        $ldAT_n = ($trans) ? 1 : $ldA;
+        $ldB_m  = (!$trans) ? $ldB : 1;
+        $ldB_k  = (!$trans) ? 1 : $ldB;
+        $ldBT_k = ($trans) ? $ldB : 1;
+        $ldBT_n = ($trans) ? 1 : $ldB;
 
         $idA_m = $offsetA;
         $idC_m = $offsetC;
-        for ($im=0; $im<$n; $im++,$idA_m+=$ldA_m,$idC_m+=$ldC) {
-            $idAT_n = $offsetA;
-            $idC = $idC_m;
-            if($uplo==Blas::Upper) {
-                $start_n = $im;
-                $end_n = $n;
-            } else {
-                $start_n = 0;
-                $end_n = $im+1;
-            }
-            for ($in=$start_n; $in<$end_n; $in++,$idAT_n+=$ldAT_n,$idC++) {
-                $acc = 0.0;
-                for ($ik=0; $ik<$k; $ik++) {
-                    $idA  = $offsetA+$im*$ldA_m+ $ik*$ldA_k;
-                    $idB  = $offsetB+$im*$ldB_m+ $ik*$ldB_k;
-                    $idAT = $offsetA+$ik*$ldAT_k+$in*$ldAT_n;
-                    $idBT = $offsetB+$ik*$ldBT_k+$in*$ldBT_n;
-                    $acc += $A[$idA]  * $B[$idBT];
-                    $acc += $A[$idAT] * $B[$idB];
-                }
-                $idC = $im*$ldC+$in;
-                if($beta==0.0) {
-                    $C[$idC] = $alpha * $acc;
+        if($this->cistype($A->dtype())) {
+            $hasAlpha = !$this->cisone($alpha);
+            $hasBeta = !$this->ciszero($beta);
+            $betaIsNotOne = !$this->cisone($beta);
+            for ($im=0; $im<$n; $im++,$idA_m+=$ldA_m,$idC_m+=$ldC) {
+                $idAT_n = $offsetA;
+                $idC = $idC_m;
+                if($uplo==Blas::Upper) {
+                    $start_n = $im;
+                    $end_n = $n;
                 } else {
-                    $C[$idC] = $alpha * $acc + $beta * $C[$idC];
+                    $start_n = 0;
+                    $end_n = $im+1;
+                }
+                for ($in=$start_n; $in<$end_n; $in++,$idAT_n+=$ldAT_n,$idC++) {
+                    $acc = $this->cbuild(0.0);
+                    for ($ik=0; $ik<$k; $ik++) {
+                        $idA  = $offsetA+$im*$ldA_m+ $ik*$ldA_k;
+                        $idB  = $offsetB+$im*$ldB_m+ $ik*$ldB_k;
+                        $idAT = $offsetA+$ik*$ldAT_k+$in*$ldAT_n;
+                        $idBT = $offsetB+$ik*$ldBT_k+$in*$ldBT_n;
+                        $valueA  = $A[$idA];
+                        $valueAT = $A[$idAT];
+                        if($conj) {
+                            $valueA  = $this->cconj($valueA);
+                            $valueAT = $this->cconj($valueAT);
+                        }
+                        $acc = $this->cadd($acc,$this->cmul($valueA,$B[$idBT]));
+                        $acc = $this->cadd($acc,$this->cmul($valueAT,$B[$idB]));
+                    }
+                    $idC = $im*$ldC+$in;
+                    if($hasAlpha) {
+                        $acc = $this->cmul($alpha,$acc);
+                    }
+                    if($hasBeta) {
+                        $v = $C[$idC];
+                        if($betaIsNotOne) {
+                            $v = $this->cmul($beta,$v);
+                        }
+                        $acc = $this->cadd($acc,$v);
+                    }
+                    $C[$idC] = $acc;
+                }
+            }
+        } else {
+            for ($im=0; $im<$n; $im++,$idA_m+=$ldA_m,$idC_m+=$ldC) {
+                $idAT_n = $offsetA;
+                $idC = $idC_m;
+                if($uplo==Blas::Upper) {
+                    $start_n = $im;
+                    $end_n = $n;
+                } else {
+                    $start_n = 0;
+                    $end_n = $im+1;
+                }
+                for ($in=$start_n; $in<$end_n; $in++,$idAT_n+=$ldAT_n,$idC++) {
+                    $acc = 0.0;
+                    for ($ik=0; $ik<$k; $ik++) {
+                        $idA  = $offsetA+$im*$ldA_m+ $ik*$ldA_k;
+                        $idB  = $offsetB+$im*$ldB_m+ $ik*$ldB_k;
+                        $idAT = $offsetA+$ik*$ldAT_k+$in*$ldAT_n;
+                        $idBT = $offsetB+$ik*$ldBT_k+$in*$ldBT_n;
+                        $acc += $A[$idA]  * $B[$idBT];
+                        $acc += $A[$idAT] * $B[$idB];
+                    }
+                    $idC = $im*$ldC+$in;
+                    if($beta==0.0) {
+                        $C[$idC] = $alpha * $acc;
+                    } else {
+                        $C[$idC] = $alpha * $acc + $beta * $C[$idC];
+                    }
                 }
             }
         }
@@ -671,22 +943,20 @@ class PhpBlas //implements BLASLevel1
         int $diag,  // no unit or unit
         int $m,
         int $n,
-        float $alpha,
+        float|object $alpha,
         Buffer $A, int $offsetA, int $ldA,
         Buffer $B, int $offsetB, int $ldB) : void
     {
-        //if($this->useBlas($A)) {
-        //    $this->blas->trmm($order,$side,$uplo,$trans,$diag,$m,$n,$alpha,
-        //        $A,$offsetA,$ldA,$B,$offsetB,$ldB);
-        //    return;
-        //}
-        //throw new LogicException("Unsupported function yet without openblas");
-
         if($order==BLAS::ColMajor) {
             [$m,$n] = [$n,$m];
         } elseif($order!=BLAS::RowMajor) {
             throw new InvalidArgumentException('Invalid Order type');
         }
+        [$trans,$conj] = $this->codeToTrans($trans);
+
+        $this->assertShapeParameter('m',$m);
+        $this->assertShapeParameter('n',$n);
+
         if($side==BLAS::Left) {
             $sizeA = $m;
             $sizeB = $n;
@@ -705,13 +975,6 @@ class PhpBlas //implements BLASLevel1
         } else {
             throw new InvalidArgumentException('Invalid uplo value: '.$uplo);
         }
-        if($trans==BLAS::NoTrans) {
-            $trans = false;
-        } elseif($trans==BLAS::Trans) {
-            $trans = true;
-        } else {
-            throw new InvalidArgumentException('Invalid trans value: '.$trans);
-        }
         if($diag==BLAS::NonUnit) {
             $unit = false;
         } elseif($diag==BLAS::Unit) {
@@ -721,12 +984,9 @@ class PhpBlas //implements BLASLevel1
         }
         $rowsB = $m;
         $colsB = $n;
-        if($offsetA+($sizeA-1)*$ldA+($sizeA-1)>=count($A)) {
-            throw new InvalidArgumentException('Matrix specification too large for bufferA.');
-        }
-        if($offsetB+($rowsB-1)*$ldB+($colsB-1)>=count($B)) {
-            throw new InvalidArgumentException('Matrix specification too large for bufferB.');
-        }
+
+        $this->assertMatrixBufferSpec("A", $A, $sizeA, $sizeA, $offsetA, $ldA);
+        $this->assertMatrixBufferSpec("B", $B, $rowsB, $colsB, $offsetB, $ldB);
 
         $trans = $right ? !$trans : $trans;
         $lower = $trans ? !$lower : $lower;
@@ -737,21 +997,49 @@ class PhpBlas //implements BLASLevel1
 
         $startm = $lower?($sizeA-1):0;
         $stepm =  $lower?(-1):1;
-        for($cm=0,$im=$startm;$cm<$sizeA;$cm++,$im+=$stepm) {
-            for($in=0;$in<$sizeB;$in++) {
-                if($unit) {
-                    $startk = $lower?0:$im+1;
-                    $countk = $sizeA-$cm-1;
-                    $acc = $B[$offsetB+$im*$ldB_k+$in*$ldB_n];
-                } else {
-                    $startk = $lower?0:$im;
-                    $countk = $sizeA-$cm;
-                    $acc = 0.0;
+        if($this->cistype($A->dtype())) {
+            $hasAlpha = !$this->cisone($alpha);
+            for($cm=0,$im=$startm;$cm<$sizeA;$cm++,$im+=$stepm) {
+                for($in=0;$in<$sizeB;$in++) {
+                    if($unit) {
+                        $startk = $lower?0:$im+1;
+                        $countk = $sizeA-$cm-1;
+                        $acc = $B[$offsetB+$im*$ldB_k+$in*$ldB_n];
+                    } else {
+                        $startk = $lower?0:$im;
+                        $countk = $sizeA-$cm;
+                        $acc = $this->cbuild(0.0);
+                    }
+                    for($ck=0,$ik=$startk; $ck<$countk; $ck++,$ik++) {
+                        $v = $A[$offsetA+$im*$ldA_m+$ik*$ldA_k];
+                        if($conj) {
+                            $v = $this->cconj($v);
+                        }
+                        $acc = $this->cadd($acc,$this->cmul($v,$B[$offsetB+$ik*$ldB_k+$in*$ldB_n]));
+                    }
+                    if($hasAlpha) {
+                        $acc = $this->cmul($alpha,$acc);
+                    }
+                    $B[$offsetB+$im*$ldB_k+$in*$ldB_n] = $acc;
                 }
-                for($ck=0,$ik=$startk; $ck<$countk; $ck++,$ik++) {
-                    $acc += $A[$offsetA+$im*$ldA_m+$ik*$ldA_k]*$B[$offsetB+$ik*$ldB_k+$in*$ldB_n];
+            }
+        } else {
+            for($cm=0,$im=$startm;$cm<$sizeA;$cm++,$im+=$stepm) {
+                for($in=0;$in<$sizeB;$in++) {
+                    if($unit) {
+                        $startk = $lower?0:$im+1;
+                        $countk = $sizeA-$cm-1;
+                        $acc = $B[$offsetB+$im*$ldB_k+$in*$ldB_n];
+                    } else {
+                        $startk = $lower?0:$im;
+                        $countk = $sizeA-$cm;
+                        $acc = 0.0;
+                    }
+                    for($ck=0,$ik=$startk; $ck<$countk; $ck++,$ik++) {
+                        $acc += $A[$offsetA+$im*$ldA_m+$ik*$ldA_k]*$B[$offsetB+$ik*$ldB_k+$in*$ldB_n];
+                    }
+                    $B[$offsetB+$im*$ldB_k+$in*$ldB_n] = $alpha * $acc;
                 }
-                $B[$offsetB+$im*$ldB_k+$in*$ldB_n] = $alpha * $acc;
             }
         }
     }
@@ -764,21 +1052,20 @@ class PhpBlas //implements BLASLevel1
         int $diag,
         int $m,
         int $n,
-        float $alpha,
+        float|object $alpha,
         Buffer $A, int $offsetA, int $ldA,
         Buffer $B, int $offsetB, int $ldB) : void
     {
-        //if($this->useBlas($A)) {
-        //    $this->blas->trsm($order,$side,$uplo,$trans,$diag,$m,$n,$alpha,
-        //        $A,$offsetA,$ldA,$B,$offsetB,$ldB);
-        //    return;
-        //}
-
         if($order==BLAS::ColMajor) {
             [$m,$n] = [$n,$m];
         } elseif($order!=BLAS::RowMajor) {
             throw new InvalidArgumentException('Invalid Order type');
         }
+        [$trans,$conj] = $this->codeToTrans($trans);
+
+        $this->assertShapeParameter('m',$m);
+        $this->assertShapeParameter('n',$n);
+
         if($side==BLAS::Left) {
             $sizeA = $m;
             $sizeB = $n;
@@ -797,13 +1084,6 @@ class PhpBlas //implements BLASLevel1
         } else {
             throw new InvalidArgumentException('Invalid uplo value: '.$uplo);
         }
-        if($trans==BLAS::NoTrans) {
-            $trans = false;
-        } elseif($trans==BLAS::Trans) {
-            $trans = true;
-        } else {
-            throw new InvalidArgumentException('Invalid trans value: '.$trans);
-        }
         if($diag==BLAS::NonUnit) {
             $unit = false;
         } elseif($diag==BLAS::Unit) {
@@ -813,12 +1093,8 @@ class PhpBlas //implements BLASLevel1
         }
         $rowsB = $m;
         $colsB = $n;
-        if($offsetA+($sizeA-1)*$ldA+($sizeA-1)>=count($A)) {
-            throw new InvalidArgumentException('Matrix specification too large for bufferA.');
-        }
-        if($offsetB+($rowsB-1)*$ldB+($colsB-1)>=count($B)) {
-            throw new InvalidArgumentException('Matrix specification too large for bufferB.');
-        }
+        $this->assertMatrixBufferSpec("A", $A, $sizeA, $sizeA, $offsetA, $ldA);
+        $this->assertMatrixBufferSpec("B", $B, $rowsB, $colsB, $offsetB, $ldB);
 
         $trans = $right ? !$trans : $trans;
         $lower = $trans ? !$lower : $lower;
@@ -827,50 +1103,166 @@ class PhpBlas //implements BLASLevel1
         $ldB_k = $right ? 1 : $ldB;
         $ldB_n = $right ? $ldB : 1;
 
-        //echo "\n";
         $startm = $lower?0:($sizeA-1);
         $stepm =  $lower?1:(-1);
-        // loop(i)
-        //echo "startm=$startm\n";
-        for($cm=0,$im=$startm;$cm<$sizeA;$cm++,$im+=$stepm) {
-            // A[i,i]
-            if($unit) {
-                $denomi = 1.0;
-            } else {
-                $denomi = $A[$offsetA+$im*$ldA_m+$im*$ldA_k];
-                if($denomi==0) {
-                    $denomi = NAN;
+        if($this->cistype($A->dtype())) {
+            $hasAlpha = !$this->cisone($alpha);
+            // loop(i)
+            for($cm=0,$im=$startm;$cm<$sizeA;$cm++,$im+=$stepm) {
+                // A[i,i]
+                if($unit) {
+                    $denomi = 1.0;
+                    $denomiFlag = 1; // is_one
+                } else {
+                    $denomi = $A[$offsetA+$im*$ldA_m+$im*$ldA_k];
+                    if($this->ciszero($denomi)) {
+                        $denomiFlag = 0; // is_zero
+                        $denomi = $this->cbuild(NAN,i:NAN);
+                    } else {
+                        $denomiFlag = 2; // is_normal
+                        if($conj) {
+                            //echo "C";
+                            $denomi = $this->cconj($denomi);
+                        }
+                    }
                 }
-            }
-            //echo "denomi:$denomi\n";
-            // loop(j)
-            for($in=0;$in<$sizeB;$in++) {
-                // acc = 0;
-                $startk = $lower?0:($im+1);
-                $countk = $cm;
-                $acc = 0.0;
-                // loop(k)
-                //echo "for[$startk,$countk]\n";
-                for($ck=0,$ik=$startk; $ck<$countk; $ck++,$ik++) {
-                    // acc += A[i,k] * B[k,j];
-                    //echo "a[$im,$ik]:";
-                    //echo $A[$offsetA+$im*$ldA_m+$ik*$ldA_k].",";
-                    //echo "b[$ik,$in],";
-                    //echo "b[".($offsetB+$ik*$ldB_k+$in*$ldB_n)."]:";
-                    //echo $B[$offsetB+$ik*$ldB_k+$in*$ldB_n].",";
-                    $acc += $A[$offsetA+$im*$ldA_m+$ik*$ldA_k]*$B[$offsetB+$ik*$ldB_k+$in*$ldB_n];
+                //echo "denomi:$denomi\n";
+                // loop(j)
+                //echo "for(j)[$in,$sizeB]\n";
+                for($in=0;$in<$sizeB;$in++) {
+                    // acc = 0;
+                    $startk = $lower?0:($im+1);
+                    $countk = $cm;
+                    $acc = $this->cbuild(0.0);
+                    // loop(k)
+                    //echo "for(k)[$startk,$countk]\n";
+                    for($ck=0,$ik=$startk; $ck<$countk; $ck++,$ik++) {
+                        // acc += A[i,k] * B[k,j];
+                        //echo "a[$im,$ik]:";
+                        //echo $A[$offsetA+$im*$ldA_m+$ik*$ldA_k].",";
+                        //echo "b[$ik,$in],";
+                        //echo "b[".($offsetB+$ik*$ldB_k+$in*$ldB_n)."]:";
+                        //echo $B[$offsetB+$ik*$ldB_k+$in*$ldB_n].",";
+                        $v = $A[$offsetA+$im*$ldA_m+$ik*$ldA_k];
+                        if($conj) {
+                            //echo "C";
+                            $v = $this->cconj($v);
+                        }
+                        $acc = $this->cadd($acc,$this->cmul($v,$B[$offsetB+$ik*$ldB_k+$in*$ldB_n]));
+                        //echo "acc:".$acc.",";
+                    }
+                    //echo "endfor(k)\n";
                     //echo "acc:".$acc.",";
+                    //echo "\n";
+                    // B[i,j] = (B[i,j] - acc) / A[i,i];
+                    //echo "B[$im,$in]";
+                    //echo "[$ldB_k,$ldB_n]";
+                    if($hasAlpha) {
+                        $acc = $this->cmul($alpha,$acc);
+                    }
+                    if($denomiFlag==0) { // NAN
+                        $B[$offsetB+$im*$ldB_k+$in*$ldB_n] = $denomi;
+                    } elseif($denomiFlag==1) { // denomi == 1.0
+                        $B[$offsetB+$im*$ldB_k+$in*$ldB_n] = $this->csub($B[$offsetB+$im*$ldB_k+$in*$ldB_n],$acc);
+                    } else {
+                        $B[$offsetB+$im*$ldB_k+$in*$ldB_n] = $this->cdiv($this->csub($B[$offsetB+$im*$ldB_k+$in*$ldB_n],$acc),$denomi);
+                    }
+                    //echo "B[".($offsetB+$im*$ldB_k+$in*$ldB_n)."]:";
+                    //echo $B[$offsetB+$im*$ldB_k+$in*$ldB_n];
+                    //echo "\n";
                 }
-                //echo $acc.",";
-                //echo "\n";
-                // B[i,j] = (B[i,j] - acc) / A[i,i];
-                //echo "B[$im,$in]";
-                //echo "[$ldB_k,$ldB_n]";
-                $B[$offsetB+$im*$ldB_k+$in*$ldB_n] = ($B[$offsetB+$im*$ldB_k+$in*$ldB_n] - $alpha*$acc) / $denomi;
-                //echo "B[".($offsetB+$im*$ldB_k+$in*$ldB_n)."]:";
-                //echo $B[$offsetB+$im*$ldB_k+$in*$ldB_n];
-                //echo "\n";
+                //echo "endfor(j)\n";
+            }
+        } else {
+            // loop(i)
+            for($cm=0,$im=$startm;$cm<$sizeA;$cm++,$im+=$stepm) {
+                // A[i,i]
+                if($unit) {
+                    $denomi = 1.0;
+                } else {
+                    $denomi = $A[$offsetA+$im*$ldA_m+$im*$ldA_k];
+                    if($denomi==0) {
+                        $denomi = NAN;
+                    }
+                }
+                // loop(j)
+                for($in=0;$in<$sizeB;$in++) {
+                    // acc = 0;
+                    $startk = $lower?0:($im+1);
+                    $countk = $cm;
+                    $acc = 0.0;
+                    // loop(k)
+                    for($ck=0,$ik=$startk; $ck<$countk; $ck++,$ik++) {
+                        // acc += A[i,k] * B[k,j];
+                        $acc += $A[$offsetA+$im*$ldA_m+$ik*$ldA_k]*$B[$offsetB+$ik*$ldB_k+$in*$ldB_n];
+                    }
+                    // B[i,j] = (B[i,j] - acc) / A[i,i];
+                    $B[$offsetB+$im*$ldB_k+$in*$ldB_n] = ($B[$offsetB+$im*$ldB_k+$in*$ldB_n] - $alpha*$acc) / $denomi;
+                }
             }
         }
     }
+
+    public function omatcopy(
+        int $order,
+        int $trans,
+        int $m,
+        int $n,
+        float|object $alpha,
+        Buffer $A, int $offsetA, int $ldA,
+        Buffer $B, int $offsetB, int $ldB,
+    ) : void
+    {
+        if($order==BLAS::ColMajor) {
+            [$m,$n] = [$n,$m];
+        } elseif($order!=BLAS::RowMajor) {
+            throw new InvalidArgumentException('Invalid Order type');
+        }
+        [$trans,$conj] = $this->codeToTrans($trans);
+        $this->assertShapeParameter('m',$m);
+        $this->assertShapeParameter('n',$n);
+        $rows = (!$trans) ? $m : $n;
+        $cols = (!$trans) ? $n : $m;
+
+        $this->assertMatrixBufferSpec("A", $A, $m, $n, $offsetA, $ldA);
+        $this->assertMatrixBufferSpec("B", $B, $rows, $cols, $offsetB, $ldB);
+
+        // Check Buffer A and B
+        if($A->dtype()!=$B->dtype()) {
+            throw new InvalidArgumentException("Unmatch data type for A and B");
+        }
+
+        $ldA_i = (!$trans) ? $ldA : 1;
+        $ldA_j = (!$trans) ? 1 : $ldA;
+
+        $idA_i = $offsetA;
+        $idB_i = $offsetB;
+
+        if($this->cistype($A->dtype())) {
+            $hasAlpha = !$this->cisone($alpha);
+            for($i=0; $i<$rows; $i++,$idA_i+=$ldA_i,$idB_i+=$ldB) {
+                $idA = $idA_i;
+                $idB = $idB_i;
+                for($j=0; $j<$cols; $j++,$idA+=$ldA_j,$idB++) {
+                    $v = $A[$idA];
+                    if($conj) {
+                        $v = $this->cconj($v);
+                    }
+                    if($hasAlpha) {
+                        $v = $this->cmul($alpha,$v);
+                    }
+                    $B[$idB] = $v;
+                }
+            }
+        } else {
+            for($i=0; $i<$rows; $i++,$idA_i+=$ldA_i,$idB_i+=$ldB) {
+                $idA = $idA_i;
+                $idB = $idB_i;
+                for($j=0; $j<$cols; $j++,$idA+=$ldA_j,$idB++) {
+                    $B[$idB] = $alpha * $A[$idA];
+                }
+            }
+        }
+    }
+    
 }

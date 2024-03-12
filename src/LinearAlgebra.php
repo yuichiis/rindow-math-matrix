@@ -10,6 +10,8 @@ use function Rindow\Math\Matrix\R;
 
 class LinearAlgebra
 {
+    use ComplexUtils;
+
     const LAPACK_ROW_MAJOR = 101;
     const LAPACK_COL_MAJOR = 102;
 
@@ -22,6 +24,17 @@ class LinearAlgebra
     protected array $intTypes= [
         NDArray::int8,NDArray::int16,NDArray::int32,NDArray::int64,
         NDArray::uint8,NDArray::uint16,NDArray::uint32,NDArray::uint64,
+    ];
+
+    protected $dtypeToString = [
+        NDArray::bool=>'bool',
+        NDArray::int8=>'int8',   NDArray::uint8=>'uint8',
+        NDArray::int16=>'int16', NDArray::uint16=>'uint16',
+        NDArray::int32=>'int32', NDArray::uint32=>'uint32',
+        NDArray::int64=>'int64', NDArray::uint64=>'uint64',
+        NDArray::float16=>'float16',
+        NDArray::float32=>'float32', NDArray::float64=>'float64',
+        NDArray::complex64=>'complex64', NDArray::complex128=>'complex128',
     ];
 
     public function __construct(
@@ -93,6 +106,55 @@ class LinearAlgebra
         return $string;
     }
 
+    protected function isComplex(int $dtype) : bool
+    {
+        return $this->cistype($dtype);
+    }
+
+    protected function toComplex(mixed $array) : mixed
+    {
+        if(!is_array($array)) {
+            if(is_numeric($array)) {
+                return C($array,i:0);
+            } else {
+                return C($array->real,i:$array->imag);
+            }
+        }
+        $cArray = [];
+        foreach($array as $value) {
+            $cArray[] = $this->toComplex($value);
+        }
+        return $cArray;
+    }
+
+    protected function complementTrans(?bool $trans,?bool $conj,int $dtype) : array
+    {
+        $trans = $trans ?? false;
+        if($this->isComplex($dtype)) {
+            $conj = $conj ?? $trans;
+        } else {
+            $conj = $conj ?? false;
+        }
+        return [$trans,$conj];
+    }
+
+    protected function transToCode(bool $trans,bool $conj) : int
+    {
+        if($trans) {
+            return $conj ? BLAS::ConjTrans : BLAS::Trans;
+        } else {
+            return $conj ? BLAS::ConjNoTrans : BLAS::NoTrans;
+        }
+    }
+
+    protected function buildValByType(float|int $value, int $dtype) : float|int|object
+    {
+        if($this->cistype($dtype)) {
+            $value = $this->cbuild($value);
+        }
+        return $value;
+    }
+
     public function isInt(NDArray $value)
     {
         return in_array($value->dtype(),$this->intTypes);
@@ -108,7 +170,7 @@ class LinearAlgebra
     {
         if($array instanceof NDArray) {
             return $array;
-        } elseif(is_array($array) || is_numeric($array)) {
+        } elseif(is_array($array) || is_numeric($array) || is_bool($array) || $this->cisobject($array)) {
             return new NDArrayPhp($array,$dtype,service:$this->service);
         } else {
             throw new InvalidArgumentException('input value must be NDArray or array');
@@ -212,7 +274,8 @@ class LinearAlgebra
     public function ones(
         NDArray $X) : NDArray
     {
-        $this->fill(1,$X);
+        $value = $this->buildValByType(1.0,$X->dtype());
+        $this->fill($value,$X);
         return $X;
     }
 
@@ -269,15 +332,12 @@ class LinearAlgebra
     *    X := alpha * X
     */
     public function scal(
-        float $alpha,
+        float|object $alpha,
         NDArray $X) : NDArray
     {
         $N = $X->size();
         $XX = $X->buffer();
         $offX = $X->offset();
-        if($alpha===null) {
-            $alpha = 1.0;
-        }
         $this->blas->scal($N,$alpha,$XX,$offX,1);
         return $X;
     }
@@ -288,7 +348,7 @@ class LinearAlgebra
     public function axpy(
         NDArray $X,
         NDArray $Y,
-        float $alpha=null) : NDArray
+        float|object $alpha=null) : NDArray
     {
         if($X->shape()!=$Y->shape()) {
             $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
@@ -300,7 +360,7 @@ class LinearAlgebra
         $YY = $Y->buffer();
         $offY = $Y->offset();
         if($alpha===null) {
-            $alpha = 1.0;
+            $alpha = $this->buildValByType(1.0,$X->dtype());
         }
         $this->blas->axpy($N,$alpha,$XX,$offX,1,$YY,$offY,1);
         return $Y;
@@ -311,7 +371,9 @@ class LinearAlgebra
     */
     public function dot(
         NDArray $X,
-        NDArray $Y)
+        NDArray $Y,
+        bool $conj=null
+        ) : float|object
     {
         if($X->shape()!=$Y->shape()) {
             $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
@@ -322,7 +384,15 @@ class LinearAlgebra
         $offX = $X->offset();
         $YY = $Y->buffer();
         $offY = $Y->offset();
-        return $this->blas->dot($N,$XX,$offX,1,$YY,$offY,1);
+
+        if(!$this->isComplex($X->dtype())) {
+            return $this->blas->dot($N,$XX,$offX,1,$YY,$offY,1);
+        }
+        if($conj===false) { // explicit conjugation false
+            return $this->crebuild($this->blas->dotu($N,$XX,$offX,1,$YY,$offY,1));
+        } else {            // implicit conjugation true
+            return $this->crebuild($this->blas->dotc($N,$XX,$offX,1,$YY,$offY,1));
+        }
     }
 
     /**
@@ -400,7 +470,11 @@ class LinearAlgebra
         $XX = $X->buffer();
         $offX = $X->offset();
         $i = $this->blas->iamax($N,$XX,$offX,1);
-        return $XX[$offX+$i];
+        if($this->isComplex($X->dtype())) {
+            return $this->cabs($XX[$offX+$i]);
+        } else {
+            return abs($XX[$offX+$i]);
+        }
     }
 
     /**
@@ -417,7 +491,11 @@ class LinearAlgebra
         } else {
             $i = $this->iaminCompatible($N,$XX,$offX,1);
         }
-        return $XX[$offX+$i];
+        if($this->isComplex($X->dtype())) {
+            return $this->cabs($XX[$offX+$i]);
+        } else {
+            return abs($XX[$offX+$i]);
+        }
     }
 
     /**
@@ -527,11 +605,15 @@ class LinearAlgebra
     public function gemv(
         NDArray $A,
         NDArray $X,
-        float $alpha=null,
-        float $beta=null,
+        float|object $alpha=null,
+        float|object $beta=null,
         NDArray $Y=null,
-        bool $trans=null) : NDArray
+        bool $trans=null,
+        bool $conj=null
+        ) : NDArray
     {
+        [$trans,$conj] = $this->complementTrans($trans,$conj,$A->dtype());
+
         if($A->ndim()!=2 || $X->ndim()!=1) {
             throw new InvalidArgumentException('"A" must be 2D-NDArray and "X" must 1D-NDArray.');
         }
@@ -549,10 +631,10 @@ class LinearAlgebra
         $m = $shapeA[0];
         $n = $shapeA[1];
         if($alpha===null) {
-            $alpha = 1.0;
+            $alpha = $this->buildValByType(1.0,$A->dtype());
         }
         if($beta===null) {
-            $beta = 0.0;
+            $beta = $this->buildValByType(0.0,$A->dtype());
         }
         if($Y!=null) {
             if($Y->ndim()!=1) {
@@ -567,7 +649,7 @@ class LinearAlgebra
         }
         $YY = $Y->buffer();
         $offY = $Y->offset();
-        $trans = (!$trans) ? BLAS::NoTrans : BLAS::Trans;
+        $trans = $this->transToCode($trans,$conj);
 
         $this->blas->gemv(
             BLAS::RowMajor,$trans,
@@ -587,12 +669,17 @@ class LinearAlgebra
     public function gemm(
         NDArray $A,
         NDArray $B,
-        float $alpha=null,
-        float $beta=null,
+        float|object $alpha=null,
+        float|object $beta=null,
         NDArray $C=null,
         bool $transA=null,
-        bool $transB=null) : NDArray
+        bool $transB=null,
+        bool $conjA=null,
+        bool $conjB=null,
+        ) : NDArray
     {
+        [$transA,$conjA] = $this->complementTrans($transA,$conjA,$A->dtype());
+        [$transB,$conjB] = $this->complementTrans($transB,$conjB,$B->dtype());
         if($A->ndim()!=2 || $B->ndim()!=2) {
             throw new InvalidArgumentException('Dimensions must be 2D-NDArray');
         }
@@ -616,10 +703,10 @@ class LinearAlgebra
         $K = $shapeA[1];
 
         if($alpha===null) {
-            $alpha = 1.0;
+            $alpha = $this->buildValByType(1.0,$A->dtype());
         }
         if($beta===null) {
-            $beta = 0.0;
+            $beta = $this->buildValByType(0.0,$A->dtype());
         }
         if($C!=null) {
             $shapeC = $C->shape();
@@ -628,6 +715,7 @@ class LinearAlgebra
             }
         } else {
             $C = $this->zeros($this->alloc([$M,$N],$A->dtype()));
+            $beta = $this->buildValByType(0.0,$A->dtype());
         }
         $CC = $C->buffer();
         $offC = $C->offset();
@@ -635,8 +723,8 @@ class LinearAlgebra
         $lda = ($transA) ? $M : $K;
         $ldb = ($transB) ? $K : $N;
         $ldc = $N;
-        $transA = ($transA) ? BLAS::Trans : BLAS::NoTrans;
-        $transB = ($transB) ? BLAS::Trans : BLAS::NoTrans;
+        $transA = $this->transToCode($transA,$conjA);
+        $transB = $this->transToCode($transB,$conjB);
 
         $this->blas->gemm(
             BLAS::RowMajor,$transA,$transB,
@@ -659,10 +747,14 @@ class LinearAlgebra
         bool $transA=null,
         bool $transB=null,
         NDArray $C=null,
-        float $alpha=null,
-        float $beta=null
+        float|object $alpha=null,
+        float|object $beta=null,
+        bool $conjA=null,
+        bool $conjB=null,
         ) : NDArray
     {
+        [$transA,$conjA] = $this->complementTrans($transA,$conjA,$A->dtype());
+        [$transB,$conjB] = $this->complementTrans($transB,$conjB,$B->dtype());
         if($A->ndim()<2 || $B->ndim()<2) {
             throw new InvalidArgumentException('Dimensions rank must be greater then 2D or equal:['.
                 implode(',',$A->shape()).']<=>['.implode(',',$B->shape()).']');
@@ -696,16 +788,16 @@ class LinearAlgebra
         $K = $shapeEA[1];
 
         if($alpha===null) {
-            $alpha = 1.0;
+            $alpha = $this->buildValByType(1.0,$A->dtype());
         }
         if($beta===null) {
-            $beta = 0.0;
+            $beta = $this->buildValByType(0.0,$A->dtype());
         }
         $lda = ($transA) ? $M : $K;
         $ldb = ($transB) ? $K : $N;
         $ldc = $N;
-        $transA = ($transA) ? BLAS::Trans : BLAS::NoTrans;
-        $transB = ($transB) ? BLAS::Trans : BLAS::NoTrans;
+        $transA = $this->transToCode($transA,$conjA);
+        $transB = $this->transToCode($transB,$conjB);
 
         $shapeEC = [$shapeEA[0],$shapeEB[1]];
         if($batchA>$batchB) {
@@ -770,8 +862,8 @@ class LinearAlgebra
     public function symm(
         NDArray $A,
         NDArray $B,
-        float $alpha=null,
-        float $beta=null,
+        float|object $alpha=null,
+        float|object $beta=null,
         NDArray $C=null,
         bool $right=null,
         bool $lower=null
@@ -798,10 +890,10 @@ class LinearAlgebra
         $offB = $B->offset();
 
         if($alpha===null) {
-            $alpha = 1.0;
+            $alpha = $this->buildValByType(1.0,$A->dtype());
         }
         if($beta===null) {
-            $beta = 0.0;
+            $beta = $this->buildValByType(0.0,$A->dtype());
         }
         if($C!=null) {
             $shapeC = $C->shape();
@@ -838,12 +930,18 @@ class LinearAlgebra
     */
     public function syrk(
         NDArray $A,
-        float $alpha=null,
-        float $beta=null,
+        float|object $alpha=null,
+        float|object $beta=null,
         NDArray $C=null,
         bool $lower=null,
-        bool $trans=null) : NDArray
+        bool $trans=null,
+        bool $conj=null,
+        ) : NDArray
     {
+        $trans = $trans ?? false;
+        // $conj = $conj ?? $trans; // Doing so will result in an error.
+        $conj = false;  // conj must be false
+
         if($A->ndim()!=2) {
             throw new InvalidArgumentException('Dimensions must be 2D-NDArray');
         }
@@ -857,10 +955,10 @@ class LinearAlgebra
         $K = $shapeA[1];
 
         if($alpha===null) {
-            $alpha = 1.0;
+            $alpha = $this->buildValByType(1.0,$A->dtype());
         }
         if($beta===null) {
-            $beta = 0.0;
+            $beta = $this->buildValByType(0.0,$A->dtype());
         }
         if($C!=null) {
             $shapeC = $C->shape();
@@ -876,7 +974,7 @@ class LinearAlgebra
         $lda = ($trans) ? $N : $K;
         $ldc = $N;
         $uplo  = ($lower) ? BLAS::Lower : BLAS::Upper;
-        $trans = ($trans) ? BLAS::Trans : BLAS::NoTrans;
+        $trans = $this->transToCode($trans,$conj);
 
         $this->blas->syrk(
             BLAS::RowMajor,$uplo,$trans,
@@ -896,12 +994,18 @@ class LinearAlgebra
     public function syr2k(
         NDArray $A,
         NDArray $B,
-        float $alpha=null,
-        float $beta=null,
+        float|object $alpha=null,
+        float|object $beta=null,
         NDArray $C=null,
         bool $lower=null,
-        bool $trans=null) : NDArray
+        bool $trans=null,
+        bool $conj=null,
+        ) : NDArray
     {
+        $trans = $trans ?? false;
+        // $conj = $conj ?? $trans; // Doing so will result in an error.
+        $conj = false;  // conj must be false
+
         if($A->ndim()!=2 || $B->ndim()!=2) {
             throw new InvalidArgumentException('Dimensions must be 2D-NDArray');
         }
@@ -921,10 +1025,10 @@ class LinearAlgebra
         $K = $shapeA[1];
 
         if($alpha===null) {
-            $alpha = 1.0;
+            $alpha = $this->buildValByType(1.0,$A->dtype());
         }
         if($beta===null) {
-            $beta = 0.0;
+            $beta = $this->buildValByType(0.0,$A->dtype());
         }
         if($C!=null) {
             $shapeC = $C->shape();
@@ -941,7 +1045,7 @@ class LinearAlgebra
         $ldb = ($trans) ? $N : $K;
         $ldc = $N;
         $uplo  = ($lower) ? BLAS::Lower : BLAS::Upper;
-        $trans = ($trans) ? BLAS::Trans : BLAS::NoTrans;
+        $trans = $this->transToCode($trans,$conj);
 
         $this->blas->syr2k(
             BLAS::RowMajor,$uplo,$trans,
@@ -962,12 +1066,16 @@ class LinearAlgebra
     public function trmm(
         NDArray $A,
         NDArray $B,
-        float $alpha=null,
+        float|object $alpha=null,
         bool $right=null,
         bool $lower=null,
         bool $trans=null,
-        bool $unit=null) : NDArray
+        bool $conj=null,
+        bool $unit=null,
+        ) : NDArray
     {
+        [$trans,$conj] = $this->complementTrans($trans,$conj,$A->dtype());
+
         if($A->ndim()!=2 || $B->ndim()!=2) {
             throw new InvalidArgumentException('Dimensions must be 2D-NDArray');
         }
@@ -994,15 +1102,15 @@ class LinearAlgebra
         $N = $shapeB[1];
 
         if($alpha===null) {
-            $alpha = 1.0;
+            $alpha = $this->buildValByType(1.0,$A->dtype());
         }
 
         $lda = ($right) ? $N : $M;
         $ldb = $N;
         $side  = ($right) ? BLAS::Right : BLAS::Left;
         $uplo  = ($lower) ? BLAS::Lower : BLAS::Upper;
-        $trans = ($trans) ? BLAS::Trans : BLAS::NoTrans;
         $diag  = ($unit)  ? BLAS::Unit  : BLAS::NonUnit;
+        $trans = $this->transToCode($trans,$conj);
 
         $this->blas->trmm(
             BLAS::RowMajor,$side,$uplo,$trans,$diag,
@@ -1021,12 +1129,16 @@ class LinearAlgebra
     public function trsm(
         NDArray $A,
         NDArray $B,
-        float $alpha=null,
+        float|object $alpha=null,
         bool $right=null,
         bool $lower=null,
         bool $trans=null,
-        bool $unit=null) : NDArray
+        bool $conj=null,
+        bool $unit=null
+        ) : NDArray
     {
+        [$trans,$conj] = $this->complementTrans($trans,$conj,$A->dtype());
+
         if($A->ndim()!=2 || $B->ndim()!=2) {
             throw new InvalidArgumentException('Dimensions must be 2D-NDArray');
         }
@@ -1049,15 +1161,15 @@ class LinearAlgebra
         $N = $shapeB[1];
 
         if($alpha===null) {
-            $alpha = 1.0;
+            $alpha = $this->buildValByType(1.0,$A->dtype());
         }
 
         $lda = ($right) ? $N : $M;
         $ldb = $N;
         $side  = ($right) ? BLAS::Right : BLAS::Left;
         $uplo  = ($lower) ? BLAS::Lower : BLAS::Upper;
-        $trans = ($trans) ? BLAS::Trans : BLAS::NoTrans;
         $diag  = ($unit)  ? BLAS::Unit  : BLAS::NonUnit;
+        $trans = $this->transToCode($trans,$conj);
 
         $this->blas->trsm(
             BLAS::RowMajor,$side,$uplo,$trans,$diag,
@@ -1068,6 +1180,62 @@ class LinearAlgebra
 
         return $B;
     }
+
+    /**
+     *  B := A    (trans=false)
+     *  B := A^T  (trans=true)
+     */
+    public function omatcopy(
+        NDArray $A,
+        bool $trans=null,
+        bool $conj=null,
+        float|object $alpha=null,
+        NDArray $B=null,
+        ) : NDArray
+    {
+        [$trans,$conj] = $this->complementTrans($trans,$conj,$A->dtype());
+
+        if($A->ndim()!=2) {
+            throw new InvalidArgumentException('Dimensions must be 2D-NDArray');
+        }
+        [$rows,$cols] = $A->shape();
+        if($trans) {
+            [$rows,$cols] = [$cols,$rows];
+        }
+        if($B===null) {
+            $B = $this->zeros($this->alloc([$rows,$cols],$A->dtype()));
+        } else {
+            if($B->shape()!=[$rows,$cols]) {
+                $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$B->shape()).')';
+                throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
+            }
+        }
+
+        [$M,$N] = $A->shape();
+        if($alpha===null) {
+            $alpha = $this->buildValByType(1.0,$A->dtype());
+        }
+        $AA = $A->buffer();
+        $offA = $A->offset();
+        $ldA = $N;
+        $BB = $B->buffer();
+        $offB = $B->offset();
+        $ldB = $cols;
+
+        $trans = $this->transToCode($trans,$conj);
+        $order = BLAS::RowMajor;
+
+        $this->blas->omatcopy(
+            $order,$trans,
+            $M,$N,
+            $alpha,
+            $AA, $offA, $ldA,
+            $BB, $offB, $ldB,
+        );
+
+        return $B;
+    }
+
 
     /**
     *    ret := x_1 + ... + x_n
@@ -1444,8 +1612,9 @@ class LinearAlgebra
     {
         if($trans===null)
             $trans = false;
-        if($alpha===null)
+        if($alpha===null) {
             $alpha = 1.0;
+        }
         $shapeX = $X->shape();
         $shapeA = $A->shape();
         if($trans)
@@ -2073,18 +2242,18 @@ class LinearAlgebra
     }
 
     /**
-     * output += a * onehot(input)
+     * output += a * onehot(X)
      */
     public function onehot(
-        NDArray $input,
+        NDArray $X,
         int $numClass,
-        float $a=null,
+        float $alpha=null,
         NDArray $output=null) : NDArray
     {
-        if($input->ndim()!=1) {
+        if($X->ndim()!=1) {
             throw new InvalidArgumentException('"X" must be 1D-NDArray.');
         }
-        $sizeX = $input->size();
+        $sizeX = $X->size();
         if($output===null) {
             $output = $this->zeros($this->alloc([$sizeX,$numClass],$this->defaultFloatType));
         }
@@ -2093,14 +2262,14 @@ class LinearAlgebra
         }
         [$m,$n] = $output->shape();
         if($m!=$sizeX || $n!=$numClass) {
-            $shapeError = '('.implode(',',$input->shape()).'),('.implode(',',$output->shape()).')';
+            $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$output->shape()).')';
             throw new InvalidArgumentException('Unmatch shape of dimension "X" and "Y" and "numClass": '.$shapeError);
         }
-        if($a===null) {
-            $a = 1.0;
+        if($alpha===null) {
+            $alpha = 1.0;
         }
-        $XX = $input->buffer();
-        $offX = $input->offset();
+        $XX = $X->buffer();
+        $offX = $X->offset();
         $YY = $output->buffer();
         $offY = $output->offset();
         $ldY = $n;
@@ -2108,7 +2277,7 @@ class LinearAlgebra
         $this->math->updateAddOnehot(
             $m,
             $n,
-            $a,
+            $alpha,
             $XX,$offX,1,
             $YY,$offY,$ldY);
 
@@ -3446,22 +3615,31 @@ class LinearAlgebra
                 throw new InvalidArgumentException('output data type must be same with matrix of input.');
             }
         }
-        $trans=true;
+        //$trans=true;
         $m = $shape[1];
         $n = $shape[0];
         $AA = $A->buffer();
         $offA = $A->offset();
-        $ldA = $n;
+        //$ldA = $n;
         $BB = $B->buffer();
         $offB = $B->offset();
-        $ldB = $trans ? $m : $n;
-        $this->math->matrixcopy(
-            $trans,
+        //$ldB = $trans ? $m : $n;
+        //$this->math->matrixcopy(
+        //    $trans,
+        //    $m,
+        //    $n,
+        //    $alpha = 1.0,
+        //    $AA,$offA,$ldA,
+        //    $BB,$offB,$ldB
+        //);
+        $this->blas->omatcopy(
+            BLAS::RowMajor,
+            BLAS::Trans,
             $m,
             $n,
-            $alpha = 1.0,
-            $AA,$offA,$ldA,
-            $BB,$offB,$ldB
+            1.0, // $alpha
+            $AA,$offA,$n,
+            $BB,$offB,$m,
         );
         return $B;
     }
@@ -3577,6 +3755,12 @@ class LinearAlgebra
                 throw new InvalidArgumentException('Value must be scalar');
             }
             $V = $value;
+        } elseif($this->cisobject($value)) {
+            if(!$this->isComplex($X->dtype())) {
+                throw new InvalidArgumentException('Invalid data type for complex');
+            }
+            $V = $this->alloc([1],$X->dtype());
+            $V[0] = $value;
         } else {
             throw new InvalidArgumentException('Invalid data type');
         }
@@ -3798,24 +3982,57 @@ class LinearAlgebra
         return $grads;
     }
 
-    public function isclose(NDArray $a, NDArray $b, $rtol=null, $atol=null)
+    public function isComplexDtype(int $dtype) : bool
     {
-        if($rtol===null)
-            $rtol = 1e-04;
-        if($atol===null)
+        return $this->cistype($dtype);
+    }
+
+    public function isComplexObject(mixed $value) : bool
+    {
+        return $this->cisobject($value);
+    }
+
+    protected function dataTypeString(mixed $value) : string
+    {
+        return $this->cobjecttype($value);
+    }
+
+    public function abs(float|int|object $value) : float
+    {
+        if(is_numeric($value)) {
+            return abs($value);
+        } elseif($this->isComplexObject($value)) {
+            $abs = $this->cabs($value);
+        } else {
+            throw new InvalidArgumentException("invalid data type: ".$this->dataTypeString($value));
+        }
+        return $abs;
+    }
+
+    public function isclose(NDArray $a, NDArray $b, $rtol=null, $atol=null) : bool
+    {
+        $isCpx = $this->isComplexDtype($a->dtype());
+        if($rtol===null) {
+            $rtol = $isCpx?C(1e-04):1e-04;
+        }
+        if($atol===null) {
             $atol = 1e-07;
+        }
         if($a->shape()!=$b->shape()) {
             return false;
         }
         // diff = b - a
-        $diff = $this->axpy($a,$this->copy($b),-1);
+        $alpha =  $isCpx?C(-1):-1;
+        $diffs = $this->axpy($a,$this->copy($b),$alpha);
+        $diff = $this->abs($this->amax($diffs));
+
         // close = atol + rtol * b
-        $close = $atol+abs($this->amax($this->scal($rtol,$this->copy($b))));
-        if(abs($this->amax($diff)) > $close) {
-            return false;
-        }
-        return true;
+        $scaled = $this->scal($rtol,$this->copy($b));
+        $close = $atol+$this->abs($this->amax($scaled));
+
+        return $diff < $close;
     }
+
 
     public function augmentedMatrix($a,$b)
     {

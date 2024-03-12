@@ -16,6 +16,8 @@ use RindowTest\Math\Matrix\LinearAlgebraTest\LinearAlgebraTest as ORGTest;
 
 class LinearAlgebraPHPModeTest extends ORGTest
 {
+    static protected $speedtest = false;
+
     public function setUp() : void
     {
         $this->service = new MatlibPhp();

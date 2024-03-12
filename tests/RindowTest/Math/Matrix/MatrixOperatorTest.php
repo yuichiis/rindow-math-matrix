@@ -6,6 +6,7 @@ use Interop\Polite\Math\Matrix\NDArray;
 use Rindow\Math\Matrix\MatrixOperator;
 use Rindow\Math\Matrix\Drivers\Selector;
 use Rindow\Math\Matrix\Drivers\Service;
+use function Rindow\Math\Matrix\C;
 use ArrayObject;
 
 
@@ -70,13 +71,13 @@ class MatrixOperatorTest extends TestCase
         $this->assertEquals(NDArray::bool,$nd->dtype());
         $this->assertEquals([[true,true,true],[true,true,true]],$nd->toArray());
 
-        // auto type
-        $this->assertEquals(NDArray::int32,$mo->full([2,2],1)->dtype());
-        $this->assertEquals(NDArray::int32,$mo->full([2,2],0)->dtype());
-        $this->assertEquals(NDArray::float32,$mo->full([2,2],1.0)->dtype());
-        $this->assertEquals(NDArray::float32,$mo->full([2,2],0.0)->dtype());
-        $this->assertEquals(NDArray::bool,$mo->full([2,2],true)->dtype());
-        $this->assertEquals(NDArray::bool,$mo->full([2,2],false)->dtype());
+        // auto type capability is discontinued 
+        //$this->assertEquals(NDArray::int32,$mo->full([2,2],1)->dtype());
+        //$this->assertEquals(NDArray::int32,$mo->full([2,2],0)->dtype());
+        //$this->assertEquals(NDArray::float32,$mo->full([2,2],1.0)->dtype());
+        //$this->assertEquals(NDArray::float32,$mo->full([2,2],0.0)->dtype());
+        //$this->assertEquals(NDArray::bool,$mo->full([2,2],true)->dtype());
+        //$this->assertEquals(NDArray::bool,$mo->full([2,2],false)->dtype());
     }
 
     public function testCreateZeros()
@@ -403,14 +404,22 @@ class MatrixOperatorTest extends TestCase
     {
         $mo = $this->newMatrixOperator();
 
+        // 1D
         $this->assertEquals(
             [1,2,3,4,5,6],
             $mo->transpose($mo->array([1,2,3,4,5,6],dtype:NDArray::float32))->toArray());
 
+        // 2D
         $this->assertEquals(
-            [[1,4],[2,5],[3,6]],
-            $mo->transpose($mo->array([[1,2,3],[4,5,6]],dtype:NDArray::float32))->toArray());
+            [[1,4],
+             [2,5],
+             [3,6]],
+            $mo->transpose($mo->array(
+                [[1,2,3],
+                 [4,5,6]]
+            ,dtype:NDArray::float32))->toArray());
 
+        // 3D
         $this->assertEquals(
             [[[ 1,  7, 13, 19],
               [ 3,  9, 15, 21],
@@ -1640,5 +1649,43 @@ class MatrixOperatorTest extends TestCase
             $arraySet['three'][1]->toArray(),
             $newArraySet['three'][1]->toArray()
         );
+    }
+
+    public function testComplexToString()
+    {
+        $mo = $this->newMatrixOperator();
+        $a = [
+            [C(1,i:2),C(3,i:4)],
+            [C(5,i:-6),C(-7,i:8)]
+        ];
+        $array = $mo->array($a,dtype:NDArray::complex64);
+
+        $string = $mo->toString($array);
+        $this->assertEquals('[[1+2i,3+4i],[5-6i,-7+8i]]',$string);
+
+        $string = $mo->toString($array,'%3.1f%+3.1fi');
+        $this->assertEquals('[[1.0+2.0i,3.0+4.0i],[5.0-6.0i,-7.0+8.0i]]',$string);
+        $string = $mo->toString($array,'%5.2f%+5.2fi');
+        $this->assertEquals('[[ 1.00+2.00i, 3.00+4.00i],[ 5.00-6.00i,-7.00+8.00i]]',$string);
+
+        // Invalid format
+        $string = $mo->toString($array,'%+3.1f');
+        $this->assertNotEquals('[[1.0+2.0i,3.0+4.0i],[5.0-6.0i,-7.0+8.0i]]',$string);
+    }
+
+    public function testToComplex()
+    {
+        $mo = $this->newMatrixOperator();
+
+        $array = [[1,2],[3,C(i:4)]];
+        $newArray = $mo->toComplex($array);
+        $this->assertEquals('1+0i',$newArray[0][0]);
+        $this->assertEquals('2+0i',$newArray[0][1]);
+        $this->assertEquals('3+0i',$newArray[1][0]);
+        $this->assertEquals('0+4i',$newArray[1][1]);
+
+        // implicit converting
+        $a = $mo->array($array,dtype:NDArray::complex64);
+        $this->assertEquals('[[1+0i,2+0i],[3+0i,0+4i]]',$mo->toString($a));
     }
 }

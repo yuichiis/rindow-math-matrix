@@ -5,9 +5,12 @@ use ArrayAccess as Buffer;
 use RuntimeException;
 use InvalidArgumentException;
 use Interop\Polite\Math\Matrix\NDArray;
+use Rindow\Math\Matrix\ComplexUtils;
 
 class PhpMath
 {
+    use ComplexUtils;
+
     protected $math;
     protected $forceMath;
     protected $intTypes= [
@@ -891,12 +894,18 @@ class PhpMath
         //    return;
         //}
 
-        if($offsetX+($n-1)*$incX>=count($X))
+        if($offsetX+($n-1)*$incX>=count($X)) {
             throw new InvalidArgumentException('Vector specification too large for buffer.');
+        }
+        if($this->cistype($X->dtype())) {
+            $value = $this->cbuild(0);
+        } else {
+            $value = 0;
+        }
 
         $idx = $offsetX;
         for ($i=0; $i<$n; $i++,$idx+=$incX) {
-            $X[$idx] = 0;
+            $X[$idx] = $value;
         }
     }
 
@@ -914,10 +923,11 @@ class PhpMath
         Buffer $B, int $offsetB
         ) : void
     {
-        //if($reverse==true && $addMode==true) {
-        //    $this->scatterAdd($n,$k,$numClass,$X,$offsetX,$A,$offsetA,$B,$offsetB);
-        //    return;
-        //}
+        //echo "n=$n,k=$k,numClass=$numClass\n";
+        if($reverse==true && $addMode==true) {
+            $this->scatterAdd2($n,$k,$numClass,$X,$offsetX,$A,$offsetA,$B,$offsetB);
+            return;
+        }
         //if($this->useMath($A)) {
         //    $this->math->gather(
         //        $reverse,
@@ -952,7 +962,7 @@ class PhpMath
                 //throw new RuntimeException("index is out of range.:".$index);
                 $this->logging("gather: index is out of range.:".$index." numClass=".$numClass);
                 $index = $numClass-1;
-        }
+            }
             $iA = $idxA+$index*$ldIndex;
             $iB = $idxB+$j*$k;
             if($reverse) {
@@ -1054,20 +1064,6 @@ class PhpMath
         Buffer $B, int $offsetB
         ) : void
     {
-        //if($this->useMath($A)) {
-        //    $this->math->gather(
-        //        $reverse=true,
-        //        $addMode=true,
-        //        $n,
-        //        $k,
-        //        $numClass,
-        //        $X, $offsetX,
-        //        $A, $offsetA,
-        //        $B, $offsetB
-        //    );
-        //    return;
-        //}
-
         if($offsetX+$n>count($X))
             throw new InvalidArgumentException('Matrix X specification too large for buffer.');
         if($offsetA+$numClass*$k>count($A))
@@ -1075,6 +1071,7 @@ class PhpMath
         if($offsetB+$n*$k>count($B))
             throw new InvalidArgumentException('Matrix B specification too large for buffer.');
 
+        #pragma omp parallel for
         for($i=0;$i<$numClass;$i++) {
             for($p=0;$p<$k;$p++) {
                 $sum = 0;
@@ -1087,6 +1084,41 @@ class PhpMath
                 }
                 $iA = $offsetA+$i*$k+$p;
                 $A[$iA] = $A[$iA] + $sum;
+            }
+        }
+    }
+
+    protected function scatterAdd2(
+        int $n,
+        int $k,
+        int $numClass,
+        Buffer $X, int $offsetX,
+        Buffer $A, int $offsetA,
+        Buffer $B, int $offsetB
+        ) : void
+    {
+        if($offsetX+$n>count($X))
+            throw new InvalidArgumentException('Matrix X specification too large for buffer.');
+        if($offsetA+$numClass*$k>count($A))
+            throw new InvalidArgumentException('Matrix A specification too large for buffer.');
+        if($offsetB+$n*$k>count($B))
+            throw new InvalidArgumentException('Matrix B specification too large for buffer.');
+
+//echo "[n=$n,k=$k,class=$numClass]\n";
+        $ldIndex = $k;
+        $ldB = $k;
+        #pragma omp parallel for
+        for($i=0;$i<$k;$i++) {
+            for($j=0;$j<$n;$j++) {
+                $index = $X[$offsetX+$j];
+                if($index>=$numClass) {
+                    //throw new RuntimeException("index is out of range.:".$index);
+                    $this->logging("gather: index is out of range.:".$index." numClass=".$numClass);
+                    $index = $numClass-1;
+                }
+                $iB = $offsetB+$j*$ldB+$i;
+                $iA = $offsetA+$index*$ldIndex+$i;
+                $A[$iA] = $A[$iA] + $B[$iB];
             }
         }
     }

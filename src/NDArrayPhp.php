@@ -1,6 +1,8 @@
 <?php
 namespace Rindow\Math\Matrix;
 
+require_once __DIR__.'/R.php';
+
 use ArrayObject;
 use ArrayAccess;
 use Countable;
@@ -13,29 +15,20 @@ use LogicException;
 use RuntimeException;
 use Interop\Polite\Math\Matrix\BLAS;
 use Interop\Polite\Math\Matrix\NDArray;
-use Interop\Polite\Math\Matrix\Buffer;
+use Interop\Polite\Math\Matrix\Buffer as BufferInterface;
 use Rindow\Math\Matrix\Drivers\Service;
 use Rindow\Math\Matrix\Drivers\Selector;
 
-function R(
-    int $start,
-    int $limit,
-) : Range
-{
-    if(func_num_args()!=2) {
-        throw new InvalidArgumentException('R must have only two arguments: "start" and "limit".');
-    }
-    return new Range(start:$start,limit:$limit);
-}
-
 class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
 {
+    use ComplexUtils;
+
     const SERIALIZE_NDARRAY_KEYWORD = 'NDArray:';
     const SERIALIZE_OLDSTYLE_KEYWORD = 'O:29:"Rindow\Math\Matrix\NDArrayPhp"';
     static public $unserializeWarning = 2;
 
     protected array $_shape;
-    protected object $_buffer;
+    protected BufferInterface $_buffer;
     protected int $_offset;
     protected int $_dtype;
     protected bool $_portableSerializeMode = false;
@@ -58,41 +51,12 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
             return;
         }
 
+        $orgDtype = $dtype;
         if($dtype===null) {
-            if(is_bool($array)) {
-                $dtype = NDArray::bool;
-            } else {
-                $dtype = NDArray::float32;
-            }
-        } else {
-            $dtype = $dtype;
+            $dtype = NDArray::float32;
         }
 
-        if(is_array($array)||$array instanceof ArrayObject) {
-            $dummyBuffer = new ArrayObject();
-            $idx = 0;
-            $this->array2Flat($array,$dummyBuffer,$idx,$prepare=true);
-            $this->_buffer = $this->newBuffer($idx,$dtype);
-            $idx = 0;
-            $this->array2Flat($array,$this->_buffer,$idx,$prepare=false);
-            $this->_offset = 0;
-            if($shape===null) {
-                $shape = $this->genShape($array);
-            }
-        } elseif(is_numeric($array)||is_bool($array)) {
-            if(is_bool($array)&&$dtype!=NDArray::bool) {
-                throw new InvalidArgumentException("unmatch dtype with bool value");
-            }
-            $this->_buffer = $this->newBuffer(1,$dtype);
-            $this->_buffer[0] = $array;
-            $this->_offset = 0;
-            if($shape===null) {
-                $shape = [];
-            }
-            $this->assertShape($shape);
-            if(array_product($shape)!=1)
-                throw new InvalidArgumentException("Invalid dimension size");
-        } elseif($array===null && $shape!==null) {
+        if($array===null && $shape!==null) {
             $this->assertShape($shape);
             $size = (int)array_product($shape);
             $this->_buffer = $this->newBuffer($size,$dtype);
@@ -104,6 +68,49 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
                 throw new InvalidArgumentException("Invalid dimension size");
             $this->_buffer = $array;
             $this->_offset = $offset;
+        } elseif(is_array($array)||$array instanceof ArrayObject) {
+            $dummyBuffer = new ArrayObject();
+            $idx = 0;
+            $this->array2Flat($array,$dummyBuffer,$idx,$prepare=true);
+            $this->_buffer = $this->newBuffer($idx,$dtype);
+            $idx = 0;
+            $this->array2Flat($array,$this->_buffer,$idx,$prepare=false);
+            $this->_offset = 0;
+            if($shape===null) {
+                $shape = $this->genShape($array);
+            }
+        } elseif(is_numeric($array)||is_bool($array)||$this->isComplexObject($array)) {
+            if(is_numeric($array)) {
+                if($orgDtype==null) {
+                    $dtype = NDArray::float32;
+                }
+            } elseif(is_bool($array)) {
+                if($orgDtype==null) {
+                    $dtype = NDArray::bool;
+                } else {
+                    if($dtype!=NDArray::bool) {
+                        throw new InvalidArgumentException("unmatch dtype with bool value");
+                    }
+                }
+            } elseif($this->isComplexObject($array)) {
+                if($orgDtype==null) {
+                    $dtype = NDArray::complex64;
+                } else {
+                    if(!$this->isComplex($dtype)) {
+                        throw new InvalidArgumentException("unmatch dtype with complex value");
+                    }
+                }
+            }
+            $this->_buffer = $this->newBuffer(1,$dtype);
+            $this->_buffer[0] = $array;
+            $this->_offset = 0;
+            if($shape===null) {
+                $shape = [];
+            }
+            $this->assertShape($shape);
+            if(array_product($shape)!=1) {
+                throw new InvalidArgumentException("Invalid dimension size");
+            }
         } else {
             throw new InvalidArgumentException("Invalid type of array");
         }
@@ -124,11 +131,22 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
 
     protected function isBuffer($buffer)
     {
-        if($buffer instanceof Buffer) {
+        if($buffer instanceof BufferInterface) {
             return true;
         } else {
             return false;
         }
+    }
+
+    protected function isComplex(int $dtype=null) : bool
+    {
+        $dtype = $dtype ?? $this->_dtype;
+        return $this->cistype($dtype);
+    }
+
+    public function isComplexObject(mixed $value) : bool
+    {
+        return $this->cisObject($value);
     }
 
     protected function assertShape(array $shape)
@@ -145,7 +163,7 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         }
     }
 
-    protected function array2Flat($A, $F, &$idx, $prepare)
+    protected function array2Flat($A, BufferInterface|ArrayObject $F, &$idx, $prepare)
     {
         if(is_array($A)) {
             ksort($A);
@@ -176,7 +194,7 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         return count($A);
     }
 
-    protected function flat2Array($F, &$idx, array $shape)
+    protected function flat2Array(BufferInterface $F, &$idx, array $shape)
     {
         $size = array_shift($shape);
         if(count($shape)) {
@@ -187,7 +205,11 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         }  else {
             $A = [];
             for($i=0; $i<$size; $i++) {
-                $A[$i] = $F[$idx];
+                $value = $F[$idx];
+                if($this->isComplex()) {
+                    $value = new Complex($value->real,$value->imag);
+                }
+                $A[$i] = $value;
                 $idx++;
             }
         }
@@ -253,7 +275,11 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
     public function toArray()
     {
         if(count($this->_shape)==0) {
-            return $this->_buffer[$this->_offset];
+            $value = $this->_buffer[$this->_offset];
+            if($this->isComplex()) {
+                $value = new Complex($value->real,$value->imag);
+            }
+            return $value;
         }
         $idx = $this->_offset;
         return $this->flat2Array($this->_buffer, $idx, $this->_shape);
@@ -307,7 +333,11 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
             $shape = $this->_shape;
             $max = array_shift($shape);
             if(count($shape)==0) {
-                return $this->_buffer[$this->_offset+$offset];
+                $value = $this->_buffer[$this->_offset+$offset];
+                if($this->isComplex()) {
+                    $value = new Complex($value->real,$value->imag);
+                }
+                return $value;
             }
             $size = (int)array_product($shape);
             $new = new self($this->_buffer,$this->_dtype,$shape,$this->_offset+$offset*$size,service:$this->service);
@@ -358,8 +388,15 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         $shape = $this->_shape;
         $max = array_shift($shape);
         if(!count($shape)) {
-            if(!is_scalar($value))
-                throw new InvalidArgumentException("Must be scalar type");
+            if($this->isComplex()) {
+                if(!($value instanceof Complex)) {
+                    throw new InvalidArgumentException("Must be complex type");
+                }
+            } else {
+                if(!is_scalar($value)) {
+                    throw new InvalidArgumentException("Must be scalar type");
+                }
+            }
             $this->_buffer[$this->_offset+$offset] = $value;
             return;
         }
@@ -398,11 +435,17 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         }
     }
 
+    /**
+     * It is an old specification and has no effect.
+     */
     public function setPortableSerializeMode(bool $mode)
     {
         $this->_portableSerializeMode = $mode ? true : false;
     }
 
+    /**
+     * It is an old specification and has no effect.
+     */
     public function getPortableSerializeMode()
     {
         return $this->_portableSerializeMode;
@@ -458,22 +501,8 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
 
     public function __serialize() : array
     {
-        if($this->service->serviceLevel()<Service::LV_ADVANCED ||
-            $this->_portableSerializeMode) {
-            $mode = 'linear-array';
-            if($this->service->serviceLevel()<Service::LV_ADVANCED) {
-                $buffer = $this->_buffer->toArray();
-            } else {
-                $count = count($this->_buffer);
-                $buffer = [];
-                for($i=0;$i<$count;$i++) {
-                    $buffer[$i] = $this->_buffer[$i];
-                }
-            }
-        } else {
-            $mode = 'rindow_openblas';
-            $buffer = $this->_buffer->dump();
-        }
+        $mode = 'machine';
+        $buffer = $this->_buffer->dump();
         return [
             'm'=>$mode,
             's'=>$this->_shape,
@@ -500,13 +529,14 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         $this->_shape = $data['s'];
         $this->_offset = $data['o'];
         $this->_dtype = $data['t'];
-        if($mode=='rindow_openblas') {
-            if($this->service->serviceLevel()<Service::LV_ADVANCED) {
-                throw new RuntimeException('Advanced drivers are not loaded.');
-            }
+        if($mode=='machine' || $mode=='rindow_openblas') {
+            //if($this->service->serviceLevel()<Service::LV_ADVANCED) {
+            //    throw new RuntimeException('Advanced drivers are not loaded.');
+            //}
             $this->_buffer = $this->service->buffer()->Buffer($data['z'],$data['t']);
             $this->_buffer->load($data['b']);
         } elseif($mode=='linear-array') {
+            // Compatibility with older specifications
             $this->_buffer = $this->service->buffer()->Buffer($data['z'],$data['t']);
             foreach($data['b'] as $key => $value) {
                 $this->_buffer[$key] = $value;

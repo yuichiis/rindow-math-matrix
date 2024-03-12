@@ -8,7 +8,9 @@ use Interop\Polite\Math\Matrix\Buffer as BufferInterface;
 use Rindow\Math\Matrix\Drivers\MatlibPHP\PhpBuffer;
 use Rindow\Math\Matrix\Drivers\Selector;
 use Rindow\Math\Matrix\Drivers\Service;
+use Rindow\Math\Matrix\Complex;
 use function Rindow\Math\Matrix\R;
+use function Rindow\Math\Matrix\C;
 
 use ArrayObject;
 use OutOfRangeException;
@@ -472,5 +474,163 @@ class NDArrayPhpTest extends TestCase
         $this->assertEquals(2,count($buffer));
         $this->assertEquals(1,$array2[0]);
         $this->assertEquals(2,$array2[1]);
+    }
+
+    public function testComplexConstruct()
+    {
+        $a = [
+            [C(1,i:2),C(3,i:4)],
+            [C(5,i:6),C(7,i:8)]
+        ];
+
+        $array = new NDArrayPhp($a,dtype:NDArray::complex64,service:$this->service);
+        $this->assertEquals(NDArray::complex64,$array->dtype());
+        $this->assertEquals(NDArray::complex64,$array->buffer()->dtype());
+        $this->assertEquals(4,$array->size());
+        $this->assertEquals(4,$array->buffer()->count());
+        $this->assertEquals(8,$array->buffer()->value_size());
+        $this->assertEquals(1,$array[0][0]->real);
+        $this->assertEquals(2,$array[0][0]->imag);
+        $this->assertEquals(3,$array[0][1]->real);
+        $this->assertEquals(4,$array[0][1]->imag);
+        $this->assertEquals(5,$array[1][0]->real);
+        $this->assertEquals(6,$array[1][0]->imag);
+        $this->assertEquals(7,$array[1][1]->real);
+        $this->assertEquals(8,$array[1][1]->imag);
+
+        $array = new NDArrayPhp($a,dtype:NDArray::complex128,service:$this->service);
+        $this->assertEquals(NDArray::complex128,$array->dtype());
+        $this->assertEquals(NDArray::complex128,$array->buffer()->dtype());
+        $this->assertEquals(4,$array->size());
+        $this->assertEquals(4,$array->buffer()->count());
+        $this->assertEquals(16,$array->buffer()->value_size());
+        $this->assertEquals(1,$array[0][0]->real);
+        $this->assertEquals(2,$array[0][0]->imag);
+        $this->assertEquals(3,$array[0][1]->real);
+        $this->assertEquals(4,$array[0][1]->imag);
+        $this->assertEquals(5,$array[1][0]->real);
+        $this->assertEquals(6,$array[1][0]->imag);
+        $this->assertEquals(7,$array[1][1]->real);
+        $this->assertEquals(8,$array[1][1]->imag);
+    }
+
+    public function testComplexOffsetSetScalar()
+    {
+        $array = new NDArrayPhp(null,dtype:NDArray::complex64,shape:[2,2],service:$this->service);
+
+        $array[0][0] = C(1,i:2);
+        $array[0][1] = C(3,i:4);
+        $array[1][0] = C(5,i:6);
+        $array[1][1] = C(7,i:8);
+
+        $this->assertEquals(1,$array[0][0]->real);
+        $this->assertEquals(2,$array[0][0]->imag);
+        $this->assertEquals(3,$array[0][1]->real);
+        $this->assertEquals(4,$array[0][1]->imag);
+        $this->assertEquals(5,$array[1][0]->real);
+        $this->assertEquals(6,$array[1][0]->imag);
+        $this->assertEquals(7,$array[1][1]->real);
+        $this->assertEquals(8,$array[1][1]->imag);
+    }
+
+    public function testComplexOffsetSetArray()
+    {
+        $array = new NDArrayPhp(null,dtype:NDArray::complex64,shape:[2,2],service:$this->service);
+        $array[0][0] = C(0);
+        $array[0][1] = C(0);
+        $array[1][0] = C(0);
+        $array[1][1] = C(0);
+
+        $a = [C(1,i:2),C(3,i:4)];
+        $a = new NDArrayPhp($a,dtype:NDArray::complex64,service:$this->service);
+
+        $array[1] = $a;
+
+        $this->assertEquals(0,$array[0][0]->real);
+        $this->assertEquals(0,$array[0][0]->imag);
+        $this->assertEquals(0,$array[0][1]->real);
+        $this->assertEquals(0,$array[0][1]->imag);
+        $this->assertEquals(1,$array[1][0]->real);
+        $this->assertEquals(2,$array[1][0]->imag);
+        $this->assertEquals(3,$array[1][1]->real);
+        $this->assertEquals(4,$array[1][1]->imag);
+    }
+
+    public function testComplexToArray()
+    {
+        $a = [
+            [C(1,i:2),C(3,i:4)],
+            [C(5,i:6),C(7,i:8)]
+        ];
+        $array = new NDArrayPhp($a,dtype:NDArray::complex64,service:$this->service);
+
+        $phparray = $array->toArray();
+        $this->assertTrue(is_array($phparray));
+        $this->assertTrue(is_array($phparray[0]));
+        $this->assertTrue(is_array($phparray[1]));
+        $this->assertInstanceof(Complex::class,$phparray[0][0]);
+        $this->assertInstanceof(Complex::class,$phparray[0][1]);
+        $this->assertInstanceof(Complex::class,$phparray[1][0]);
+        $this->assertInstanceof(Complex::class,$phparray[1][1]);
+
+        $this->assertEquals(1,$phparray[0][0]->real);
+        $this->assertEquals(2,$phparray[0][0]->imag);
+        $this->assertEquals(3,$phparray[0][1]->real);
+        $this->assertEquals(4,$phparray[0][1]->imag);
+        $this->assertEquals(5,$phparray[1][0]->real);
+        $this->assertEquals(6,$phparray[1][0]->imag);
+        $this->assertEquals(7,$phparray[1][1]->real);
+        $this->assertEquals(8,$phparray[1][1]->imag);
+    }
+
+    public function testComplexSerialize()
+    {
+        $a = [
+            [C(1,i:2),C(3,i:4)],
+            [C(5,i:6),C(7,i:8)]
+        ];
+        $array = new NDArrayPhp($a,dtype:NDArray::complex64,service:$this->service);
+        
+        $string = $array->serialize();
+        $newArray = new NDArrayPhp(null,dtype:NDArray::complex64,shape:[2,2],service:$this->service);
+
+        $newArray->unserialize($string);
+
+        $this->assertEquals(1,$newArray[0][0]->real);
+        $this->assertEquals(2,$newArray[0][0]->imag);
+        $this->assertEquals(3,$newArray[0][1]->real);
+        $this->assertEquals(4,$newArray[0][1]->imag);
+        $this->assertEquals(5,$newArray[1][0]->real);
+        $this->assertEquals(6,$newArray[1][0]->imag);
+        $this->assertEquals(7,$newArray[1][1]->real);
+        $this->assertEquals(8,$newArray[1][1]->imag);
+    }
+
+    public function testComplexClone()
+    {
+        $a = [
+            [C(1,i:2),C(3,i:4)],
+            [C(5,i:6),C(7,i:8)]
+        ];
+        $array = new NDArrayPhp($a,dtype:NDArray::complex64,service:$this->service);
+        
+        $newArray = clone $array;
+        $this->assertNotEquals(
+            spl_object_id($newArray->buffer()),
+            spl_object_id($array->buffer())
+        );
+        $this->assertNotEquals(
+            spl_object_id($newArray[0][0]),
+            spl_object_id($array[0][0])
+        );
+
+        $this->assertEquals(1,$newArray[0][0]->real);
+        $this->assertEquals(2,$newArray[0][0]->imag);
+        $this->assertEquals(3,$newArray[0][1]->real);
+        $this->assertEquals(4,$newArray[0][1]->imag);
+        $this->assertEquals(5,$newArray[1][0]->real);
+        $this->assertEquals(6,$newArray[1][0]->imag);
+        $this->assertEquals(7,$newArray[1][1]->real);
+        $this->assertEquals(8,$newArray[1][1]->imag);
     }
 }

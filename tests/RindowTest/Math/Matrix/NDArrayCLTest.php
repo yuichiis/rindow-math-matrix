@@ -58,7 +58,7 @@ class NDArrayCLTest extends TestCase
         $hostArray = new NDArrayPhp([[1,2],[3,4],[5,6]],service:$this->service);
         $context = $this->getContext();
         $queue = $this->getQueue($context);
-        $array = new NDArrayCL($context,$queue,$hostArray->buffer(),$hostArray->dtype(),
+        $array = new NDArrayCL($queue,$hostArray->buffer(),$hostArray->dtype(),
             $hostArray->shape(),$hostArray->offset(),
             OpenCL::CL_MEM_READ_ONLY|OpenCL::CL_MEM_COPY_HOST_PTR,service:$this->service);
 
@@ -99,12 +99,12 @@ class NDArrayCLTest extends TestCase
         $hostArray = new NDArrayPhp([[1,2],[3,4],[5,6]],service:$this->service);
         $context = $this->getContext();
         $queue = $this->getQueue($context);
-        $array = new NDArrayCL($context,$queue,$hostArray->buffer(),$hostArray->dtype(),
+        $array = new NDArrayCL($queue,$hostArray->buffer(),$hostArray->dtype(),
             $hostArray->shape(),$hostArray->offset(),
             OpenCL::CL_MEM_READ_WRITE|OpenCL::CL_MEM_COPY_HOST_PTR,service:$this->service);
 
         $hostArray = new NDArrayPhp([11,12],service:$this->service);
-        $srcarray = new NDArrayCL($context,$queue,$hostArray->buffer(),$hostArray->dtype(),
+        $srcarray = new NDArrayCL($queue,$hostArray->buffer(),$hostArray->dtype(),
             $hostArray->shape(),$hostArray->offset(),
             OpenCL::CL_MEM_READ_ONLY|OpenCL::CL_MEM_COPY_HOST_PTR,service:$this->service);
         $array[1] = $srcarray;
@@ -112,7 +112,7 @@ class NDArrayCLTest extends TestCase
         $this->assertEquals([[1,2],[11,12],[5,6]],$array->toNDArray()->toArray());
 
         $hostArray = new NDArrayPhp(4,service:$this->service);
-        $srcarray = new NDArrayCL($context,$queue,$hostArray->buffer(),$hostArray->dtype(),
+        $srcarray = new NDArrayCL($queue,$hostArray->buffer(),$hostArray->dtype(),
             $hostArray->shape(),$hostArray->offset(),
             OpenCL::CL_MEM_READ_ONLY|OpenCL::CL_MEM_COPY_HOST_PTR,service:$this->service);
         $array[1][1] = $srcarray;
@@ -126,7 +126,7 @@ class NDArrayCLTest extends TestCase
         $hostArray = new NDArrayPhp([[1,2],[3,4],[5,6]],dtype:NDArray::int32,service:$this->service);
         $context = $this->getContext();
         $queue = $this->getQueue($context);
-        $array = new NDArrayCL($context,$queue,$hostArray->buffer(),$hostArray->dtype(),
+        $array = new NDArrayCL($queue,$hostArray->buffer(),$hostArray->dtype(),
             $hostArray->shape(),$hostArray->offset(),
             OpenCL::CL_MEM_READ_ONLY|OpenCL::CL_MEM_COPY_HOST_PTR,service:$this->service);
         $this->assertEquals([3,2],$array->shape());
@@ -140,5 +140,23 @@ class NDArrayCLTest extends TestCase
         $this->assertEquals(NDArray::int32,$array2->dtype());
         $this->assertEquals(NDArray::int32,$array2->buffer()->dtype());
         $this->assertEquals([[1,2],[3,4],[5,6]],$array2->toArray());
+    }
+
+    public function testToNDArrayStressTest()
+    {
+        $hostArray = new NDArrayPhp([[1,2],[3,4],[5,6]],service:$this->service);
+        $context = $this->getContext();
+        $queue = $this->getQueue($context);
+        $array = new NDArrayCL($queue,$hostArray->buffer(),$hostArray->dtype(),
+            $hostArray->shape(),$hostArray->offset(),
+            OpenCL::CL_MEM_READ_ONLY|OpenCL::CL_MEM_COPY_HOST_PTR,service:$this->service);
+
+        for($i=0;$i<1000;++$i) {
+            $res = $array->toNDArray();
+            if([[1,2],[3,4],[5,6]]!= $res->toArray()) {
+                break;
+            }
+        }
+        $this->assertEquals([[1,2],[3,4],[5,6]],$res->toArray());
     }
 }

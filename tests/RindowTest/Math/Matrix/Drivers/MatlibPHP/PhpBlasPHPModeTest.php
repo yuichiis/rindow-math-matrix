@@ -10,38 +10,34 @@ use Rindow\Math\Matrix\MatrixOperator;
 
 class PhpBlasPHPModeTest extends ORGTest
 {
-    public function getBlas($mo)
+    public function getBlas()
     {
-        $blas = $mo->service()->blas(Service::LV_BASIC);
+        $blas = $this->mo->service()->blas(Service::LV_BASIC);
         //$blas = $mo->blas();
         return $blas;
     }
 
     public function testGetConfig()
     {
-        $mo = new MatrixOperator();
-        $blas = $this->getBlas($mo);
+        $blas = $this->getBlas();
         $this->assertStringStartsWith('PhpBlas',$blas->getConfig());
     }
 
     public function testGetNumThreads()
     {
-        $mo = new MatrixOperator();
-        $blas = $this->getBlas($mo);
+        $blas = $this->getBlas();
         $this->assertEquals(1,$blas->getNumThreads());
     }
 
     public function testGetNumProcs()
     {
-        $mo = new MatrixOperator();
-        $blas = $this->getBlas($mo);
+        $blas = $this->getBlas();
         $this->assertEquals(1,$blas->getNumProcs());
     }
 
     public function testGetCorename()
     {
-        $mo = new MatrixOperator();
-        $blas = $this->getBlas($mo);
+        $blas = $this->getBlas();
         $this->assertTrue(is_string($blas->getCorename()));
     }
 }

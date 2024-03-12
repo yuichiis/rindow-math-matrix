@@ -298,7 +298,7 @@ class OpenCLMath
         $results = new NDArrayPhp([0,0],NDArray::int32,service:$this->service);
         $flags = OpenCL::CL_MEM_READ_WRITE | OpenCL::CL_MEM_COPY_HOST_PTR;
         $resultsCL = new NDArrayCL(
-            $this->context, $this->queue,
+            $this->queue,
             $results->buffer(), $results->dtype(), $results->shape(),
             $results->offset(), $flags,
             service:$this->service

@@ -2953,4 +2953,29 @@ class LinearAlgebraCLTest extends ORGTest
         $tunner->showGraphReduceSum($mode=3,$details=true);
         $this->assertTrue(true);
     }
+
+    public function testGemvStressTest()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        $A = $la->array([[1,2,3],[4,5,6]]);
+        $X1 = $la->array([100,10,1]);
+        $X2 = $la->array([10,1]);
+
+        for($i=0;$i<1000;++$i) {
+            $Y = $la->gemv($A,$X1);
+            $arNoTrans = $Y->toArray();
+            if($arNoTrans!=[123,456]) {
+                break;
+            }
+            $Y = $la->gemv($A,$X2,trans:true);
+            $arTrans = $Y->toArray();
+            if($arTrans!=[14,25,36]) {
+                break;
+            }
+        }
+        $this->assertEquals([123,456],$arNoTrans);
+        $this->assertEquals([14,25,36],$arTrans);
+    }
+
 }

@@ -1,10 +1,13 @@
 <?php
 namespace Rindow\Math\Matrix;
 
+require_once __DIR__.'/R.php';
+
 use ArrayObject;
 use InvalidArgumentException;
 use LogicException;
 use Iterator;
+use Traversable;
 use Interop\Polite\Math\Matrix\BLAS;
 use Interop\Polite\Math\Matrix\NDArray;
 use Rindow\Math\Matrix\Drivers\Service;
@@ -12,6 +15,8 @@ use Rindow\Math\Matrix\Drivers\Selector;
 
 class MatrixOperator
 {
+    use ComplexUtils;
+
     const SERIALIZE_NDARRAYSET_KEYWORD = 'NDArraySet:';
     const SERIALIZE_NDARRAY_KEYWORD = 'NDArray:';
     const SERIALIZE_OLDSTYLE_KEYWORD = 'O:29:"Rindow\Math\Matrix\NDArrayPhp"';
@@ -54,6 +59,7 @@ class MatrixOperator
         NDArray::int64=>'int64', NDArray::uint64=>'uint64',
         NDArray::float16=>'float16',
         NDArray::float32=>'float32', NDArray::float64=>'float64',
+        NDArray::complex64=>'complex64', NDArray::complex128=>'complex128',
     ];
     protected $dtypePrecision = [
         NDArray::bool=>1,
@@ -169,25 +175,26 @@ class MatrixOperator
     protected function alloc($array,$dtype=null,$shape=null)
     {
         if($dtype===null) {
-            $dtype = $this->resolveDtype($array);
+            //$dtype = $this->resolveDtype($array);
+            $dtype = $this->defaultFloatType;
         }
         return new NDArrayPhp($array,$dtype,$shape,service:$this->service);
     }
 
-    protected function resolveDtype($value)
-    {
-        while((is_array($value)||$value instanceof ArrayObject)&&isset($value[0])) {
-            $value = $value[0];
-        }
-        if(is_int($value)) {
-            return $this->defaultIntType;
-        } elseif(is_float($value)) {
-            return $this->defaultFloatType;
-        } elseif(is_bool($value)) {
-            return NDArray::bool;
-        }
-        return null;
-    }
+    //protected function resolveDtype($value)
+    //{
+    //    while((is_array($value)||$value instanceof ArrayObject)&&isset($value[0])) {
+    //        $value = $value[0];
+    //    }
+    //    if(is_int($value)) {
+    //        return $this->defaultIntType;
+    //    } elseif(is_float($value)) {
+    //        return $this->defaultFloatType;
+    //    } elseif(is_bool($value)) {
+    //        return NDArray::bool;
+    //    }
+    //    return null;
+    //}
 
     protected function maximumPrecision($dtypeX,$dtypeY)
     {
@@ -236,23 +243,54 @@ class MatrixOperator
         $this->defaultFloatType = $dtype;
     }
 
+    protected function isComplexDtype(?int $dtype) : bool
+    {
+        return $this->cistype($dtype);
+    }
+
+    public function toComplex(mixed $array) : mixed
+    {
+        if(is_array($array)||is_a($array,Traversable::class)) {
+            $cArray = [];
+            foreach($array as $value) {
+                $cArray[] = $this->toComplex($value);
+            }
+            return $cArray;
+        }
+
+        if(is_numeric($array)) {
+            return C($array,i:0);
+        } elseif(is_object($array) && 
+                property_exists($array,'real') &&
+                property_exists($array,'imag')) {
+            return C($array->real,i:$array->imag);
+        } else {
+            if(is_object($array)) {
+                $name = get_class($array);
+            } else {
+                $name = gettype($array);
+            }
+            throw new InvalidArgumentException("invalid data type: ".$name);
+        }
+    }
+
     public function array($array,$dtype=null) : NDArray
     {
         if($dtype==null) {
-            if(is_bool($array)) {
-                $dtype = NDArray::bool;
-            } else {
-                $dtype = $this->resolveDtype($array);
-                if($dtype!=NDArray::bool) {
-                    $dtype=$this->defaultFloatType;
-                }
-            }
+            $dtype=$this->defaultFloatType;
+            //if(is_bool($array)) {
+            //    $dtype = NDArray::bool;
+            //} else {
+            //    $dtype = $this->resolveDtype($array);
+            //    if($dtype!=NDArray::bool) {
+            //        $dtype=$this->defaultFloatType;
+            //    }
+            //}
         }
-        if(is_array($array)) {
-            return $this->alloc($array,$dtype);
-        } elseif($array instanceof ArrayObject) {
-            return $this->alloc($array,$dtype);
-        } elseif(is_numeric($array)) {
+        if(is_array($array)||is_object($array)||is_numeric($array)) {
+            if($this->isComplexDtype($dtype)) {
+                $array = $this->toComplex($array);
+            }
             return $this->alloc($array,$dtype);
         } elseif(is_bool($array)) {
             return $this->alloc($array,$dtype);
@@ -263,27 +301,47 @@ class MatrixOperator
 
     public function zeros(array $shape, $dtype=null) : NDArray
     {
-        return $this->full($shape,0.0,$dtype);
+        if($this->isComplexDtype($dtype)) {
+            $value = $this->cbuild(0,0);
+        } else {
+            $value = 0.0; // must be float
+        }
+        return $this->full($shape,$value,$dtype);
     }
 
     public function ones(array $shape, $dtype=null) : NDArray
     {
-        return $this->full($shape,1.0,$dtype);
+        if($this->isComplexDtype($dtype)) {
+            $value = $this->cbuild(1,0);
+        } else {
+            $value = 1.0; // must be float
+        }
+        return $this->full($shape,$value,$dtype);
     }
 
     public function full(array $shape, $value, $dtype=null) : NDArray
     {
-        if(!is_scalar($value))
-            throw new InvalidArgumentException('value must be scalar');
-
-        if($dtype===null)
-            $dtype=$this->resolveDtype($value);
-        $array = $this->alloc(null, $dtype, $shape);
-        $buffer = $array->buffer();
-        $size = count($buffer);
-        for($i=0; $i<$size; $i++) {
-            $buffer[$i] = $value;
+        if($dtype===null) {
+            //$dtype=$this->resolveDtype($value);
+            $dtype=$this->defaultFloatType;
         }
+        if($this->isComplexDtype($dtype)) {
+            if(!$this->cisobject($value)) {
+                throw new InvalidArgumentException('value must be complex');
+            }
+        } else {
+            if(!is_scalar($value)) {
+                throw new InvalidArgumentException('value must be scalar');
+            }
+        }
+
+        $array = $this->alloc(null, $dtype, $shape);
+        //$buffer = $array->buffer();
+        //$size = count($buffer);
+        //for($i=0; $i<$size; $i++) {
+        //    $buffer[$i] = $value;
+        //}
+        $this->la()->fill($value,$array);
         return $array;
     }
 
@@ -1320,8 +1378,12 @@ class MatrixOperator
                 return $str;
             } else {
                 if($format) {
-                    return '['.implode(',',array_map(function($x) use ($format) {
-                            return sprintf($format,$x);
+                    return '['.implode(',',array_map(function($x) use ($format,$array) {
+                            if($array->dtype()==NDArray::complex64||$array->dtype()==NDArray::complex128) {
+                                return sprintf($format,$x->real,$x->imag);
+                            } else {
+                                return sprintf($format,$x);
+                            }
                         },$array->toArray())).']';
                 } else {
                     return '['.implode(',',$array->toArray()).']';
