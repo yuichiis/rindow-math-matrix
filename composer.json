@@ -6,7 +6,7 @@
     "license": "BSD-3-Clause",
     "require": {
         "php": "^8.1|^8.2|^8.3",
-        "interop-phpobjects/polite-math": "~1.0.5",
+        "interop-phpobjects/polite-math": "~1.0.6",
         "rindow/rindow-math-buffer-ffi": "~1.0.0",
         "rindow/rindow-matlib-ffi": "~1.0.0",
         "rindow/rindow-openblas-ffi": "~1.0.0",
@@ -14,9 +14,6 @@
         "rindow/rindow-clblast-ffi": "~1.0.0"
     },
     "suggest": {
-        "ext-rindow_openblas": "0.4.0 strongly recommended for speed",
-        "ext-rindow_opencl": "0.2.0 GPU/OpenCL support",
-        "ext-rindow_clblast": "0.1.4 BLAS on GPU/OpenCL support",
         "rindow/math-plot": "for OpenCL tunning"
     },
     "autoload": {
