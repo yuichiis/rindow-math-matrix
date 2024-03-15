@@ -788,6 +788,27 @@ class LinearAlgebraTest extends TestCase
         $this->assertEquals(
             [C(5,i:68),C(18,i:59),C(31,i:50)]
         ,$Y->toArray());
+
+        if($la->fp64()) {
+            // float64
+            $dtype = NDArray::float64;
+            $A = $la->array([[1,2,3],[4,5,6]],dtype:$dtype);
+            $X = $la->array([10,1],dtype:$dtype);
+            $Y = $la->gemv($A,$X,trans:true);
+            $this->assertEquals(
+                [14,25,36]
+            ,$Y->toArray());
+
+            // complex64 trans with conj
+            $dtype = NDArray::complex128;
+            $A = $la->array([[C(1,i:6),C(2,i:5),C(3,i:4)],[C(4,i:3),C(5,i:2),C(6,i:1)]],dtype:$dtype);
+            $X = $la->array([C(10,i:1),C(1,i:1)],dtype:$dtype);
+            $Y = $la->gemv($A,$X,trans:true,alpha:C(1.0),beta:C(0.0));
+            $this->assertEquals(
+                [C(23,i:-58),C(32,i:-45),C(41,i:-32)]
+            ,$Y->toArray());
+
+        }
     }
 
     public function testGemmNormal()

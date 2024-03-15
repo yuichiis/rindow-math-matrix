@@ -449,7 +449,7 @@ class LinearAlgebraCL
 
     public function zerosLike(NDArray $array,$flags=null) : NDArray
     {
-        $newArray = $this->alloc($array->shape(),$array->dtype(),$flags);
+        $newArray = $this->alloc($array->shape(),dtype:$array->dtype(),flags:$flags);
         $events = $this->newEventList();
         $this->zeros($newArray,$events);
         $events->wait();
@@ -548,7 +548,7 @@ class LinearAlgebraCL
             $dtype = NDArray::uint32;
         }
         if($Y===null) {
-            $Y = $this->alloc($X->shape(),$dtype);
+            $Y = $this->alloc($X->shape(),dtype:$dtype);
         }
         $dtype = $Y->dtype();
         if($dtype!=NDArray::uint32&&$dtype!=NDArray::int32&&
@@ -614,7 +614,7 @@ class LinearAlgebraCL
             $reverse = false;
         }
         if($Y===null) {
-            $Y = $this->alloc($X->shape(),$X->dtype());
+            $Y = $this->alloc($X->shape(),dtype:$X->dtype());
         }
         if($X->shape()!=$Y->shape()) {
             $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
@@ -776,7 +776,7 @@ class LinearAlgebraCL
             $this->profilingStart("astype");
         }
         if($Y==null) {
-            $Y = $this->alloc($X->shape(),$dtype);
+            $Y = $this->alloc($X->shape(),dtype:$dtype);
         }
         $n = $X->size();
         $XX = $X->buffer();
@@ -812,7 +812,7 @@ class LinearAlgebraCL
             $this->profilingStart("copy");
         }
         if($Y===null) {
-            $Y = $this->alloc($X->shape(),$X->dtype(),OpenCL::CL_MEM_READ_WRITE);
+            $Y = $this->alloc($X->shape(),dtype:$X->dtype(),flags:OpenCL::CL_MEM_READ_WRITE);
         } else {
             if($X->shape()!=$Y->shape()) {
                 $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
@@ -997,7 +997,7 @@ class LinearAlgebraCL
         if($R==null) {
             // *** CAUTION ****
             // Index result is 32bit
-            $R = $this->alloc([],NDArray::int32,OpenCL::CL_MEM_READ_WRITE);
+            $R = $this->alloc([],dtype:NDArray::int32,flags:OpenCL::CL_MEM_READ_WRITE);
         }
         $N = $X->size();
         $RR = $R->buffer();
@@ -1031,7 +1031,7 @@ class LinearAlgebraCL
         if($R==null) {
             // *** CAUTION ****
             // Index result is 32bit
-            $R = $this->alloc([],NDArray::int32,OpenCL::CL_MEM_READ_WRITE);
+            $R = $this->alloc([],dtype:NDArray::int32,flags:OpenCL::CL_MEM_READ_WRITE);
         }
         $N = $X->size();
         $RR = $R->buffer();
@@ -1063,11 +1063,11 @@ class LinearAlgebraCL
             $this->profilingStart("amax");
         }
         if($R==null) {
-            $R = $this->alloc([],$X->dtype(),OpenCL::CL_MEM_READ_WRITE);
+            $R = $this->alloc([],dtype:$X->dtype(),flags:OpenCL::CL_MEM_READ_WRITE);
         }
         // *** CAUTION ****
         // Index result is 32bit
-        $IR = $this->alloc([],NDArray::int32,OpenCL::CL_MEM_READ_WRITE);
+        $IR = $this->alloc([],dtype:NDArray::int32,flags:OpenCL::CL_MEM_READ_WRITE);
         $N = $X->size();
         $IRR = $IR->buffer();
         $offIR = $IR->offset();
@@ -1115,11 +1115,11 @@ class LinearAlgebraCL
             $this->profilingStart("amax");
         }
         if($R==null) {
-            $R = $this->alloc([],$X->dtype(),OpenCL::CL_MEM_READ_WRITE);
+            $R = $this->alloc([],dtype:$X->dtype(),flags:OpenCL::CL_MEM_READ_WRITE);
         }
         // *** CAUTION ****
         // Index result is 32bit
-        $IR = $this->alloc([],NDArray::int32,OpenCL::CL_MEM_READ_WRITE);
+        $IR = $this->alloc([],dtype:NDArray::int32,flags:OpenCL::CL_MEM_READ_WRITE);
         $N = $X->size();
         $IRR = $IR->buffer();
         $offIR = $IR->offset();
@@ -1167,7 +1167,7 @@ class LinearAlgebraCL
             $this->profilingStart("nrm2");
         }
         if($R==null) {
-            $R = $this->alloc([],$X->dtype(),OpenCL::CL_MEM_READ_WRITE);
+            $R = $this->alloc([],dtype:$X->dtype(),flags:OpenCL::CL_MEM_READ_WRITE);
         }
         $N = $X->size();
         $RR = $R->buffer();
@@ -1215,10 +1215,10 @@ class LinearAlgebraCL
         $Z = $this->copy($Y,$Z,$copyEvents);
         $copyEvents->wait();
         if($C==null) {
-            $C = $this->alloc($X->shape(),$X->dtype());
+            $C = $this->alloc($X->shape(),dtype:$X->dtype());
         }
         if($S==null) {
-            $S = $this->alloc($Y->shape(),$X->dtype());
+            $S = $this->alloc($Y->shape(),dtype:$X->dtype());
         }
         $AA = $R->buffer();
         $offA = $R->offset();
@@ -1369,7 +1369,7 @@ class LinearAlgebraCL
                 throw new InvalidArgumentException('The number of rows in "A" and The number of item in "Y" must be the same');
             }
         } else {
-            $Y = $this->alloc([$rows],$X->dtype(),OpenCL::CL_MEM_READ_WRITE);
+            $Y = $this->alloc([$rows],dtype:$X->dtype(),flags:OpenCL::CL_MEM_READ_WRITE);
             $beta = $this->buildValByType(0.0,$A->dtype());
         }
         $YY = $Y->buffer();
@@ -1449,7 +1449,7 @@ class LinearAlgebraCL
                 throw new InvalidArgumentException('"A" and "C" must have the same number of rows."B" and "C" must have the same number of columns');
             }
         } else {
-            $C = $this->alloc([$M,$N],$A->dtype());
+            $C = $this->alloc([$M,$N],dtype:$A->dtype());
             $beta = $this->buildValByType(0.0,$A->dtype());
         }
         $CC = $C->buffer();
@@ -1565,7 +1565,7 @@ class LinearAlgebraCL
                     implode(',',$A->shape()).'] , ['.implode(',',$B->shape()).'] => ['.implode(',',$C->shape()).']');
             }
         } else {
-            $C = $this->alloc($orgShapeC,$A->dtype());
+            $C = $this->alloc($orgShapeC,dtype:$A->dtype());
             $this->zeros($C);
         }
         $flatC = $C->reshape(array_merge([$broadcastDest],$shapeEC));
@@ -1658,7 +1658,7 @@ class LinearAlgebraCL
                 throw new InvalidArgumentException('Matrix "B" and "C" must be same shape');
             }
         } else {
-            $C = $this->zeros($this->alloc([$M,$N],$A->dtype()));
+            $C = $this->zeros($this->alloc([$M,$N],dtype:$A->dtype()));
         }
         $CC = $C->buffer();
         $offC = $C->offset();
@@ -1734,7 +1734,7 @@ class LinearAlgebraCL
                 throw new InvalidArgumentException('"C" rows and cols must have the same number of "A" cols');
             }
         } else {
-            $C = $this->zeros($this->alloc([$N,$N],$A->dtype()));
+            $C = $this->zeros($this->alloc([$N,$N],dtype:$A->dtype()));
         }
         $CC = $C->buffer();
         $offC = $C->offset();
@@ -1816,7 +1816,7 @@ class LinearAlgebraCL
                 throw new InvalidArgumentException('"C" rows and cols must have the same number of "A" cols');
             }
         } else {
-            $C = $this->zeros($this->alloc([$N,$N],$A->dtype()));
+            $C = $this->zeros($this->alloc([$N,$N],dtype:$A->dtype()));
         }
         $CC = $C->buffer();
         $offC = $C->offset();
@@ -2015,7 +2015,7 @@ class LinearAlgebraCL
             [$rows,$cols] = [$cols,$rows];
         }
         if($B===null) {
-            $B = $this->zeros($this->alloc([$rows,$cols],$A->dtype()));
+            $B = $this->zeros($this->alloc([$rows,$cols],dtype:$A->dtype()));
         } else {
             if($B->shape()!=[$rows,$cols]) {
                 $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$B->shape()).')';
@@ -2070,7 +2070,7 @@ class LinearAlgebraCL
             $this->profilingStart("sum");
         }
         if($R==null) {
-            $R = $this->alloc([],$X->dtype(),OpenCL::CL_MEM_READ_WRITE);
+            $R = $this->alloc([],dtype:$X->dtype(),flags:OpenCL::CL_MEM_READ_WRITE);
         }
         $N = $X->size();
         $RR = $R->buffer();
@@ -2109,7 +2109,7 @@ class LinearAlgebraCL
         if($R==null) {
             // *** CAUTION ****
             // Index result is 32bit
-            $R = $this->alloc([],NDArray::int32,OpenCL::CL_MEM_READ_WRITE);
+            $R = $this->alloc([],dtype:NDArray::int32,flags:OpenCL::CL_MEM_READ_WRITE);
         }
         $N = $X->size();
         $RR = $R->buffer();
@@ -2154,7 +2154,7 @@ class LinearAlgebraCL
         if($R==null) {
             // *** CAUTION ****
             // Index result is 32bit
-            $R = $this->alloc([],NDArray::int32,OpenCL::CL_MEM_READ_WRITE);
+            $R = $this->alloc([],dtype:NDArray::int32,flags:OpenCL::CL_MEM_READ_WRITE);
         }
         $N = $X->size();
         $RR = $R->buffer();
@@ -2191,11 +2191,11 @@ class LinearAlgebraCL
             $this->profilingStart("max");
         }
         if($R==null) {
-            $R = $this->alloc([],$X->dtype(),OpenCL::CL_MEM_READ_WRITE);
+            $R = $this->alloc([],dtype:$X->dtype(),flags:OpenCL::CL_MEM_READ_WRITE);
         }
         // *** CAUTION ****
         // Index result is 32bit
-        $IR = $this->alloc([],NDArray::int32,OpenCL::CL_MEM_READ_WRITE);
+        $IR = $this->alloc([],dtype:NDArray::int32,flags:OpenCL::CL_MEM_READ_WRITE);
         $N = $X->size();
         $IRR = $IR->buffer();
         $offIR = $IR->offset();
@@ -2243,11 +2243,11 @@ class LinearAlgebraCL
             $this->profilingStart("min");
         }
         if($R==null) {
-            $R = $this->alloc([],$X->dtype(),OpenCL::CL_MEM_READ_WRITE);
+            $R = $this->alloc([],dtype:$X->dtype(),flags:OpenCL::CL_MEM_READ_WRITE);
         }
         // *** CAUTION ****
         // Index result is 32bit
-        $IR = $this->alloc([],NDArray::int32,OpenCL::CL_MEM_READ_WRITE);
+        $IR = $this->alloc([],dtype:NDArray::int32,flags:OpenCL::CL_MEM_READ_WRITE);
         $N = $X->size();
         $IRR = $IR->buffer();
         $offIR = $IR->offset();
@@ -3256,9 +3256,9 @@ class LinearAlgebraCL
             if($repeats===null)
                 $repeats = 1;
             if(!$trans) {
-                $output = $this->alloc(array_merge([$repeats],$input->shape()),$input->dtype());
+                $output = $this->alloc(array_merge([$repeats],$input->shape()),dtype:$input->dtype());
             } else {
-                $output = $this->alloc(array_merge($input->shape(),[$repeats]),$input->dtype());
+                $output = $this->alloc(array_merge($input->shape(),[$repeats]),dtype:$input->dtype());
             }
         } else {
             $shapeX = $input->shape();
@@ -3361,7 +3361,7 @@ class LinearAlgebraCL
             $dtype = $A->dtype();
         }
         if($output==null) {
-            $output = $this->alloc($outputShape,$dtype);
+            $output = $this->alloc($outputShape,dtype:$dtype);
             $waitPrev = $waitEvents;
             $waitEvents = $this->newEventList();
             $this->zeros($output,$waitEvents,$waitPrev);
@@ -3565,7 +3565,7 @@ class LinearAlgebraCL
             $dtype = $A->dtype();
         }
         if($output==null) {
-            $output = $this->alloc($outputShape,$dtype);
+            $output = $this->alloc($outputShape,dtype:$dtype);
             $waitPrev = $waitEvents;
             $waitEvents = $this->newEventList();
             $this->zeros($output,$waitEvents,$waitPrev);
@@ -3640,7 +3640,7 @@ class LinearAlgebraCL
         $addMode = true;
         if($output===null) {
             $addMode = false;
-            $output = $this->alloc([$sizeX,$numClass],$this->defaultFloatType);
+            $output = $this->alloc([$sizeX,$numClass],dtype:$this->defaultFloatType);
             $waitPrev = $waitEvents;
             $waitEvents = $this->newEventList();
             $this->zeros($output,$waitEvents,$waitPrev);
@@ -3760,7 +3760,7 @@ class LinearAlgebraCL
             $dtype = $input->dtype();
         }
         if($output==null) {
-            $output = $this->alloc($outputShape,$dtype);
+            $output = $this->alloc($outputShape,dtype:$dtype);
         } else {
             if($output->shape()!=$outputShape) {
                 $shapeError = '('.implode(',',$input->shape()).'),('.implode(',',$output->shape()).')';
@@ -3834,7 +3834,7 @@ class LinearAlgebraCL
             $dtype = $input->dtype();
         }
         if($output==null) {
-            $output = $this->alloc($outputShape,$dtype);
+            $output = $this->alloc($outputShape,dtype:$dtype);
         } else {
             if($output->shape()!=$outputShape) {
                 $shapeError = '('.implode(',',$input->shape()).'),('.implode(',',$output->shape()).')';
@@ -3908,7 +3908,7 @@ class LinearAlgebraCL
             $dtype = NDArray::uint32;
         }
         if($output==null) {
-            $output = $this->alloc($outputShape,$dtype);
+            $output = $this->alloc($outputShape,dtype:$dtype);
         } else {
             if($output->shape()!=$outputShape) {
                 $shapeError = '('.implode(',',$input->shape()).'),('.implode(',',$output->shape()).')';
@@ -4075,7 +4075,7 @@ class LinearAlgebraCL
                 $cols = $this->alloc([
                     $batches,$channels,$filter_h,$filter_w, // channels_first
                     $out_h,$out_w,                          // filters first
-                ]);
+                ],dtype:$images->dtype());
                 $this->zeros($cols);
             //} else {
             //    $cols = $this->alloc([
@@ -4354,7 +4354,7 @@ class LinearAlgebraCL
                 $cols = $this->alloc([
                     $batches,$out_w,
                     $channels,$kernel_w
-                ]);
+                ],dtype:$images->dtype());
                 $waitPrev = $waitEvents;
                 $waitEvents = $this->newEventList();
                 $this->zeros($cols,$waitEvents,$waitPrev);
@@ -4362,7 +4362,7 @@ class LinearAlgebraCL
                 $cols = $this->alloc([
                     $batches,$out_w,
                     $kernel_w,$channels
-                ]);
+                ],dtype:$images->dtype());
                 $waitPrev = $waitEvents;
                 $waitEvents = $this->newEventList();
                 $this->zeros($cols,$waitEvents,$waitPrev);
@@ -4460,7 +4460,7 @@ class LinearAlgebraCL
                 $cols = $this->alloc([
                     $batches,$out_h,$out_w,
                     $channels,$kernel_h,$kernel_w
-                ]);
+                ],dtype:$images->dtype());
                 $waitPrev = $waitEvents;
                 $waitEvents = $this->newEventList();
                 $this->zeros($cols,$waitEvents,$waitPrev);
@@ -4468,7 +4468,7 @@ class LinearAlgebraCL
                 $cols = $this->alloc([
                     $batches,$out_h,$out_w,
                     $kernel_h,$kernel_w,$channels
-                ]);
+                ],dtype:$images->dtype());
                 $waitPrev = $waitEvents;
                 $waitEvents = $this->newEventList();
                 $this->zeros($cols,$waitEvents,$waitPrev);
@@ -4572,7 +4572,7 @@ class LinearAlgebraCL
                 $cols = $this->alloc([
                     $batches,$out_d,$out_h,$out_w,
                     $channels,$kernel_d,$kernel_h,$kernel_w
-                ]);
+                ],dtype:$images->dtype());
                 $waitPrev = $waitEvents;
                 $waitEvents = $this->newEventList();
                 $this->zeros($cols,$waitEvents,$waitPrev);
@@ -4580,7 +4580,7 @@ class LinearAlgebraCL
                 $cols = $this->alloc([
                     $batches,$out_d,$out_h,$out_w,
                     $kernel_d,$kernel_h,$kernel_w,$channels
-                ]);
+                ],dtype:$images->dtype());
                 $waitPrev = $waitEvents;
                 $waitEvents = $this->newEventList();
                 $this->zeros($cols,$waitEvents,$waitPrev);
@@ -4644,7 +4644,7 @@ class LinearAlgebraCL
             }
         }
         if($X===null) {
-            $X = $this->alloc($shape,$dtype);
+            $X = $this->alloc($shape,dtype:$dtype);
         } else {
             if ($X->shape()!=$shape) {
                 throw new InvalidArgumentException('Unmatch shape and shape of X');
@@ -4698,7 +4698,7 @@ class LinearAlgebraCL
             }
         }
         if($X===null) {
-            $X = $this->alloc($shape,$dtype);
+            $X = $this->alloc($shape,dtype:$dtype);
         } else {
             if ($X->shape()!=$shape) {
                 throw new InvalidArgumentException('Unmatch shape and shape of X');
@@ -4861,7 +4861,7 @@ class LinearAlgebraCL
             $m = count($values);
             $shape = $values[0]->shape();
             array_unshift($shape,$m);
-            $output = $this->alloc($shape,$values[0]->dtype());
+            $output = $this->alloc($shape,dtype:$values[0]->dtype());
             $i = 0;
             foreach($values as $value){
                 if(!($value instanceof NDArray)) {
@@ -4885,7 +4885,7 @@ class LinearAlgebraCL
             $m = array_shift($shape);
             array_unshift($shape,$n);
             array_unshift($shape,$m);
-            $output = $this->alloc($shape,$values[0]->dtype());
+            $output = $this->alloc($shape,dtype:$values[0]->dtype());
             $i = 0;
             foreach($values as $value){
                 if(!($value instanceof NDArray)) {
@@ -4913,7 +4913,7 @@ class LinearAlgebraCL
             array_unshift($shape,$k);
             array_unshift($shape,$n);
             array_unshift($shape,$m);
-            $output = $this->alloc($shape,$values[0]->dtype());
+            $output = $this->alloc($shape,dtype:$values[0]->dtype());
             $i = 0;
             foreach($values as $value){
                 if(!($value instanceof NDArray)) {
@@ -4988,7 +4988,7 @@ class LinearAlgebraCL
         }
         $dims = $shape;
         $shape = array_merge([$m,$n],$shape);
-        $output = $this->alloc($shape,$values[0]->dtype());
+        $output = $this->alloc($shape,dtype:$values[0]->dtype());
         $i = 0;
         foreach ($reshapeValues as $value) {
             $nn = $value->shape()[1];
@@ -5035,7 +5035,7 @@ class LinearAlgebraCL
         $outputs = [];
         $dtype = $input->dtype();
         foreach($sizeSplits as $size) {
-            $outputs[] = $this->alloc(array_merge($shapePrefix,[$size],$shape),$dtype);
+            $outputs[] = $this->alloc(array_merge($shapePrefix,[$size],$shape),dtype:$dtype);
         }
         $i = 0;
         $outidx = 0;
@@ -5172,7 +5172,7 @@ class LinearAlgebraCL
         $outputShape = array_merge(
             $outputShape,$shape);
         if($output==null){
-            $output = $this->alloc($outputShape,$input->dtype());
+            $output = $this->alloc($outputShape,dtype:$input->dtype());
         }else{
             if($outputShape!=$output->shape()){
                 throw new InvalidArgumentException('Unmatch output shape: '.
@@ -5253,7 +5253,7 @@ class LinearAlgebraCL
                 $outputShape = array_merge($outerShape,[$repeats],$innerShape);
             }
         }
-        $B = $this->alloc($outputShape,$A->dtype());
+        $B = $this->alloc($outputShape,dtype:$A->dtype());
         $m = (int)array_product($outerShape);
         $k = (int)array_product($innerShape)*$base;
         $AA = $A->buffer();
@@ -5338,7 +5338,7 @@ class LinearAlgebraCL
             $shapeB[] = $shapeA[$axis];
         }
         if($B===null) {
-            $B = $this->alloc($shapeB,$A->dtype());
+            $B = $this->alloc($shapeB,dtype:$A->dtype());
         } else {
             if($B->shape()!=$shapeB) {
                 throw new InvalidArgumentException('output shape must be transpose matrix of input.');
@@ -5394,7 +5394,7 @@ class LinearAlgebraCL
         $shape = $A->shape();
         $shape = [$shape[1],$shape[0]];
         if($B==null) {
-            $B = $this->alloc($shape,$A->dtype());
+            $B = $this->alloc($shape,dtype:$A->dtype());
         }/* else {
             if($B->shape()!=$shape) {
                 throw new InvalidArgumentException('output shape must be transpose matrix of input.');
@@ -5482,7 +5482,7 @@ class LinearAlgebraCL
         }
         $shape = $A->shape();
         if($B==null) {
-            $B = $this->alloc($shape,$A->dtype());
+            $B = $this->alloc($shape,dtype:$A->dtype());
             $this->zeros($B);
         } else {
             if($B->shape()!=$shape) {
