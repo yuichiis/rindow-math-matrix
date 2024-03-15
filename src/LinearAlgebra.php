@@ -824,7 +824,7 @@ class LinearAlgebra
         }
         $flatC = $C->reshape(array_merge([$broadcastDest],$shapeEC));
         $CC = $C->buffer();
-        $repeats = (int)floor($broadcastDest/$broadcastBase);
+        $repeats = intdiv($broadcastDest/$broadcastBase);
         $offA = $A->offset();
         $offB = $B->offset();
         $offC = $C->offset();
