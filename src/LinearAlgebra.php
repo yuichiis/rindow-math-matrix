@@ -819,8 +819,7 @@ class LinearAlgebra
                     implode(',',$A->shape()).'] , ['.implode(',',$B->shape()).'] => ['.implode(',',$C->shape()).']');
             }
         } else {
-            $C = $this->alloc($orgShapeC,dtype:$A->dtype());
-            $this->zeros($C);
+            $C = $this->zeros($this->alloc($orgShapeC,dtype:$A->dtype()));
         }
         $flatC = $C->reshape(array_merge([$broadcastDest],$shapeEC));
         $CC = $C->buffer();
@@ -2044,8 +2043,7 @@ class LinearAlgebra
             $dtype = $A->dtype();
         }
         if($output==null) {
-            $output = $this->alloc($outputShape,dtype:$dtype);
-            $this->zeros($output);
+            $output = $this->zeros($this->alloc($outputShape,dtype:$dtype));
         } else {
             if($output->shape()!=$outputShape) {
                 throw new InvalidArgumentException("Unmatch output shape of dimension: ".
@@ -2199,8 +2197,7 @@ class LinearAlgebra
             $dtype = $A->dtype();
         }
         if($output==null) {
-            $output = $this->alloc($outputShape,dtype:$dtype);
-            $this->zeros($output);
+            $output = $this->zeros($this->alloc($outputShape,dtype:$dtype));
         } else {
             if($output->shape()!=$outputShape) {
                 $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$output->shape()).')';

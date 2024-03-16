@@ -451,7 +451,7 @@ class LinearAlgebraCL
     {
         $newArray = $this->alloc($array->shape(),dtype:$array->dtype(),flags:$flags);
         $events = $this->newEventList();
-        $this->zeros($newArray,$events);
+        $this->zeros($newArray,events:$events);
         $events->wait();
         return $newArray;
     }
@@ -1370,6 +1370,10 @@ class LinearAlgebraCL
             }
         } else {
             $Y = $this->alloc([$rows],dtype:$X->dtype(),flags:OpenCL::CL_MEM_READ_WRITE);
+            // ** CAUTION ** it must fill it with zeros because NAN can't reset by beta.
+            $zerosEvents = $this->newEventList();
+            $this->zeros($Y,events:$zerosEvents);
+            $zerosEvents->wait();
             $beta = $this->buildValByType(0.0,$A->dtype());
         }
         $YY = $Y->buffer();
@@ -1450,6 +1454,10 @@ class LinearAlgebraCL
             }
         } else {
             $C = $this->alloc([$M,$N],dtype:$A->dtype());
+            // ** CAUTION ** it must fill it with zeros because NAN can't reset by beta.
+            $zerosEvents = $this->newEventList();
+            $this->zeros($C,events:$zerosEvents);
+            $zerosEvents->wait();
             $beta = $this->buildValByType(0.0,$A->dtype());
         }
         $CC = $C->buffer();
@@ -1566,7 +1574,10 @@ class LinearAlgebraCL
             }
         } else {
             $C = $this->alloc($orgShapeC,dtype:$A->dtype());
-            $this->zeros($C);
+            // ** CAUTION ** it must fill it with zeros because NAN can't reset by beta.
+            $zerosEvents = $this->newEventList();
+            $this->zeros($C,events:$zerosEvents);
+            $zerosEvents->wait();
         }
         $flatC = $C->reshape(array_merge([$broadcastDest],$shapeEC));
         $CC = $C->buffer();
@@ -1658,7 +1669,11 @@ class LinearAlgebraCL
                 throw new InvalidArgumentException('Matrix "B" and "C" must be same shape');
             }
         } else {
-            $C = $this->zeros($this->alloc([$M,$N],dtype:$A->dtype()));
+            $C = $this->alloc([$M,$N],dtype:$A->dtype());
+            // ** CAUTION ** it must fill it with zeros because NAN can't reset by beta.
+            $zerosEvents = $this->newEventList();
+            $this->zeros($C,events:$zerosEvents);
+            $zerosEvents->wait();
         }
         $CC = $C->buffer();
         $offC = $C->offset();
@@ -1734,7 +1749,11 @@ class LinearAlgebraCL
                 throw new InvalidArgumentException('"C" rows and cols must have the same number of "A" cols');
             }
         } else {
-            $C = $this->zeros($this->alloc([$N,$N],dtype:$A->dtype()));
+            $C = $this->alloc([$N,$N],dtype:$A->dtype());
+            // ** CAUTION ** it must fill it with zeros because NAN can't reset by beta.
+            $zerosEvents = $this->newEventList();
+            $this->zeros($C,events:$zerosEvents);
+            $zerosEvents->wait();
         }
         $CC = $C->buffer();
         $offC = $C->offset();
@@ -1816,7 +1835,11 @@ class LinearAlgebraCL
                 throw new InvalidArgumentException('"C" rows and cols must have the same number of "A" cols');
             }
         } else {
-            $C = $this->zeros($this->alloc([$N,$N],dtype:$A->dtype()));
+            $C = $this->alloc([$N,$N],dtype:$A->dtype());
+            // ** CAUTION ** it must fill it with zeros because NAN can't reset by beta.
+            $zerosEvents = $this->newEventList();
+            $this->zeros($C,events:$zerosEvents);
+            $zerosEvents->wait();
         }
         $CC = $C->buffer();
         $offC = $C->offset();
@@ -2015,7 +2038,11 @@ class LinearAlgebraCL
             [$rows,$cols] = [$cols,$rows];
         }
         if($B===null) {
-            $B = $this->zeros($this->alloc([$rows,$cols],dtype:$A->dtype()));
+            $B = $this->alloc([$rows,$cols],dtype:$A->dtype());
+            // ** CAUTION ** it must fill it with zeros because NAN can't reset by beta.
+            $zerosEvents = $this->newEventList();
+            $this->zeros($B,events:$zerosEvents);
+            $zerosEvents->wait();
         } else {
             if($B->shape()!=[$rows,$cols]) {
                 $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$B->shape()).')';
@@ -4076,7 +4103,9 @@ class LinearAlgebraCL
                     $batches,$channels,$filter_h,$filter_w, // channels_first
                     $out_h,$out_w,                          // filters first
                 ],dtype:$images->dtype());
-                $this->zeros($cols);
+                $zerosEvents = $this->newEventList();
+                $this->zeros($cols,events:$zerosEvents);
+                $zerosEvents->wait();
             //} else {
             //    $cols = $this->alloc([
             //        $batches,$out_h,$out_w,
@@ -5483,7 +5512,9 @@ class LinearAlgebraCL
         $shape = $A->shape();
         if($B==null) {
             $B = $this->alloc($shape,dtype:$A->dtype());
-            $this->zeros($B);
+            $zerosEvents = $this->newEventList();
+            $this->zeros($B,events:$zerosEvents);
+            $zerosEvents->wait();
         } else {
             if($B->shape()!=$shape) {
                 throw new InvalidArgumentException('output shape must be transpose matrix of input.');
