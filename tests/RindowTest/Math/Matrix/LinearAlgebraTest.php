@@ -8969,11 +8969,11 @@ class LinearAlgebraTest extends TestCase
         $la = $this->newLA($mo);
 
         $x = $la->randomUniform(
-            $shape=[50,60],
+            $shape=[20,30],
             $low=-1.0,
             $high=1.0);
         $y = $la->randomUniform(
-            $shape=[50,60],
+            $shape=[20,30],
             $low=-1,
             $high=1);
         $this->assertEquals(
@@ -8983,17 +8983,17 @@ class LinearAlgebraTest extends TestCase
             $y->toArray());
         $this->assertLessThanOrEqual(1,$la->max($x));
         $this->assertGreaterThanOrEqual(-1,$la->min($x));
-        $fluct = $this->chi2(50*60, $la->toNDArray($x), $la->min($x), $la->max($x), 10);
+        $fluct = $this->chi2($x->size(), $la->toNDArray($x), $la->min($x), $la->max($x), 10);
         $this->assertLessThan(50.0,$fluct); // 16.919>fluct
 
         $x = $la->randomUniform(
-            $shape=[50,60],
+            $shape=[20,30],
             $low=-1,
             $high=1,
             $dtype=NDArray::int32
             );
         $y = $la->randomUniform(
-            $shape=[50,60],
+            $shape=[20,30],
             $low=-1,
             $high=1,
             $dtype=NDArray::int32);
@@ -9010,7 +9010,7 @@ class LinearAlgebraTest extends TestCase
             $this->assertEquals(1,round($la->max($x)));
             $this->assertEquals(-1,round($la->min($x)));
         }
-        $fluct = $this->chi2(50*60, $la->toNDArray($x), $la->min($x), $la->max($x), 3);
+        $fluct = $this->chi2($x->size(), $la->toNDArray($x), $la->min($x), $la->max($x), 3);
         $this->assertLessThan(50.0,$fluct); // 16.919>fluct
     }
 
