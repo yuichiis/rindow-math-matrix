@@ -10,10 +10,11 @@ Rindow Math Matrix is the fundamental package for scientific matrix operation
 
 - A powerful N-dimensional array object
 - Sophisticated (broadcasting) functions
-- Tools for integrating C/C++ through the FFI (OpenBLAS,Rindow-Matlib etc.)
+- BLAS functions
+- Functions useful for machine learning
+- Tools for integrating C/C++ through the FFI (OpenBLAS,Rindow-Matlib,CLBlast etc.)
 - GPU support on your laptop without n-vidia (OpenCL with Intel,AMD etc.)
 - Useful linear algebra and random number capabilities
-
 
 Please see the documents on [Rindow mathematics project](https://rindow.github.io/mathematics/) web pages.
 
@@ -21,7 +22,7 @@ Requirements
 ============
 
 - PHP 8.1 or PHP8.2 or PHP8.3
-- PHP7.2 or PHP7.3 or PHP7.4 is not supported in this release. Please use Release 1.1, which supports PHP7.2 or PHP7.3 or PHP7.4 or PHP 8.0.
+- PHP7.2, PHP7.3, PHP7.4 and PHP 8.0 are not supported in this release. Please use Release 1.1, which supports them.
 
 ### Strong recommend ###
 You can perform very fast N-dimensional array operations in conjunction
