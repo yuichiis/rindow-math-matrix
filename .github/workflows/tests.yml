@@ -26,3 +26,4 @@ jobs:
           configuration: tests/phpunit.xml
           version: 10.5
           php_version: ${{ matrix.php }}
+          memory_limit: 512M

@@ -8017,6 +8017,7 @@ class LinearAlgebraTest extends TestCase
                 'dilation_w' => 1,
                 'cols_channels_first' => null,
             ]],
+
             'stride_d padding' => [[
                 'batches' => 2,
                 'im_d' => 8,
@@ -8328,19 +8329,19 @@ class LinearAlgebraTest extends TestCase
     public static function providerIm2col3dNormalDEBUG()
     {
         return [
-            'kernel_h' => [[
+            'kernel_d padding' => [[
                 'batches' => 2,
                 'im_d' => 8,
                 'im_h' => 8,
                 'im_w' => 8,
                 'channels' => 3,
-                'kernel_d' => 3,
-                'kernel_h' => 4,
+                'kernel_d' => 4,
+                'kernel_h' => 3,
                 'kernel_w' => 3,
                 'stride_d' => 1,
                 'stride_h' => 1,
                 'stride_w' => 1,
-                'padding' => null,
+                'padding' => true,
                 'channels_first' => null,
                 'dilation_d' => 1,
                 'dilation_h' => 1,
@@ -8352,6 +8353,7 @@ class LinearAlgebraTest extends TestCase
 
     /**
     * @dataProvider providerIm2col3dNormal
+    * providerIm2col3dNormalDEBUG
     */
     public function testIm2col3dNormal($params)
     {
