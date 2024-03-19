@@ -6652,11 +6652,11 @@ class LinearAlgebraTest extends TestCase
                 $dilation_h,$dilation_w],
             cols_channels_first:$cols_channels_first
         );
-        $out_h = intval(floor(($im_h-($kernel_h-1)*$dilation_h-1)/$stride_h)+1);
-        $out_w = intval(floor(($im_w-($kernel_w-1)*$dilation_w-1)/$stride_w)+1);
+        $out_h = intdiv(($im_h-($kernel_h-1)*$dilation_h-1),$stride_h)+1;
+        $out_w = intdiv(($im_w-($kernel_w-1)*$dilation_w-1),$stride_w)+1;
         if($padding) {
-            $padding_h = (int)floor((($im_h-1)*$stride_h-$im_h+($kernel_h-1)*$dilation_h+1)/2);
-            $padding_w = (int)floor((($im_w-1)*$stride_w-$im_w+($kernel_w-1)*$dilation_w+1)/2);
+            $padding_h = (int)intdiv((($im_h-1)*$stride_h-$im_h+($kernel_h-1)*$dilation_h+1),2);
+            $padding_w = (int)intdiv((($im_w-1)*$stride_w-$im_w+($kernel_w-1)*$dilation_w+1),2);
             $out_h = $im_h;
             $out_w = $im_w;
         } else {
@@ -6997,8 +6997,8 @@ class LinearAlgebraTest extends TestCase
                 $dilation_h,$dilation_w],
             $cols_channels_first
         );
-        $out_h = intval(floor(($im_h-($kernel_h-1)*$dilation_h-1)/$stride_h)+1);
-        $out_w = intval(floor(($im_w-($kernel_w-1)*$dilation_w-1)/$stride_w)+1);
+        $out_h = intdiv(($im_h-($kernel_h-1)*$dilation_h-1),$stride_h)+1;
+        $out_w = intdiv(($im_w-($kernel_w-1)*$dilation_w-1),$stride_w)+1;
         //var_dump($cols->shape());
         #echo "===== cols =====\n";
         #echo $mo->toString($cols->toNDArray(),'%2d',true);
@@ -7063,8 +7063,8 @@ class LinearAlgebraTest extends TestCase
                 $dilation_h,$dilation_w],
             $cols_channels_first
         );
-        $out_h = intval(floor(($im_h-($kernel_h-1)*$dilation_h-1)/$stride_h)+1);
-        $out_w = intval(floor(($im_w-($kernel_w-1)*$dilation_w-1)/$stride_w)+1);
+        $out_h = intdiv(($im_h-($kernel_h-1)*$dilation_h-1),$stride_h)+1;
+        $out_w = intdiv(($im_w-($kernel_w-1)*$dilation_w-1),$stride_w)+1;
         if($padding) {
             $out_h = $im_h;
             $out_w = $im_w;
@@ -7360,9 +7360,9 @@ class LinearAlgebraTest extends TestCase
                 $dilation_w],
             $cols_channels_first
         );
-        $out_w = intval(floor(($im_w-($kernel_w-1)*$dilation_w-1)/$stride_w)+1);
+        $out_w = intdiv(($im_w-($kernel_w-1)*$dilation_w-1),$stride_w)+1;
         if($padding) {
-            $padding_w = (int)floor((($im_w-1)*$stride_w-$im_w+($kernel_w-1)*$dilation_w+1)/2);
+            $padding_w = intdiv((($im_w-1)*$stride_w-$im_w+($kernel_w-1)*$dilation_w+1),2);
             $out_w = $im_w;
         } else {
             $padding_w = 0;
@@ -8415,16 +8415,10 @@ class LinearAlgebraTest extends TestCase
                 $dilation_d,$dilation_h,$dilation_w],
             $cols_channels_first
         );
-        //$out_d = intval(floor(($im_d-($kernel_d-1)*$dilation_d-1)/$stride_d)+1);
-        //$out_h = intval(floor(($im_h-($kernel_h-1)*$dilation_h-1)/$stride_h)+1);
-        //$out_w = intval(floor(($im_w-($kernel_w-1)*$dilation_w-1)/$stride_w)+1);
         $out_d = intdiv(($im_d-($kernel_d-1)*$dilation_d-1),$stride_d)+1;
         $out_h = intdiv(($im_h-($kernel_h-1)*$dilation_h-1),$stride_h)+1;
         $out_w = intdiv(($im_w-($kernel_w-1)*$dilation_w-1),$stride_w)+1;
         if($padding) {
-            //$padding_d = (int)floor((($im_d-1)*$stride_d-$im_d+($kernel_d-1)*$dilation_d+1)/2);
-            //$padding_h = (int)floor((($im_h-1)*$stride_h-$im_h+($kernel_h-1)*$dilation_h+1)/2);
-            //$padding_w = (int)floor((($im_w-1)*$stride_w-$im_w+($kernel_w-1)*$dilation_w+1)/2);
             $padding_d = intdiv((($im_d-1)*$stride_d-$im_d+($kernel_d-1)*$dilation_d+1),2);
             $padding_h = intdiv((($im_h-1)*$stride_h-$im_h+($kernel_h-1)*$dilation_h+1),2);
             $padding_w = intdiv((($im_w-1)*$stride_w-$im_w+($kernel_w-1)*$dilation_w+1),2);
@@ -8637,9 +8631,9 @@ class LinearAlgebraTest extends TestCase
                 $dilation_d,$dilation_h,$dilation_w],
             $cols_channels_first
         );
-        $out_d = intval(floor(($im_d-($kernel_d-1)*$dilation_d-1)/$stride_d)+1);
-        $out_h = intval(floor(($im_h-($kernel_h-1)*$dilation_h-1)/$stride_h)+1);
-        $out_w = intval(floor(($im_w-($kernel_w-1)*$dilation_w-1)/$stride_w)+1);
+        $out_d = intdiv(($im_d-($kernel_d-1)*$dilation_d-1),$stride_d)+1;
+        $out_h = intdiv(($im_h-($kernel_h-1)*$dilation_h-1),$stride_h)+1;
+        $out_w = intdiv(($im_w-($kernel_w-1)*$dilation_w-1),$stride_w)+1;
 
         $this->assertEquals(
             [

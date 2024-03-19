@@ -1653,8 +1653,8 @@ class PhpMath
             count($images)-$images_offset<$images_buf_size) {
             throw new InvalidArgumentException('images buffer size is invalid');
         }
-        //$out_w = (int)floor(($im_w-$filter_w)/$stride_w)+1;
-        $out_w = intval(floor(($im_w-($filter_w-1)*$dilation_w-1)/$stride_w)+1);
+        //$out_w = intdiv(($im_w-$filter_w),$stride_w)+1;
+        $out_w = intdiv(($im_w-($filter_w-1)*$dilation_w-1),$stride_w)+1;
         if($out_w<=0) {
             throw new InvalidArgumentException('Invalid shape or parameters.');
         }
@@ -1664,7 +1664,7 @@ class PhpMath
                 $im_w*$filter_w*
                 $channels;
             #print('outsz=',out.shape)
-            $padding_w = (int)floor((($im_w-1)*$stride_w-$im_w+($filter_w-1)*$dilation_w+1)/2);
+            $padding_w = intdiv((($im_w-1)*$stride_w-$im_w+($filter_w-1)*$dilation_w+1),2);
             $out_w = $im_w;
         } else {
             $out_buf_size = $batches*
@@ -1858,8 +1858,8 @@ class PhpMath
             count($images)-$images_offset<$images_buf_size) {
             throw new InvalidArgumentException('images buffer size is invalid');
         }
-        $out_h = intval(floor(($im_h-($filter_h-1)*$dilation_h-1)/$stride_h)+1);
-        $out_w = intval(floor(($im_w-($filter_w-1)*$dilation_w-1)/$stride_w)+1);
+        $out_h = intdiv(($im_h-($filter_h-1)*$dilation_h-1),$stride_h)+1;
+        $out_w = intdiv(($im_w-($filter_w-1)*$dilation_w-1),$stride_w)+1;
         if($out_h<=0 || $out_w<=0) {
             throw new InvalidArgumentException('Invalid shape or parameters.');
         }
@@ -1871,8 +1871,8 @@ class PhpMath
                 $channels;
             #print('outsz=',out.shape)
             #print('start-end=(%d,%d)-(%d,%d)'%(start_h,start_w,end_h,end_w))
-            $padding_h = (int)floor((($im_h-1)*$stride_h-$im_h+($filter_h-1)*$dilation_h+1)/2);
-            $padding_w = (int)floor((($im_w-1)*$stride_w-$im_w+($filter_w-1)*$dilation_w+1)/2);
+            $padding_h = intdiv((($im_h-1)*$stride_h-$im_h+($filter_h-1)*$dilation_h+1),2);
+            $padding_w = intdiv((($im_w-1)*$stride_w-$im_w+($filter_w-1)*$dilation_w+1),2);
             $out_h = $im_h;
             $out_w = $im_w;
         } else {
@@ -2098,9 +2098,9 @@ class PhpMath
             count($images)-$images_offset<$images_buf_size) {
             throw new InvalidArgumentException('images buffer size is invalid');
         }
-        $out_d = intval(floor(($im_d-($filter_d-1)*$dilation_d-1)/$stride_d)+1);
-        $out_h = intval(floor(($im_h-($filter_h-1)*$dilation_h-1)/$stride_h)+1);
-        $out_w = intval(floor(($im_w-($filter_w-1)*$dilation_w-1)/$stride_w)+1);
+        $out_d = intdiv(($im_d-($filter_d-1)*$dilation_d-1),$stride_d)+1;
+        $out_h = intdiv(($im_h-($filter_h-1)*$dilation_h-1),$stride_h)+1;
+        $out_w = intdiv(($im_w-($filter_w-1)*$dilation_w-1),$stride_w)+1;
         if($out_h<=0 || $out_w<=0) {
             throw new InvalidArgumentException('Invalid shape or parameters.');
         }
@@ -2112,9 +2112,9 @@ class PhpMath
                 $im_w*$filter_w*
                 $channels;
             #print('outsz=',out.shape)
-            $padding_d = (int)floor((($im_d-1)*$stride_d-$im_h+($filter_d-1)*$dilation_d+1)/2);
-            $padding_h = (int)floor((($im_h-1)*$stride_h-$im_h+($filter_h-1)*$dilation_h+1)/2);
-            $padding_w = (int)floor((($im_w-1)*$stride_w-$im_w+($filter_w-1)*$dilation_w+1)/2);
+            $padding_d = intdiv((($im_d-1)*$stride_d-$im_h+($filter_d-1)*$dilation_d+1),2);
+            $padding_h = intdiv((($im_h-1)*$stride_h-$im_h+($filter_h-1)*$dilation_h+1),2);
+            $padding_w = intdiv((($im_w-1)*$stride_w-$im_w+($filter_w-1)*$dilation_w+1),2);
             $out_d = $im_d;
             $out_h = $im_h;
             $out_w = $im_w;
@@ -2246,13 +2246,10 @@ class PhpMath
             $isInt = false;
         }
         if($isInt) {
-            $origHigh = $high;
             $high += 1;
+            $width = $high-$low;
             for($i=0; $i<$n; $i++,$px+=$incX) {
-                $value = ((int)floor(($high-$low)*mt_rand()/mt_getrandmax()))+$low;
-                if($value>$origHigh) {
-                    $value = $origHigh;
-                }
+                $value = mt_rand()%$width+$low;
                 $X[$px] = $value;
             }
         } else {

@@ -870,8 +870,8 @@ class LinearAlgebraCLTest extends ORGTest
         //$out_h = 2;
         //$out_w = 2;
         //echo "image=($im_h,$im_w)\n";
-        $out_h = intval(floor(($im_h-($kernel_h-1)*$dilation_h-1)/$stride_h)+1);
-        $out_w = intval(floor(($im_w-($kernel_w-1)*$dilation_w-1)/$stride_w)+1);
+        $out_h = intdiv(($im_h-($kernel_h-1)*$dilation_h-1),$stride_h)+1;
+        $out_w = intdiv(($im_w-($kernel_w-1)*$dilation_w-1),$stride_w)+1;
         $padding_h = 0;
         $padding_w = 0;
         if($padding) {

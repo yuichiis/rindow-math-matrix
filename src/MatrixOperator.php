@@ -644,7 +644,7 @@ class MatrixOperator
                 $w *= $shape[$j];
             }
 
-            $p = (int)floor($pos / $w);
+            $p = intdiv($pos , $w);
             $pos = $pos % $w;
             array_push($index,$p);
         }

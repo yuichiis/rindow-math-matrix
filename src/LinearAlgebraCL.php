@@ -4065,8 +4065,8 @@ class LinearAlgebraCL
             $dilation_rate;
         //$channels_first = ($channels_first) ? true:false;
         //$cols_channels_first = ($cols_channels_first) ? true:false;
-        $out_h = intval(floor(($im_h-($filter_h-1)*$dilation_h-1)/$stride_h)+1);
-        $out_w = intval(floor(($im_w-($filter_w-1)*$dilation_w-1)/$stride_w)+1);
+        $out_h = intdiv(($im_h-($filter_h-1)*$dilation_h-1),$stride_h)+1;
+        $out_w = intdiv(($im_w-($filter_w-1)*$dilation_w-1),$stride_w)+1;
         if($out_h<=0 && $out_w<=0) {
             throw new InvalidArgumentException('Invalid shape or parameters.');
         }
@@ -4081,12 +4081,12 @@ class LinearAlgebraCL
                 if($padding_h%2) {
                     $out_h++;
                 }
-                $padding_h = $padding_h ? (int)floor($padding_h/2) : 0;
+                $padding_h = $padding_h ? intdiv($padding_h,2) : 0;
                 $padding_w = (int)(($im_w-1)*$stride_w-$im_w+($filter_w-1)*$dilation_w+1);
                 if($padding_w%2) {
                     $out_w++;
                 }
-                $padding_w = $padding_w ? (int)floor($padding_w/2) : 0;
+                $padding_w = $padding_w ? intdiv($padding_w,2) : 0;
             }
         } elseif(is_array($padding)) {
             $padding_h = $padding[0];
@@ -4374,7 +4374,7 @@ class LinearAlgebraCL
             if($padding) {
                 $out_w = $im_w;
             } else {
-                $out_w = intval(floor(($im_w-($kernel_w-1)*$dilation_w-1)/$stride_w)+1);
+                $out_w = intdiv(($im_w-($kernel_w-1)*$dilation_w-1),$stride_w)+1;
             }
             if($out_w<=0) {
                 throw new InvalidArgumentException('Invalid shape or paramaters.');
@@ -4479,8 +4479,8 @@ class LinearAlgebraCL
                 $out_h = $im_h;
                 $out_w = $im_w;
             } else {
-                $out_h = intval(floor(($im_h-($kernel_h-1)*$dilation_h-1)/$stride_h)+1);
-                $out_w = intval(floor(($im_w-($kernel_w-1)*$dilation_w-1)/$stride_w)+1);
+                $out_h = intdiv(($im_h-($kernel_h-1)*$dilation_h-1),$stride_h)+1;
+                $out_w = intdiv(($im_w-($kernel_w-1)*$dilation_w-1),$stride_w)+1;
             }
             if($out_h<=0 && $out_w<=0) {
                 throw new InvalidArgumentException('Invalid shape or parameters.');
@@ -4590,9 +4590,9 @@ class LinearAlgebraCL
                 $out_h = $im_h;
                 $out_w = $im_w;
             } else {
-                $out_d = intval(floor(($im_d-($kernel_d-1)*$dilation_d-1)/$stride_d)+1);
-                $out_h = intval(floor(($im_h-($kernel_h-1)*$dilation_h-1)/$stride_h)+1);
-                $out_w = intval(floor(($im_w-($kernel_w-1)*$dilation_w-1)/$stride_w)+1);
+                $out_d = intdiv(($im_d-($kernel_d-1)*$dilation_d-1),$stride_d)+1;
+                $out_h = intdiv(($im_h-($kernel_h-1)*$dilation_h-1),$stride_h)+1;
+                $out_w = intdiv(($im_w-($kernel_w-1)*$dilation_w-1),$stride_w)+1;
             }
             if($out_d<=0 || $out_h<=0 || $out_w<=0) {
                 throw new InvalidArgumentException('Invalid shape or paramaters.');

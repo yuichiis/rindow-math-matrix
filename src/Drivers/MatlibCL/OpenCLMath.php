@@ -5434,9 +5434,9 @@ class OpenCLMath
             $this->assertFP64();
         }
 
-        $output_w = intval(floor(($im_w-($kernel_w-1)*$dilation_w-1)/$stride_w)+1);
+        $output_w = intdiv(($im_w-($kernel_w-1)*$dilation_w-1),$stride_w)+1;
         if($padding) {
-            $pad_w = (int)floor((($im_w-1)*$stride_w-$im_w+($kernel_w-1)*$dilation_w+1)/2);
+            $pad_w = intdiv((($im_w-1)*$stride_w-$im_w+($kernel_w-1)*$dilation_w+1),2);
             $output_w = $im_w;
         } else {
             $pad_w = 0;
@@ -5617,11 +5617,11 @@ class OpenCLMath
             $this->assertFP64();
         }
 
-        $output_h = intval(floor(($im_h-($kernel_h-1)*$dilation_h-1)/$stride_h)+1);
-        $output_w = intval(floor(($im_w-($kernel_w-1)*$dilation_w-1)/$stride_w)+1);
+        $output_h = intdiv(($im_h-($kernel_h-1)*$dilation_h-1),$stride_h)+1;
+        $output_w = intdiv(($im_w-($kernel_w-1)*$dilation_w-1),$stride_w)+1;
         if($padding) {
-            $pad_h = (int)floor((($im_h-1)*$stride_h-$im_h+($kernel_h-1)*$dilation_h+1)/2);
-            $pad_w = (int)floor((($im_w-1)*$stride_w-$im_w+($kernel_w-1)*$dilation_w+1)/2);
+            $pad_h = intdiv((($im_h-1)*$stride_h-$im_h+($kernel_h-1)*$dilation_h+1),2);
+            $pad_w = intdiv((($im_w-1)*$stride_w-$im_w+($kernel_w-1)*$dilation_w+1),2);
             $output_h = $im_h;
             $output_w = $im_w;
         } else {
@@ -5837,13 +5837,13 @@ class OpenCLMath
             $this->assertFP64();
         }
 
-        $output_d = intval(floor(($im_d-($kernel_d-1)*$dilation_d-1)/$stride_d)+1);
-        $output_h = intval(floor(($im_h-($kernel_h-1)*$dilation_h-1)/$stride_h)+1);
-        $output_w = intval(floor(($im_w-($kernel_w-1)*$dilation_w-1)/$stride_w)+1);
+        $output_d = intdiv(($im_d-($kernel_d-1)*$dilation_d-1),$stride_d)+1;
+        $output_h = intdiv(($im_h-($kernel_h-1)*$dilation_h-1),$stride_h)+1;
+        $output_w = intdiv(($im_w-($kernel_w-1)*$dilation_w-1),$stride_w)+1;
         if($padding) {
-            $pad_d = (int)floor((($im_d-1)*$stride_d-$im_d+($kernel_d-1)*$dilation_d+1)/2);
-            $pad_h = (int)floor((($im_h-1)*$stride_h-$im_h+($kernel_h-1)*$dilation_h+1)/2);
-            $pad_w = (int)floor((($im_w-1)*$stride_w-$im_w+($kernel_w-1)*$dilation_w+1)/2);
+            $pad_d = intdiv((($im_d-1)*$stride_d-$im_d+($kernel_d-1)*$dilation_d+1),2);
+            $pad_h = intdiv((($im_h-1)*$stride_h-$im_h+($kernel_h-1)*$dilation_h+1),2);
+            $pad_w = intdiv((($im_w-1)*$stride_w-$im_w+($kernel_w-1)*$dilation_w+1),2);
             $output_d = $im_d;
             $output_h = $im_h;
             $output_w = $im_w;

@@ -2679,8 +2679,8 @@ class LinearAlgebra
             if($padding) {
                 $out_w = $in_w;
             } else {
-                //$out_w = intval(floor(($in_w-$filter_w)/$stride_w)+1);
-                $out_w = intval(floor(($in_w-($filter_w-1)*$dilation_w-1)/$stride_w)+1);
+                //$out_w = intdiv(($in_w-$filter_w),$stride_w)+1;
+                $out_w = intdiv(($in_w-($filter_w-1)*$dilation_w-1),$stride_w)+1;
             }
             if($out_w<=0) {
                 throw new InvalidArgumentException('Invalid shape or paramaters.');
@@ -2776,10 +2776,10 @@ class LinearAlgebra
                 $out_h = $in_h;
                 $out_w = $in_w;
             } else {
-                //$out_h = intval(floor(($in_h-$filter_h)/$stride_h)+1);
-                //$out_w = intval(floor(($in_w-$filter_w)/$stride_w)+1);
-                $out_h = intval(floor(($in_h-($filter_h-1)*$dilation_h-1)/$stride_h)+1);
-                $out_w = intval(floor(($in_w-($filter_w-1)*$dilation_w-1)/$stride_w)+1);
+                //$out_h = intdiv(($in_h-$filter_h),$stride_h)+1;
+                //$out_w = intdiv(($in_w-$filter_w),$stride_w)+1;
+                $out_h = intdiv(($in_h-($filter_h-1)*$dilation_h-1),$stride_h)+1;
+                $out_w = intdiv(($in_w-($filter_w-1)*$dilation_w-1),$stride_w)+1;
             }
             if($out_h<=0 || $out_w<=0) {
                 throw new InvalidArgumentException('Invalid shape or paramaters.');
@@ -2883,12 +2883,12 @@ class LinearAlgebra
                 $out_h = $in_h;
                 $out_w = $in_w;
             } else {
-                //$out_d = intval(floor(($in_d-$filter_d)/$stride_d)+1);
-                //$out_h = intval(floor(($in_h-$filter_h)/$stride_h)+1);
-                //$out_w = intval(floor(($in_w-$filter_w)/$stride_w)+1);
-                $out_d = intval(floor(($in_d-($filter_d-1)*$dilation_d-1)/$stride_d)+1);
-                $out_h = intval(floor(($in_h-($filter_h-1)*$dilation_h-1)/$stride_h)+1);
-                $out_w = intval(floor(($in_w-($filter_w-1)*$dilation_w-1)/$stride_w)+1);
+                //$out_d = intdiv(($in_d-$filter_d),$stride_d)+1;
+                //$out_h = intdiv(($in_h-$filter_h),$stride_h)+1;
+                //$out_w = intdiv(($in_w-$filter_w),$stride_w)+1;
+                $out_d = intdiv(($in_d-($filter_d-1)*$dilation_d-1),$stride_d)+1;
+                $out_h = intdiv(($in_h-($filter_h-1)*$dilation_h-1),$stride_h)+1;
+                $out_w = intdiv(($in_w-($filter_w-1)*$dilation_w-1),$stride_w)+1;
             }
             if($out_d<=0 || $out_h<=0 || $out_w<=0) {
                 throw new InvalidArgumentException('Invalid shape or paramaters.');
