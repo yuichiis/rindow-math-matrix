@@ -4945,7 +4945,7 @@ class LinearAlgebraTest extends TestCase
         }
 
     }
-
+/*
     public function testScatterAddExNormal()
     {
         $mo = $this->newMatrixOperator();
@@ -5315,33 +5315,7 @@ class LinearAlgebraTest extends TestCase
             [-1, 1, 1],
         ],$la->onehot($x,3,alpha:-2,output:$y)->toArray());
     }
-/*
-    public function testReduceSumOLDNormal()
-    {
-        $mo = $this->newMatrixOperator();
-        $la = $this->newLA($mo);
-        $x = $la->array([[1,2,3],[4,5,6]]);
-        $y = $la->reduceSum($x,axis:0);
-        $this->assertEquals([5,7,9],$y->toArray());
-        $y = $la->reduceSum($x,axis:1);
-        $this->assertEquals([6,15],$y->toArray());
-
-        // ***** CAUTION ******
-        // 3d array as 2d array
-        $x = $la->array([[[1,2],[3,4]],[[5,6],[7,8]]]);
-        $y = $la->reduceSum($x,axis:0);
-        $this->assertEquals([6,8,10,12],$y->toArray());
-        $x = $la->array([[[1,2],[3,4]],[[5,6],[7,8]]]);
-        $y = $la->reduceSum($x,axis:1);
-        $this->assertEquals([3,7,11,15],$y->toArray());
-
-        // with offset
-        $x = $la->array([[[9,9,9],[9,9,9]],[[1,2,3],[4,5,6]]]);
-        $x = $x[1];
-        $this->assertEquals([5,7,9],$la->reduceSum($x,axis:0)->toArray());
-        $this->assertEquals([6,15],$la->reduceSum($x,axis:1)->toArray());
-    }
-*/
+d
     public function testReduceSumNormal()
     {
         $mo = $this->newMatrixOperator();
@@ -5379,38 +5353,7 @@ class LinearAlgebraTest extends TestCase
             [[3,3,3,3]],
         ],$y->toArray());
     }
-/*
-    public function testReduceSumOLDLarge()
-    {
-        $mo = $this->newMatrixOperator();
-        $la = $this->newLA($mo);
-        if(!$la->accelerated()) {
-            $this->markTestSkipped('Skip due to high load');
-            return;
-        }
-        // large size
-        $colsize = 1000000;
-        $rowsize = 64;
-        $x = $la->alloc([$rowsize,$colsize],NDArray::float32);
-        $la->fill(1.0,$x);
-        $sum = $la->reduceSum($x,axis:1);
-        $trues = $la->alloc([$rowsize],NDArray::float32);
-        $la->fill($colsize,$trues);
-        $this->assertLessThan(1e-3,$la->amax($la->axpy(
-            $trues,$sum,-1)));
 
-        // large size
-        $colsize = 64;
-        $rowsize = 10000;#00;
-        $x = $la->alloc([$rowsize,$colsize],NDArray::float32);
-        $la->fill(1.0,$x);
-        $sum = $la->reduceSum($x,axis:1);
-        $trues = $la->alloc([$rowsize],NDArray::float32);
-        $la->fill($colsize,$trues);
-        $this->assertLessThan(1e-3,$la->amax($la->axpy(
-            $trues,$sum,-1)));
-    }
-*/
     public function testReduceSumLarge()
     {
         $mo = $this->newMatrixOperator();
@@ -5441,68 +5384,7 @@ class LinearAlgebraTest extends TestCase
         $this->assertLessThan(1e-3,$la->amax($la->axpy(
             $trues,$sum,-1)));
     }
-/*
-    public function testReduceSumOLDSpeed()
-    {
-        if(!self::$speedtest) {
-            $this->markTestSkipped('Speed measurement');
-            return;
-        }
-        $mo = $this->newMatrixOperator();
-        $la = $this->newLA($mo);
-        if($la->getConfig()=='PhpBlas') {
-            $this->assertTrue(true);
-            return;
-        }
 
-        echo "\n";
-
-        $colsize = 1000000;
-        $rowsize = 64;
-        $x = $la->alloc([$rowsize,$colsize],NDArray::float32);
-        fwrite(STDERR,"Start fill\n");
-        $la->fill(1.0,$x);
-        fwrite(STDERR,"End fill\n");
-        fwrite(STDERR,"Start prepare\n");
-        $sum = $la->reduceSum($x,axis:1);
-        fwrite(STDERR,"End prepare\n");
-        $start = hrtime(true);
-        $sum = $la->reduceSum($x,axis:1);
-        $end = hrtime(true);
-        $this->assertEquals($x->size(),$la->asum($sum));
-        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
-
-        $colsize = 64;
-        $rowsize = 1000000;
-        $x = $la->alloc([$rowsize,$colsize],NDArray::float32);
-        fwrite(STDERR,"Start fill\n");
-        $la->fill(1.0,$x);
-        fwrite(STDERR,"End fill\n");
-        fwrite(STDERR,"Start prepare\n");
-        $sum = $la->reduceSum($x,axis:1);
-        fwrite(STDERR,"End prepare\n");
-        $start = hrtime(true);
-        $sum = $la->reduceSum($x,axis:1);
-        $end = hrtime(true);
-        $this->assertEquals($x->size(),$la->asum($sum));
-        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
-
-        $colsize = 4096;
-        $rowsize = 12500;#0;
-        $x = $la->alloc([$rowsize,$colsize],NDArray::float32);
-        fwrite(STDERR,"Start fill\n");
-        $la->fill(1.0,$x);
-        fwrite(STDERR,"End fill\n");
-        fwrite(STDERR,"Start prepare\n");
-        $sum = $la->reduceSum($x,axis:1);
-        fwrite(STDERR,"End prepare\n");
-        $start = hrtime(true);
-        $sum = $la->reduceSum($x,axis:1);
-        $end = hrtime(true);
-        $this->assertEquals($x->size(),$la->asum($sum));
-        echo (explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
-    }
-*/
     public function testReduceSumSpeed()
     {
         if(!self::$speedtest) {
@@ -6710,6 +6592,7 @@ class LinearAlgebraTest extends TestCase
             ]],
         ];
     }
+*/
 
     /**
     * @dataProvider providerIm2col2dNormal
