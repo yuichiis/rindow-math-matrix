@@ -8582,7 +8582,7 @@ class LinearAlgebraTest extends TestCase
         }
         $this->assertEquals($imagesTrues->toArray(),$newImages->toArray());
     }
-*/
+
     public function testIm2col3dForPool()
     {
         $mo = $this->newMatrixOperator();
