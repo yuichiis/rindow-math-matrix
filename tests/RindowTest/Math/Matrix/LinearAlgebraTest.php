@@ -7123,7 +7123,7 @@ class LinearAlgebraTest extends TestCase
         //    $newImages->toArray()
         //);
     }
-/*
+
     public static function providerIm2col1dNormal()
     {
         return [
@@ -7307,9 +7307,9 @@ class LinearAlgebraTest extends TestCase
     }
 
     /**
-    * dataProvider providerIm2col1dNormal
+    * @dataProvider providerIm2col1dNormal
     */
-/*
+
     public function testIm2col1dNormal($params)
     {
         $mo = $this->newMatrixOperator();
@@ -8348,11 +8348,11 @@ class LinearAlgebraTest extends TestCase
             ]],
         ];
     }
-*/
+
     /**
-    * dataProvider providerIm2col3dNormal
+    * @dataProvider providerIm2col3dNormal
     */
-/*
+
     public function testIm2col3dNormal($params)
     {
         //return;
@@ -8676,7 +8676,7 @@ class LinearAlgebraTest extends TestCase
         //    $newImages->toArray()
         //);
     }
-
+/*
     public function testIm2col2dSpeed()
     {
         $mo = $this->newMatrixOperator();
