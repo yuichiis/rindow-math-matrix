@@ -5315,7 +5315,7 @@ class LinearAlgebraTest extends TestCase
             [-1, 1, 1],
         ],$la->onehot($x,3,alpha:-2,output:$y)->toArray());
     }
-d
+
     public function testReduceSumNormal()
     {
         $mo = $this->newMatrixOperator();
