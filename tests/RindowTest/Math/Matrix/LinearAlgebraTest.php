@@ -7556,7 +7556,6 @@ class LinearAlgebraTest extends TestCase
         //    $newImages->toArray()
         //);
     }
-/*
     public static function providerIm2col3dNormal()
     {
         return [
@@ -7579,6 +7578,7 @@ class LinearAlgebraTest extends TestCase
                 'dilation_w' => 1,
                 'cols_channels_first' => null,
             ]],
+/*
             'kernel_d' => [[
                 'batches' => 2,
                 'im_d' => 8,
@@ -8320,6 +8320,7 @@ class LinearAlgebraTest extends TestCase
                 'dilation_w' => 2,
                 'cols_channels_first' => true,
             ]],
+*/
         ];
     }
 
@@ -8348,11 +8349,10 @@ class LinearAlgebraTest extends TestCase
             ]],
         ];
     }
-*/
+
     /**
-    * dataProvider providerIm2col3dNormal
+    * @dataProvider providerIm2col3dNormal
     */
-/*
     public function testIm2col3dNormal($params)
     {
         //return;
