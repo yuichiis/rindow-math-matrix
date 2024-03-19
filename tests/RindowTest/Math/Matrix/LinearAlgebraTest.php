@@ -6594,9 +6594,8 @@ class LinearAlgebraTest extends TestCase
     }
 
     /**
-    * dataProvider providerIm2col2dNormal
+    * @dataProvider providerIm2col2dNormal
     */
-/*
     public function testIm2col2dNormal($params)
     {
         $mo = $this->newMatrixOperator();
@@ -6933,7 +6932,7 @@ class LinearAlgebraTest extends TestCase
         //    }
         //}
     }
-
+/*
     public function testIm2col2dLarge()
     {
         $mo = $this->newMatrixOperator();
