@@ -7958,7 +7958,6 @@ class LinearAlgebraTest extends TestCase
                 'dilation_w' => 1,
                 'cols_channels_first' => null,
             ]],
-/*  memory overflow in phpunit on github actions 
             'kernel_d padding' => [[
                 'batches' => 2,
                 'im_d' => 8,
@@ -7978,7 +7977,6 @@ class LinearAlgebraTest extends TestCase
                 'dilation_w' => 1,
                 'cols_channels_first' => null,
             ]],
-*/
             'kernel_h padding' => [[
                 'batches' => 2,
                 'im_d' => 8,
@@ -8353,7 +8351,6 @@ class LinearAlgebraTest extends TestCase
 
     /**
     * @dataProvider providerIm2col3dNormal
-    * providerIm2col3dNormalDEBUG
     */
     public function testIm2col3dNormal($params)
     {
