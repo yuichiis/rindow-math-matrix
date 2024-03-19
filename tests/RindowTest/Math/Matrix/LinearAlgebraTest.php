@@ -7964,7 +7964,7 @@ class LinearAlgebraTest extends TestCase
                 'im_h' => 8,
                 'im_w' => 8,
                 'channels' => 3,
-                'kernel_d' => 3,//4,
+                'kernel_d' => 2,//4,
                 'kernel_h' => 3,
                 'kernel_w' => 3,
                 'stride_d' => 1,
