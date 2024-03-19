@@ -10990,5 +10990,4 @@ class LinearAlgebraTest extends TestCase
 
         $this->assertFalse($la->isFloat($la->array(1,dtype:NDArray::bool)));
     }
-*/
 }
