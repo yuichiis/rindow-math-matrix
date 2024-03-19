@@ -7958,7 +7958,7 @@ class LinearAlgebraTest extends TestCase
                 'dilation_w' => 1,
                 'cols_channels_first' => null,
             ]],
-/*
+/*  memory overflow in phpunit on github actions 
             'kernel_d padding' => [[
                 'batches' => 2,
                 'im_d' => 8,
