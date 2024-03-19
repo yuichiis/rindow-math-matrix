@@ -7018,7 +7018,7 @@ class LinearAlgebraTest extends TestCase
         );
         $this->assertTrue(true);
     }
-/*
+
     public function testIm2col2dForPool()
     {
         $mo = $this->newMatrixOperator();
@@ -7123,7 +7123,7 @@ class LinearAlgebraTest extends TestCase
         //    $newImages->toArray()
         //);
     }
-
+/*
     public static function providerIm2col1dNormal()
     {
         return [
