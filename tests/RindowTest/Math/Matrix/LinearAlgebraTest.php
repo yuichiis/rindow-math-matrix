@@ -7978,6 +7978,7 @@ class LinearAlgebraTest extends TestCase
                 'dilation_w' => 1,
                 'cols_channels_first' => null,
             ]],
+*/
             'kernel_h padding' => [[
                 'batches' => 2,
                 'im_d' => 8,
@@ -7997,7 +7998,6 @@ class LinearAlgebraTest extends TestCase
                 'dilation_w' => 1,
                 'cols_channels_first' => null,
             ]],
-*/
             'kernel_w padding' => [[
                 'batches' => 2,
                 'im_d' => 8,
