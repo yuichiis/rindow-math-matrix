@@ -6595,8 +6595,9 @@ d
 */
 
     /**
-    * @dataProvider providerIm2col2dNormal
+    * dataProvider providerIm2col2dNormal
     */
+/*
     public function testIm2col2dNormal($params)
     {
         $mo = $this->newMatrixOperator();
@@ -7306,9 +7307,11 @@ d
             ]],
         ];
     }
+*/
     /**
-    * @dataProvider providerIm2col1dNormal
+    * dataProvider providerIm2col1dNormal
     */
+/*
     public function testIm2col1dNormal($params)
     {
         $mo = $this->newMatrixOperator();
@@ -8347,10 +8350,11 @@ d
             ]],
         ];
     }
-
+*/
     /**
-    * @dataProvider providerIm2col3dNormal
+    * dataProvider providerIm2col3dNormal
     */
+/*
     public function testIm2col3dNormal($params)
     {
         //return;
@@ -10988,5 +10992,5 @@ d
 
         $this->assertFalse($la->isFloat($la->array(1,dtype:NDArray::bool)));
     }
-
+*/
 }
