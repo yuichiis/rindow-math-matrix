@@ -4945,7 +4945,7 @@ class LinearAlgebraTest extends TestCase
         }
 
     }
-/*
+
     public function testScatterAddExNormal()
     {
         $mo = $this->newMatrixOperator();
@@ -6592,7 +6592,6 @@ d
             ]],
         ];
     }
-*/
 
     /**
     * dataProvider providerIm2col2dNormal
@@ -7307,7 +7306,7 @@ d
             ]],
         ];
     }
-*/
+
     /**
     * dataProvider providerIm2col1dNormal
     */
