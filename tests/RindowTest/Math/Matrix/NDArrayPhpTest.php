@@ -6,8 +6,10 @@ use Rindow\Math\Matrix\NDArrayPhp;
 use Interop\Polite\Math\Matrix\NDArray;
 use Interop\Polite\Math\Matrix\Buffer as BufferInterface;
 use Rindow\Math\Matrix\Drivers\MatlibPHP\PhpBuffer;
+use Rindow\Math\Matrix\Drivers\MatlibPHP\MatlibPhp;
 use Rindow\Math\Matrix\Drivers\Selector;
 use Rindow\Math\Matrix\Drivers\Service;
+
 use Rindow\Math\Matrix\Complex;
 use function Rindow\Math\Matrix\R;
 use function Rindow\Math\Matrix\C;
@@ -353,7 +355,42 @@ class NDArrayPhpTest extends TestCase
         } finally {
             NDArrayPhp::$unserializeWarning = 2;
         }
-}
+    }
+    public function testSerializeLinearAndPortable()
+    {
+        $phpservice = new MatlibPhp();
+        $array = [[[1,2,3],[4,5,6]],[[7,8,9],[10,11,12]]];
+
+        // int32 linear => portable
+        $a = new NDArrayPhp($array,NDArray::int32,service:$this->service);
+        $b = new NDArrayPhp(service:$phpservice);
+        $str = $a->serialize();
+        $b->unserialize($str);
+        $this->assertEquals($a->toArray(),$b->toArray());
+
+        // float32 linear => portable
+        $a = new NDArrayPhp($array,NDArray::float32,service:$this->service);
+        $b = new NDArrayPhp(service:$phpservice);
+        $str = $a->serialize();
+        $b->unserialize($str);
+        $this->assertEquals($a->toArray(),$b->toArray());
+
+        // int32 portable => linear
+        $a = new NDArrayPhp($array,NDArray::int32,service:$phpservice);
+        $phpservice = new MatlibPhp();
+        $b = new NDArrayPhp(service:$this->service);
+        $str = $a->serialize();
+        $b->unserialize($str);
+        $this->assertEquals($a->toArray(),$b->toArray());
+
+        // float32 portable => linear
+        $a = new NDArrayPhp($array,NDArray::float32,service:$phpservice);
+        $phpservice = new MatlibPhp();
+        $b = new NDArrayPhp(service:$this->service);
+        $str = $a->serialize();
+        $b->unserialize($str);
+        $this->assertEquals($a->toArray(),$b->toArray());
+    }
 
     public function testOffsetGetForRange()
     {
