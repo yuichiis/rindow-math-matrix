@@ -41,9 +41,15 @@ Set it up using composer.
 
 ```shell
 $ composer require rindow-math-matrix
+```
+
+You can use it as is, but you will need to speed it up to process at a practical speed.
+
+And then, Set up pre-build binaries for the required high-speed calculation libraries. Click [here](https://github.com/rindow/rindow-math-matrix-matlibffi) for details.
+
+```shell
 $ composer require rindow-math-matrix-matlibffi
 ```
-And then, set up the necessary libraries. Click [here](https://github.com/rindow/rindow-math-matrix-matlibffi) for details.
 
 Sample programs
 ===============
