@@ -21,6 +21,11 @@ use Rindow\Math\Matrix\Drivers\Service;
 
 class NDArrayCL implements NDArray,Countable,IteratorAggregate
 {
+    const RANGE_STYLE_DEFAULT = 0;
+    const RANGE_STYLE_1 = 1;
+    const RANGE_STYLE_FORCE2 = 2;
+    static public int $rangeStyle = self::RANGE_STYLE_DEFAULT;
+
     static protected $valueSizeTable = [
         NDArray::bool  => 1,
         NDArray::int8  => 1,
@@ -215,7 +220,7 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
 
     public function offsetExists( $offset ) : bool
     {
-        if(is_array($offset)) {
+        if(is_array($offset) && self::$rangeStyle==self::RANGE_STYLE_FORCE2) {
             throw new InvalidArgumentException("offset style is old renge style.");
         }
         if(is_array($offset)) {
@@ -228,7 +233,10 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
                     throw new OutOfRangeException("Illegal range specification.".$det);
             }
             $start = $offset[0];
-            $limit = $offset[1]+1;
+            $limit = $offset[1];
+            if(self::$rangeStyle==self::RANGE_STYLE_1) {
+                ++$limit;
+            }
         } elseif(is_int($offset)) {
             $start = $offset;
             $limit = $offset+1;
@@ -278,7 +286,10 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
         array_shift($shape);
         if(is_array($offset)) {
             $start = $offset[0];
-            $limit = $offset[1]+1;
+            $limit = $offset[1];
+            if(self::$rangeStyle==self::RANGE_STYLE_1) {
+                ++$limit;
+            }
         } else {
             $start = $offset->start();
             $limit = $offset->limit();

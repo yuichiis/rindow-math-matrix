@@ -670,4 +670,26 @@ class NDArrayPhpTest extends TestCase
         $this->assertEquals(7,$newArray[1][1]->real);
         $this->assertEquals(8,$newArray[1][1]->imag);
     }
+
+    public function testRangeStyle()
+    {
+        $this->assertEquals(NDArrayPhp::RANGE_STYLE_DEFAULT,NDArrayPhp::$rangeStyle);
+        $a = [0,1,2,3,4];
+        $array = new NDArrayPhp($a,dtype:NDArray::int32,service:$this->service);
+        $this->assertEquals([1,2,3],$array[[1,4]]->toArray());
+        $this->assertEquals([1,2,3],$array[R(1,4)]->toArray());
+        NDArrayPhp::$rangeStyle = NDArrayPhp::RANGE_STYLE_1;
+        $this->assertEquals([1,2,3],$array[[1,3]]->toArray());
+        $this->assertEquals([1,2,3],$array[R(1,4)]->toArray());
+        NDArrayPhp::$rangeStyle = NDArrayPhp::RANGE_STYLE_FORCE2;
+        $error = false;
+        try {
+            $this->assertEquals([1,2,3],$array[[1,4]]->toArray());
+        } catch(InvalidArgumentException $e) {
+            $error = true;
+        }
+        $this->assertTrue($error);
+        $this->assertEquals([1,2,3],$array[R(1,4)]->toArray());
+        NDArrayPhp::$rangeStyle = NDArrayPhp::RANGE_STYLE_DEFAULT;
+    }
 }

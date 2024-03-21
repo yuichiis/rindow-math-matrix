@@ -23,6 +23,11 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
 {
     use ComplexUtils;
 
+    const RANGE_STYLE_DEFAULT = 0;
+    const RANGE_STYLE_1 = 1;
+    const RANGE_STYLE_FORCE2 = 2;
+    static public int $rangeStyle = self::RANGE_STYLE_DEFAULT;
+
     const SERIALIZE_NDARRAY_KEYWORD = 'NDArray:';
     const SERIALIZE_OLDSTYLE_KEYWORD = 'O:29:"Rindow\Math\Matrix\NDArrayPhp"';
     static public $unserializeWarning = 2;
@@ -287,8 +292,8 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
 
     public function offsetExists( $offset ) : bool
     {
-        if(is_array($offset)) {
-            throw new InvalidArgumentException("offset style is old renge style.");
+        if(is_array($offset) && self::$rangeStyle==self::RANGE_STYLE_FORCE2) {
+            throw new InvalidArgumentException("offset style is old range style.");
         }
         if(count($this->_shape)==0)
             return false;
@@ -302,7 +307,10 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
                     throw new OutOfRangeException("Illegal range specification.".$det);
             }
             $start = $offset[0];
-            $limit = $offset[1]+1;
+            $limit = $offset[1];
+            if(self::$rangeStyle==self::RANGE_STYLE_1) {
+                ++$limit;
+            }
         } elseif(is_int($offset)) {
             $start = $offset;
             $limit = $offset+1;
@@ -349,7 +357,10 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         array_shift($shape);
         if(is_array($offset)) {
             $start = $offset[0];
-            $limit = $offset[1]+1;
+            $limit = $offset[1];
+            if(self::$rangeStyle==self::RANGE_STYLE_1) {
+                ++$limit;
+            }
         } else {
             $start = $offset->start();
             $limit = $offset->limit();

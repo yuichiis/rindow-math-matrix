@@ -106,6 +106,10 @@ abstract class AbstractMatlibService implements Service
         $info .= "BLAS Driver: ".get_class($this->blas)."\n";
         $info .= "LAPACK Driver: ".get_class($this->lapack)."\n";
         $info .= "Math Driver: ".get_class($this->math)."\n";
+        if($this->serviceLevel()>=Service::LV_ACCELERATED) {
+            $info .= "OpenCL Driver: ".get_class($this->openclFactory)."\n";
+            $info .= "CLBlast Driver: ".get_class($this->clblastFactory)."\n";
+        }
         return $info;
     }
 
