@@ -11,18 +11,17 @@ class DebugTest extends TestCase
 {
     public function newMatrixOperator()
     {
-        $selector = new Selector();
-        $service = $selector->select();
-        $mo = new MatrixOperator(service:$service);
-        if($service->serviceLevel()<Service::LV_ADVANCED) {
-            throw new \Exception("the service is not Advanced.");
-        }
+        $mo = new MatrixOperator();
+        //if($service->serviceLevel()<Service::LV_ADVANCED) {
+        //    throw new \Exception("the service is not Advanced.");
+        //}
         return $mo;
     }
 
     public function testCreateFromArray()
     {
         $mo = $this->newMatrixOperator();
+        echo $mo->service()->info()."\n";
         $this->assertTrue(true);
     }
 }
