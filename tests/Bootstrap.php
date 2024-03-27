@@ -10,7 +10,13 @@ if(file_exists(__DIR__.'/../vendor/autoload.php')) {
 }
 if(file_exists(__DIR__.'/../addpack/vendor/autoload.php')) {
     echo "Addpack found!!\n";
-    $loader->addPsr4('Rindow\\Math\\Matrix\\Drivers\\MatlibFFI\\',__DIR__.'/../addpack/vendor/rindow/rindow-math-matrix-matlibffi/src');
+    $addpack = __DIR__.'/../addpack/vendor/rindow/';
+    $loader->addPsr4('Rindow\\Math\\Matrix\\Drivers\\MatlibFFI\\',$addpack.'rindow-math-matrix-matlibffi/src');
+    $loader->addPsr4('Rindow\\Math\\Buffer\\FFI\\',$addpack.'rindow-math-buffer-ffi/src');
+    $loader->addPsr4('Rindow\\OpenBLAS\\FFI\\',$addpack.'rindow-openblas-ffi/src');
+    $loader->addPsr4('Rindow\\Matlib\\FFI\\',$addpack.'rindow-matlib-ffi/src');
+    $loader->addPsr4('Rindow\\OpenCL\\FFI\\',$addpack.'rindow-opencl-ffi/src');
+    $loader->addPsr4('Rindow\\CLBlast\\FFI\\',$addpack.'rindow-clblast-ffi/src');
     $a = new Rindow\Math\Matrix\Drivers\MatlibFFI\MatlibFFI();
     echo get_class($a)."\n";
 }
