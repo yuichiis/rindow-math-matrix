@@ -9,6 +9,7 @@ if(file_exists(__DIR__.'/../vendor/autoload.php')) {
     $loader = require_once __DIR__.'/init_autoloader.php';
 }
 if(file_exists(__DIR__.'/../addpack/vendor/autoload.php')) {
+    echo "Addpack found!!\n";
     $loader->addPsr4('Rindow\\Math\\Matrix\\Drivers\\MatlibFFI\\',__DIR__.'/../addpack/vendor/rindow/rindow-math-matrix-matlibffi/src');
 }
 #if(!class_exists('PHPUnit\Framework\TestCase')) {
