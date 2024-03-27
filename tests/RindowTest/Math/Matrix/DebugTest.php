@@ -1,5 +1,5 @@
 <?php
-namespace RindowTest\Math\Matrix\MatrixOperatorTest;
+namespace RindowTest\Math\Matrix\DebugTest;
 
 use PHPUnit\Framework\TestCase;
 use Interop\Polite\Math\Matrix\NDArray;
@@ -7,7 +7,7 @@ use Rindow\Math\Matrix\MatrixOperator;
 use Rindow\Math\Matrix\Drivers\Service;
 use Rindow\Math\Matrix\Drivers\Selector;
 
-class MatrixOperatorTest extends TestCase
+class DebugTest extends TestCase
 {
     public function newMatrixOperator()
     {
