@@ -46,7 +46,7 @@ jobs:
       - name: Composer
         run: |
           if [ 'ffi' == '${{ matrix.ffi }}' ] ; then
-            composer require rindow/rindow-math-matrix-matlibffi
+            composer require rindow/rindow-math-matrix-matlibffi --dev
           else
             composer update
           fi
