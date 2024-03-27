@@ -45,10 +45,10 @@ jobs:
 
       - name: Composer
         run: |
+          composer update
           if [ 'ffi' == '${{ matrix.ffi }}' ] ; then
-            composer require rindow/rindow-math-matrix-matlibffi --dev
-          else
-            composer update
+            mkdir addpack
+            ( cd addpack && composer require rindow/rindow-math-matrix-matlibffi )
           fi
 
       #- name: PHPUnit Tests
