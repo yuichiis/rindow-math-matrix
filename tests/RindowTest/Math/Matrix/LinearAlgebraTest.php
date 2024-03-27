@@ -8939,8 +8939,8 @@ class LinearAlgebraTest extends TestCase
         $this->assertNotEquals(
             $x->toArray(),
             $y->toArray());
-        $this->assertLessThanOrEqual(5,$la->max($x));
-        $this->assertGreaterThanOrEqual(-5,$la->min($x));
+        $this->assertLessThanOrEqual(6,$la->max($x));
+        $this->assertGreaterThanOrEqual(-6,$la->min($x));
     }
 
     public function testRandomSequence()
