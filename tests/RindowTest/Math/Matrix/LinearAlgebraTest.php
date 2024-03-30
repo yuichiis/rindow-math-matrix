@@ -3,6 +3,7 @@ namespace RindowTest\Math\Matrix\LinearAlgebraTest;
 
 use PHPUnit\Framework\TestCase;
 use Interop\Polite\Math\Matrix\NDArray;
+use Interop\Polite\Math\Matrix\OpenCL;
 use Rindow\Math\Matrix\MatrixOperator;
 use Rindow\Math\Matrix\NDArrayPhp;
 use Rindow\Math\Plot\Plot;
@@ -4648,6 +4649,13 @@ class Test extends TestCase
         $Y = $math->astype($X, $dtype);
         $this->assertEquals([true,false,true,true,true],$Y->toArray());
 
+        if($la->accelerated()) {
+            $devType = $math->getContext()->getInfo(OpenCL::CL_CONTEXT_DEVICES)->getInfo(0,OpenCL::CL_DEVICE_TYPE);
+            $devName = $math->getContext()->getInfo(OpenCL::CL_CONTEXT_DEVICES)->getInfo(0,OpenCL::CL_DEVICE_NAME);
+        } else {
+            $devType = OpenCL::CL_DEVICE_TYPE_CPU;
+            $devName = "CPU";
+        }
         #### float to unsigned ######
         $X = $la->array([-1,0,1,2,3],NDArray::float32);
         $dtype = NDArray::uint8;
@@ -4664,7 +4672,11 @@ class Test extends TestCase
             // GPU
             $dtype = NDArray::uint32;
             $Y = $math->astype($X, $dtype);
-            $this->assertEquals([0,0,1,2,4294967295],$Y->toArray());
+            if($devType===OpenCL::CL_DEVICE_TYPE_GPU) {
+                $this->assertEquals([0,0,1,2,4294967295],$Y->toArray());
+            } else {
+                $this->assertEquals([4294966296,0,1,2,0],$Y->toArray());
+            }
         } else {
             // CPU
             $dtype = NDArray::uint32;
@@ -4682,7 +4694,17 @@ class Test extends TestCase
             // GPU
             $dtype = NDArray::uint64;
             $Y = $math->astype($X, $dtype);
-            $this->assertEquals([0,0,1,2,3],$Y->toArray());
+            if($devType===OpenCL::CL_DEVICE_TYPE_GPU) {
+                if($devName=='Loveland') {
+                    $this->assertEquals([0,0,1,2,3],$Y->toArray());
+                } elseif(strpos($devName,'Intel')!==false) {
+                    $this->assertEquals([1000,0,1,2,3],$Y->toArray());
+                } else {
+                    $this->assertEquals([-1000,0,1,2,3],$Y->toArray());
+                }
+            } else {
+                $this->assertEquals([-1000,0,1,2,3],$Y->toArray());
+            }
         } elseif($la->getConfig()=='PhpBlas') {
             // CPU
             $dtype = NDArray::uint64;

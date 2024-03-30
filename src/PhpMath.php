@@ -656,7 +656,14 @@ class PhpMath
         ) : void
     {
         if($this->useMath($X)) {
-            $this->math->pow($n,$X,$offsetX,$incX,$alpha);
+            // for v0.2.0
+            $trans = false;
+            $k = 1;
+            $Y = new OpenBlasBuffer(1,$X->dtype());
+            $Y[0] = $alpha;
+            $offsetY = 0;
+            $incY = 1;
+            $this->math->pow($trans,$n,$k,$X,$offsetX,$k,$Y,$offsetY,$incY);
             return;
         }
 
@@ -1354,7 +1361,9 @@ class PhpMath
         ) : void
     {
         if($this->math) {
-            $this->math->searchsorted($m,$A,$offsetA,$incA,$n,$X,$offsetX,$incX,$right,$Y,$offsetY,$incY);
+            // for v0.2.0
+            $ldA = 0;
+            $this->math->searchsorted($n,$m,$A,$offsetA,$ldA,$X,$offsetX,$incX,$right,$Y,$offsetY,$incY);
             return;
         }
 

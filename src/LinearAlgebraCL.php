@@ -4733,7 +4733,7 @@ class LinearAlgebraCL
         $offA = $A->offset();
         $BB = $B->buffer();
         $offB = $B->offset();
-        $this->math->omatcopy(
+        $this->blas->omatcopy(
             BLAS::RowMajor,
             BLAS::Trans,
             $m,
