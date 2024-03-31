@@ -3393,7 +3393,7 @@ class LinearAlgebra
             $AA,$offA,$ldA,
             $XX,$offX,1,
             $right,
-            $YY,$offsetY,1
+            $YY,$offY,1
         );
         //$this->math->searchsorted(
         //    $m,
