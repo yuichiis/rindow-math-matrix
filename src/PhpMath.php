@@ -1385,6 +1385,7 @@ class PhpMath
         if($ldA!=0) {
             throw new RuntimeException('ldA must be 0.');
         }
+        $incA = 1;
         [$n,$m] = [$m,$n];
 
         // perform v0.1.x mode
