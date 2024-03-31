@@ -1531,13 +1531,13 @@ class LinearAlgebra
     {
         // for rindow_openblas v0.2.0
         $m = $X->size();
+        $n = 1;
         $AA = $X->buffer();
         $offA = $X->offset();
         $trans = false;
-        $n = 1;
         $ldA = $n;
-        $XX = new OpenBlasBuffer($n,$X->dtype());
-        $XX[0] = $alpha;
+        $alpha = new NDArrayPhp($alpha,$X->dtype());
+        $XX = $alpha->buffer();
         $offX = 0;
         $incX = 1;
         $this->math->pow($trans,$m,$n,$AA,$offA,$ldA,$XX,$offX,$incX);
