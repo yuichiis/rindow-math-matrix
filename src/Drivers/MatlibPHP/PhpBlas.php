@@ -67,6 +67,10 @@ class PhpBlas //implements BLASLevel1
             return 'PHP';
         return $this->blas->getCorename();
     }
+    public function getParallel()
+    {
+        return 0; // serial mode = 0
+    }
 
     protected function sign(float $x,float $y) : float
     {
