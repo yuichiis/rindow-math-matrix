@@ -101,11 +101,18 @@ abstract class AbstractMatlibService implements Service
 
     public function info() : string
     {
+        $modes = [
+            'SEQUENTIAL',
+            'THREAD',
+            'OPENMP',
+        ];
+        $blasMode = $modes[$this->blas()->getParallel()];
+        $mathMode = $modes[$this->math()->getParallel()];
         $info =  "Service Level   : ".$this->levelString[$this->serviceLevel]."\n";
         $info .= "Buffer Factory  : ".get_class($this->buffer)."\n";
-        $info .= "BLAS Driver     : ".get_class($this->blas)."\n";
+        $info .= "BLAS Driver     : ".get_class($this->blas)."($blasMode)\n";
         $info .= "LAPACK Driver   : ".get_class($this->lapack)."\n";
-        $info .= "Math Driver     : ".get_class($this->math)."\n";
+        $info .= "Math Driver     : ".get_class($this->math)."($mathMode)\n";
         if($this->serviceLevel()>=Service::LV_ACCELERATED) {
             $info .= "OpenCL Factory  : ".get_class($this->openclFactory)."\n";
             $info .= "CLBlast Factory : ".get_class($this->clblastFactory)."\n";
