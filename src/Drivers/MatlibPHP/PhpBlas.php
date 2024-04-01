@@ -67,7 +67,8 @@ class PhpBlas //implements BLASLevel1
             return 'PHP';
         return $this->blas->getCorename();
     }
-    public function getParallel()
+
+    public function getParallel() : int
     {
         return 0; // serial mode = 0
     }
