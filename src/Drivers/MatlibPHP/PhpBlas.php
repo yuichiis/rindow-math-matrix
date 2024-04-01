@@ -70,7 +70,7 @@ class PhpBlas //implements BLASLevel1
 
     public function getParallel() : int
     {
-        return 0; // serial mode = 0
+        return 0; // parallel mode = 0 : serial 
     }
 
     protected function sign(float $x,float $y) : float

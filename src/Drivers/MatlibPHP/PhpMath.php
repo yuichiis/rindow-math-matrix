@@ -126,6 +126,21 @@ class PhpMath
         return $imax;
     }
 
+    public function getNumThreads() : int
+    {
+        return 1;
+    }
+
+    public function getNumProcs() : int
+    {
+        return 1;
+    }
+
+    public function getParallel() : int
+    {
+        return 0; // parallel mode = 0 : serial
+    }
+
     /**
      *     sum := sum(X)
      */
