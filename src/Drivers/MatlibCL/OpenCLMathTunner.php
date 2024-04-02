@@ -305,8 +305,8 @@ class OpenCLMathTunner
         }
         if($axis==0) {
             return $this->scatterAddAxis0Test(true,$X,$Y,null,$A,$events,$waitEvents,$mode);
-        } elseif($axis==1) {
-            return $this->scatterAddAxis1Test(true,$X,$Y,null,$A,$events,$waitEvents,$mode);
+        //} elseif($axis==1) {
+        //    return $this->scatterAddAxis1Test(true,$X,$Y,null,$A,$events,$waitEvents,$mode);
         } else {
             throw new InvalidArgumentException('axis must be 0 or 1');
         }
@@ -1024,7 +1024,7 @@ class OpenCLMathTunner
             $dtypeX = $A->dtype();
         }
         if($X==null) {
-            $X = $this->alloc([$rows],$dtypeX);
+            $X = $this->la->alloc([$rows],$dtypeX);
         } else {
             if($X->shape()!=[$rows]) {
                 $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$X->shape()).')';
@@ -1120,7 +1120,7 @@ class OpenCLMathTunner
             $dtype = $A->dtype();
         }
         if($B==null) {
-            $B = $this->alloc($outputShape,$dtype);
+            $B = $this->la->alloc($outputShape,$dtype);
         } else {
             if($B->shape()!=$outputShape) {
                 $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$B->shape()).')';

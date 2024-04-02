@@ -10,6 +10,9 @@ use InvalidArgumentException;
 
 abstract class AbstractMatlibService implements Service
 {
+    // abstract properties
+    protected $name = 'unknown';
+
     protected array $levelString = [
         Service::LV_BASIC => 'Basic',
         Service::LV_ADVANCED => 'Advanced',
@@ -43,7 +46,7 @@ abstract class AbstractMatlibService implements Service
         protected ?object $bufferCLFactory=null,
     )
     {
-        $this->phpBLASFactory = new PhpBLASFactory($this);
+        $this->phpBLASFactory = new PhpBLASFactory();
         $this->phpblas = $this->phpBLASFactory->Blas();
         $this->phplapack = $this->phpBLASFactory->Lapack();
         $this->phpmath = $this->phpBLASFactory->Math();

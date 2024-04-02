@@ -5,8 +5,10 @@ use LogicException;
 
 abstract class AbstractDriver implements Driver
 {
+    // abstract properties
     protected string $LOWEST_VERSION = '1000.1000.1000';
     protected string $OVER_VERSION   = '0.0.0';
+    protected string $extName        = 'unknown';
 
     protected function assertExtensionVersion($name,$lowestVersion,$overVersion)
     {

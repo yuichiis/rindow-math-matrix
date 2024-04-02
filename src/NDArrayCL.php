@@ -57,7 +57,7 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
     protected $portableSerializeMode = false;
     protected $events;
 
-    public function __construct(
+    final public function __construct(
         object $queue, mixed $buffer=null, int $dtype=null, array $shape = null,
         int $offset=null, int $flags=null,
         Service $service=null)
@@ -205,16 +205,16 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
     }
 
     public function toNDArray(
-        bool $blocking_read=null,EventList $waitEvents=null,
-        EventList &$events=null) : NDArray
+        bool $blocking_read=null,
+        object $events=null,
+        object $waitEvents=null) : NDArray
     {
         $blocking_read = $blocking_read ?? true;
         $array = new NDArrayPhp(null,$this->dtype,$this->shape,service:$this->service);
         $valueSize = static::$valueSizeTable[$this->dtype];
         $size = array_product($this->shape);
-        $event = $this->buffer->read($this->queue,$array->buffer(),$size*$valueSize,
-            $this->offset*$valueSize,$hostoffset=0,$blocking_read,$waitEvents);
-        $events = $event;
+        $this->buffer->read($this->queue,$array->buffer(),$size*$valueSize,
+            $this->offset*$valueSize,$hostoffset=0,$blocking_read,$events,$waitEvents);
         return $array;
     }
 
@@ -399,13 +399,13 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
 
     public function getEvents()
     {
-        return $this->events = $events;
+        return $this->events;
     }
 
     public function __clone()
     {
         if(!($this->buffer instanceof DeviceBuffer)) {
-            throw new RuntimeException('Unknown buffer type is uncloneable:'.get_class($this->_buffer));
+            throw new RuntimeException('Unknown buffer type is uncloneable:'.get_class($this->buffer));
         }
         $bytes = $this->buffer->bytes();
         $dtype = $this->buffer->dtype();

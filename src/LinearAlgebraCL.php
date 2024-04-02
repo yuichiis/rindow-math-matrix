@@ -755,14 +755,14 @@ class LinearAlgebraCL
     #    return new OpenBlasBuffer($size,$dtype);
     #}
 
-    protected function newBuffer(
-        int $size, int $flags=null,
-        LinearBuffer $hostBuffer=null, int $hostOffset=null,
-        int $dtype=null)
-    {
-        return $this->buffer()->Buffer($this->context,
-            $size,$flags,$hostBuffer,$hostOffset,$dtype);
-    }
+    #protected function newBuffer(
+    #    int $size, int $flags=null,
+    #    LinearBuffer $hostBuffer=null, int $hostOffset=null,
+    #    int $dtype=null)
+    #{
+    #    return $this->service->buffer()->Buffer($this->context,
+    #        $size,$flags,$hostBuffer,$hostOffset,$dtype);
+    #}
 
     public function newEventList()
     {
@@ -2928,7 +2928,7 @@ class LinearAlgebraCL
             if($xd!==$ad) {
                 $shapeA = $trans ? array_reverse($A->shape()) : $A->shape();
                 throw new InvalidArgumentException('Unmatch dimension size for broadcast.: '.
-                    '['.implode(',',$X->shape()).'] => ['.implode(',',$shapeA).']');
+                    '['.implode(',',$shapeX).'] => ['.implode(',',$shapeA).']');
             }
         }
         $n = $alpha->size();
@@ -3991,7 +3991,7 @@ class LinearAlgebraCL
             $axis = $ndim+$axis;
         }
         if($ndim<=$axis) {
-            throw new InvalidException('axis must be less then num of dimension');
+            throw new InvalidArgumentException('axis must be less then num of dimension');
         }
         $shapeA = $input->shape();
         $rows = $shapeA[$axis];
@@ -4732,8 +4732,8 @@ class LinearAlgebraCL
             if ($X->shape()!=$shape) {
                 throw new InvalidArgumentException('Unmatch shape and shape of X');
             }
-            if(!is_numeric($low)||!is_numeric($high)){
-                throw new InvalidArgumentException('low and high must be integer or float');
+            if(!is_numeric($mean)||!is_numeric($scale)){
+                throw new InvalidArgumentException('mean and scale must be integer or float');
             }
         }
         if($seed===null) {

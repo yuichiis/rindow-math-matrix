@@ -5,7 +5,9 @@ require_once __DIR__.'/R.php';
 
 use ArrayObject;
 use InvalidArgumentException;
+use RuntimeException;
 use LogicException;
+use RangeException;
 use Iterator;
 use Traversable;
 use Interop\Polite\Math\Matrix\BLAS;
@@ -1470,7 +1472,7 @@ class MatrixOperator
                 return $this->clblastLA;
             }
             default: {
-                throw new LogicalException('Unknown accelerator');
+                throw new LogicException('Unknown accelerator');
             }
         }
     }

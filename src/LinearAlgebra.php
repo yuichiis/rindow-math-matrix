@@ -447,7 +447,7 @@ class LinearAlgebra
             $this->iaminwarning = true;
         }
         if($offsetX+($n-1)*$incX>=count($X))
-            throw new RuntimeException('Vector X specification too large for buffer.');
+            throw new InvalidArgumentException('Vector X specification too large for buffer.');
         $idxX = $offsetX+$incX;
         $acc = abs($X[$offsetX]);
         $idx = 0;
@@ -1746,7 +1746,7 @@ class LinearAlgebra
             if($xd!==$ad) {
                 $shapeA = $trans ? array_reverse($A->shape()) : $A->shape();
                 throw new InvalidArgumentException('Unmatch dimension size for broadcast.: '.
-                    '['.implode(',',$X->shape()).'] => ['.implode(',',$shapeA).']');
+                    '['.implode(',',$shapeX).'] => ['.implode(',',$shapeA).']');
             }
         }
         $n = $alpha->size();
@@ -2502,7 +2502,7 @@ class LinearAlgebra
             $axis = $ndim+$axis;
         }
         if($ndim<=$axis) {
-            throw new InvalidException('axis must be less then num of dimension');
+            throw new InvalidArgumentException('axis must be less then num of dimension');
         }
         $shapeA = $input->shape();
         $rows = $shapeA[$axis];

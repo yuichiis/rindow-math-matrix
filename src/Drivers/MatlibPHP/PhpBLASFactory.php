@@ -7,8 +7,6 @@ use Rindow\Math\Matrix\Drivers\Service;
 
 class PhpBLASFactory implements Driver
 {
-    protected Service $service;
-
     public function isAvailable() : bool
     {
         return true;

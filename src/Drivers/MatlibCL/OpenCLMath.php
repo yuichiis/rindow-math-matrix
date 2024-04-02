@@ -5298,8 +5298,8 @@ class OpenCLMath
         )
     {
         if($A->dtype()!=$B->dtype()) {
-            throw new InvalidArgumentException("Unmatch data type A and Y:".
-            $this->dtypeToString($A->dtype()).",".$this->dtypeToString($Y->dtype()));
+            throw new InvalidArgumentException("Unmatch data type A and B:".
+            $this->dtypeToString($A->dtype()).",".$this->dtypeToString($B->dtype()));
         }
         if($A->dtype()==NDArray::float64) {
             $this->assertFP64();
@@ -6254,8 +6254,9 @@ class OpenCLMath
     protected function toHostBuffer(
         BufferInterface $clBuffer,
         int $offset,
-        bool $blocking_read=true,object $waitEvents=null,
-        EventList &$events=null) : NDArray
+        bool $blocking_read=true,
+        object $events=null,
+        object $waitEvents=null) : NDArray
     {
         $dtype = $clBuffer->dtype();
         $bytes = $clBuffer->bytes();
@@ -6263,8 +6264,7 @@ class OpenCLMath
         $size = $clBuffer->count();
         $hostBuffer = $this->newHostBuffer($size,$dtype);
         $event = $clBuffer->read($this->queue,$hostBuffer,$bytes,
-            $offset*$valueSize,$hostoffset=0,$blocking_read,$waitEvents);
-        $events = $event;
+            $offset*$valueSize,$hostoffset=0,$blocking_read,$events,$waitEvents);
         return $hostBuffer;
     }
 
@@ -6311,7 +6311,7 @@ class OpenCLMath
 
         if($dtype!=$B->dtype()) {
             throw new InvalidArgumentException("Unmatch data type for A and B.".
-            $this->dtypeToString($dtype).",".$this->dtypeToString($cols->dtype()));
+            $this->dtypeToString($dtype).",".$this->dtypeToString($B->dtype()));
         }
 
         $strides = $this->newHostBuffer($ndim,NDArray::int32);
@@ -6341,7 +6341,7 @@ class OpenCLMath
         $targetStride = $targetStrides[0];
 
         $shape = $orgShape;
-        if(!($shape instanceof DeviceBuffer)) {
+        if(!($shape instanceof BufferInterface)) {
             $valueSize = $shape->value_size();
             $shape = $this->newBuffer(
                 count($shape)*$valueSize,

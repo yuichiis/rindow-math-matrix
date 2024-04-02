@@ -39,7 +39,7 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
     protected bool $_portableSerializeMode = false;
     protected ?Service $service = null;
 
-    public function __construct(
+    final public function __construct(
         mixed $array = null,
         int $dtype=null,
         array $shape = null,
@@ -273,7 +273,7 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
             throw new InvalidArgumentException("Unmatch size to reshape: ".
                 "[".implode(',',$this->shape())."]=>[".implode(',',$shape)."]");
         }
-        $newArray = new self($this->buffer(),$this->dtype(),$shape,$this->offset(),service:$this->service);
+        $newArray = new static($this->buffer(),$this->dtype(),$shape,$this->offset(),service:$this->service);
         return $newArray;
     }
 
@@ -348,7 +348,7 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
                 return $value;
             }
             $size = (int)array_product($shape);
-            $new = new self($this->_buffer,$this->_dtype,$shape,$this->_offset+$offset*$size,service:$this->service);
+            $new = new static($this->_buffer,$this->_dtype,$shape,$this->_offset+$offset*$size,service:$this->service);
             return $new;
         }
 
@@ -379,7 +379,7 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         }
         array_unshift($shape,$rowsCount);
         $size = (int)array_product($shape);
-        $new = new self($this->_buffer,$this->_dtype,
+        $new = new static($this->_buffer,$this->_dtype,
             $shape,$this->_offset+$start*$itemSize,service:$this->service);
         return $new;
     }
