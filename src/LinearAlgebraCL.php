@@ -161,7 +161,7 @@ class LinearAlgebraCL
     }
 
     public function prepareAutoEvent(
-        array $inputs, object $events, object $waitEvents, bool $explicit=null)
+        array $inputs, object $events=null, object $waitEvents=null, bool $explicit=null)
     {
         if($this->autoEvents) {
             $autoWaitEvents = $this->newEventList();
@@ -215,7 +215,7 @@ class LinearAlgebraCL
         return $this->openclmath->deviceTypes();
     }
 
-    public function finish()
+    public function finish() : void
     {
         $this->queue->finish();
     }
@@ -4012,7 +4012,7 @@ class LinearAlgebraCL
         NDArray $images,
         array $filterSize=null,
         array $strides=null,
-        $padding=null,
+        bool|array $padding=null,
         array $dilation_rate=null,
         //bool $channels_first=null,
         //bool $cols_channels_first=null,
@@ -4070,10 +4070,7 @@ class LinearAlgebraCL
         if($out_h<=0 && $out_w<=0) {
             throw new InvalidArgumentException('Invalid shape or parameters.');
         }
-        if($padding==null) {
-            $padding_h = 0;
-            $padding_w = 0;
-        } elseif(is_bool($padding)) {
+        if(is_bool($padding)) {
             if($padding) {
                 $out_h = $im_h;
                 $out_w = $im_w;
@@ -4087,6 +4084,9 @@ class LinearAlgebraCL
                     $out_w++;
                 }
                 $padding_w = $padding_w ? intdiv($padding_w,2) : 0;
+            } else {
+                $padding_h = 0;
+                $padding_w = 0;
             }
         } elseif(is_array($padding)) {
             $padding_h = $padding[0];
@@ -4995,6 +4995,8 @@ class LinearAlgebraCL
         $base = null;
         $n = 0;
         $reshapeValues = [];
+        $shape = [];
+        $shapePrefix = [];
         foreach ($values as $value) {
             $shapePrefix = [];
             $shape = $value->shape();
@@ -5320,15 +5322,15 @@ class LinearAlgebraCL
             if($perm) {
                 if(count($perm)!=2) {
                     throw new InvalidArgumentException('unmatch sourceshape and perm');
-                    if(!is_array($perm)) {
-                        $perm = $perm->toArray();
-                    }
-                    if($perm==[0,1]) {
-                        return $this->copy($A,$B);
-                    }
-                    if($perm!=[1,0]) {
-                        throw new InvalidArgumentException('unmatch sourceshape and perm');
-                    }
+                    //if(!is_array($perm)) {
+                    //    $perm = $perm->toArray();
+                    //}
+                    //if($perm==[0,1]) {
+                    //    return $this->copy($A,$B);
+                    //}
+                    //if($perm!=[1,0]) {
+                    //    throw new InvalidArgumentException('unmatch sourceshape and perm');
+                    //}
                 }
             }
             return $this->transpose2D($A,$B,$events);

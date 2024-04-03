@@ -152,6 +152,7 @@ class PhpBuffer extends SplFixedArray implements BufferInterface
         $fmt = self::$pack[$this->dtype].'*';
         $data = unpack($fmt,$string);
         $i = 0;
+        $real = 0;
         if($this->isComplex()) {
             foreach($data as $value) {
                 if($i%2 == 0) {

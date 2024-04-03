@@ -61,7 +61,7 @@ class OpenCLMathTunner
                     $startK=8;
                     fwrite(STDERR, $k);
                     if($mode==4&&$k!=8) {
-                        $times[$i][$j][$k] = $time;
+                        $times[$i][$j][$k] = 0; // $time
                         fwrite(STDERR, ",");
                         continue;
                     }
@@ -269,17 +269,17 @@ class OpenCLMathTunner
         }
 
         $x = $this->la->alloc([$rows],NDArray::int32);
-        $y = $this->la->alloc([$rows,$cols],NDArray::float32);
-        $a = $this->la->alloc([$numClass,$cols],NDArray::float32);
+        $a = $this->la->alloc([$rows,$cols],NDArray::float32);
+        $b = $this->la->alloc([$numClass,$cols],NDArray::float32);
 
         $this->la->fill(1,$x);
-        $this->la->fill(1.0,$y);
-        $this->la->fill(0.0,$a);
-        $this->scatterAddTest($x,$y,$a,$axis=0,null,null,$mode);
+        $this->la->fill(1.0,$a);
+        $this->la->fill(0.0,$b);
+        $this->scatterAddTest($x,$a,$b,$axis=0,null,null,$mode);
         $time = 0;
         for($i=0;$i<$try;$i++) {
             $start = hrtime(true);
-            $this->scatterAddTest($x,$y,$a,$axis=0,null,null,$mode);
+            $this->scatterAddTest($x,$a,$b,$axis=0,null,null,$mode);
             $end = hrtime(true);
             $time += $end-$start;
         }
@@ -288,139 +288,139 @@ class OpenCLMathTunner
 
     public function scatterAddTest(
         NDArray $X,
-        NDArray $Y,
         NDArray $A,
+        NDArray $output,
         int $axis=null,
         $events=null,$waitEvents=null,
         int $mode = null
         ) : NDArray
     {
-        if($axis===null) {
-            $axis=0;
-        }
         if($X->dtype()!=NDArray::int32 && $X->dtype()!=NDArray::uint32) {
             $waitPrev = $waitEvents;
             $waitEvents = $this->la->newEventList();
             $X = $this->la->astype($X,NDArray::int32,null,$waitEvents,$waitPrev);
         }
-        if($axis==0) {
-            return $this->scatterAddAxis0Test(true,$X,$Y,null,$A,$events,$waitEvents,$mode);
-        //} elseif($axis==1) {
-        //    return $this->scatterAddAxis1Test(true,$X,$Y,null,$A,$events,$waitEvents,$mode);
+        $dtype = $X->dtype();
+        if($axis===null) {
+            return $this->scatterAddAxisNullTest( // doGather()
+                $scatterAdd=true,
+                $output,
+                $X,
+                $axis,
+                $A,
+                $dtype,
+                $events, $waitEvents,
+                $mode,
+            );
+            //} elseif($axis==1) {
+        //    return $this->scatterAddAxis1Test(true,$X,$A,null,$B,$events,$waitEvents,$mode);
         } else {
             throw new InvalidArgumentException('axis must be 0 or 1');
         }
     }
 
-    protected function scatterAddAxis0Test(
-        bool $addMode,
+    protected function scatterAddAxisNullTest( // doGather()
+        bool $scatterAdd,
+        NDArray $A,
         NDArray $X,
-        NDArray $Y,
-        int $numClass=null,
-        NDArray $A=null,
-        $events=null,$waitEvents=null,
-        int $mode=null
+        int $axis=null,
+        NDArray $output=null,
+        int $dtype=null,
+        object $events=null,object $waitEvents=null,
+        int $mode=null,
         ) : NDArray
     {
-        if($X->ndim()!=1) {
-            throw new InvalidArgumentException('"X" must be 1D-NDArray.');
+        // if($axis===null) {
+            $postfixShape = $A->shape();
+            $prefixShape = $X->shape();
+            $numClass = array_shift($postfixShape);
+            $m = 1;
+            $n = array_product($prefixShape);
+            $k = array_product($postfixShape);
+            $reductionDims = false;
+            $outputShape = array_merge($prefixShape,$postfixShape);
+        // }
+//echo "outputShape=[".implode(',',$outputShape)."]\n";
+        if($dtype===null) {
+            $dtype = $A->dtype();
         }
-        $countX = $X->shape()[0];
-        $shape = $Y->shape();
-        $countY = array_shift($shape);
-        if($countX!=$countY) {
-            throw new InvalidArgumentException('Unmatch size "Y" with "X".');
-        }
-        $n = (int)array_product($shape);
-        if($A==null) {
-            $m = $numClass;
-            array_unshift($shape,$numClass);
-            $A = $this->la->alloc($shape,$Y->dtype());
-            $waitPrev = $waitEvents;
-            $waitEvents = $this->la->newEventList();
-            $this->la->zeros($A,$waitEvents,$waitPrev);
-        } else {
-            $m = $A->shape()[0];
-            array_unshift($shape,$m);
-            if($A->shape()!=$shape){
-                throw new InvalidArgumentException('Unmatch size "Y" with "A" .');
-            }
+        if($output->shape()!=$outputShape) {
+            throw new InvalidArgumentException("Unmatch output shape of dimension: ".
+                                        '['.implode(',',$outputShape).']'.'['.implode(',',$output).']');
         }
 
         $AA = $A->buffer();
         $offA = $A->offset();
-        $ldA = $n;
         $XX = $X->buffer();
         $offX = $X->offset();
-        $YY = $Y->buffer();
-        $offY = $Y->offset();
-        $ldY = $n;
+        $BB = $output->buffer();
+        $offB = $output->offset();
+
+        // if($scatterAdd) {
+            $reverse=true;
+            $addMode=true;
+        // }
 
         //fwrite(STDERR,"(m=$m,n=$n,k=$countX)");
         switch($mode) {
             case 0: {
-                $this->la->getOpenCLMath()->scatterAddAxis0_0(
-                    $m,
+                $this->la->getOpenCLMath()->scatterAdd_0(
                     $n,
-                    $countX,
-                    $AA,$offA,$ldA,
-                    $XX,$offX,1,
-                    $YY,$offY,$ldY,
-                    $addMode,
-                    $events,$waitEvents
-                    );
+                    $k,
+                    $numClass,
+                    $XX,$offX,
+                    $AA,$offA,
+                    $BB,$offB,
+                    $events, $waitEvents
+                );
                 break;
             }
             case 1: {
-                $this->la->getOpenCLMath()->scatterAddAxis0_1(
-                    $m,
+                $this->la->getOpenCLMath()->scatterAdd_1(
                     $n,
-                    $countX,
-                    $AA,$offA,$ldA,
-                    $XX,$offX,1,
-                    $YY,$offY,$ldY,
-                    $addMode,
-                    $events,$waitEvents
-                    );
+                    $k,
+                    $numClass,
+                    $XX,$offX,
+                    $AA,$offA,
+                    $BB,$offB,
+                    $events, $waitEvents
+                );
                 break;
             }
             case 2: {
-                $this->la->getOpenCLMath()->scatterAddAxis0_2(
-                    $m,
+                $this->la->getOpenCLMath()->scatterAdd_2(
                     $n,
-                    $countX,
-                    $AA,$offA,$ldA,
-                    $XX,$offX,1,
-                    $YY,$offY,$ldY,
-                    $addMode,
-                    $events,$waitEvents
-                    );
+                    $k,
+                    $numClass,
+                    $XX,$offX,
+                    $AA,$offA,
+                    $BB,$offB,
+                    $events, $waitEvents
+                );
                 break;
             }
             case 3: {
-                $this->la->getOpenCLMath()->scatterAddAxis0_3(
-                    $m,
+                $this->la->getOpenCLMath()->scatterAdd_3(
                     $n,
-                    $countX,
-                    $AA,$offA,$ldA,
-                    $XX,$offX,1,
-                    $YY,$offY,$ldY,
-                    $addMode,
-                    $events,$waitEvents
-                    );
+                    $k,
+                    $numClass,
+                    $XX,$offX,
+                    $AA,$offA,
+                    $BB,$offB,
+                    $events, $waitEvents
+                );
                 break;
             }
             case 4: {
-                $this->la->getOpenCLMath()->scatterAddAxis0_4(
-                    $m,
+                $this->la->getOpenCLMath()->scatterAdd_4(
                     $n,
-                    $countX,
-                    $AA,$offA,$ldA,
-                    $XX,$offX,1,
-                    $YY,$offY,$ldY,
-                    $addMode,
-                    $events,$waitEvents
-                    );
+                    $k,
+                    $numClass,
+                    $XX,$offX,
+                    $AA,$offA,
+                    $BB,$offB,
+                    $events, $waitEvents
+                );
                 break;
             }
             default:
@@ -534,6 +534,7 @@ class OpenCLMathTunner
     {
         $times = $this->loadParameter('ScatterAddTimesMode'.$mode.'.php');
         // cols <-> rows
+        $numClass = 0;
         foreach ($times as $rows => $colsData) {
             $graph = [];
             foreach ($colsData as $cols => $numClassData) {
@@ -1199,6 +1200,8 @@ class OpenCLMathTunner
             $modes = [$mode];
         } elseif(is_array($mode)) {
             $modes = $mode;
+        } else {
+            throw new InvalidArgumentException("Invalid mode");
         }
         if($details) {
             $marker = null;

@@ -23,7 +23,7 @@ class MatrixOperator
     const SERIALIZE_NDARRAY_KEYWORD = 'NDArray:';
     const SERIALIZE_OLDSTYLE_KEYWORD = 'O:29:"Rindow\Math\Matrix\NDArrayPhp"';
 
-    protected $service;
+    protected Service $service;
     protected $blas;
     protected $openblas;
     protected $lapack;
@@ -680,6 +680,7 @@ class MatrixOperator
         $w = 1;
         $p = 1;
         $pos =0;
+        $K = 1;
         for($i=$rank-1;$i>=0;$i--) {
             if($axis!=$i) {
                 $pos += $idx[$i]*$w;
@@ -1075,14 +1076,10 @@ class MatrixOperator
         } else {
             $shape = $Y->shape();
             if($dtype===null) {
-                if($X instanceof NDArray) {
-                    $dtype = $this->maximumPrecision($X->dtype(),$Y->dtype());
+                if(is_float($X)) {
+                    $dtype = $this->maximumPrecision($Y->dtype(),NDArray::float32);
                 } else {
-                    if(is_float($X)) {
-                        $dtype = $this->maximumPrecision($Y->dtype(),NDArray::float32);
-                    } else {
-                        $dtype = $Y->dtype();
-                    }
+                    $dtype = $Y->dtype();
                 }
             }
         }

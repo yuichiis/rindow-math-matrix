@@ -4,7 +4,6 @@ namespace Rindow\Math\Matrix;
 require_once __DIR__.'/R.php';
 
 use ArrayObject;
-use ArrayAccess;
 use Countable;
 use Traversable;
 use Serializable;
@@ -30,7 +29,7 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
 
     const SERIALIZE_NDARRAY_KEYWORD = 'NDArray:';
     const SERIALIZE_OLDSTYLE_KEYWORD = 'O:29:"Rindow\Math\Matrix\NDArrayPhp"';
-    static public $unserializeWarning = 2;
+    static public int $unserializeWarning = 2;
 
     protected array $_shape;
     protected BufferInterface $_buffer;
@@ -129,12 +128,12 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         $this->_dtype = $dtype;
     }
 
-    protected function newBuffer($size,$dtype)
+    protected function newBuffer($size,$dtype) : BufferInterface
     {
         return $this->service->buffer()->Buffer($size,$dtype);
     }
 
-    protected function isBuffer($buffer)
+    protected function isBuffer($buffer) : bool
     {
         if($buffer instanceof BufferInterface) {
             return true;
@@ -154,7 +153,7 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         return $this->cisObject($value);
     }
 
-    protected function assertShape(array $shape)
+    protected function assertShape(array $shape) : void
     {
         foreach($shape as $num) {
             if(!is_int($num)) {
@@ -168,7 +167,7 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         }
     }
 
-    protected function array2Flat($A, BufferInterface|ArrayObject $F, &$idx, $prepare)
+    protected function array2Flat($A, BufferInterface|ArrayObject $F, &$idx, $prepare) : int
     {
         if(is_array($A)) {
             ksort($A);
@@ -199,7 +198,7 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         return count($A);
     }
 
-    protected function flat2Array(BufferInterface $F, &$idx, array $shape)
+    protected function flat2Array(BufferInterface $F, &$idx, array $shape) : array
     {
         $size = array_shift($shape);
         if(count($shape)) {
@@ -221,7 +220,7 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         return $A;
     }
 
-    protected function genShape($A)
+    protected function genShape($A) : array
     {
         $shape = [];
         while(is_array($A) || $A instanceof ArrayObject) {
@@ -246,12 +245,12 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         return count($this->_shape);
     }
 
-    public function dtype()
+    public function dtype() : int
     {
         return $this->_dtype;
     }
 
-    public function buffer() : ArrayAccess
+    public function buffer() : BufferInterface
     {
         return $this->_buffer;
     }

@@ -1,10 +1,10 @@
 <?php
 namespace Rindow\Math\Matrix\Drivers\MatlibPHP;
 
-use ArrayAccess as Buffer;
 use RuntimeException;
 use InvalidArgumentException;
 use Interop\Polite\Math\Matrix\NDArray;
+use Interop\Polite\Math\Matrix\Buffer;
 use Rindow\Math\Matrix\NDArrayPhp;
 use Rindow\Math\Matrix\Drivers\Service;
 use function Rindow\Math\Matrix\R;
@@ -155,6 +155,9 @@ class PhpLapack
 
         // Householder reduction to bidiagonal form.
         $g = $scale = $anorm = 0.0;
+        $l = 0;
+        $rv1 = [];
+        $W = [];
         for($i = 0; $i < $ldU; $i++){
             $l = $i + 2;
             $rv1[$i] = $scale * $g;
@@ -363,6 +366,8 @@ class PhpLapack
             $inc = (int)($inc / 3);
             for($i = $inc; $i < $n; $i++){
                 $sw = $W[$i];
+                $su = [];
+                $sv = [];
                 for($k = 0; $k < $m; $k++) $su[$k] = $U[$k][$i];
                 for($k = 0; $k < $n; $k++) $sv[$k] = $V[$k][$i];
                 $j = $i;

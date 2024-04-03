@@ -4,7 +4,6 @@ namespace Rindow\Math\Matrix;
 require_once __DIR__.'/C.php';
 require_once __DIR__.'/R.php';
 
-use ArrayAccess;
 use Countable;
 use IteratorAggregate;
 use Traversable;
@@ -16,6 +15,7 @@ use Interop\Polite\Math\Matrix\BLAS;
 use Interop\Polite\Math\Matrix\NDArray;
 use Interop\Polite\Math\Matrix\LinearBuffer;
 use Interop\Polite\Math\Matrix\DeviceBuffer;
+use Interop\Polite\Math\Matrix\Buffer;
 use Interop\Polite\Math\Matrix\OpenCL;
 use Rindow\Math\Matrix\Drivers\Service;
 
@@ -45,17 +45,17 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
         NDArray::complex64 => 8,
         NDArray::complex128 => 16,
     ];
-    protected $service;
-    protected $clBufferFactory;
-    protected $context;
-    protected $queue;
-    protected $shape;
-    protected $buffer;
-    protected $offset;
-    protected $dtype;
-    protected $flags;
-    protected $portableSerializeMode = false;
-    protected $events;
+    protected Service $service;
+    protected object $clBufferFactory;
+    protected object $context;
+    protected object $queue;
+    protected array $shape;
+    protected DeviceBuffer $buffer;
+    protected int $offset;
+    protected int $dtype;
+    protected int $flags;
+    protected bool $portableSerializeMode = false;
+    protected object $events;
 
     final public function __construct(
         object $queue, mixed $buffer=null, int $dtype=null, array $shape = null,
@@ -100,8 +100,6 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
             $this->dtype  = $dtype;
             $this->offset = 0;
         } elseif($buffer instanceof LinearBuffer) {
-            if($offset===null||!is_int($offset))
-                throw new InvalidArgumentException("Must specify offset with the buffer");
             $size = (int)array_product($shape);
             if($size > count($buffer)-$offset)
                 throw new InvalidArgumentException("host buffer is too small");
@@ -122,7 +120,7 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
 
     protected function newBuffer(
         object $context, int $size, int $dtype, int $flags=0,
-        object $hostBuffer=null, int $hostOffset=0)
+        object $hostBuffer=null, int $hostOffset=0) : DeviceBuffer
     {
         //if(!extension_loaded('rindow_opencl')) {
         //    throw new LogicException("rindow_opencl extension is not loaded.");
@@ -133,7 +131,7 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
             $flags,$hostBuffer,$hostOffset,$dtype);
     }
 
-    protected function assertShape(array $shape)
+    protected function assertShape(array $shape) : void
     {
         foreach($shape as $num) {
             if(!is_int($num)) {
@@ -157,17 +155,17 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
         return count($this->shape);
     }
 
-    public function dtype()
+    public function dtype() : int
     {
         return $this->dtype;
     }
 
-    public function flags()
+    public function flags() : int
     {
         return $this->flags;
     }
 
-    public function buffer() : ArrayAccess
+    public function buffer() : Buffer
     {
         return $this->buffer;
     }
@@ -199,7 +197,7 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
         return $newArray;
     }
 
-    public function toArray()
+    public function toArray() : mixed
     {
         return $this->toNDArray()->toArray();
     }
@@ -372,12 +370,12 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
         }
     }
 
-    public function setPortableSerializeMode(bool $mode)
+    public function setPortableSerializeMode(bool $mode) : void
     {
         throw new LogicException("Unsuppored Operation");
     }
 
-    public function getPortableSerializeMode()
+    public function getPortableSerializeMode() : bool
     {
         return $this->portableSerializeMode;
     }
@@ -392,12 +390,12 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
         throw new LogicException("Unsuppored Operation");
     }
 
-    public function setEvents($events)
+    public function setEvents($events) : void
     {
         $this->events = $events;
     }
 
-    public function getEvents()
+    public function getEvents() : object
     {
         return $this->events;
     }

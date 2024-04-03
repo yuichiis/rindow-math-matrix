@@ -1,10 +1,10 @@
 <?php
 namespace Rindow\Math\Matrix\Drivers\MatlibPHP;
 
-use ArrayAccess as Buffer;
 use RuntimeException;
 use InvalidArgumentException;
 use Interop\Polite\Math\Matrix\NDArray;
+use Interop\Polite\Math\Matrix\Buffer;
 use Rindow\Math\Matrix\ComplexUtils;
 
 class PhpMath
@@ -1425,21 +1425,20 @@ class PhpMath
         //    return;
         //}
 
+        $mask = null;
+        $isFloat = false;
         if(in_array($dtype,$this->floatTypes)) {
             $isFloat = true;
         } elseif(in_array($dtype,$this->intTypes)) {
-            $isFloat = false;
             if($dtype==NDArray::uint8) {
                 $mask = 0xff;
             } elseif($dtype==NDArray::uint16) {
                 $mask = 0xffff;
             } elseif($dtype==NDArray::uint32) {
                 $mask = 0xffffffff;
-            } else {
-                $mask = null;
             }
         } elseif($dtype==NDArray::bool) {
-            $isFloat = false;
+            ;
         } else {
             throw new InvalidArgumentException('dtype must be type of integer or float: '.$dtype);
         }
