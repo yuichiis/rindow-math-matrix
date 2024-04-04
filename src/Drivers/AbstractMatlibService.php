@@ -69,7 +69,7 @@ abstract class AbstractMatlibService implements Service
     public function serviceLevel() : int
     {
         if($this->serviceLevel!==null) {
-            $this->serviceLevel;
+            return $this->serviceLevel;
         }
 
         $level = Service::LV_BASIC;
@@ -141,8 +141,6 @@ abstract class AbstractMatlibService implements Service
             default: {
                 throw new InvalidArgumentException('Unknown service level.');
             }
-        }
-        if($level===Service::LV_BASIC) {
         }
     }
 
