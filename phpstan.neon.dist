@@ -74,9 +74,6 @@ parameters:
 			message: "#^Call to an undefined method Interop\\\\Polite\\\\Math\\\\Matrix\\\\Buffer\\:\\:fill\\(\\)#"
 			path: src/LinearAlgebraCL.php
 		-
-			message: "#^Call to an undefined method Interop\\\\Polite\\\\Math\\\\Matrix\\\\Buffer\\:\\:value_size\\(\\)#"
-			path: src/LinearAlgebraCL.php
-		-
 			message: "#^Call to an undefined method Interop\\\\Polite\\\\Math\\\\Matrix\\\\NDArray\\:\\:getEvents\\(\\)#"
 			path: src/LinearAlgebraCL.php
 		-
