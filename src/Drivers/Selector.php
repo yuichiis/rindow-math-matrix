@@ -3,6 +3,7 @@ namespace Rindow\Math\Matrix\Drivers;
 
 use Rindow\Math\Matrix\Drivers\MatlibPHP\MatlibPhp;
 use LogicException;
+use RuntimeException;
 
 class Selector 
 {
@@ -22,7 +23,7 @@ class Selector
         $this->catalog = $catalog;
     }
 
-    public function select() : ?Service
+    public function select() : Service
     {
         if($this->recommended) {
             return $this->recommended;
@@ -44,6 +45,9 @@ class Selector
         }
         if($highestLevel<=Service::LV_BASIC) {
             $recommended = new MatlibPhp();
+        }
+        if($recommended==null) {
+            throw new RuntimeException('Service not found');
         }
         $this->recommended = $recommended;
         return $recommended;

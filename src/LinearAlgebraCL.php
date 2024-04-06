@@ -166,7 +166,7 @@ class LinearAlgebraCL
 
     /**
      * @param array<NDArray> $inputs
-     * @return array<object>
+     * @return array<object|null>
      */
     public function prepareAutoEvent(
         array $inputs, object $events=null, object $waitEvents=null, bool $explicit=null) : array

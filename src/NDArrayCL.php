@@ -89,6 +89,9 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
         if($flags===null) {
             $flags = OpenCL::CL_MEM_READ_WRITE;
         }
+        if($shape===null) {
+            throw new InvalidArgumentException("Invalid dimension size");
+        }
 
         $this->assertShape($shape);
         $this->shape = $shape;
@@ -124,6 +127,11 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
             }
             throw new InvalidArgumentException("Invalid type of array: ".$typename);
         }
+    }
+
+    public function service() : Service
+    {
+        return $this->service;
     }
 
     protected function newBuffer(
@@ -210,7 +218,7 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
                 "[".implode(',',$this->shape())."]=>[".implode(',',$shape)."]");
         }
         $newArray = new static($this->queue,$this->buffer,
-            $this->dtype,$shape,$this->offset,$this->flags, service:$this->service);
+            $this->dtype,$shape,$this->offset,$this->flags, service:$this->service());
         return $newArray;
     }
 
@@ -225,7 +233,7 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
         object $waitEvents=null) : NDArray
     {
         $blocking_read = $blocking_read ?? true;
-        $array = new NDArrayPhp(null,$this->dtype,$this->shape,service:$this->service);
+        $array = new NDArrayPhp(null,$this->dtype,$this->shape,service:$this->service());
         $valueSize = static::$valueSizeTable[$this->dtype];
         $size = array_product($this->shape);
         $this->buffer->read($this->queue,$array->buffer(),$size*$valueSize,
@@ -288,12 +296,12 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
             $max = array_shift($shape);
             if(count($shape)==0) {
                 $new = new static($this->queue,$this->buffer,$this->dtype,
-                    $shape, $this->offset+$offset, $this->flags, service:$this->service);
+                    $shape, $this->offset+$offset, $this->flags, service:$this->service());
                 return $new;
             }
             $size = (int)array_product($shape);
             $new = new static($this->queue, $this->buffer, $this->dtype,
-                $shape, $this->offset+$offset*$size, $this->flags, service:$this->service);
+                $shape, $this->offset+$offset*$size, $this->flags, service:$this->service());
             return $new;
         }
         
@@ -325,7 +333,7 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
         array_unshift($shape,$rowsCount);
         $size = (int)array_product($shape);
         $new = new static($this->queue,$this->buffer,$this->dtype,
-            $shape,$this->offset+$start*$itemSize, $this->flags, service:$this->service);
+            $shape,$this->offset+$start*$itemSize, $this->flags, service:$this->service());
         return $new;
     }
 
@@ -432,7 +440,7 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
         $newBuffer = $this->clBufferFactory->Buffer(
             $this->context,$bytes,
             $flags,null,0,$dtype);
-        $events = $this->service->openCL()->EventList();
+        $events = $this->service()->openCL()->EventList();
         $newBuffer->copy($this->queue,$this->buffer,0,0,0,$events);
         $events->wait();
         $this->flags = $flags;

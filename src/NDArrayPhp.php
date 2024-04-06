@@ -73,10 +73,12 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
             $this->_buffer = $this->newBuffer($size,$dtype);
             $this->_offset = 0;
         } elseif($this->isBuffer($array)) {
-            if($offset===null||!is_int($offset))
+            if($offset===null||!is_int($offset)) {
                 throw new InvalidArgumentException("Must specify offset with the buffer");
-            if($shape===null)
+            }
+            if($shape===null) {
                 throw new InvalidArgumentException("Invalid dimension size");
+            }
             $this->_buffer = $array;
             $this->_offset = $offset;
         } elseif(is_array($array)||$array instanceof ArrayObject) {
@@ -135,9 +137,17 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         $this->_dtype = $dtype;
     }
 
+    public function service() : Service
+    {
+        if($this->service==null) {
+            throw new RuntimeException('service is unavailable');
+        }
+        return $this->service;
+    }
+
     protected function newBuffer(int $size,int $dtype) : BufferInterface
     {
-        return $this->service->buffer()->Buffer($size,$dtype);
+        return $this->service()->buffer()->Buffer($size,$dtype);
     }
 
     protected function isBuffer(mixed $buffer) : bool
@@ -251,11 +261,6 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         return $shape;
     }
 
-    public function service() : ?Service
-    {
-        return $this->service;
-    }
-
     /**
      * @return array<int>
      */
@@ -299,7 +304,7 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
             throw new InvalidArgumentException("Unmatch size to reshape: ".
                 "[".implode(',',$this->shape())."]=>[".implode(',',$shape)."]");
         }
-        $newArray = new static($this->buffer(),$this->dtype(),$shape,$this->offset(),service:$this->service);
+        $newArray = new static($this->buffer(),$this->dtype(),$shape,$this->offset(),service:$this->service());
         return $newArray;
     }
 
@@ -375,7 +380,7 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
                 return $value;
             }
             $size = (int)array_product($shape);
-            $new = new static($this->_buffer,$this->_dtype,$shape,$this->_offset+$offset*$size,service:$this->service);
+            $new = new static($this->_buffer,$this->_dtype,$shape,$this->_offset+$offset*$size,service:$this->service());
             return $new;
         }
 
@@ -407,7 +412,7 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         array_unshift($shape,$rowsCount);
         $size = (int)array_product($shape);
         $new = new static($this->_buffer,$this->_dtype,
-            $shape,$this->_offset+$start*$itemSize,service:$this->service);
+            $shape,$this->_offset+$start*$itemSize,service:$this->service());
         return $new;
     }
 
@@ -515,10 +520,10 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
             echo "Warning: NDarayPhp data is saved using old procedure. We recommend that you resave using the new procedure.\n";
         }
         $buffer = $data->buffer();
-        if(get_class($data->service())!==get_class($this->service)) {
-            $newBuffer = $this->service->buffer()->Buffer($buffer->count(),$buffer->dtype());
+        if(get_class($data->service())!==get_class($this->service())) {
+            $newBuffer = $this->service()->buffer()->Buffer($buffer->count(),$buffer->dtype());
             if($data->service()->serviceLevel()>=Service::LV_ADVANCED &&
-                $this->service->serviceLevel()>=Service::LV_ADVANCED) {
+                $this->service()->serviceLevel()>=Service::LV_ADVANCED) {
                 $newBuffer->load($buffer->dump());
             } else {
                 $count = $buffer->count();
@@ -533,7 +538,7 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
             dtype:$data->dtype(),
             shape:$data->shape(),
             offset:$data->offset(),
-            service:$this->service,
+            service:$this->service(),
         );
     }
 
@@ -571,14 +576,14 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         $this->_offset = $data['o'];
         $this->_dtype = $data['t'];
         if($mode=='machine' || $mode=='rindow_openblas') {
-            //if($this->service->serviceLevel()<Service::LV_ADVANCED) {
+            //if($this->service()->serviceLevel()<Service::LV_ADVANCED) {
             //    throw new RuntimeException('Advanced drivers are not loaded.');
             //}
-            $this->_buffer = $this->service->buffer()->Buffer($data['z'],$data['t']);
+            $this->_buffer = $this->service()->buffer()->Buffer($data['z'],$data['t']);
             $this->_buffer->load($data['b']);
         } elseif($mode=='linear-array') {
             // Compatibility with older specifications
-            $this->_buffer = $this->service->buffer()->Buffer($data['z'],$data['t']);
+            $this->_buffer = $this->service()->buffer()->Buffer($data['z'],$data['t']);
             foreach($data['b'] as $key => $value) {
                 $this->_buffer[$key] = $value;
             }
@@ -589,12 +594,12 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
 
     public function __clone()
     {
-        if($this->service->serviceLevel()>=Service::LV_ADVANCED) {
-            $newBuffer = $this->service->buffer()->Buffer(
+        if($this->service()->serviceLevel()>=Service::LV_ADVANCED) {
+            $newBuffer = $this->service()->buffer()->Buffer(
                 count($this->_buffer),$this->_buffer->dtype());
             $newBuffer->load($this->_buffer->dump());
             $this->_buffer = $newBuffer;
-        } elseif($this->service->serviceLevel()>=Service::LV_BASIC) {
+        } elseif($this->service()->serviceLevel()>=Service::LV_BASIC) {
             $this->_buffer = clone $this->_buffer;
         } else {
             throw new RuntimeException('Unknown buffer type is uncloneable:'.get_class($this->_buffer));

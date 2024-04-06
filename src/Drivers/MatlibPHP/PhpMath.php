@@ -2712,6 +2712,9 @@ class PhpMath
         $repeat = array_shift($sourceShape);
         $stride = array_shift($strides);
         $targetStride = array_shift($targetStrides);
+        if($repeat==null||$stride==null||$targetStride==null) {
+            throw new RuntimeException('invalid shape');
+        }
         if($ndim<=0) {
             $this->math_copy($repeat,$A,$offsetA,$stride,$B,$offsetB,$targetStride);
             return;
