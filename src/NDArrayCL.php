@@ -241,8 +241,20 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
         return $array;
     }
 
+    /**
+     * @return int|array<int>|Range
+     */
+    protected function castOffset( mixed $offset ) : int|array|Range
+    {
+        if(!is_int($offset)&&!is_array($offset)&&!($offset instanceof Range)) {
+            throw new InvalidArgumentException("invalit type of offset.");
+        }
+        return $offset;
+    }
+
     public function offsetExists( $offset ) : bool
     {
+        $offset = $this->castOffset($offset);
         if(is_array($offset) && self::$rangeStyle==self::RANGE_STYLE_FORCE2) {
             throw new InvalidArgumentException("offset style is old renge style.");
         }
@@ -281,6 +293,7 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
 
     public function offsetGet( $offset ) : mixed
     {
+        $offset = $this->castOffset($offset);
         if(!$this->offsetExists($offset)) {
             if(count($this->shape)==0) {
                 throw new OutOfRangeException("This object is scalar.");
@@ -339,6 +352,7 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
 
     public function offsetSet( $offset , $value ) : void
     {
+        $offset = $this->castOffset($offset);
         if(!$this->offsetExists($offset)) {
             if(count($this->shape)==0) {
                 throw new OutOfRangeException("This object is scalar.");
@@ -347,7 +361,7 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
             }
         }
         // for range spesification
-        if(is_array($offset)) {
+        if(!is_int($offset)) {
             throw new OutOfRangeException("Unsuppored to set for range specification.");
         }
         // for single index specification

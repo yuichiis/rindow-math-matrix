@@ -1583,6 +1583,9 @@ class MatrixOperator
         }
         $list = [];
         foreach($array as $key => $value) {
+            if(!is_array($value)&&!($value instanceof NDArray)) {
+                throw new RuntimeException('invalid format');
+            }
             $list[$key] = $this->serializeArray($value);
         }
         return static::SERIALIZE_NDARRAYSET_KEYWORD.serialize($list);
@@ -1594,7 +1597,13 @@ class MatrixOperator
             $data = substr($data,strlen(static::SERIALIZE_NDARRAYSET_KEYWORD));
             $array = unserialize($data);
             $list = [];
+            if(!is_array($array)) {
+                throw new RuntimeException('invalid format');
+            }
             foreach($array as $key => $value) {
+                if(!is_string($value)) {
+                    throw new RuntimeException('invalid format');
+                }
                 $list[$key] = $this->unserializeArray($value);
             }
             return $list;

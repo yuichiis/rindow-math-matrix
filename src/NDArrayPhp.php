@@ -72,7 +72,7 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
             $size = (int)array_product($shape);
             $this->_buffer = $this->newBuffer($size,$dtype);
             $this->_offset = 0;
-        } elseif($this->isBuffer($array)) {
+        } elseif($array instanceof BufferInterface) {
             if($offset===null||!is_int($offset)) {
                 throw new InvalidArgumentException("Must specify offset with the buffer");
             }
@@ -150,14 +150,14 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         return $this->service()->buffer()->Buffer($size,$dtype);
     }
 
-    protected function isBuffer(mixed $buffer) : bool
-    {
-        if($buffer instanceof BufferInterface) {
-            return true;
-        } else {
-            return false;
-        }
-    }
+    //protected function isBuffer(mixed $buffer) : bool
+    //{
+    //    if($buffer instanceof BufferInterface) {
+    //        return true;
+    //    } else {
+    //        return false;
+    //    }
+    //}
 
     protected function isComplex(int $dtype=null) : bool
     {
@@ -321,8 +321,20 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         return $this->flat2Array($this->_buffer, $idx, $this->_shape);
     }
 
+    /**
+     * @return int|array<int>|Range
+     */
+    protected function castOffset( mixed $offset ) : int|array|Range
+    {
+        if(!is_int($offset)&&!is_array($offset)&&!($offset instanceof Range)) {
+            throw new InvalidArgumentException("invalit type of offset.");
+        }
+        return $offset;
+    }
+
     public function offsetExists( $offset ) : bool
     {
+        $offset = $this->castOffset($offset);
         if(is_array($offset) && self::$rangeStyle==self::RANGE_STYLE_FORCE2) {
             throw new InvalidArgumentException("offset style is old range style.");
         }
@@ -363,6 +375,7 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
 
     public function offsetGet( $offset ) : mixed
     {
+        $offset = $this->castOffset($offset);
         if(!$this->offsetExists($offset)) {
             throw new OutOfRangeException("Index is out of range");
         }
@@ -418,8 +431,10 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
 
     public function offsetSet( $offset , $value ) : void
     {
-        if(!$this->offsetExists($offset))
+        $offset = $this->castOffset($offset);
+        if(!$this->offsetExists($offset)) {
             throw new OutOfRangeException("Index is out of range");
+        }
         // for range spesification
         if(is_array($offset)) {
             throw new OutOfRangeException("Unsuppored to set for range specification.");
@@ -572,8 +587,17 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
             $this->service = $selector->select();
         }
         $mode = $data['m'];
+        if(!is_array($data['s'])) {
+            throw new RuntimeException("invalid shape.");
+        }
         $this->_shape = $data['s'];
+        if(!is_int($data['o'])) {
+            throw new RuntimeException("invalid offset.");
+        }
         $this->_offset = $data['o'];
+        if(!is_int($data['t'])) {
+            throw new RuntimeException("invalid dtype.");
+        }
         $this->_dtype = $data['t'];
         if($mode=='machine' || $mode=='rindow_openblas') {
             //if($this->service()->serviceLevel()<Service::LV_ADVANCED) {
@@ -584,6 +608,9 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         } elseif($mode=='linear-array') {
             // Compatibility with older specifications
             $this->_buffer = $this->service()->buffer()->Buffer($data['z'],$data['t']);
+            if(!is_array($data['b'])) {
+                throw new RuntimeException("invalid buffer data.");
+            }
             foreach($data['b'] as $key => $value) {
                 $this->_buffer[$key] = $value;
             }

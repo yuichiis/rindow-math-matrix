@@ -1,82 +1,26 @@
+includes:
+	- phpstan-interop.neon
+	- phpstan-baseline.neon
+
 parameters:
-	level: 8
+	level: 6
 	paths:
 		- src
 	excludePaths:
 		- src/Drivers/MatlibCL/OpenCLMathTunner.php
-	ignoreErrors:
-		-
-			message: "#^Call to an undefined method Interop\\\\Polite\\\\Math\\\\Matrix\\\\.*[Device\\|Linear]*Buffer\\:\\:dtype\\(\\)#"
-		-
-			message: "#^Call to an undefined method Interop\\\\Polite\\\\Math\\\\Matrix\\\\.*[Device\\|Linear]*Buffer\\:\\:dump\\(\\)#"
-		-
-			message: "#^Call to an undefined method Interop\\\\Polite\\\\Math\\\\Matrix\\\\.*[Device\\|Linear]*Buffer\\:\\:value_size\\(\\)#"
-		-
-			message: "#function count expects array|Countable, Interop\\\\Polite\\\\Math\\\\Matrix\\\\NDArray given#"
-		-
-			message: "#^Argument of an invalid type Interop\\\\Polite\\\\Math\\\\Matrix\\\\NDArray supplied for foreach, only iterables are supported#"
-		-
-			message: "#^Call to an undefined method Interop\\\\Polite\\\\Math\\\\Matrix\\\\DeviceBuffer\\:\\:bytes\\(\\)#"
-		-
-			message: "#^Call to an undefined method Interop\\\\Polite\\\\Math\\\\Matrix\\\\DeviceBuffer\\:\\:copy\\(\\)#"
-		-
-			message: "#^Call to an undefined method Interop\\\\Polite\\\\Math\\\\Matrix\\\\DeviceBuffer\\:\\:read\\(\\)#"
-		-
-			message: "#^Constructor of class Rindow\\\\Math\\\\Matrix\\\\Drivers\\\\MatlibPHP\\\\MatlibPhp has an unused parameter#"
-			path: src/Drivers/MatlibPHP/MatlibPhp.php
-			count: 8
-		-
-			message: "#^Constructor of class Rindow\\\\Math\\\\Matrix\\\\Drivers\\\\MatlibPHP\\\\PhpBlas has an unused parameter#"
-			path: src/Drivers/MatlibPHP/PhpBlas.php
-			count: 2
-		-
-			message: "#^Class SplFixedArray specifies template type TKey of interface ArrayAccess as int but it's already specified as mixed#"
-			path: src/Drivers/MatlibPHP/PhpBuffer.php
-			count: 1
-		-
-			message: "#^Constructor of class Rindow\\\\Math\\\\Matrix\\\\Drivers\\\\MatlibPHP\\\\PhpLapack has an unused parameter#"
-			path: src/Drivers/MatlibPHP/PhpLapack.php
-			count: 2
-		-
-			message: "#^Comparison operation \"\\>\\=\" between int<0, max> and 0 is always true#"
-			path: src/Drivers/MatlibPHP/PhpLapack.php
-			count: 1
-		-
-			message: "#^Constructor of class Rindow\\\\Math\\\\Matrix\\\\Drivers\\\\MatlibPHP\\\\PhpMath has an unused parameter#"
-			path: src/Drivers/MatlibPHP/PhpMath.php
-			count: 2
-		-
-			message: "#^If condition is always false#"
-			path: src/Drivers/MatlibPHP/PhpMath.php
-			count: 1
-		-
-			message: "#^Comparison operation \"\\>\" between 2 and 1 is always true#"
-			path: src/Drivers/MatlibPHP/PhpMath.php
-			count: 1
-		-
-			message: "#^Else branch is unreachable because previous condition is always true#"
-			path: src/Drivers/MatlibPHP/PhpMath.php
-			count: 1
-		-
-			message: "#^Call to an undefined method Interop\\\\Polite\\\\Math\\\\Matrix\\\\Buffer\\:\\:fill\\(\\)#"
-			path: src/LinearAlgebraCL.php
-		-
-			message: "#^Call to an undefined method Interop\\\\Polite\\\\Math\\\\Matrix\\\\NDArray\\:\\:getEvents\\(\\)#"
-			path: src/LinearAlgebraCL.php
-		-
-			message: "#^Call to an undefined method Interop\\\\Polite\\\\Math\\\\Matrix\\\\NDArray\\:\\:valueSize\\(\\)#"
-			path: src/LinearAlgebraCL.php
-		-
-			message: "#^Call to an undefined method Interop\\\\Polite\\\\Math\\\\Matrix\\\\NDArray\\:\\:toNDArray\\(\\)#"
-			path: src/LinearAlgebraCL.php
-		-
-			message: "#^Call to an undefined method Interop\\\\Polite\\\\Math\\\\Matrix\\\\NDArray\\:\\:serialize\\(\\)#"
-			path: src/MatrixOperator.php
-		-
-			message: "#^Call to an undefined method object::#"
-		-
-			message: "#^Access to an undefined property object::\\$real#"
-			path: src/ComplexUtils.php
-		-
-			message: "#^Access to an undefined property object::\\$imag#"
-			path: src/ComplexUtils.php
+
+#	ignoreErrors:
+# level 7
+#		-
+#			message: "#^Call to an undefined method object::#"
+#		-
+#			message: "#^Access to an undefined property object::\\$real#"
+#			path: src/ComplexUtils.php
+#		-
+#			message: "#^Access to an undefined property object::\\$imag#"
+#			path: src/ComplexUtils.php
+# level 8
+#		-
+#			message: "#^Cannot access property \\$real#"
+#		-
+#			message: "#^Cannot access property \\$imag#"
