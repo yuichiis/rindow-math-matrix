@@ -11,8 +11,9 @@ use InvalidArgumentException;
 abstract class AbstractMatlibService implements Service
 {
     // abstract properties
-    protected $name = 'unknown';
+    protected string $name = 'unknown';
 
+    /** @var array<int,string> $levelString */
     protected array $levelString = [
         Service::LV_BASIC => 'Basic',
         Service::LV_ADVANCED => 'Advanced',
@@ -232,7 +233,7 @@ abstract class AbstractMatlibService implements Service
         return $queue;
     }
 
-    protected function getDevice($devOption) : object
+    protected function getDevice(string $devOption) : object
     {
         $devOption = explode(',',$devOption);
         if(count($devOption)!=2) {
@@ -251,7 +252,7 @@ abstract class AbstractMatlibService implements Service
         return $device;
     }
 
-    protected function searchDevice($deviceType) : object
+    protected function searchDevice(int $deviceType) : object
     {
         $platformList = $this->openclFactory->PlatformList();
         $platformCount = $platformList->count();

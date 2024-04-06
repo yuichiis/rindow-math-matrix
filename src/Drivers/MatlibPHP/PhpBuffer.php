@@ -9,12 +9,17 @@ use OutOfRangeException;
 use LogicException;
 use FFI;
 use SplFixedArray;
+use Traversable;
 use Rindow\Math\Matrix\ComplexUtils;
 
+/**
+ * @extends SplFixedArray<mixed>
+ */
 class PhpBuffer extends SplFixedArray implements BufferInterface
 {
     use ComplexUtils;
 
+    /** @var array<int,string> $typeString */
     protected static $typeString = [
         NDArray::bool    => 'uint8_t',
         NDArray::int8    => 'int8_t',
@@ -35,6 +40,7 @@ class PhpBuffer extends SplFixedArray implements BufferInterface
         NDArray::complex128 => 'complex_double',
     ];
 
+    /** @var array<int,int> $valueSize */
     protected static $valueSize = [
         NDArray::bool    => 1,
         NDArray::int8    => 1,
@@ -55,6 +61,7 @@ class PhpBuffer extends SplFixedArray implements BufferInterface
         NDArray::complex128  => 16,
     ];
 
+    /** @var array<int,string> $pack */
     protected static $pack = [
         NDArray::bool    => 'C',
         NDArray::int8    => 'c',
@@ -84,17 +91,23 @@ class PhpBuffer extends SplFixedArray implements BufferInterface
         parent::__construct($size);
     }
 
-    protected function isComplex($dtype=null) : bool
+    protected function isComplex(int $dtype=null) : bool
     {
         $dtype = $dtype ?? $this->dtype;
         return $this->cistype($dtype);
     }
 
+    /**
+     * @param array<mixed> $array
+     */
     public static function fromArray(array $array, bool $preserveKeys = true) : SplFixedArray
     {
         throw new LogicException("Unsupported operation");
     }
 
+    /**
+     * @param array<mixed> $array
+     */
     public static function fromArrayWithDtype(array $array, int $dtype) : BufferInterface
     {
         $a = new self(count($array), $dtype);

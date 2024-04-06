@@ -25,7 +25,7 @@ use Rindow\Math\Matrix\Drivers\CLBlast;
 
 class TestMatrixOperator extends MatrixOperator
 {
-    protected function createLinearAlgebraCL(array $options=null)
+    protected function createLinearAlgebraCL(array $options=null) : object
     {
         $queue = $this->service->createQueue($options);
         $la = new TestLinearAlgebraCL($queue,service:$this->service);
@@ -794,6 +794,17 @@ class LinearAlgebraCLTest extends ORGTest
             $la = $mo->laAccelerated('clblast',['deviceType'=>OpenCL::CL_DEVICE_TYPE_CPU]);
         }
         $this->assertInstanceOf(LinearAlgebraCL::class,$la);
+    }
+
+    public function testdeviceTypes()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        $deviceTypes = $la->deviceTypes();
+        $this->assertTrue(is_array($deviceTypes));
+        foreach($deviceTypes as $type) {
+            $this->assertTrue(in_array($type,['CPU','GPU','ACCEL','CUSTOM']));
+        }
     }
 
     public function testRotg()

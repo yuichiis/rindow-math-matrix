@@ -5,9 +5,13 @@ use Rindow\Math\Matrix\Drivers\MatlibPHP\MatlibPhp;
 
 class Selector 
 {
+    /** @var array<string> $catalog */
     protected array $catalog;
     protected ?Service $recommended=null;
 
+    /**
+     * @param array<string> $catalog
+     */
     public function __construct(array $catalog = null)
     {
         $catalog = $catalog ?? [

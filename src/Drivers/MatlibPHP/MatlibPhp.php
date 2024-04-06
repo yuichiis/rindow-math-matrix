@@ -5,7 +5,7 @@ use Rindow\Math\Matrix\Drivers\AbstractMatlibService;
 
 class MatlibPhp extends AbstractMatlibService
 {
-    protected $name = 'matlib_php';
+    protected string $name = 'matlib_php';
 
     public function __construct(
         object $bufferFactory=null,

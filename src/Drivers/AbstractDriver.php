@@ -10,7 +10,7 @@ abstract class AbstractDriver implements Driver
     protected string $OVER_VERSION   = '0.0.0';
     protected string $extName        = 'unknown';
 
-    protected function assertExtensionVersion($name,$lowestVersion,$overVersion)
+    protected function assertExtensionVersion(string $name,string $lowestVersion,string $overVersion) : void
     {
         $currentVersion = phpversion($name);
         if(version_compare($currentVersion,$lowestVersion)<0||
@@ -21,7 +21,7 @@ abstract class AbstractDriver implements Driver
         }
     }
 
-    protected function assertVersion()
+    protected function assertVersion() : void
     {
         $this->assertExtensionVersion($this->extName,
             $this->LOWEST_VERSION,

@@ -8,10 +8,10 @@ use Interop\Polite\Math\Matrix\NDArray;
 
 class Random
 {
-    protected $mo;
-    protected $defaultFloatType;
+    protected object $mo;
+    protected int $defaultFloatType;
 
-    public function __construct($matrixOperator,$defaultFloatType)
+    public function __construct(object $matrixOperator, int $defaultFloatType)
     {
         $this->mo = $matrixOperator;
         $this->defaultFloatType = $defaultFloatType;
@@ -24,7 +24,10 @@ class Random
         return sqrt(-2*log($x))*cos(2*pi()*$y)*$sd+$av;
     }
 
-    protected function checkSize($n)
+    /**
+     * @return array<int>
+     */
+    protected function checkSize(mixed $n) : array
     {
         if(is_array($n)) {
             $shape = $n;
@@ -36,7 +39,7 @@ class Random
         return $shape;
     }
 
-    public function rand($n,$dtype=null) : NDArray
+    public function rand(mixed $n,int $dtype=null) : NDArray
     {
         $shape = $this->checkSize($n);
         if($dtype===null)
@@ -50,7 +53,7 @@ class Random
         return $array;
     }
 
-    public function randn($n,$dtype=null) : NDArray
+    public function randn(mixed $n,int $dtype=null) : NDArray
     {
         $shape = $this->checkSize($n);
         if($dtype===null)
@@ -71,7 +74,7 @@ class Random
         return random_int(0,$max);
     }
 
-    public function choice($a,int $size=null, bool $replace=null)
+    public function choice(mixed $a, int $size=null, bool $replace=null) : mixed
     {
         $arangeFlg = false;
         if(is_int($a)) {

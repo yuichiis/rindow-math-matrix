@@ -8,18 +8,19 @@ use Interop\Polite\Math\Matrix\NDArray;
 use Interop\Polite\Math\Matrix\Buffer;
 use Rindow\Math\Matrix\ComplexUtils;
 
-class PhpBlas //implements BLASLevel1
+class PhpBlas
 {
     use Utils;
     use ComplexUtils;
 
-    protected $blas;
-    protected $forceBlas;
+    protected ?object $blas;
+    protected ?bool $forceBlas;
+    /** @var array<int> $floatTypes */
     protected $floatTypes= [
         NDArray::float16,NDArray::float32,NDArray::float64,
     ];
 
-    public function __construct($blas=null,$forceBlas=null)
+    public function __construct(object $blas=null,bool $forceBlas=null)
     {
         //$this->blas = $blas;
         //$this->forceBlas = $forceBlas;
@@ -61,7 +62,7 @@ class PhpBlas //implements BLASLevel1
         return $this->blas->getConfig();
     }
 
-    public function getCorename()
+    public function getCorename() : string
     {
         if($this->blas===null)
             return 'PHP';
@@ -83,7 +84,7 @@ class PhpBlas //implements BLASLevel1
 
     /**
      * @param  int $trans BLAS::NoTrans, BLAS::Trans, BLAS::ConjTrans, BLAS::ConjNoTrans
-     * @return array [bool $trans, bool $conj]
+     * @return array<bool> [bool $trans, bool $conj]
      */
     protected function codeToTrans(int $trans) : array
     {

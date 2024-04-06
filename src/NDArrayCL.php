@@ -19,6 +19,9 @@ use Interop\Polite\Math\Matrix\Buffer;
 use Interop\Polite\Math\Matrix\OpenCL;
 use Rindow\Math\Matrix\Drivers\Service;
 
+/**
+ * @implements IteratorAggregate<int, mixed>
+ */
 class NDArrayCL implements NDArray,Countable,IteratorAggregate
 {
     const RANGE_STYLE_DEFAULT = 0;
@@ -26,6 +29,7 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
     const RANGE_STYLE_FORCE2 = 2;
     static public int $rangeStyle = self::RANGE_STYLE_DEFAULT;
 
+    /** @var array<int,int> $valueSizeTable */
     static protected $valueSizeTable = [
         NDArray::bool  => 1,
         NDArray::int8  => 1,
@@ -49,6 +53,7 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
     protected object $clBufferFactory;
     protected object $context;
     protected object $queue;
+    /** @var array<int> $shape */
     protected array $shape;
     protected DeviceBuffer $buffer;
     protected int $offset;
@@ -57,6 +62,9 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
     protected bool $portableSerializeMode = false;
     protected object $events;
 
+    /**
+     * @param array<int> $shape
+     */
     final public function __construct(
         object $queue, mixed $buffer=null, int $dtype=null, array $shape = null,
         int $offset=null, int $flags=null,
@@ -131,6 +139,9 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
             $flags,$hostBuffer,$hostOffset,$dtype);
     }
 
+    /**
+     * @param array<mixed> $shape
+     */
     protected function assertShape(array $shape) : void
     {
         foreach($shape as $num) {
@@ -145,6 +156,9 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
         }
     }
 
+    /**
+     * @return array<int>
+     */
     public function shape() : array
     {
         return $this->shape;
@@ -185,6 +199,9 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
         return (int)array_product($this->shape);
     }
 
+    /**
+     * @param array<int> $shape
+     */
     public function reshape(array $shape) : NDArray
     {
         $this->assertShape($shape);
@@ -380,17 +397,20 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
         return $this->portableSerializeMode;
     }
 
-    public function __serialize()
+    public function __serialize() : array
     {
         throw new LogicException("Unsuppored Operation");
     }
 
-    public function __unserialize($serialized)
+    /**
+     * @param array<string,mixed> $serialized
+     */
+    public function __unserialize(array $serialized) : void
     {
         throw new LogicException("Unsuppored Operation");
     }
 
-    public function setEvents($events) : void
+    public function setEvents(object $events) : void
     {
         $this->events = $events;
     }

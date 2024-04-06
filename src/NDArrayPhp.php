@@ -18,6 +18,9 @@ use Interop\Polite\Math\Matrix\Buffer as BufferInterface;
 use Rindow\Math\Matrix\Drivers\Service;
 use Rindow\Math\Matrix\Drivers\Selector;
 
+/**
+ * @implements IteratorAggregate<int, mixed>
+ */
 class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
 {
     use ComplexUtils;
@@ -31,6 +34,7 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
     const SERIALIZE_OLDSTYLE_KEYWORD = 'O:29:"Rindow\Math\Matrix\NDArrayPhp"';
     static public int $unserializeWarning = 2;
 
+    /** @var array<int> $_shape */
     protected array $_shape;
     protected BufferInterface $_buffer;
     protected int $_offset;
@@ -38,6 +42,9 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
     protected bool $_portableSerializeMode = false;
     protected ?Service $service = null;
 
+    /**
+     * @param array<int> $shape
+     */
     final public function __construct(
         mixed $array = null,
         int $dtype=null,
@@ -128,12 +135,12 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         $this->_dtype = $dtype;
     }
 
-    protected function newBuffer($size,$dtype) : BufferInterface
+    protected function newBuffer(int $size,int $dtype) : BufferInterface
     {
         return $this->service->buffer()->Buffer($size,$dtype);
     }
 
-    protected function isBuffer($buffer) : bool
+    protected function isBuffer(mixed $buffer) : bool
     {
         if($buffer instanceof BufferInterface) {
             return true;
@@ -153,6 +160,9 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         return $this->cisObject($value);
     }
 
+    /**
+     * @param array<mixed> $shape
+     */
     protected function assertShape(array $shape) : void
     {
         foreach($shape as $num) {
@@ -167,7 +177,11 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         }
     }
 
-    protected function array2Flat($A, BufferInterface|ArrayObject $F, &$idx, $prepare) : int
+    /**
+     * @param array<mixed> $A
+     * @param BufferInterface|ArrayObject<int,mixed> $F
+     */
+    protected function array2Flat(iterable $A, BufferInterface|ArrayObject $F, int &$idx, bool $prepare) : int
     {
         if(is_array($A)) {
             ksort($A);
@@ -198,7 +212,11 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         return count($A);
     }
 
-    protected function flat2Array(BufferInterface $F, &$idx, array $shape) : array
+    /**
+     * @param array<int> $shape
+     * @return array<mixed>
+     */
+    protected function flat2Array(BufferInterface $F, int &$idx, array $shape) : array
     {
         $size = array_shift($shape);
         if(count($shape)) {
@@ -220,7 +238,10 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         return $A;
     }
 
-    protected function genShape($A) : array
+    /**
+     * @return array<int>
+     */
+    protected function genShape(mixed $A) : array
     {
         $shape = [];
         while(is_array($A) || $A instanceof ArrayObject) {
@@ -235,6 +256,9 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         return $this->service;
     }
 
+    /**
+     * @return array<int>
+     */
     public function shape() : array
     {
         return $this->_shape;
@@ -265,6 +289,9 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         return (int)array_product($this->_shape);
     }
 
+    /**
+     * @param array<int> $shape
+     */
     public function reshape(array $shape) : NDArray
     {
         $this->assertShape($shape);
@@ -276,7 +303,7 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         return $newArray;
     }
 
-    public function toArray()
+    public function toArray() : mixed
     {
         if(count($this->_shape)==0) {
             $value = $this->_buffer[$this->_offset];
@@ -448,7 +475,7 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
     /**
      * It is an old specification and has no effect.
      */
-    public function setPortableSerializeMode(bool $mode)
+    public function setPortableSerializeMode(bool $mode) : void
     {
         $this->_portableSerializeMode = $mode ? true : false;
     }
@@ -456,7 +483,7 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
     /**
      * It is an old specification and has no effect.
      */
-    public function getPortableSerializeMode()
+    public function getPortableSerializeMode() : bool
     {
         return $this->_portableSerializeMode;
     }
@@ -523,6 +550,9 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         ];
     }
 
+    /**
+     * @param array<string,mixed> $data
+     */
     public function __unserialize(array $data) : void
     {
         if($this->service===null) {

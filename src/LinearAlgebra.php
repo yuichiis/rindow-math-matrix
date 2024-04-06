@@ -21,11 +21,13 @@ class LinearAlgebra
     protected object $lapack;
     protected object $math;
     protected int $defaultFloatType = NDArray::float32;
+    /** @var array<int> $intTypes */
     protected array $intTypes= [
         NDArray::int8,NDArray::int16,NDArray::int32,NDArray::int64,
         NDArray::uint8,NDArray::uint16,NDArray::uint32,NDArray::uint64,
     ];
 
+    /** @var array<int,string> $dtypeToString */
     protected $dtypeToString = [
         NDArray::bool=>'bool',
         NDArray::int8=>'int8',   NDArray::uint8=>'uint8',
@@ -84,7 +86,7 @@ class LinearAlgebra
     {
     }
 
-    protected function printableShapes($values) : string
+    protected function printableShapes(mixed $values) : string
     {
         if(!is_array($values)) {
             if($values instanceof NDArray)
@@ -127,6 +129,9 @@ class LinearAlgebra
         return $cArray;
     }
 
+    /**
+     * @return array<bool>
+     */
     protected function complementTrans(?bool $trans,?bool $conj,int $dtype) : array
     {
         $trans = $trans ?? false;
@@ -166,7 +171,7 @@ class LinearAlgebra
         return $dtype==NDarray::float32||$dtype==NDarray::float64;
     }
 
-    public function array($array,int $dtype=null) : NDArray
+    public function array(mixed $array,int $dtype=null) : NDArray
     {
         if($array instanceof NDArray) {
             return $array;
@@ -185,7 +190,7 @@ class LinearAlgebra
         return $ndarray;
     }
 
-    public function scalar($array) : mixed
+    public function scalar(mixed $array) : mixed
     {
         if($array instanceof NDArray) {
             return $array->toArray();
@@ -254,6 +259,9 @@ class LinearAlgebra
         return $x->reshape($newShape);
     }
 
+    /**
+     * @param array<int> $shape
+     */
     public function alloc(array $shape,int $dtype=null) : NDArray
     {
         if($dtype===null)
@@ -286,7 +294,7 @@ class LinearAlgebra
         return $newArray;
     }
 
-    public function astype(NDArray $X, $dtype) : NDArray
+    public function astype(NDArray $X, int $dtype) : NDArray
     {
         $Y = $this->alloc($X->shape(),dtype:$dtype);
         $n = $X->size();
@@ -512,8 +520,9 @@ class LinearAlgebra
     }
 
     /**
-    *    a,b,c,s = rotg(x,y)
-    */
+     * a,b,c,s = rotg(x,y)
+     * @return array<NDArray>
+     */
     public function rotg(
         NDArray $X,
         NDArray $Y,
@@ -1354,7 +1363,10 @@ class LinearAlgebra
         return $X;
     }
 
-    protected function calcBroadcastFormat($A,$X) : array
+    /**
+     * @return array<mixed>
+     */
+    protected function calcBroadcastFormat(NDArray $A,int|float|NDArray $X) : array
     {
         if(is_numeric($X)) {
             $X = $this->array($X,dtype:$A->dtype());
@@ -1408,7 +1420,7 @@ class LinearAlgebra
      */
     public function maximum(
         NDArray $A,
-        $X
+        int|float|NDArray $X,
         ) : NDArray
     {
         [$m,$n,$dmy,$X] = $this->calcBroadcastFormat($A,$X);
@@ -1433,7 +1445,7 @@ class LinearAlgebra
      */
     public function minimum(
         NDArray $A,
-        $X
+        int|float|NDArray $X,
         ) : NDArray
     {
         [$m,$n,$dmy,$X] = $this->calcBroadcastFormat($A,$X);
@@ -1458,7 +1470,7 @@ class LinearAlgebra
      */
     public function greater(
         NDArray $A,
-        $X
+        int|float|NDArray $X,
         ) : NDArray
     {
         [$m,$n,$dmy,$X] = $this->calcBroadcastFormat($A,$X);
@@ -1483,7 +1495,7 @@ class LinearAlgebra
      */
     public function greaterEqual(
         NDArray $A,
-        $X
+        int|float|NDArray $X,
         ) : NDArray
     {
         [$m,$n,$dmy,$X] = $this->calcBroadcastFormat($A,$X);
@@ -1508,7 +1520,7 @@ class LinearAlgebra
      */
     public function less(
         NDArray $A,
-        $X
+        int|float|NDArray $X,
         ) : NDArray
     {
         [$m,$n,$dmy,$X] = $this->calcBroadcastFormat($A,$X);
@@ -1533,7 +1545,7 @@ class LinearAlgebra
      */
     public function lessEqual(
         NDArray $A,
-        $X
+        int|float|NDArray $X,
         ) : NDArray
     {
         [$m,$n,$dmy,$X] = $this->calcBroadcastFormat($A,$X);
@@ -2510,6 +2522,11 @@ class LinearAlgebra
         return $output;
     }
 
+    /**
+     * @param array<int> $filterSize
+     * @param array<int> $strides
+     * @param array<int> $dilation_rate
+     */
     public function im2col(
         NDArray $images,
         array $filterSize=null,
@@ -2573,6 +2590,11 @@ class LinearAlgebra
         return $cols;
     }
 
+    /**
+     * @param array<int> $filterSize
+     * @param array<int> $strides
+     * @param array<int> $dilation_rate
+     */
     public function col2im(
         NDArray $cols,
         NDArray $images,
@@ -2627,6 +2649,11 @@ class LinearAlgebra
         return $images;
     }
 
+    /**
+     * @param array<int> $filterSize
+     * @param array<int> $strides
+     * @param array<int> $dilation_rate
+     */
     public function im2col1d(
         bool $reverse,
         NDArray $images,
@@ -2723,6 +2750,11 @@ class LinearAlgebra
         return $cols;
     }
 
+    /**
+     * @param array<int> $filterSize
+     * @param array<int> $strides
+     * @param array<int> $dilation_rate
+     */
     public function im2col2d(
         bool $reverse,
         NDArray $images,
@@ -2829,6 +2861,11 @@ class LinearAlgebra
         return $cols;
     }
 
+    /**
+     * @param array<int> $filterSize
+     * @param array<int> $strides
+     * @param array<int> $dilation_rate
+     */
     public function im2col3d(
         bool $reverse,
         NDArray $images,
@@ -2939,10 +2976,14 @@ class LinearAlgebra
         return $cols;
     }
 
+    /**
+    *  random uniform
+     * @param array<int> $shape
+     */
     public function randomUniform(
         array $shape,
-        $low,
-        $high,
+        int|float $low,
+        int|float $high,
         int $dtype=null,
         int $seed=null,
         NDArray $X=null) : NDArray
@@ -2957,9 +2998,6 @@ class LinearAlgebra
         } else {
             if ($X->shape()!=$shape) {
                 throw new InvalidArgumentException('Unmatch shape and shape of X');
-            }
-            if(!is_numeric($low)||!is_numeric($high)){
-                throw new InvalidArgumentException('low and high must be integer or float');
             }
         }
         if($seed===null) {
@@ -2980,10 +3018,13 @@ class LinearAlgebra
         return $X;
     }
 
+    /**
+     * @param array<int> $shape
+     */
     public function randomNormal(
         array $shape,
-        $mean,
-        $scale,
+        float $mean,
+        float $scale,
         int $dtype=null,
         int $seed=null,
         NDArray $X=null) : NDArray
@@ -2998,9 +3039,6 @@ class LinearAlgebra
         } else {
             if ($X->shape()!=$shape) {
                 throw new InvalidArgumentException('Unmatch shape and shape of X');
-            }
-            if(!is_numeric($mean)||!is_numeric($scale)){
-                throw new InvalidArgumentException('low and high must be integer or float');
             }
         }
         if($seed===null) {
@@ -3060,6 +3098,10 @@ class LinearAlgebra
         return $X;
     }
 
+    /**
+     * @param array<int> $begin
+     * @param array<int> $size
+     */
     public function slice(
         NDArray $input,
         array $begin,
@@ -3076,6 +3118,10 @@ class LinearAlgebra
         );
     }
 
+    /**
+     * @param array<int> $begin
+     * @param array<int> $size
+     */
     public function stick(
         NDArray $input,
         NDArray $output,
@@ -3092,10 +3138,13 @@ class LinearAlgebra
         );
     }
 
+    /**
+     * @param array<NDArray> $values
+     */
     public function stack(
         array $values,
         int $axis=null
-    )
+    ) : NDArray
     {
         if($axis==null){
             $axis=0;
@@ -3181,6 +3230,9 @@ class LinearAlgebra
         return $output;
     }
 
+    /**
+     * @param array<NDArray> $values
+     */
     public function concat(
         array $values,
         int $axis=null
@@ -3235,8 +3287,12 @@ class LinearAlgebra
         return $output;
     }
 
+    /**
+     * @param array<int> $sizeSplits
+     * @return array<NDArray>
+     */
     public function split(
-        NDArray $input, array $sizeSplits, $axis=null
+        NDArray $input, array $sizeSplits, int $axis=null
         ) : array
     {
         if($axis===null) {
@@ -3265,6 +3321,10 @@ class LinearAlgebra
         return $outputs;
     }
 
+    /**
+     * @param array<int> $begin
+     * @param array<int> $size
+     */
     protected function doSlice(
         bool $reverse,
         NDArray $input,
@@ -3464,6 +3524,9 @@ class LinearAlgebra
         return $B;
     }
 
+    /**
+     * @return array<NDArray>
+     */
     public function svd(
         NDArray $matrix,
         bool $fullMatrices=null) : array
@@ -3527,6 +3590,9 @@ class LinearAlgebra
         return [$U,$S,$VT];
     }
 
+    /**
+     * @param array<int>|NDArray $perm
+     */
     public function transpose(
         NDArray $A,
         array|NDArray $perm=null,
@@ -3557,6 +3623,9 @@ class LinearAlgebra
         return $this->transposeND($A,$perm,$B);
     }
 
+    /**
+     * @param array<int>|NDArray $perm
+     */
     protected function transposeND(
         NDArray $A,
         array|NDArray $perm=null,
@@ -3749,9 +3818,9 @@ class LinearAlgebra
     }
 
     public function fill(
-        $value,
+        mixed $value,
         NDArray $X
-        )
+        ) : NDArray
     {
         if(is_scalar($value)) {
             if(is_string($value)) {
@@ -3947,9 +4016,12 @@ class LinearAlgebra
         return $array;
     }
 
+    /**
+     * @return array<NDArray>
+     */
     public function numericalGradient(
         float $h=null,
-        $f=null,
+        callable $f=null,
         NDArray ...$variables) : array
     {
         if($h===null)
@@ -4023,7 +4095,7 @@ class LinearAlgebra
         return $abs;
     }
 
-    public function isclose(NDArray $a, NDArray $b, $rtol=null, $atol=null) : bool
+    public function isclose(NDArray $a, NDArray $b, float|object $rtol=null, float|object $atol=null) : bool
     {
         $isCpx = $this->isComplexDtype($a->dtype());
         if($rtol===null) {

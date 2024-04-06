@@ -4,6 +4,9 @@ namespace Rindow\Math\Matrix;
 use IteratorAggregate;
 use Traversable;
 
+/**
+ * @implements IteratorAggregate<int, int|float>
+ */
 class Range implements IteratorAggregate
 {
     protected mixed $start;
