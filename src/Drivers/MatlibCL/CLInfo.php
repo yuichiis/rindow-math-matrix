@@ -53,7 +53,7 @@ class CLInfo
         }
     }
 
-    public function platformInfo(object $platforms)
+    public function platformInfo(object $platforms) : void
     {
         $i = 0;
         echo "    CL_PLATFORM_NAME=".$platforms->getInfo($i,OpenCL::CL_PLATFORM_NAME)."\n";
@@ -63,7 +63,7 @@ class CLInfo
         echo "    CL_PLATFORM_EXTENSIONS=".$platforms->getInfo($i,OpenCL::CL_PLATFORM_EXTENSIONS)."\n";
     }
 
-    public function deviceInfo(object $devices)
+    public function deviceInfo(object $devices) : void
     {
         $i = 0;
         assert(null!=$devices->getInfo($i,OpenCL::CL_DEVICE_NAME));

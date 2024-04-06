@@ -4,11 +4,14 @@ namespace Rindow\Math\Matrix;
 use IteratorAggregate;
 use Traversable;
 
+/**
+ * @implements IteratorAggregate<int, int|float>
+ */
 class Range implements IteratorAggregate
 {
-    protected mixed $start;
-    protected mixed $limit;
-    protected mixed $delta;
+    protected int|float $start;
+    protected int|float $limit;
+    protected int|float $delta;
 
     public function __construct(
         int|float $limit,
@@ -20,17 +23,17 @@ class Range implements IteratorAggregate
         $this->delta = $delta ?? (($limit>=$start)? 1 : -1);
     }
 
-    public function start() : mixed
+    public function start() : int|float
     {
         return $this->start;
     }
 
-    public function limit() : mixed
+    public function limit() : int|float
     {
         return $this->limit;
     }
 
-    public function delta() : mixed
+    public function delta() : int|float
     {
         return $this->delta;
     }
