@@ -2,6 +2,7 @@
 namespace Rindow\Math\Matrix\Drivers;
 
 use Rindow\Math\Matrix\Drivers\MatlibPHP\MatlibPhp;
+use LogicException;
 
 class Selector 
 {
@@ -31,6 +32,9 @@ class Selector
         foreach ($this->catalog as $name) {
             if(class_exists($name)) {
                 $service = new $name;
+                if(!($service instanceof Service)) {
+                    throw new LogicException('Not service class: '.$name);
+                }
                 $level = $service->serviceLevel();
                 if($level>$highestLevel) {
                     $highestLevel = $level;

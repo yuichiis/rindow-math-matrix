@@ -2684,7 +2684,7 @@ class PhpMath
     }
 
     /**
-     * @return array<float|int> $targetStrides
+     * @return array<int> $targetStrides
      */
     protected function transBuff2array(Buffer $buffer) : array
     {

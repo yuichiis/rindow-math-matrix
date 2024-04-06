@@ -3,6 +3,7 @@ namespace Rindow\Math\Matrix\Drivers\MatlibPHP;
 
 use LogicException;
 use InvalidArgumentException;
+use RuntimeException;
 use Interop\Polite\Math\Matrix\BLAS;
 use Interop\Polite\Math\Matrix\NDArray;
 use Interop\Polite\Math\Matrix\Buffer;
@@ -107,6 +108,22 @@ class PhpBlas
         }
     }
 
+    protected function cleanComplexNumber(mixed $value,string $name) : object
+    {
+        if(!$this->cisobject($value)) {
+            throw new RuntimeException("$name is not complex");
+        }
+        return $value;
+    }
+
+    protected function cleanFloatNumber(mixed $value,string $name) : float
+    {
+        if(!is_numeric($value)) {
+            throw new RuntimeException("$name is not float");
+        }
+        return (float)$value;
+    }
+
     public function scal(
         int $n,
         float|object $alpha,
@@ -117,10 +134,12 @@ class PhpBlas
 
         $idx = $offsetX;
         if($this->cistype($X->dtype())) {
+            $alpha = $this->cleanComplexNumber($alpha,'alpha');
             for ($i=0; $i<$n; $i++,$idx+=$incX) {
                 $X[$idx] = $this->cmul($X[$idx],$alpha);
             }
         } else {
+            $alpha = $this->cleanFloatNumber($alpha,'alpha');
             for ($i=0; $i<$n; $i++,$idx+=$incX) {
                 $X[$idx] = $X[$idx] * $alpha;
             }
@@ -142,10 +161,12 @@ class PhpBlas
         $idxX = $offsetX;
         $idxY = $offsetY;
         if($this->cistype($X->dtype())) {
+            $alpha = $this->cleanComplexNumber($alpha,'alpha');
             for ($i=0; $i<$n; $i++,$idxX+=$incX,$idxY+=$incY) {
                 $Y[$idxY] = $this->cadd($this->cmul($alpha,$X[$idxX]),$Y[$idxY]);
             }
         } else {
+            $alpha = $this->cleanFloatNumber($alpha,'alpha');
             if($alpha==1.0) {   // Y := X + Y
                 for ($i=0; $i<$n; $i++,$idxX+=$incX,$idxY+=$incY) {
                     $Y[$idxY] = $X[$idxX] + $Y[$idxY];
@@ -481,6 +502,8 @@ class PhpBlas
         $idA_i = $offsetA;
         $idY = $offsetY;
         if($this->cistype($X->dtype())) {
+            $alpha = $this->cleanComplexNumber($alpha,'alpha');
+            $beta = $this->cleanComplexNumber($beta,'beta');
             $hasAlpha = !$this->cisone($alpha);
             $hasBeta = !$this->ciszero($beta);
             $betaIsNotOne = !$this->cisone($beta);
@@ -511,6 +534,8 @@ class PhpBlas
                 $Y[$idY] = $acc;
             }
         } else {
+            $alpha = $this->cleanFloatNumber($alpha,'alpha');
+            $beta = $this->cleanFloatNumber($beta,'beta');
             $hasBeta  = $beta!=0.0;
             for ($i=0; $i<$rows; $i++,$idA_i+=$ldA_i,$idY+=$incY) {
                 $idA = $idA_i;
@@ -570,6 +595,8 @@ class PhpBlas
         $idA_m = $offsetA;
         $idC_m = $offsetC;
         if($this->cistype($A->dtype())) {
+            $alpha = $this->cleanComplexNumber($alpha,'alpha');
+            $beta = $this->cleanComplexNumber($beta,'beta');
             $hasAlpha = !$this->cisone($alpha);
             $hasBeta = !$this->ciszero($beta);
             $betaIsNotOne = !$this->cisone($beta);
@@ -605,6 +632,8 @@ class PhpBlas
                 }
             }
         } else {
+            $alpha = $this->cleanFloatNumber($alpha,'alpha');
+            $beta = $this->cleanFloatNumber($beta,'beta');
             for ($im=0; $im<$m; $im++,$idA_m+=$ldA_m,$idC_m+=$ldC) {
                 $idB_n = $offsetB;
                 $idC = $idC_m;
@@ -663,6 +692,8 @@ class PhpBlas
         $idA_m = $offsetA;
         $idC_m = $offsetC;
         if($this->cistype($A->dtype())) {
+            $alpha = $this->cleanComplexNumber($alpha,'alpha');
+            $beta = $this->cleanComplexNumber($beta,'beta');
             $hasAlpha = !$this->cisone($alpha);
             $hasBeta = !$this->ciszero($beta);
             $betaIsNotOne = !$this->cisone($beta);
@@ -694,6 +725,8 @@ class PhpBlas
                 }
             }
         } else {
+            $alpha = $this->cleanFloatNumber($alpha,'alpha');
+            $beta = $this->cleanFloatNumber($beta,'beta');
             for ($im=0; $im<$m; $im++,$idC_m+=$ldC_m) {
                 $idB_n = $offsetB;
                 $idC = $idC_m;
@@ -751,6 +784,8 @@ class PhpBlas
         $idA_m = $offsetA;
         $idC_m = $offsetC;
         if($this->cistype($A->dtype())) {
+            $alpha = $this->cleanComplexNumber($alpha,'alpha');
+            $beta = $this->cleanComplexNumber($beta,'beta');
             $hasAlpha = !$this->cisone($alpha);
             $hasBeta = !$this->ciszero($beta);
             $betaIsNotOne = !$this->cisone($beta);
@@ -792,6 +827,8 @@ class PhpBlas
                 }
             }
         } else {
+            $alpha = $this->cleanFloatNumber($alpha,'alpha');
+            $beta = $this->cleanFloatNumber($beta,'beta');
             for ($im=0; $im<$n; $im++,$idA_m+=$ldA_m,$idC_m+=$ldC) {
                 $idAT_n = $offsetA;
                 $idC = $idC_m;
@@ -861,6 +898,8 @@ class PhpBlas
         $idA_m = $offsetA;
         $idC_m = $offsetC;
         if($this->cistype($A->dtype())) {
+            $alpha = $this->cleanComplexNumber($alpha,'alpha');
+            $beta = $this->cleanComplexNumber($beta,'beta');
             $hasAlpha = !$this->cisone($alpha);
             $hasBeta = !$this->ciszero($beta);
             $betaIsNotOne = !$this->cisone($beta);
@@ -905,6 +944,8 @@ class PhpBlas
                 }
             }
         } else {
+            $alpha = $this->cleanFloatNumber($alpha,'alpha');
+            $beta = $this->cleanFloatNumber($beta,'beta');
             for ($im=0; $im<$n; $im++,$idA_m+=$ldA_m,$idC_m+=$ldC) {
                 $idAT_n = $offsetA;
                 $idC = $idC_m;
@@ -1004,6 +1045,7 @@ class PhpBlas
         $startm = $lower?($sizeA-1):0;
         $stepm =  $lower?(-1):1;
         if($this->cistype($A->dtype())) {
+            $alpha = $this->cleanComplexNumber($alpha,'alpha');
             $hasAlpha = !$this->cisone($alpha);
             for($cm=0,$im=$startm;$cm<$sizeA;$cm++,$im+=$stepm) {
                 for($in=0;$in<$sizeB;$in++) {
@@ -1030,6 +1072,7 @@ class PhpBlas
                 }
             }
         } else {
+            $alpha = $this->cleanFloatNumber($alpha,'alpha');
             for($cm=0,$im=$startm;$cm<$sizeA;$cm++,$im+=$stepm) {
                 for($in=0;$in<$sizeB;$in++) {
                     if($unit) {
@@ -1112,6 +1155,7 @@ class PhpBlas
         $startm = $lower?0:($sizeA-1);
         $stepm =  $lower?1:(-1);
         if($this->cistype($A->dtype())) {
+            $alpha = $this->cleanComplexNumber($alpha,'alpha');
             $hasAlpha = !$this->cisone($alpha);
             // loop(i)
             for($cm=0,$im=$startm;$cm<$sizeA;$cm++,$im+=$stepm) {
@@ -1180,6 +1224,7 @@ class PhpBlas
                 //echo "endfor(j)\n";
             }
         } else {
+            $alpha = $this->cleanFloatNumber($alpha,'alpha');
             // loop(i)
             for($cm=0,$im=$startm;$cm<$sizeA;$cm++,$im+=$stepm) {
                 // A[i,i]
@@ -1245,6 +1290,7 @@ class PhpBlas
         $idB_i = $offsetB;
 
         if($this->cistype($A->dtype())) {
+            $alpha = $this->cleanComplexNumber($alpha,'alpha');
             $hasAlpha = !$this->cisone($alpha);
             for($i=0; $i<$rows; $i++,$idA_i+=$ldA_i,$idB_i+=$ldB) {
                 $idA = $idA_i;
@@ -1261,6 +1307,7 @@ class PhpBlas
                 }
             }
         } else {
+            $alpha = $this->cleanFloatNumber($alpha,'alpha');
             for($i=0; $i<$rows; $i++,$idA_i+=$ldA_i,$idB_i+=$ldB) {
                 $idA = $idA_i;
                 $idB = $idB_i;

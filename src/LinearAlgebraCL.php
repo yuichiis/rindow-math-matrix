@@ -34,11 +34,11 @@ class LinearAlgebraCL
     protected bool $scalarNumeric = false;
     protected bool $autoEvents;
     protected bool $profiling = false;
-    /** @var array<string,int> $profilingStartTime */
+    /** @var array<string,float> $profilingStartTime */
     protected $profilingStartTime = [];
     /** @var array<string,int> $profilingCount */
     protected $profilingCount = [];
-    /** @var array<string,int> $profilingTotalTime */
+    /** @var array<string,float> $profilingTotalTime */
     protected array $profilingTotalTime = [];
     protected string $clVersion;
     protected bool $isOpenCL110;
@@ -262,7 +262,7 @@ class LinearAlgebraCL
     {
         if(!is_array($array)) {
             if(is_numeric($array)) {
-                return C($array,i:0);
+                return C((float)$array,i:0);
             } else {
                 return C($array->real,i:$array->imag);
             }
@@ -1293,7 +1293,7 @@ class LinearAlgebraCL
                 $C,$S,
                 $this->queue,$events,
             );
-        } else {
+        } elseif(($C instanceof NDArray) && ($S instanceof NDArray)) {
             $CC = $C->buffer();
             $offC = $C->offset();
             $SS = $S->buffer();
@@ -1303,6 +1303,8 @@ class LinearAlgebraCL
                 $CC,$offC,$SS,$offS,
                 $this->queue,$events,
             );
+        } else {
+            throw new InvalidArgumentException("Unmatch type of C and S");
         }
         if($this->blocking) {
             $this->finish();

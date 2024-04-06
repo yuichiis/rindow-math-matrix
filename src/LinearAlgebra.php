@@ -117,7 +117,7 @@ class LinearAlgebra
     {
         if(!is_array($array)) {
             if(is_numeric($array)) {
-                return C($array,i:0);
+                return C((float)$array,i:0);
             } else {
                 return C($array->real,i:$array->imag);
             }
@@ -4095,7 +4095,7 @@ class LinearAlgebra
         return $abs;
     }
 
-    public function isclose(NDArray $a, NDArray $b, float|object $rtol=null, float|object $atol=null) : bool
+    public function isclose(NDArray $a, NDArray $b, float|object $rtol=null, float $atol=null) : bool
     {
         $isCpx = $this->isComplexDtype($a->dtype());
         if($rtol===null) {

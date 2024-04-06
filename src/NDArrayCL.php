@@ -283,6 +283,7 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
 
         // for single index specification
         if(is_numeric($offset)) {
+            $offset = (int)$offset;
             $shape = $this->shape;
             $max = array_shift($shape);
             if(count($shape)==0) {
@@ -300,14 +301,14 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
         $shape = $this->shape;
         array_shift($shape);
         if(is_array($offset)) {
-            $start = $offset[0];
-            $limit = $offset[1];
+            $start = (int)$offset[0];
+            $limit = (int)$offset[1];
             if(self::$rangeStyle==self::RANGE_STYLE_1) {
                 ++$limit;
             }
         } else {
-            $start = $offset->start();
-            $limit = $offset->limit();
+            $start = (int)$offset->start();
+            $limit = (int)$offset->limit();
             if($offset->delta()!=1) {
                 throw new OutOfRangeException("Illegal range specification.:delta=".$offset->delta());
             }

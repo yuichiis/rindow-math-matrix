@@ -7,6 +7,7 @@ use TypeError;
 use InvalidArgumentException;
 use OutOfRangeException;
 use LogicException;
+use RuntimeException;
 use FFI;
 use SplFixedArray;
 use Traversable;
@@ -164,6 +165,9 @@ class PhpBuffer extends SplFixedArray implements BufferInterface
     {
         $fmt = self::$pack[$this->dtype].'*';
         $data = unpack($fmt,$string);
+        if($data===false) {
+            throw new RuntimeException('Unpack error');
+        }
         $i = 0;
         $real = 0;
         if($this->isComplex()) {

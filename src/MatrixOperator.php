@@ -29,9 +29,9 @@ class MatrixOperator
     protected ?object $la=null;
     protected ?object $laPhp=null;
     protected ?object $clblastLA=null;
-    /** @var array<string,array<null|bool|string>> $broadCastOperators */
+    /** @var array<string,array<null|int|string>> $broadCastOperators */
     protected array $broadCastOperators;
-    /** @var array<string,array<null|bool|string>> $updateOperators */
+    /** @var array<string,array<null|string>> $updateOperators */
     protected array $updateOperators;
     /** @var object $operatorFunctions */
     protected object $operatorFunctions;
@@ -271,7 +271,7 @@ class MatrixOperator
         }
 
         if(is_numeric($array)) {
-            return C($array,i:0);
+            return C((float)$array,i:0);
         } elseif(is_object($array) && 
                 property_exists($array,'real') &&
                 property_exists($array,'imag')) {
@@ -395,7 +395,7 @@ class MatrixOperator
         int $count,
         int|float $start=null,
         int|float $step=null,
-        int|float $dtype=null
+        int $dtype=null
         ) : NDArray
     {
         if($start===null)
@@ -731,8 +731,9 @@ class MatrixOperator
     /**
      * @param array<int> $shape
      * @param array<int> $skipDims
+     * @return array<int>
      */
-    protected function createMatrixBufferIterator(array $shape, array $skipDims) : object
+    protected function createMatrixBufferIterator(array $shape, array $skipDims) : iterable
     {
         return new class($shape,$skipDims) implements Iterator
         {
