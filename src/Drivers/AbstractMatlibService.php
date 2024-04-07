@@ -46,8 +46,7 @@ abstract class AbstractMatlibService implements Service
         protected ?object $blasCLFactory=null,
         protected ?object $mathCLFactory=null,
         protected ?object $bufferCLFactory=null,
-    )
-    {
+    ) {
         $this->phpBLASFactory = new PhpBLASFactory();
         $this->phpblas = $this->phpBLASFactory->Blas();
         $this->phplapack = $this->phpBLASFactory->Lapack();
@@ -268,17 +267,17 @@ abstract class AbstractMatlibService implements Service
 
     public function blasCL(object $queue) : object
     {
-        return $this->blasCLFactory()->Blas($queue,service:$this);
+        return $this->blasCLFactory()->Blas($queue, service:$this);
     }
 
     public function mathCL(object $queue) : object
     {
-        return $this->mathCLFactory()->Math($queue,service:$this);
+        return $this->mathCLFactory()->Math($queue, service:$this);
     }
 
     public function mathCLBlast(object $queue) : object
     {
-        return $this->clblastFactory()->Math($queue,service:$this);
+        return $this->clblastFactory()->Math($queue, service:$this);
     }
 
     public function createQueue(array $options=null) : object
@@ -300,7 +299,7 @@ abstract class AbstractMatlibService implements Service
 
     protected function getDevice(string $devOption) : object
     {
-        $devOption = explode(',',$devOption);
+        $devOption = explode(',', $devOption);
         if(count($devOption)!=2) {
             throw new InvalidArgumentException('Device option must be two numeric with comma, etc."0,1"');
         }
@@ -328,7 +327,7 @@ abstract class AbstractMatlibService implements Service
                 if($deviceType==OpenCL::CL_DEVICE_TYPE_DEFAULT) {
                     return $deviceList->getOne($d);
                 }
-                if($deviceList->getInfo($d,OpenCL::CL_DEVICE_TYPE)===$deviceType) {
+                if($deviceList->getInfo($d, OpenCL::CL_DEVICE_TYPE)===$deviceType) {
                     return $deviceList->getOne($d);
                 }
             }
