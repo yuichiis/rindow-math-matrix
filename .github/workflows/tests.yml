@@ -61,3 +61,10 @@ jobs:
 
       #- name: PHPUnit Tests with ${{ matrix.ffi }}.
       #  run: phpunit -c tests
+
+      - name: PHP Static Analysys
+        uses: php-actions/phpstan@v3
+        with:
+          version: 1.10
+          php_version: ${{ matrix.php }}
+          path: src/
