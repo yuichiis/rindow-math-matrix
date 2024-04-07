@@ -29,9 +29,9 @@ class MatrixOperator
     protected ?object $la=null;
     protected ?object $laPhp=null;
     protected ?object $clblastLA=null;
-    /** @var array<string,array<null|int|string>> $broadCastOperators */
+    /** @var array<string,array{null|int,string}> $broadCastOperators */
     protected array $broadCastOperators;
-    /** @var array<string,array<null|string>> $updateOperators */
+    /** @var array<string,array{null,string}> $updateOperators */
     protected array $updateOperators;
     /** @var object $operatorFunctions */
     protected object $operatorFunctions;

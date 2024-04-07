@@ -13,9 +13,9 @@ class MatlibCLFactory implements Driver
         return true;
     }
 
-    public function Math(object $queue,Service $service) : object
+    public function Math(object $queue, Service $service) : object
     {
-        $openclmath = new OpenCLMath($queue,$service);
+        $openclmath = new OpenCLMath($queue, $service);
         if($openclmath->hasDiv5Bug()) {
             throw new RuntimeException("OpenCL Device has The Div5bug.");
         }

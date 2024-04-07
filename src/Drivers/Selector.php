@@ -5,7 +5,7 @@ use Rindow\Math\Matrix\Drivers\MatlibPHP\MatlibPhp;
 use LogicException;
 use RuntimeException;
 
-class Selector 
+class Selector
 {
     /** @var array<string> $catalog */
     protected array $catalog;

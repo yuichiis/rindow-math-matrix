@@ -23,22 +23,24 @@ abstract class AbstractDriver implements Driver
         return $version;
     }
 
-    protected function assertExtensionVersion(string $name,string $lowestVersion,string $overVersion) : void
+    protected function assertExtensionVersion(string $name, string $lowestVersion, string $overVersion) : void
     {
         $currentVersion = $this->strVersion();
-        if(version_compare($currentVersion,$lowestVersion)<0||
-            version_compare($currentVersion,$overVersion)>=0 ) {
-                throw new LogicException($name.' '.$currentVersion.' is an unsupported version. '.
-                'Supported versions are greater than or equal to '.$lowestVersion.
-                ' and less than '.$overVersion.'.');
+        if(version_compare($currentVersion, $lowestVersion)<0||
+            version_compare($currentVersion, $overVersion)>=0) {
+            throw new LogicException($name.' '.$currentVersion.' is an unsupported version. '.
+            'Supported versions are greater than or equal to '.$lowestVersion.
+            ' and less than '.$overVersion.'.');
         }
     }
 
     protected function assertVersion() : void
     {
-        $this->assertExtensionVersion($this->extName,
+        $this->assertExtensionVersion(
+            $this->extName,
             $this->LOWEST_VERSION,
-            $this->OVER_VERSION);
+            $this->OVER_VERSION
+        );
     }
 
     public function name() : string

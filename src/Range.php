@@ -16,8 +16,8 @@ class Range implements IteratorAggregate
     public function __construct(
         int|float $limit,
         int|float $start=null,
-        int|float $delta=null)
-    {
+        int|float $delta=null
+    ) {
         $this->limit = $limit;
         $this->start = $start ?? 0;
         $this->delta = $delta ?? (($limit>=$start)? 1 : -1);
@@ -38,7 +38,7 @@ class Range implements IteratorAggregate
         return $this->delta;
     }
 
-    public function  getIterator() : Traversable
+    public function getIterator() : Traversable
     {
         $index = 0;
         $value = $this->start;
