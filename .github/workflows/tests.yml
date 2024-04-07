@@ -65,6 +65,7 @@ jobs:
       - name: PHP Static Analysys
         uses: php-actions/phpstan@v3
         with:
-          version: 1.10
           php_version: ${{ matrix.php }}
+          memory_limit: 512M
           path: src/
+          configuration: phpstan.neon.dist
