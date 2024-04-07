@@ -113,22 +113,6 @@ class LinearAlgebra
         return $this->cistype($dtype);
     }
 
-    protected function toComplex(mixed $array) : mixed
-    {
-        if(!is_array($array)) {
-            if(is_numeric($array)) {
-                return C((float)$array,i:0);
-            } else {
-                return C($array->real,i:$array->imag);
-            }
-        }
-        $cArray = [];
-        foreach($array as $value) {
-            $cArray[] = $this->toComplex($value);
-        }
-        return $cArray;
-    }
-
     /**
      * @return array<bool>
      */

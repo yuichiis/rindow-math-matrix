@@ -247,7 +247,7 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
     protected function castOffset( mixed $offset ) : int|array|Range
     {
         if(!is_int($offset)&&!is_array($offset)&&!($offset instanceof Range)) {
-            throw new InvalidArgumentException("invalit type of offset.");
+            throw new InvalidArgumentException("Array offsets must be integers or ranges.");
         }
         return $offset;
     }
@@ -275,7 +275,7 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
         } elseif(is_int($offset)) {
             $start = $offset;
             $limit = $offset+1;
-        } elseif($offset instanceof Range) {
+        } else {
             $start = $offset->start();
             $limit = $offset->limit();
             $delta = $offset->delta();
@@ -283,8 +283,6 @@ class NDArrayCL implements NDArray,Countable,IteratorAggregate
                 $det = ":[$start,$limit".(($delta!=1)?",$delta":"").']';
                 throw new OutOfRangeException("Illegal range specification.".$det);
             }
-        } else {
-            throw new OutOfRangeException("Dimension must be integer");
         }
         if($start < 0 || $limit > $this->shape[0])
             return false;
