@@ -327,7 +327,7 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
     protected function castOffset( mixed $offset ) : int|array|Range
     {
         if(!is_int($offset)&&!is_array($offset)&&!($offset instanceof Range)) {
-            throw new InvalidArgumentException("invalit type of offset.");
+            throw new InvalidArgumentException("Array offsets must be integers or ranges.");
         }
         return $offset;
     }
@@ -357,7 +357,7 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
         } elseif(is_int($offset)) {
             $start = $offset;
             $limit = $offset+1;
-        } elseif($offset instanceof Range) {
+        } else {
             $start = $offset->start();
             $limit = $offset->limit();
             $delta = $offset->delta();
@@ -365,8 +365,6 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
                     $det = ":[$start,$limit".(($delta!=1)?",$delta":"").']';
                     throw new OutOfRangeException("Illegal range specification.".$det);
             }
-        } else {
-            throw new OutOfRangeException("Dimension must be integer");
         }
         if($start < 0 || $limit > $this->_shape[0])
             return false;
@@ -436,10 +434,7 @@ class NDArrayPhp implements NDArray,Countable,Serializable,IteratorAggregate
             throw new OutOfRangeException("Index is out of range");
         }
         // for range spesification
-        if(is_array($offset)) {
-            throw new OutOfRangeException("Unsuppored to set for range specification.");
-        }
-        if($offset instanceof Range) {
+        if(!is_int($offset)) {
             throw new OutOfRangeException("Unsuppored to set for range specification.");
         }
         // for single index specification
