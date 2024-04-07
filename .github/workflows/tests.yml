@@ -68,4 +68,3 @@ jobs:
           php_version: ${{ matrix.php }}
           memory_limit: 512M
           path: src/
-          configuration: phpstan.neon.dist
