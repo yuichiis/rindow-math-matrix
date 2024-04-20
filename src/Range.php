@@ -2,12 +2,14 @@
 namespace Rindow\Math\Matrix;
 
 use IteratorAggregate;
+use Countable;
 use Traversable;
+use RuntimeException;
 
 /**
  * @implements IteratorAggregate<int, int|float>
  */
-class Range implements IteratorAggregate
+class Range implements IteratorAggregate,Countable
 {
     protected int|float $start;
     protected int|float $limit;
@@ -55,5 +57,18 @@ class Range implements IteratorAggregate
                 $value += $this->delta;
             }
         }
+    }
+
+    public function count() : int
+    {
+        $start = $this->start;
+        $limit = $this->limit;
+        $delta = $this->delta;
+
+        if($delta==0.0) {
+            throw new RuntimeException('infinite times');
+        }
+        $count = (int)floor(($limit-$start)/$delta);
+        return $count;
     }
 }

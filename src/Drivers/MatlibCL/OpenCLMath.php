@@ -2433,6 +2433,62 @@ class OpenCLMath
             $events,$waitEvents);
     }
 
+    protected function isComplex(int $dtypeX) : bool
+    {
+        return ($dtypeX==NDArray::complex64||$dtypeX==NDArray::complex128);
+    }
+
+    /**
+     * X(i) := abs(X(i))
+     */
+    public function abs(
+        int $n,
+        BufferInterface $X, int $offsetX, int $incX,
+        object $events=null, object $waitEvents=null
+        ) : void
+    {
+        $dtypeX = $X->dtype();
+        if($dtypeX==NDArray::float64||$dtypeX==NDArray::complex128) {
+            $this->assertFP64();
+        }
+        $isInt = array_key_exists($dtypeX,$this->intTypes);
+        $abs = $isInt ? 'abs' : 'fabs';
+        $isComplex = $this->isComplex($dtypeX);
+        if($isComplex) {
+            $dtype = ($dtypeX==NDArray::complex64)?'float':'double';
+            $statement  = "    x[index_x] = sqrt(x[index_x]*x[index_x] + x[index_x+1]*x[index_x+1]);\n";
+            $statement .= "    x[index_x+1] = 0;\n";
+            $incX *= 2;
+            $offsetX *= 2;
+        } else {
+            $dtype = $this->dtypeToOpenCLType[$dtypeX];
+            $statement = "    x[index_x] = {$abs}(x[index_x]);\n";
+        }
+
+
+        $kernel_name = "abs_{$dtype}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+                "__kernel void {$kernel_name}(\n".
+                "        __global {$dtype} * x,\n".
+                "    const        uint offset_x,\n".
+                "    const        uint incx)\n".
+                "{\n".
+                "    uint gid = get_global_id(0);\n".
+                "    uint index_x = gid*incx+offset_x;\n".
+                $statement.
+                "}\n";
+        }
+        $kernel = $this->createKernel($kernel_name);
+
+        $kernel->setArg(0,$X);
+        $kernel->setArg(1,$offsetX,NDArray::uint32);
+        $kernel->setArg(2,$incX,NDArray::uint32);
+        $global_work_size = [$n];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
+            $events,$waitEvents);
+    }
+
     /**
      *     A(m,n) := X(n)
      */
