@@ -25,7 +25,7 @@ abstract class AbstractDriver implements Driver
 
     protected function assertExtensionVersion(string $name, string $lowestVersion, string $overVersion) : void
     {
-        $currentVersion = $this->strVersion();
+        $currentVersion = $this->strVersion($name);
         if(version_compare($currentVersion, $lowestVersion)<0||
             version_compare($currentVersion, $overVersion)>=0) {
             throw new LogicException($name.' '.$currentVersion.' is an unsupported version. '.

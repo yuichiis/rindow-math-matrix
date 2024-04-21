@@ -1084,7 +1084,18 @@ class LinearAlgebraCL
         $idx = $IR->toArray();
         $RR = $R->buffer();
         $offR = $R->offset();
-        $this->blas->copy(1,$XX,$offX+$idx,1,$RR,$offR,1,$this->queue,$events);
+        $valueSize = $RR->value_size();
+        if($this->scalarNumeric) {
+            $this->blas->copy(1,$XX,$offX+$idx,1,$RR,$offR,1,$this->queue,$events);
+        } else {
+            $copyEvents = $this->newEventList();
+            //$this->blas->copy(1,$XX,$offX+$idx,1,$RR,$offR,1,$this->queue,$copyEvents);
+            $RR->copy($this->queue,
+                $XX, $valueSize, ($offX+$idx)*$valueSize, $offR*$valueSize,
+                $copyEvents,$imaxEvents
+            );
+            $this->openclmath->abs(1,$RR,$offR,1,$events,$copyEvents);
+        }
         //$RR = $R->buffer();
         //$offR = $R->offset();
         //$this->openclmath->reduceGather(false,false,
@@ -1116,7 +1127,7 @@ class LinearAlgebraCL
         object $events=null) : float|NDArray
     {
         if($this->profiling) {
-            $this->profilingStart("amax");
+            $this->profilingStart("amin");
         }
         if($R==null) {
             $R = $this->alloc([],dtype:$X->dtype(),flags:OpenCL::CL_MEM_READ_WRITE);
@@ -1136,7 +1147,18 @@ class LinearAlgebraCL
         $idx = $IR->toArray();
         $RR = $R->buffer();
         $offR = $R->offset();
-        $this->blas->copy(1,$XX,$offX+$idx,1,$RR,$offR,1,$this->queue,$events);
+        $valueSize = $RR->value_size();
+        if($this->scalarNumeric) {
+            $this->blas->copy(1,$XX,$offX+$idx,1,$RR,$offR,1,$this->queue,$events);
+        } else {
+            $copyEvents = $this->newEventList();
+            //$this->blas->copy(1,$XX,$offX+$idx,1,$RR,$offR,1,$this->queue,$copyEvents);
+            $RR->copy($this->queue,
+                $XX, $valueSize, ($offX+$idx)*$valueSize, $offR*$valueSize,
+                $copyEvents,$imaxEvents
+            );
+            $this->openclmath->abs(1,$RR,$offR,1,$events,$copyEvents);
+        }
         //$RR = $R->buffer();
         //$offR = $R->offset();
         //$this->openclmath->reduceGather(false,false,
@@ -1145,7 +1167,7 @@ class LinearAlgebraCL
             $this->finish();
         }
         if($this->profiling) {
-            $this->profilingStart("amax");
+            $this->profilingStart("amin");
         }
         if($this->scalarNumeric) {
             $value = $R->toArray();
