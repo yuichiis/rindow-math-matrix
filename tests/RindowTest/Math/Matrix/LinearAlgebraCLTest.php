@@ -819,6 +819,36 @@ class LinearAlgebraCLTest extends ORGTest
         $this->markTestSkipped('Unsuppored function on clblast');
     }
 
+    public function testRotgAndRot()
+    {
+        $this->markTestSkipped('Unsuppored function on clblast');
+    }
+
+    public function testRotgxyAndRotxy()
+    {
+        $this->markTestSkipped('Unsuppored function on clblast');
+    }
+
+    public function testRotm()
+    {
+        $this->markTestSkipped('Unsuppored function on clblast');
+    }
+
+    public function testRotmg()
+    {
+        $this->markTestSkipped('Unsuppored function on clblast');
+    }
+
+    public function testRotmgAndRotm()
+    {
+        $this->markTestSkipped('Unsuppored function on clblast');
+    }
+
+    public function testRotmgxyAndRotmxy()
+    {
+        $this->markTestSkipped('Unsuppored function on clblast');
+    }
+
     /**
     *    ret := max |X(i)|
     */

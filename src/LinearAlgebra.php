@@ -573,6 +573,247 @@ class LinearAlgebra
     }
 
     /**
+     * g = rotg(x,y)
+     */
+    public function rotgxy(
+        NDArray $vector,
+        NDArray $g=null,
+        ) : NDArray
+    {
+        if($vector->shape()!=[2]) {
+            throw new InvalidArgumentException("Shape of vector must be [2]: [".implode(',',$vector->shape())."]");
+        }
+        if($g==null) {
+            $g = $this->alloc([4],dtype:$vector->dtype());
+        } else {
+            if($g->shape()!=[4]) {
+                throw new InvalidArgumentException("Shape of g must be [4]: [".implode(',',$g->shape())."]");
+            }
+        }
+        $this->copy($vector[R(0,1)],$g[R(0,1)]);
+        $this->copy($vector[R(1,2)],$g[R(1,2)]);
+        if($g==null) {
+            $g = $this->alloc([2],dtype:$vector->dtype());
+        }
+        $AA = $g->buffer();
+        $offA = $g->offset();
+        $BB = $g->buffer();
+        $offB = $g->offset()+1;
+        $CC = $g->buffer();
+        $offC = $g->offset()+2;
+        $SS = $g->buffer();
+        $offS = $g->offset()+3;
+        $this->blas->rotg(
+            $AA,$offA,
+            $BB,$offB,
+            $CC,$offC,
+            $SS,$offS
+        );
+        return $g;
+    }
+
+    /**
+    *    xy := rot(xy,g)
+    */
+    public function rotxy(
+        NDArray $vectors,
+        NDArray $g,
+        ) : void
+    {
+        if($vectors->ndim()!=2) {
+            $shapeError = '['.implode(',',$vectors->shape()).']';
+            throw new InvalidArgumentException("vectors must be 2D-NDArray: ".$shapeError." given.");
+        }
+        $shape = $vectors->shape()[1];
+        if($shape!=2) {
+            $shapeError = '['.implode(',',$vectors->shape()).']';
+            throw new InvalidArgumentException("Vectors must be Vectors-NDArray: ".$shapeError." given.");
+        }
+        if($g->shape()!=[4]) {
+            $shapeError = '['.implode(',',$g->shape()).']';
+            throw new InvalidArgumentException("shape of g must be [4]: ".$shapeError." given.");
+        }
+        
+        $N = count($vectors);
+        $XX = $vectors->buffer();
+        $offX = $vectors->offset();
+        $YY = $vectors->buffer();
+        $offY = $vectors->offset()+1;
+        $CC = $g->buffer();
+        $offC = $g->offset()+2;
+        $SS = $g->buffer();
+        $offS = $g->offset()+3;
+        $this->blas->rot($N,
+            $XX,$offX,2,$YY,$offY,2,
+            $CC,$offC,$SS,$offS
+        );
+    }
+
+    /**
+     * d1,d2,b1,p = rotmg(x,y)   b1: rotated x   p: params  d1,d2:works
+     * @return array<NDArray>
+     */
+    public function rotmg(
+        NDArray $X,
+        NDArray $Y,
+        NDArray $D1=null,
+        NDArray $D2=null,
+        NDArray $B1=null,
+        NDArray $P=null,
+        ) : array
+    {
+        if($X->size()!=1||$Y->size()!=1) {
+            $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
+            throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
+        }
+        if($D1==null) {
+            $D1 = $this->ones($this->alloc([],dtype:$X->dtype()));
+        }
+        if($D2==null) {
+            $D2 = $this->ones($this->alloc([],dtype:$X->dtype()));
+        }
+        if($B1==null) {
+            $B1 = $this->alloc([],dtype:$X->dtype());
+        }
+        if($P==null) {
+            $P = $this->zeros($this->alloc([5],dtype:$X->dtype()));
+        }
+        $this->copy($X->reshape([1]),$B1->reshape([1]));
+
+        $DD1 = $D1->buffer();
+        $offD1 = $D1->offset();
+        $DD2 = $D2->buffer();
+        $offD2 = $D2->offset();
+        $BB1 = $B1->buffer();
+        $offB1 = $B1->offset();
+        $BB2 = $Y->buffer();
+        $offB2 = $Y->offset();
+        $PP = $P->buffer();
+        $offP = $P->offset();
+        $this->blas->rotmg(
+            $DD1,$offD1,
+            $DD2,$offD2,
+            $BB1,$offB1,
+            $BB2,$offB2,
+            $PP,$offP
+        );
+        return [$D1,$D2,$B1,$P];
+    }
+
+    /**
+    *    x,y := rot(x,y,p)
+    */
+    public function rotm(
+        NDArray $X,
+        NDArray $Y,
+        NDArray $P,
+        ) : void
+    {
+        if($X->shape()!=$Y->shape()) {
+            $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
+            throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
+        }
+        $N = $X->size();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+        $YY = $Y->buffer();
+        $offY = $Y->offset();
+        $PP = $P->buffer();
+        $offP = $P->offset();
+        $this->blas->rotm(
+            $N,
+            $XX,$offX,1,
+            $YY,$offY,1,
+            $PP,$offP,
+        );
+    }
+
+    /**
+     * d1,d2,b1,p = rotmg(x,y)   b1: rotated x   p: params  d1,d2:works
+     */
+    public function rotmgxy(
+        NDArray $vector,
+        NDArray $d=null,
+        NDArray $g=null,
+        ) : NDArray
+    {
+        if($vector->shape()!=[2]) {
+            throw new InvalidArgumentException("Shape of vector must be [2]: [".implode(',',$vector->shape())."]");
+        }
+        if($d==null) {
+            $d = $this->ones($this->alloc([2],dtype:$vector->dtype()));
+        } else {
+            if($d->shape()!=[2]) {
+                throw new InvalidArgumentException("Shape of d must be [2]: [".implode(',',$d->shape())."]");
+            }
+        }
+        if($g==null) {
+            $g = $this->zeros($this->alloc([6],dtype:$vector->dtype()));
+        } else {
+            if($g->shape()!=[6]) {
+                throw new InvalidArgumentException("Shape of g must be [6]: [".implode(',',$g->shape())."]");
+            }
+        }
+        $this->copy($vector[R(0,1)],$g[R(0,1)]);
+
+        $DD1 = $d->buffer();
+        $offD1 = $d->offset();
+        $DD2 = $d->buffer();
+        $offD2 = $d->offset()+1;
+        $BB1 = $g->buffer();
+        $offB1 = $g->offset();
+        $BB2 = $vector->buffer();
+        $offB2 = $vector->offset()+1;
+        $PP = $g->buffer();
+        $offP = $g->offset()+1;
+        $this->blas->rotmg(
+            $DD1,$offD1,
+            $DD2,$offD2,
+            $BB1,$offB1,
+            $BB2,$offB2,
+            $PP,$offP
+        );
+        return $g;
+    }
+
+    /**
+    *    x,y := rot(x,y,p)
+    */
+    public function rotmxy(
+        NDArray $vectors,
+        NDArray $g,
+        ) : void
+    {
+        if($vectors->ndim()!=2) {
+            $shapeError = '['.implode(',',$vectors->shape()).']';
+            throw new InvalidArgumentException("vectors must be 2D-NDArray: ".$shapeError." given.");
+        }
+        $shape = $vectors->shape()[1];
+        if($shape!=2) {
+            $shapeError = '['.implode(',',$vectors->shape()).']';
+            throw new InvalidArgumentException("Vectors must be Vectors-NDArray: ".$shapeError." given.");
+        }
+        if($g->shape()!=[6]) {
+            $shapeError = '['.implode(',',$g->shape()).']';
+            throw new InvalidArgumentException("shape of g must be [6]: ".$shapeError." given.");
+        }
+
+        $N = count($vectors);
+        $XX = $vectors->buffer();
+        $offX = $vectors->offset();
+        $YY = $vectors->buffer();
+        $offY = $vectors->offset()+1;
+        $PP = $g->buffer();
+        $offP = $g->offset()+1;
+        $this->blas->rotm(
+            $N,
+            $XX,$offX,2,
+            $YY,$offY,2,
+            $PP,$offP,
+        );
+    }
+
+    /**
     *    Y := X
     *    X := Y
     */
