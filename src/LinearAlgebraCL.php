@@ -1277,8 +1277,8 @@ class LinearAlgebraCL
     public function rot(
         NDArray $X,
         NDArray $Y,
-        NDArray|float $C,
-        NDArray|float $S,
+        NDArray $C,
+        NDArray $S,
         object $events=null) : void
     {
         if($this->profiling) {
@@ -1293,30 +1293,331 @@ class LinearAlgebraCL
         $offX = $X->offset();
         $YY = $Y->buffer();
         $offY = $Y->offset();
-        if(is_numeric($C) && is_numeric($S)) {
-            $this->blas->rot($N,
-                $XX,$offX,1,$YY,$offY,1,
-                $C,$S,
-                $this->queue,$events,
-            );
-        } elseif(($C instanceof NDArray) && ($S instanceof NDArray)) {
-            $CC = $C->buffer();
-            $offC = $C->offset();
-            $SS = $S->buffer();
-            $offS = $S->offset();
-            $this->blas->rot($N,
-                $XX,$offX,1,$YY,$offY,1,
-                $CC,$offC,$SS,$offS,
-                $this->queue,$events,
-            );
-        } else {
-            throw new InvalidArgumentException("Unmatch type of C and S");
-        }
+        $scalarC = $C->reshape([])->toArray();
+        $scalarS = $S->reshape([])->toArray();
+        $this->blas->rot(
+            $N,
+            $XX,$offX,1,
+            $YY,$offY,1,
+            $scalarC,$scalarS,
+            $this->queue,$events,
+        );
         if($this->blocking) {
             $this->finish();
         }
         if($this->profiling) {
             $this->profilingEnd("rot");
+        }
+    }
+
+    /**
+     * g = rotg(x,y)
+     */
+    public function rotgxy(
+        NDArray $vector,
+        NDArray $g=null,
+        object $events=null) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("rotgxy");
+        }
+        if($vector->shape()!=[2]) {
+            throw new InvalidArgumentException("Shape of vector must be [2]: [".implode(',',$vector->shape())."]");
+        }
+        if($g==null) {
+            $g = $this->alloc([4],dtype:$vector->dtype());
+        } else {
+            if($g->shape()!=[4]) {
+                throw new InvalidArgumentException("Shape of g must be [4]: [".implode(',',$g->shape())."]");
+            }
+        }
+        $copyEvents = $this->newEventList();
+        $this->copy($vector[R(0,1)],$g[R(0,1)],$copyEvents);
+        $this->copy($vector[R(1,2)],$g[R(1,2)],$copyEvents);
+        $copyEvents->wait();
+
+        if($g==null) {
+            $g = $this->alloc([2],dtype:$vector->dtype());
+        }
+        $AA = $g->buffer();
+        $offA = $g->offset();
+        $BB = $g->buffer();
+        $offB = $g->offset()+1;
+        $CC = $g->buffer();
+        $offC = $g->offset()+2;
+        $SS = $g->buffer();
+        $offS = $g->offset()+3;
+        $this->blas->rotg(
+            $AA,$offA,
+            $BB,$offB,
+            $CC,$offC,
+            $SS,$offS,
+            $this->queue,$events,
+        );
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("rotgxy");
+        }
+        return $g;
+    }
+
+    /**
+    *    xy := rot(xy,g)
+    */
+    public function rotxy(
+        NDArray $vectors,
+        NDArray $g,
+        object $events=null) : void
+    {
+        if($this->profiling) {
+            $this->profilingStart("rotxy");
+        }
+        if($vectors->ndim()!=2) {
+            $shapeError = '['.implode(',',$vectors->shape()).']';
+            throw new InvalidArgumentException("vectors must be 2D-NDArray: ".$shapeError." given.");
+        }
+        $shape = $vectors->shape()[1];
+        if($shape!=2) {
+            $shapeError = '['.implode(',',$vectors->shape()).']';
+            throw new InvalidArgumentException("Vectors must be Vectors-NDArray: ".$shapeError." given.");
+        }
+        if($g->shape()!=[4]) {
+            $shapeError = '['.implode(',',$g->shape()).']';
+            throw new InvalidArgumentException("shape of g must be [4]: ".$shapeError." given.");
+        }
+        
+        $N = count($vectors);
+        $XX = $vectors->buffer();
+        $offX = $vectors->offset();
+        $YY = $vectors->buffer();
+        $offY = $vectors->offset()+1;
+        $CC = $g->buffer();
+        $offC = $g->offset()+2;
+        $SS = $g->buffer();
+        $offS = $g->offset()+3;
+        $this->blas->rot($N,
+            $XX,$offX,2,$YY,$offY,2,
+            $CC,$offC,$SS,$offS
+        );
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("rotxy");
+        }
+    }
+
+    /**
+     * d1,d2,b1,p = rotmg(x,y)   b1: rotated x   p: params  d1,d2:works
+     * @return array<NDArray>
+     */
+    public function rotmg(
+        NDArray $X,
+        NDArray $Y,
+        NDArray $D1=null,
+        NDArray $D2=null,
+        NDArray $B1=null,
+        NDArray $P=null,
+        object $events=null) : array
+    {
+        if($this->profiling) {
+            $this->profilingStart("rotmg");
+        }
+        if($X->size()!=1||$Y->size()!=1) {
+            $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
+            throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
+        }
+        if($D1==null) {
+            $D1 = $this->ones($this->alloc([],dtype:$X->dtype()));
+        }
+        if($D2==null) {
+            $D2 = $this->ones($this->alloc([],dtype:$X->dtype()));
+        }
+        if($B1==null) {
+            $B1 = $this->alloc([],dtype:$X->dtype());
+        }
+        $B2 = $this->alloc([],dtype:$Y->dtype());
+        if($P==null) {
+            $P = $this->zeros($this->alloc([5],dtype:$X->dtype()));
+        }
+        $copyEvents = $this->newEventList();
+        $this->copy($X->reshape([1]),$B1->reshape([1]),$copyEvents);
+        $this->copy($X->reshape([1]),$B2->reshape([1]),$copyEvents);
+        $copyEvents->wait();
+
+        $DD1 = $D1->buffer();
+        $offD1 = $D1->offset();
+        $DD2 = $D2->buffer();
+        $offD2 = $D2->offset();
+        $BB1 = $B1->buffer();
+        $offB1 = $B1->offset();
+        $BB2 = $B2->buffer();
+        $offB2 = $B2->offset();
+        $PP = $P->buffer();
+        $offP = $P->offset();
+        $this->blas->rotmg(
+            $DD1,$offD1,
+            $DD2,$offD2,
+            $BB1,$offB1,
+            $BB2,$offB2,
+            $PP,$offP,
+            $this->queue,$events,
+        );
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("rotmg");
+        }
+        return [$D1,$D2,$B1,$P];
+    }
+
+    /**
+    *    x,y := rot(x,y,p)
+    */
+    public function rotm(
+        NDArray $X,
+        NDArray $Y,
+        NDArray $P,
+        object $events=null) : void
+    {
+        if($this->profiling) {
+            $this->profilingStart("rotm");
+        }
+        if($X->shape()!=$Y->shape()) {
+            $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
+            throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
+        }
+        $N = $X->size();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+        $YY = $Y->buffer();
+        $offY = $Y->offset();
+        $PP = $P->buffer();
+        $offP = $P->offset();
+        $this->blas->rotm(
+            $N,
+            $XX,$offX,1,
+            $YY,$offY,1,
+            $PP,$offP,
+            $this->queue,$events,
+        );
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("rotm");
+        }
+    }
+
+    /**
+     * d1,d2,b1,p = rotmg(x,y)   b1: rotated x   p: params  d1,d2:works
+     */
+    public function rotmgxy(
+        NDArray $vector,
+        NDArray $d=null,
+        NDArray $g=null,
+        object $events=null) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("rotmgxy");
+        }
+        if($vector->shape()!=[2]) {
+            throw new InvalidArgumentException("Shape of vector must be [2]: [".implode(',',$vector->shape())."]");
+        }
+        if($d==null) {
+            $d = $this->ones($this->alloc([2],dtype:$vector->dtype()));
+        } else {
+            if($d->shape()!=[2]) {
+                throw new InvalidArgumentException("Shape of d must be [2]: [".implode(',',$d->shape())."]");
+            }
+        }
+        if($g==null) {
+            $g = $this->zeros($this->alloc([6],dtype:$vector->dtype()));
+        } else {
+            if($g->shape()!=[6]) {
+                throw new InvalidArgumentException("Shape of g must be [6]: [".implode(',',$g->shape())."]");
+            }
+        }
+        $B2 = $this->alloc([1],dtype:$vector->dtype());
+        $copyEvents = $this->newEventList();
+        $this->copy($vector[R(0,1)],$g[R(0,1)],$copyEvents);
+        $this->copy($vector[R(1,2)],$B2,$copyEvents);
+        $copyEvents->wait();
+
+        $DD1 = $d->buffer();
+        $offD1 = $d->offset();
+        $DD2 = $d->buffer();
+        $offD2 = $d->offset()+1;
+        $BB1 = $g->buffer();
+        $offB1 = $g->offset();
+        $BB2 = $B2->buffer();
+        $offB2 = $B2->offset();
+        $PP = $g->buffer();
+        $offP = $g->offset()+1;
+        $this->blas->rotmg(
+            $DD1,$offD1,
+            $DD2,$offD2,
+            $BB1,$offB1,
+            $BB2,$offB2,
+            $PP,$offP,
+            $this->queue,$events,
+        );
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("rotmgxy");
+        }
+        return $g;
+    }
+
+    /**
+    *    x,y := rot(x,y,p)
+    */
+    public function rotmxy(
+        NDArray $vectors,
+        NDArray $g,
+        object $events=null) : void
+    {
+        if($this->profiling) {
+            $this->profilingStart("rotmxy");
+        }
+        if($vectors->ndim()!=2) {
+            $shapeError = '['.implode(',',$vectors->shape()).']';
+            throw new InvalidArgumentException("vectors must be 2D-NDArray: ".$shapeError." given.");
+        }
+        $shape = $vectors->shape()[1];
+        if($shape!=2) {
+            $shapeError = '['.implode(',',$vectors->shape()).']';
+            throw new InvalidArgumentException("Vectors must be Vectors-NDArray: ".$shapeError." given.");
+        }
+        if($g->shape()!=[6]) {
+            $shapeError = '['.implode(',',$g->shape()).']';
+            throw new InvalidArgumentException("shape of g must be [6]: ".$shapeError." given.");
+        }
+
+        $N = count($vectors);
+        $XX = $vectors->buffer();
+        $offX = $vectors->offset();
+        $YY = $vectors->buffer();
+        $offY = $vectors->offset()+1;
+        $PP = $g->buffer();
+        $offP = $g->offset()+1;
+        $this->blas->rotm(
+            $N,
+            $XX,$offX,2,
+            $YY,$offY,2,
+            $PP,$offP,
+            $this->queue,$events,
+        );
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("rotmxy");
         }
     }
 
