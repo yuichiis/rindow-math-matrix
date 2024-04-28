@@ -11,5 +11,11 @@ foreach($paths as $path) {
 }
 use Rindow\Math\Matrix\MatrixOperator;
 
-$mo = new MatrixOperator();
+$verbose = null;
+if($argc>2) {
+    if($argv[0]=='-v') {
+        $verbose = 1;
+    }
+}
+$mo = new MatrixOperator(verbose:$verbose);
 echo $mo->service()->info();
