@@ -34,8 +34,6 @@ class Selector
 
     protected function setVerbose(int $verbose=null)
     {
-        $verbose ??= 0;
-        $this->logLevel = 10 - $verbose;
     }
 
     public function select(int $verbose=null) : Service
@@ -43,6 +41,8 @@ class Selector
         if($this->recommended) {
             return $this->recommended;
         }
+        $verbose ??= 0;
+        $this->logLevel = 10 - $verbose;
         $recommended = null;
         $highestLevel = 0;
         foreach ($this->catalog as $name) {

@@ -86,7 +86,7 @@ class MatrixOperator
     {
         if($service===null) {
             $selector = new Selector($catalog);
-            $service = $selector->select($verbose);
+            $service = $selector->select(verbose:$verbose);
         }
         $this->service = $service;
 
