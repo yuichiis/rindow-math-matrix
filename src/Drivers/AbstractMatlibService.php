@@ -71,7 +71,7 @@ abstract class AbstractMatlibService implements Service
 
     protected function logging(int $level, string $message) : void
     {
-        if($level > $this->logLevel) {
+        if($level < $this->logLevel) {
             return;
         }
         echo $message."\n";
@@ -211,7 +211,6 @@ abstract class AbstractMatlibService implements Service
 
         $this->serviceLevel = $level;
         $this->logging(0, 'The service level was diagnosed as '.$this->levelString[$this->serviceLevel].'.');
-        $this->logging(0, '..');
         return $level;
     }
 

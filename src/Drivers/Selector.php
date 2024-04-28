@@ -26,7 +26,7 @@ class Selector
 
     protected function logging(int $level, string $message) : void
     {
-        if($level > $this->logLevel) {
+        if($level < $this->logLevel) {
             return;
         }
         echo $message."\n";
@@ -36,7 +36,6 @@ class Selector
     {
         $verbose ??= 0;
         $this->logLevel = 10 - $verbose;
-
         if($this->recommended) {
             return $this->recommended;
         }
