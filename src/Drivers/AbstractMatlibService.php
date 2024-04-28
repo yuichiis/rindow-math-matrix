@@ -211,6 +211,7 @@ abstract class AbstractMatlibService implements Service
 
         $this->serviceLevel = $level;
         $this->logging(0, 'The service level was diagnosed as '.$this->levelString[$this->serviceLevel].'.');
+        $this->logging(0, '..');
         return $level;
     }
 
