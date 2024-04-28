@@ -43,6 +43,7 @@ class Selector
         $highestLevel = 0;
         foreach ($this->catalog as $name) {
             if(class_exists($name)) {
+                $this->logging(0, 'Loading '.$name.' service');
                 $service = new $name();
                 if(!($service instanceof Service)) {
                     throw new LogicException('Not service class: '.$name);
@@ -65,6 +66,7 @@ class Selector
             throw new RuntimeException('Service not found');
         }
         $this->recommended = $recommended;
+        $this->logging(1, $name.' service has been selected.');
         return $recommended;
     }
 }
