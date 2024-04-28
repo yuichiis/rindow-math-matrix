@@ -69,6 +69,12 @@ abstract class AbstractMatlibService implements Service
         }
     }
 
+    protected function setVerbose(int $verbose=null)
+    {
+        $verbose ??= 0;
+        $this->logLevel = 10 - $verbose;
+    }
+
     protected function logging(int $level, string $message) : void
     {
         if($level < $this->logLevel) {
@@ -146,7 +152,7 @@ abstract class AbstractMatlibService implements Service
         $verbose ??= 0;
         $this->logLevel = 10 - $verbose;
 
-        if($verbose==0 && $this->serviceLevel!==null) {
+        if($this->serviceLevel!==null) {
             return $this->serviceLevel;
         }
 

@@ -16,31 +16,31 @@ class MatlibPhp extends AbstractMatlibService
         object $blasCLFactory=null,
         object $mathCLFactory=null,
         object $bufferCLFactory=null,
-        )
-    {
+        int $verbose=null,
+    ) {
         //$bufferFactory = $bufferFactory ?? new BufferFactory();
-//
+        //
         //$openblasFactory = $openblasFactory ?? new OpenBLASFactory();
-//
+        //
         //$mathFactory = $mathFactory ?? new MatlibFactory();
-//
+        //
         //$openclFactory = $openclFactory ?? new OpenCLFactory();
         //$bufferCLFactory = $bufferCLFactory ?? $openclFactory;
-//
+        //
         //$clblastFactory = $clblastFactory ?? new CLBlastFactory();
         //$blasCLFactory = $blasCLFactory ?? $clblastFactory;
-//
+        //
         //$mathCLFactory = $mathCLFactory ?? new MatlibCLFactory();
 
         parent::__construct(
-        //    bufferFactory:$bufferFactory,
-        //    openblasFactory:$openblasFactory,
-        //    mathFactory:$mathFactory,
-        //    openclFactory:$openclFactory,
-        //    clblastFactory:$clblastFactory,
-        //    blasCLFactory:$blasCLFactory,
-        //    mathCLFactory:$mathCLFactory,
-        //    bufferCLFactory:$bufferCLFactory,
+            //    bufferFactory:$bufferFactory,
+            //    openblasFactory:$openblasFactory,
+            //    mathFactory:$mathFactory,
+            //    openclFactory:$openclFactory,
+            //    clblastFactory:$clblastFactory,
+            //    blasCLFactory:$blasCLFactory,
+            //    mathCLFactory:$mathCLFactory,
+            //    bufferCLFactory:$bufferCLFactory,
         );
     }
 }

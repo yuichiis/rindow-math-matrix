@@ -32,10 +32,14 @@ class Selector
         echo $message."\n";
     }
 
-    public function select(int $verbose=null) : Service
+    protected function setVerbose(int $verbose=null)
     {
         $verbose ??= 0;
         $this->logLevel = 10 - $verbose;
+    }
+
+    public function select(int $verbose=null) : Service
+    {
         if($this->recommended) {
             return $this->recommended;
         }
@@ -44,11 +48,11 @@ class Selector
         foreach ($this->catalog as $name) {
             if(class_exists($name)) {
                 $this->logging(0, 'Loading '.$name.' service');
-                $service = new $name();
+                $service = new $name(verbose:$verbose);
                 if(!($service instanceof Service)) {
                     throw new LogicException('Not service class: '.$name);
                 }
-                $level = $service->serviceLevel(verbose:$verbose);
+                $level = $service->serviceLevel();
                 $this->logging(0, 'Service '.$name.' is level '.$level);
                 if($level>$highestLevel) {
                     $highestLevel = $level;
@@ -56,7 +60,7 @@ class Selector
                     $this->logging(0, 'Update recommend to '.$name);
                 }
             } else {
-                $this->logging(1,'Service Not found: '.$name);
+                $this->logging(1, 'Service Not found: '.$name);
             }
         }
         if($highestLevel<=Service::LV_BASIC) {
