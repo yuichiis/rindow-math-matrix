@@ -47,7 +47,7 @@ class Selector
         $highestLevel = 0;
         foreach ($this->catalog as $name) {
             if(class_exists($name)) {
-                $this->logging(0, 'Loading '.$name.' service');
+                $this->logging(0, 'Loading service: '.$name);
                 $service = new $name(verbose:$verbose);
                 if(!($service instanceof Service)) {
                     throw new LogicException('Not service class: '.$name);
