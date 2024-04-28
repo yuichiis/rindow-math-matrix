@@ -86,7 +86,7 @@ abstract class AbstractMatlibService implements Service
     protected function bufferFactory() : object
     {
         if($this->bufferFactory==null) {
-            throw new LogicException('bufferFactory is empty');
+            throw new LogicException('bufferFactory ** is empty **');
         }
         return $this->bufferFactory;
     }
@@ -94,7 +94,7 @@ abstract class AbstractMatlibService implements Service
     protected function openblasFactory() : object
     {
         if($this->openblasFactory==null) {
-            throw new LogicException('openblasFactory is empty');
+            throw new LogicException('openblasFactory ** is empty **');
         }
         return $this->openblasFactory;
     }
@@ -102,7 +102,7 @@ abstract class AbstractMatlibService implements Service
     protected function mathFactory() : object
     {
         if($this->mathFactory==null) {
-            throw new LogicException('mathFactory is empty');
+            throw new LogicException('mathFactory ** is empty **');
         }
         return $this->mathFactory;
     }
@@ -110,7 +110,7 @@ abstract class AbstractMatlibService implements Service
     protected function openclFactory() : object
     {
         if($this->openclFactory==null) {
-            throw new LogicException('openclFactory is empty');
+            throw new LogicException('openclFactory ** is empty **');
         }
         return $this->openclFactory;
     }
@@ -118,7 +118,7 @@ abstract class AbstractMatlibService implements Service
     protected function clblastFactory() : object
     {
         if($this->clblastFactory==null) {
-            throw new LogicException('clblastFactory is empty');
+            throw new LogicException('clblastFactory ** is empty **');
         }
         return $this->clblastFactory;
     }
@@ -126,7 +126,7 @@ abstract class AbstractMatlibService implements Service
     protected function bufferCLFactory() : object
     {
         if($this->bufferCLFactory==null) {
-            throw new LogicException('bufferCLFactory is empty');
+            throw new LogicException('bufferCLFactory ** is empty **');
         }
         return $this->bufferCLFactory;
     }
@@ -134,7 +134,7 @@ abstract class AbstractMatlibService implements Service
     protected function blasCLFactory() : object
     {
         if($this->blasCLFactory==null) {
-            throw new LogicException('blasCLFactory is empty');
+            throw new LogicException('blasCLFactory ** is empty **');
         }
         return $this->blasCLFactory;
     }
@@ -142,7 +142,7 @@ abstract class AbstractMatlibService implements Service
     protected function mathCLFactory() : object
     {
         if($this->mathCLFactory==null) {
-            throw new LogicException('mathCLFactory is empty');
+            throw new LogicException('mathCLFactory ** is empty **');
         }
         return $this->mathCLFactory;
     }
@@ -160,13 +160,13 @@ abstract class AbstractMatlibService implements Service
                 $this->openblasFactory===null ||
                 $this->mathFactory===null) {
                 if($this->bufferFactory===null) {
-                    $this->logging(0, 'bufferFactory not found.');
+                    $this->logging(0, 'bufferFactory ** not found **.');
                 }
                 if($this->openblasFactory===null) {
-                    $this->logging(0, 'openblasFactory not found.');
+                    $this->logging(0, 'openblasFactory ** not found **.');
                 }
                 if($this->mathFactory===null) {
-                    $this->logging(0, 'mathFactory not found.');
+                    $this->logging(0, 'mathFactory ** not found **.');
                 }
                 break;
             }
@@ -174,13 +174,13 @@ abstract class AbstractMatlibService implements Service
                 !$this->openblasFactory()->isAvailable()||
                 !$this->mathFactory()->isAvailable()) {
                 if(!$this->bufferFactory()->isAvailable()) {
-                    $this->logging(0, get_class($this->bufferFactory()).' is not available.');
+                    $this->logging(0, get_class($this->bufferFactory()).' is ** not available **.');
                 }
                 if(!$this->openblasFactory()->isAvailable()) {
-                    $this->logging(0, get_class($this->openblasFactory()).' is not available.');
+                    $this->logging(0, get_class($this->openblasFactory()).' is ** not available **.');
                 }
                 if(!$this->mathFactory()->isAvailable()) {
-                    $this->logging(0, get_class($this->mathFactory()).' is not available.');
+                    $this->logging(0, get_class($this->mathFactory()).' is ** not available **.');
                 }
                 break;
             }
@@ -190,20 +190,20 @@ abstract class AbstractMatlibService implements Service
             if($this->openclFactory==null||
                 $this->clblastFactory==null) {
                 if($this->openclFactory===null) {
-                    $this->logging(0, 'openclFactory not found.');
+                    $this->logging(0, 'openclFactory ** not found **.');
                 }
                 if($this->clblastFactory===null) {
-                    $this->logging(0, 'clblastFactory not found.');
+                    $this->logging(0, 'clblastFactory ** not found **.');
                 }
                 break;
             }
             if(!$this->openclFactory()->isAvailable()||
                 !$this->clblastFactory()->isAvailable()) {
                 if(!$this->openclFactory()->isAvailable()) {
-                    $this->logging(0, get_class($this->openclFactory()).' is not available.');
+                    $this->logging(0, get_class($this->openclFactory()).' is ** not available **.');
                 }
                 if(!$this->clblastFactory()->isAvailable()) {
-                    $this->logging(0, get_class($this->clblastFactory()).' is not available.');
+                    $this->logging(0, get_class($this->clblastFactory()).' is ** not available **.');
                 }
                 break;
             }
