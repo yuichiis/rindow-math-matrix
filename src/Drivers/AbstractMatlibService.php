@@ -55,7 +55,7 @@ abstract class AbstractMatlibService implements Service
         $this->phpmath = $this->phpBLASFactory->Math();
         $this->phpbuffer = $this->phpBLASFactory;
 
-        $level = $this->serviceLevel(verbose:$verbose);
+        $level = $this->serviceLevel();
         if($level>=Service::LV_ADVANCED) {
             $this->blas = $this->openblasFactory()->Blas();
             $this->lapack = $this->openblasFactory()->Lapack();
@@ -147,11 +147,8 @@ abstract class AbstractMatlibService implements Service
         return $this->mathCLFactory;
     }
 
-    public function serviceLevel(int $verbose=null) : int
+    public function serviceLevel() : int
     {
-        $verbose ??= 0;
-        $this->logLevel = 10 - $verbose;
-
         if($this->serviceLevel!==null) {
             return $this->serviceLevel;
         }
