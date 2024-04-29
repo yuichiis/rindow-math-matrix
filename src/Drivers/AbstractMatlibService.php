@@ -11,6 +11,8 @@ use LogicException;
 
 abstract class AbstractMatlibService implements Service
 {
+    abstract protected function injectDefaultFactories() : void;
+
     // abstract properties
     protected string $name = 'unknown';
 
@@ -54,6 +56,9 @@ abstract class AbstractMatlibService implements Service
         $this->phplapack = $this->phpBLASFactory->Lapack();
         $this->phpmath = $this->phpBLASFactory->Math();
         $this->phpbuffer = $this->phpBLASFactory;
+        $this->setVerbose($verbose);
+
+        $this->injectDefaultFactories();
 
         $level = $this->serviceLevel();
         if($level>=Service::LV_ADVANCED) {
@@ -69,7 +74,7 @@ abstract class AbstractMatlibService implements Service
         }
     }
 
-    protected function setVerbose(int $verbose=null)
+    protected function setVerbose(int $verbose=null) : void
     {
         $verbose ??= 0;
         $this->logLevel = 10 - $verbose;
@@ -86,7 +91,7 @@ abstract class AbstractMatlibService implements Service
     protected function bufferFactory() : object
     {
         if($this->bufferFactory==null) {
-            throw new LogicException('bufferFactory ** is empty **');
+            throw new LogicException('bufferFactory is empty');
         }
         return $this->bufferFactory;
     }
@@ -94,7 +99,7 @@ abstract class AbstractMatlibService implements Service
     protected function openblasFactory() : object
     {
         if($this->openblasFactory==null) {
-            throw new LogicException('openblasFactory ** is empty **');
+            throw new LogicException('openblasFactory is empty');
         }
         return $this->openblasFactory;
     }
@@ -102,7 +107,7 @@ abstract class AbstractMatlibService implements Service
     protected function mathFactory() : object
     {
         if($this->mathFactory==null) {
-            throw new LogicException('mathFactory ** is empty **');
+            throw new LogicException('mathFactory is empty');
         }
         return $this->mathFactory;
     }
@@ -110,7 +115,7 @@ abstract class AbstractMatlibService implements Service
     protected function openclFactory() : object
     {
         if($this->openclFactory==null) {
-            throw new LogicException('openclFactory ** is empty **');
+            throw new LogicException('openclFactory is empty');
         }
         return $this->openclFactory;
     }
@@ -118,7 +123,7 @@ abstract class AbstractMatlibService implements Service
     protected function clblastFactory() : object
     {
         if($this->clblastFactory==null) {
-            throw new LogicException('clblastFactory ** is empty **');
+            throw new LogicException('clblastFactory is empty');
         }
         return $this->clblastFactory;
     }
@@ -126,7 +131,7 @@ abstract class AbstractMatlibService implements Service
     protected function bufferCLFactory() : object
     {
         if($this->bufferCLFactory==null) {
-            throw new LogicException('bufferCLFactory ** is empty **');
+            throw new LogicException('bufferCLFactory is empty');
         }
         return $this->bufferCLFactory;
     }
@@ -134,7 +139,7 @@ abstract class AbstractMatlibService implements Service
     protected function blasCLFactory() : object
     {
         if($this->blasCLFactory==null) {
-            throw new LogicException('blasCLFactory ** is empty **');
+            throw new LogicException('blasCLFactory is empty');
         }
         return $this->blasCLFactory;
     }
@@ -142,7 +147,7 @@ abstract class AbstractMatlibService implements Service
     protected function mathCLFactory() : object
     {
         if($this->mathCLFactory==null) {
-            throw new LogicException('mathCLFactory ** is empty **');
+            throw new LogicException('mathCLFactory is empty');
         }
         return $this->mathCLFactory;
     }

@@ -32,10 +32,6 @@ class Selector
         echo $message."\n";
     }
 
-    protected function setVerbose(int $verbose=null)
-    {
-    }
-
     public function select(int $verbose=null) : Service
     {
         if($this->recommended) {
@@ -70,7 +66,7 @@ class Selector
             throw new RuntimeException('Service not found');
         }
         $this->recommended = $recommended;
-        $this->logging(1, $name.' service has been selected.');
+        $this->logging(1, get_class($recommended).' service has been selected.');
         return $recommended;
     }
 }
