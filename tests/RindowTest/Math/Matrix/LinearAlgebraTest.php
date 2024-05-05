@@ -6179,6 +6179,217 @@ class LinearAlgebraTest extends TestCase
         echo "\n".(explode(' ',$la->getConfig()))[0].'='.number_format($end-$start)."\n";
     }
 
+    public function testTopKNormal10()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // 1D
+        $size = 10;
+        $input = $mo->arange($size,dtype:NDArray::float32);
+        $input = $la->array($input);
+        $k = 3;
+
+        [$values, $indices] = $la->topK($input, k:$k);
+
+        $this->assertEquals([ 9,  8,  7],$values->toArray());
+        $this->assertEquals($input->dtype(),$values->dtype());
+        $this->assertEquals([ 9,  8,  7],$indices->toArray());
+        $this->assertEquals(NDArray::int32,$indices->dtype());
+
+        // k=1
+        $size = 10;
+        $input = $mo->arange($size,dtype:NDArray::float32);
+        $input = $la->array($input);
+
+        [$values, $indices] = $la->topK($input);
+
+        $this->assertEquals([ 9 ],$values->toArray());
+        $this->assertEquals($input->dtype(),$values->dtype());
+        $this->assertEquals([ 9 ],$indices->toArray());
+        $this->assertEquals(NDArray::int32,$indices->dtype());
+
+        // 2D
+        $batches = 3;
+        $size = 10;
+        $input = $mo->arange($batches*$size,dtype:NDArray::float32)
+            ->reshape([$batches,$size]);
+        $input = $la->array($input);
+        $k = 3;
+
+        //$input = $la->array([[1, 0, 9, 8, 4, 3, 2,  7, 6, 5]]);
+        //$k = 10;
+
+        [$values, $indices] = $la->topK($input, k:$k);
+
+        $this->assertEquals([
+            [ 9,  8,  7],
+            [19, 18, 17],
+            [29, 28, 27]
+        ],$values->toArray());
+        $this->assertEquals($input->dtype(),$values->dtype());
+
+        $this->assertEquals([
+            [ 9,  8,  7],
+            [ 9,  8,  7],
+            [ 9,  8,  7],
+        ],$indices->toArray());
+        $this->assertEquals(NDArray::int32,$indices->dtype());
+
+        // 3D
+        $batches = 3;
+        $heads = 2;
+        $size = 10;
+        $input = $mo->arange($batches*$heads*$size,dtype:NDArray::float32)
+            ->reshape([$batches,$heads,$size]);
+        $input = $la->array($input);
+        $k = 3;
+
+        [$values, $indices] = $la->topK($input, k:$k);
+
+        $this->assertEquals([
+            [[ 9,  8,  7],
+             [19, 18, 17]],
+            [[29, 28, 27],
+             [39, 38, 37]],
+            [[49, 48, 47],
+             [59, 58, 57]],
+        ],$values->toArray());
+        $this->assertEquals($input->dtype(),$values->dtype());
+
+        $this->assertEquals([
+            [[ 9,  8,  7],
+             [ 9,  8,  7]],
+            [[ 9,  8,  7],
+             [ 9,  8,  7]],
+            [[ 9,  8,  7],
+             [ 9,  8,  7]],
+        ],$indices->toArray());
+        $this->assertEquals(NDArray::int32,$indices->dtype());
+
+    }
+
+    public function testTopKNormal5000()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $batches = 3;
+        $size = 5000;
+        $k = 10;
+        $input = $la->randomUniform(
+            [$batches,$size],
+            0, 1000,
+            dtype:NDArray::float32,
+        );
+        $inputArray = $input->toArray();
+        [$values,$indices] = $la->topK($input,k:$k);
+        $values = $la->toNDArray($values);
+        $indices = $la->toNDArray($indices);
+        $SortedInput = [];
+        foreach($inputArray as $inp) {
+            arsort($inp,SORT_NUMERIC);
+            $SortedInput[] = $inp;
+        }
+        $i = 0;
+        foreach($SortedInput as $sortedInp) {
+            $j = 0;
+            foreach ($sortedInp as $topIndex => $topInp) {
+                if($topInp!=$values[$i][$j]) {
+                    $this->assertEquals($topInp,$values[$i][$j]);
+                    break;
+                }
+                if($topInp!=$inputArray[$i][$indices[$i][$j]]) {
+                    $this->assertEquals($topIndex,$indices[$i][$j]);
+                    break;
+                }
+                $j++;
+                if($j>=$k) {
+                    break;
+                }
+            }
+            $i++;
+        }
+        $this->assertTrue(true);
+    }
+
+    public function testTopkWithoutSorted()
+    {
+        $dtype = NDArray::float32;
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $batches = 2;
+        $size = 5000;
+        $k = 10;
+        $sorted = false;
+
+        $input = $la->randomUniform(
+            [$batches,$size],
+            0, 1000,
+            dtype:NDArray::float32,
+        );
+        $inputArray = $input->toArray();
+        [$values,$indices] = $la->topK($input,k:$k,sorted:$sorted);
+        $values = $la->toNDArray($values);
+        $indices = $la->toNDArray($indices);
+        $SortedInput = [];
+        foreach($inputArray as $inp) {
+            arsort($inp,SORT_NUMERIC);
+            $SortedInput[] = $inp;
+        }
+
+        $SortedInput = [];
+        foreach($inputArray as $inp) {
+            arsort($inp,SORT_NUMERIC);
+            $SortedInput[] = $inp;
+        }
+
+        $unmatch = false;
+        $i = 0;
+        foreach($SortedInput as $sortedInp) {
+            $j = 0;
+            foreach ($sortedInp as $topIndex => $topInp) {
+                if($topInp!=$values[$i][$j]) {
+                    $unmatch = true;
+                    break;
+                }
+                if($topInp!=$inputArray[$i][$indices[$i][$j]]) {
+                    $unmatch = true;
+                    break;
+                }
+                $j++;
+                if($j>=$k) {
+                    break;
+                }
+            }
+            $i++;
+        }
+        $this->assertTrue($unmatch);
+
+        $valuesArray = $values->toArray();
+        $indicesArray = $indices->toArray();
+        $i = 0;
+        foreach($SortedInput as $sortedInp) {
+            $j = 0;
+            foreach ($sortedInp as $topIndex => $topInp) {
+                if(!in_array($topInp,$valuesArray[$i])) {
+                    var_dump($valuesArray[$i]);
+                    $this->assertEquals($topInp,'notfound');
+                }
+                if(!in_array($topIndex,$indicesArray[$i])) {
+                    var_dump($indicesArray[$i]);
+                    $this->assertEquals($topIndex,'notfound');
+                }
+                $j++;
+                if($j>=$k) {
+                    break;
+                }
+            }
+            $i++;
+        }
+    }
+
     public function testastype()
     {
         $mo = $this->newMatrixOperator();

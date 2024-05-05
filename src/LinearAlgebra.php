@@ -1469,7 +1469,6 @@ class LinearAlgebra
         return $B;
     }
 
-
     /**
     *    ret := x_1 + ... + x_n
     */
@@ -2228,6 +2227,79 @@ class LinearAlgebra
             $AA,$offA,$n);
 
         return $output;
+    }
+
+    /**
+     * values, indices := topK(input,k,sorted=true)
+     * 
+     * @return array{NDArray,NDArray}
+     */
+    public function topK(
+        NDArray $input,
+        int $k=null,
+        bool $sorted=null,
+        NDArray $values=null,
+        NDArray $indices=null,
+    ) : array
+    {
+        $k ??= 1;
+        $sorted ??= true;
+
+        $shapeInput = $input->shape();
+        $shape = $shapeInput;
+        $n = array_pop($shape);
+        $m = (int)array_product($shape);
+        array_push($shape,$k);
+        if($k > $n) {
+            throw new InvalidArgumentException('k must be less than or equal to the entity.');
+        }
+
+        if($values==null) {
+            $values = $this->alloc($shape, dtype:$input->dtype());
+        } else {
+            if($values->shape()!=$shape) {
+                $error = '['.implode(',',$values->shape()).']';
+                throw new InvalidArgumentException('Unmatch shape of "values" with "input" and "k": '.$error);
+            }
+            if($values->dtype()!=$input->dtype()) {
+                throw new InvalidArgumentException('Unmatch dtype of "values" with input');
+            }
+        }
+
+        if($indices==null) {
+            $indices = $this->alloc($shape, dtype:NDArray::int32);
+        } else {
+            if($indices->ndim()!=2) {
+                throw new InvalidArgumentException('"indices" must be 2-D dimension');
+            }
+            if($indices->shape()!=$shape) {
+                $error = '['.implode(',',$indices->shape()).']';
+                throw new InvalidArgumentException('Unmatch shape of "indices" with "input" and "k": '.$error);
+            }
+            if($indices->dtype()!=NDArray::int32) {
+                throw new InvalidArgumentException('Unmatch dtype of "indices" with input');
+            }
+        }
+
+        $AA = $input->buffer();
+        $offA = $input->offset();
+        $BB = $values->buffer();
+        $offB = $values->offset();
+        $XX = $indices->buffer();
+        $offX = $indices->offset();
+
+        // Call the underlying top_k function
+        $this->math->topK(
+            $m,
+            $n,
+            $AA, $offA,
+            $k,
+            $sorted,
+            $BB, $offB,
+            $XX, $offX,
+        );
+
+        return [$values, $indices];
     }
 
     /**

@@ -189,6 +189,7 @@ class OpenCLMath
     protected bool $fp64;
     /** @var array<int> $maxWorkItem */
     protected array $maxWorkItem;
+    protected int $localMemSize;
     protected ?int $kernelMultiple=null;
     protected bool $hasDiv5Bug;
     protected ?int $testMode=null;
@@ -210,6 +211,7 @@ class OpenCLMath
             $this->fp64 = true;
         }
         $this->maxWorkItem = $devices->getInfo(0,OpenCL::CL_DEVICE_MAX_WORK_ITEM_SIZES);
+        $this->localMemSize = $devices->getInfo(0,OpenCL::CL_DEVICE_LOCAL_MEM_SIZE);
         $deviceType = $devices->getInfo(0,OpenCL::CL_DEVICE_TYPE);
         $nDev = count($devices);
         $types = [];
@@ -2620,6 +2622,221 @@ class OpenCLMath
         $global_work_size = [$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
+    }
+
+    private function topKSource(string $kernel_name,string $type) : string
+    {
+        $source = <<<EOT
+        void topkSwap{$type}(
+            __local {$type} *a,
+            __local {$type} *b
+            ) 
+        {
+            {$type} tmp = *a;
+            *a = *b;
+            *b = tmp;
+        }
+    
+        void topkSwapIntAt{$type}(
+            __local int *a,
+            __local int *b
+            ) 
+        {
+            int tmp = *a;
+            *a = *b;
+            *b = tmp;
+        }
+    
+        void topkMinHeapify{$type}(
+            int size,
+            __local {$type} *heap,
+            __local int *indices,
+            int parent
+            )
+        {
+            int left = 2 * parent + 1;
+            int right = 2 * parent + 2;
+        
+            while (left < size) {
+                int smallest;
+                if (right < size && heap[right] < heap[left]) {
+                    smallest = right;
+                } else {
+                    smallest = left;
+                }
+        
+                if (heap[parent] <= heap[smallest]) {
+                    break;
+                }
+                topkSwap{$type}(&heap[parent],&heap[smallest]);
+                topkSwapIntAt{$type}(&indices[parent],&indices[smallest]);
+    
+                parent = smallest;
+                left = 2 * parent + 1;
+                right = 2 * parent + 2;
+            }
+        }
+
+        __kernel void {$kernel_name}(
+            int size,
+            __global const {$type} * inputs,
+            int offsetInputs,
+            int k,
+            int sorted,
+            __global       {$type} * values,
+            int offsetValues,
+            __global       int * indices,
+            int offsetIndices,
+            __local        {$type} * valuesHeap,
+            __local        int * indicesHeap
+            )
+        {
+            int gid0 = get_global_id(0);
+            int lid0 = get_local_id(0);
+            int lsz0 = get_local_size(0);
+
+            int batchid = gid0 / lsz0;
+            int thid = lid0;
+            int groups = lsz0;
+
+            int rowOffset = offsetInputs+batchid*size;
+            int heapOffset = k*thid;
+            // copy first elements
+            for(int i=0; i<k; ++i) {
+                if(i*groups+thid<size) {
+                    valuesHeap[heapOffset+i] = inputs[rowOffset+i*groups+thid];
+                    indicesHeap[heapOffset+i] = i*groups+thid;
+                } else {
+                    valuesHeap[heapOffset+i] = -INFINITY;
+                    indicesHeap[heapOffset+i] = 0;
+                }
+            }
+
+            // Build minimum heap with first TOP_NUM element
+            for(int i=k/2-1; i>=0; --i) {
+                topkMinHeapify{$type}(k, &valuesHeap[heapOffset], &indicesHeap[heapOffset], i);
+            }
+
+            // Process remaining elements
+            for(int i=k*groups+thid; i<size; i+=groups) {
+                if(inputs[rowOffset+i] > valuesHeap[heapOffset]) {
+                    valuesHeap[heapOffset] = inputs[rowOffset+i];
+                    indicesHeap[heapOffset] = i;
+                    topkMinHeapify{$type}(k, &valuesHeap[heapOffset], &indicesHeap[heapOffset], 0);
+                }
+            }
+            barrier(CLK_LOCAL_MEM_FENCE);
+
+            if(thid==0) {
+                // Rebuild minimum heap for all groups
+                for(int i = (k*groups)/2-1; i >= 0; --i) {
+                    topkMinHeapify{$type}(k, valuesHeap, indicesHeap, i);
+                }
+                // Merge heap
+                for(int i = k; i < (k*groups); ++i) {
+                    if (valuesHeap[i] > valuesHeap[0]) {
+                        valuesHeap[0] = valuesHeap[i];
+                        indicesHeap[0] = indicesHeap[i];
+                        topkMinHeapify{$type}(k, valuesHeap, indicesHeap, 0);
+                    }
+                }
+            }
+            
+            if(sorted && thid==0) {
+                // sort
+                for(int i = k - 1; i > 0; --i) {
+                    topkSwap{$type}(&valuesHeap[0],&valuesHeap[i]);
+                    topkSwapIntAt{$type}(&indicesHeap[0],&indicesHeap[i]);
+                    topkMinHeapify{$type}(i, valuesHeap, indicesHeap, 0);
+                }
+            }
+
+            barrier(CLK_LOCAL_MEM_FENCE);
+
+            // copy result to global
+            for(int i=thid; i<k; i += groups) {
+                values[offsetValues+batchid*k+i] = valuesHeap[i];
+                indices[offsetIndices+batchid*k+i] = indicesHeap[i];
+            }
+        }
+    
+EOT;
+        return $source;
+    }
+
+    public function topK(
+        int $m,
+        int $n,
+        BufferInterface $inputs, int $offsetInputs,
+        int $k,
+        bool $sorted,
+        BufferInterface $values, int $offsetValues,
+        BufferInterface $indices, int $offsetIndices,
+        object $events=null, object $waitEvents=null,
+        ) : void
+    {
+        //$this->assertShapeParameter("m", $m);
+        //$this->assertShapeParameter("n", $n);
+        //$this->assertShapeParameter("k", $k);
+        //$this->assertMatrixBufferSpec("inputs", $inputs, $m,$n, $offsetInputs, $n);
+        //$this->assertMatrixBufferSpec("values", $values, $m,$k, $offsetValues, $k);
+        //$this->assertMatrixBufferSpec("indices", $indices, $m,$k, $offsetIndices, $k);
+
+        //echo "m=$m,n=$n,k=$k\n";
+        $dtype = $inputs->dtype();
+        if($dtype==NDArray::float64) {
+            $this->assertFP64();
+        }
+        if($indices->dtype()!=NDArray::int32) {
+            throw new InvalidArgumentException('dtype of indices must be int32.');
+        }
+        if($k>$n) {
+            throw new InvalidArgumentException('size must be greater or equal k.');
+        }
+        $sorted = $sorted ? 1 : 0;
+
+        $groups = (int)floor(sqrt($n/$k));
+        $groupsByMemlimit = intdiv($this->localMemSize,$k*($values->value_size()+$indices->value_size()));
+        if($groups>$groupsByMemlimit) {
+            $groups = $groupsByMemlimit;
+        }
+        if($groups>$this->maxWorkItem[0]) {
+            $groups = $this->maxWorkItem[0];
+        }
+
+        //$groups = 2;
+
+        //echo "groups=$groups\n";
+
+        $type = $this->dtypeToOpenCLType[$dtype];
+        $kernel_name = "topk_{$type}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] = $this->topKSource($kernel_name,$type);
+        }
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$n,NDArray::int32);
+        $kernel->setArg(1,$inputs);
+        $kernel->setArg(2,$offsetInputs,NDArray::int32);
+        $kernel->setArg(3,$k,NDArray::int32);
+        $kernel->setArg(4,$sorted,NDArray::int32);
+        $kernel->setArg(5,$values);
+        $kernel->setArg(6,$offsetValues,NDArray::int32);
+        $kernel->setArg(7,$indices);
+        $kernel->setArg(8,$offsetIndices,NDArray::int32);
+        $kernel->setArg(9,null,$this->adjBoundary($k*$values->value_size())*$groups);
+        $kernel->setArg(10,null,$this->adjBoundary($k*$indices->value_size())*$groups);
+
+        $global_work_size = [$m*$groups];
+        $local_work_size = [$groups];
+        try {
+            $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
+            $events,$waitEvents);
+        } catch(RuntimeException $e) {
+            if($e->getCode()==OpenCL::CL_OUT_OF_RESOURCES) {
+                throw new RuntimeException('topk: out of resources',$e->getCode(),$e);
+            }
+            throw $e;
+        }
     }
 
     /**
