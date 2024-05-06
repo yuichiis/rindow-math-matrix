@@ -2796,6 +2796,9 @@ EOT;
         $sorted = $sorted ? 1 : 0;
 
         $groups = (int)floor(sqrt($n/$k));
+        if($groups<1) {
+            $groups = 1;
+        }
         $groupsByMemlimit = intdiv($this->localMemSize,$k*($values->value_size()+$indices->value_size()));
         if($groups>$groupsByMemlimit) {
             $groups = $groupsByMemlimit;
