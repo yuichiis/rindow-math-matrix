@@ -3665,6 +3665,90 @@ class LinearAlgebraCL
     }
 
     /**
+     * values, indices := topK(input,k,sorted=true)
+     * 
+     * @return array{NDArray,NDArray}
+     */
+    public function topK(
+        NDArray $input,
+        int $k=null,
+        bool $sorted=null,
+        NDArray $values=null,
+        NDArray $indices=null,
+        object $events=null,object $waitEvents=null
+    ) : array
+    {
+        if($this->profiling) {
+            $this->profilingStart("topK");
+        }
+        $k ??= 1;
+        $sorted ??= true;
+
+        $shapeInput = $input->shape();
+        $shape = $shapeInput;
+        $n = array_pop($shape);
+        $m = (int)array_product($shape);
+        array_push($shape,$k);
+        if($k > $n) {
+            throw new InvalidArgumentException('k must be less than or equal to the entity.');
+        }
+
+        if($values==null) {
+            $values = $this->alloc($shape, dtype:$input->dtype());
+        } else {
+            if($values->shape()!=$shape) {
+                $error = '['.implode(',',$values->shape()).']';
+                throw new InvalidArgumentException('Unmatch shape of "values" with "input" and "k": '.$error);
+            }
+            if($values->dtype()!=$input->dtype()) {
+                throw new InvalidArgumentException('Unmatch dtype of "values" with input');
+            }
+        }
+
+        if($indices==null) {
+            $indices = $this->alloc($shape, dtype:NDArray::int32);
+        } else {
+            if($indices->ndim()!=2) {
+                throw new InvalidArgumentException('"indices" must be 2-D dimension');
+            }
+            if($indices->shape()!=$shape) {
+                $error = '['.implode(',',$indices->shape()).']';
+                throw new InvalidArgumentException('Unmatch shape of "indices" with "input" and "k": '.$error);
+            }
+            if($indices->dtype()!=NDArray::int32) {
+                throw new InvalidArgumentException('Unmatch dtype of "indices" with input');
+            }
+        }
+
+        $AA = $input->buffer();
+        $offA = $input->offset();
+        $BB = $values->buffer();
+        $offB = $values->offset();
+        $XX = $indices->buffer();
+        $offX = $indices->offset();
+
+        // Call the underlying top_k function
+        $this->openclmath->topK(
+            $m,
+            $n,
+            $AA, $offA,
+            $k,
+            $sorted,
+            $BB, $offB,
+            $XX, $offX,
+            $events,$waitEvents
+        );
+
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("topK");
+        }
+        return [$values, $indices];
+    }
+
+    /**
      *      input:  A,X
      *      output: B
      *      B(m,n,k) := A(m,X(m,n),k)
