@@ -39,15 +39,15 @@ jobs:
 ##            php: '8.3'
         
     steps:
-      #- name: Setup PHP ${{ matrix.php }}
-      #  uses: shivammathur/setup-php@v2
-      #  with:
-      #    php-version: ${{ matrix.php }}
-      #    # PHP Extras
-      #    coverage: none
-      #    tools: composer, phpunit:10.5
-      #    ini-values: "memory_limit=512M"
-      #    extensions: ${{ matrix.ffi }}
+      - name: Setup PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          # PHP Extras
+          coverage: none
+          tools: composer, phpunit:10.5, phpstan
+          ini-values: "memory_limit=512M"
+          # extensions: ${{ matrix.ffi }}
 
       #- name: Install Libs
       #  run: |
@@ -61,10 +61,10 @@ jobs:
       - name: Checkout codes
         uses: "actions/checkout@v4"
 
-      - name: Composer
-        uses: php-actions/composer@v6
-        with:
-          php_version: ${{ matrix.php }}
+      #- name: Composer
+      #  uses: php-actions/composer@v6
+      #  with:
+      #    php_version: ${{ matrix.php }}
 
       #- name: Composer
       #  run: |
@@ -74,19 +74,25 @@ jobs:
       #      ( cd addpack && composer require rindow/rindow-math-matrix-matlibffi )
       #    fi
 
-      - name: PHP Static Analysys
-        uses: php-actions/phpstan@v3
-        with:
-          php_version: ${{ matrix.php }}
-          path: src/
+      - name: Composer
+        run: composer update
 
-      - name: PHPUnit Tests
-        uses: php-actions/phpunit@v3
-        with:
-          configuration: tests/phpunit.xml
-          version: 10.5
-          php_version: ${{ matrix.php }}
-          memory_limit: 512M
+      #- name: PHP Static Analysys
+      #  uses: php-actions/phpstan@v3
+      #  with:
+      #    php_version: ${{ matrix.php }}
+      #    path: src/
 
-      #- name: PHPUnit Tests with ${{ matrix.ffi }}.
-      #  run: phpunit -c tests
+      - name: Composer
+        run: phpstan
+
+      #- name: PHPUnit Tests
+      #  uses: php-actions/phpunit@v3
+      #  with:
+      #    configuration: tests/phpunit.xml
+      #    version: 10.5
+      #    php_version: ${{ matrix.php }}
+      #    memory_limit: 512M
+
+      - name: PHPUnit Tests with ${{ matrix.ffi }}.
+        run: phpunit -c tests
