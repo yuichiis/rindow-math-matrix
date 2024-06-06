@@ -1201,6 +1201,113 @@ class PhpMath
     }
 
     /**
+    *  B(m,n,k) := A(m,n,X(m),k)
+    */
+    public function gatherb(
+        bool $reverse,
+        bool $addMode,
+        int $m,
+        int $n,
+        int $k,
+        int $numClass,
+        Buffer $A, int $offsetA,
+        Buffer $X, int $offsetX,
+        Buffer $B, int $offsetB
+        ) : void
+    {
+//echo "[m=$m,n=$n,k=$k,class=$numClass]\n";
+
+        if($offsetX+$n>count($X))
+            throw new InvalidArgumentException('Matrix X specification too large for buffer.');
+        if($offsetA+$numClass*$k>count($A))
+            throw new InvalidArgumentException('Matrix A specification too large for buffer.');
+        if($offsetB+$n*$k>count($B))
+            throw new InvalidArgumentException('Matrix B specification too large for buffer.');
+        if($numClass<=0)
+            throw new InvalidArgumentException('numClass must be grator than zero.');
+
+        for($i=0;$i<$m;$i++) {
+            $index = $X[$offsetX+$i];
+            if($index>=$numClass) {
+                //throw new RuntimeException("index is out of range.:".$index);
+                $this->logging("gather: index is out of range.:".$index." numClass=".$numClass);
+                $index = $numClass-1;
+            }
+            for($j=0;$j<$n;$j++) {
+                $iA = $offsetA + $i*$n*$numClass*$k + $j*$numClass*$k + $index*$k;
+                $iB = $offsetB + $i*$n*$k + $j*$k;
+                if($reverse) {
+                    if($addMode) {
+                        $this->math_add($k,$B,$iB,1,$A,$iA,1);
+                    } else {
+                        $this->math_copy($k,$B,$iB,1,$A,$iA,1);
+                    }
+                } else {
+                    if($addMode) {
+                        $this->math_add($k,$A,$iA,1,$B,$iB,1);
+                    } else {
+                        $this->math_copy($k,$A,$iA,1,$B,$iB,1);
+                    }
+                }
+            }
+        }
+    }
+
+
+    /**
+     * A: (m, (paramShape), k)
+     * X: (m, n, index_depth)
+     * B: (m, n, k)
+     * B(m, n, k) := A(m,(X(m,n)),k)
+     */
+    public function gatherNd(
+        bool $reverse,
+        bool $addMode,
+        int $m, // num_indices=num_batchs
+        int $n, // outer_shape
+        int $k, // inner_shape
+        int $indexDepth,
+        Buffer $paramShape, // paramShape[indexDepth]
+        Buffer $A, int $offsetA,
+        Buffer $X, int $offsetX,
+        Buffer $B, int $offsetB,
+    ) : void
+    {
+        for($i=0; $i<$m; ++$i) {
+            for($j=0; $j<$n; $j++) {
+                $offset = 0;
+                $multiplier = 1;
+                for($h=$indexDepth-1; $h>=0; --$h) {
+                    $index = $X[$i*$n*$indexDepth + $j*$indexDepth + $h];
+                    if($index>=$paramShape[$h]) {
+                        continue;
+                    }
+                    $offset += $index*$multiplier;
+                    $multiplier *= $paramShape[$h];
+                }
+                $iA = $offsetA + $i*$multiplier*$k + $offset*$k;
+                $iB = $offsetB + $i*$n*$k + $j*$k;
+                if(!$reverse) {
+                    $from = $A;
+                    $fromPos = $iA;
+                    $to = $B;
+                    $toPos = $iB;
+                } else {
+                    $from = $B;
+                    $fromPos = $iB;
+                    $to = $A;
+                    $toPos = $iA;
+                }
+                if(!$addMode) {
+                    $this->math_copy($k,$from,$fromPos,1,$to,$toPos,1);
+                } else {
+                    $this->math_add($k,$from,$fromPos,1,$to,$toPos,1);
+                }
+            }
+        }
+    }
+    
+    /**
     *  For Parallel Computing Algorithm
     */
     protected function scatterAdd(
