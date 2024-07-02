@@ -190,6 +190,7 @@ class OpenCLMath
     /** @var array<int> $maxWorkItem */
     protected array $maxWorkItem;
     protected int $localMemSize;
+    protected int $maxComputeUnits;
     protected ?int $kernelMultiple=null;
     protected bool $hasDiv5Bug;
     protected ?int $testMode=null;
@@ -212,6 +213,8 @@ class OpenCLMath
         }
         $this->maxWorkItem = $devices->getInfo(0,OpenCL::CL_DEVICE_MAX_WORK_ITEM_SIZES);
         $this->localMemSize = $devices->getInfo(0,OpenCL::CL_DEVICE_LOCAL_MEM_SIZE);
+        $this->maxComputeUnits = $devices->getInfo(0,OpenCL::CL_DEVICE_MAX_COMPUTE_UNITS);
+        
         $deviceType = $devices->getInfo(0,OpenCL::CL_DEVICE_TYPE);
         $nDev = count($devices);
         $types = [];
@@ -3495,7 +3498,7 @@ EOT;
                     ).
                 "}\n";
         }
-        $kernel = $this->createKernel($kernel_name1);
+        $kernel1 = $this->createKernel($kernel_name1);
 
         if(!isset($this->sources[$kernel_name2])) {
             $this->sources[$kernel_name2] =
@@ -3516,19 +3519,19 @@ EOT;
         }
         $kernel2 = $this->createKernel($kernel_name2);
         //
-        $kernel->setArg(0,$total_local_items,NDArray::uint32);
-        $kernel->setArg(1,$k,NDArray::uint32);
-        $kernel->setArg(2,$numClass,NDArray::uint32);
-        $kernel->setArg(3,$X);
-        $kernel->setArg(4,$offsetX,NDArray::uint32);
-        $kernel->setArg(5,$B);
-        $kernel->setArg(6,$offsetB,NDArray::uint32);
-        $kernel->setArg(7,$temp_buffer);
-        $kernel->setArg(8,null,$this->adjBoundary($work_items1*$value_size));
+        $kernel1->setArg(0,$total_local_items,NDArray::uint32);
+        $kernel1->setArg(1,$k,NDArray::uint32);
+        $kernel1->setArg(2,$numClass,NDArray::uint32);
+        $kernel1->setArg(3,$X);
+        $kernel1->setArg(4,$offsetX,NDArray::uint32);
+        $kernel1->setArg(5,$B);
+        $kernel1->setArg(6,$offsetB,NDArray::uint32);
+        $kernel1->setArg(7,$temp_buffer);
+        $kernel1->setArg(8,null,$this->adjBoundary($work_items1*$value_size));
         $global_work_size = [$work_items1*$temp_size,$k*$numClass];
         $local_work_size = [$work_items1,1];
         $phase1Events = $this->newEventList();
-        $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
+        $kernel1->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
                 $phase1Events,$waitEvents);
         //
         $kernel2->setArg(0,$k,NDArray::uint32);
@@ -3603,6 +3606,568 @@ EOT;
         $local_work_size = null;
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
             $events,$waitEvents);
+    }
+
+    /**
+     * A: (batchs, m, numClass, k, len)
+     * X: (batchs, n, k)
+     * B: (batchs, m, n, k, len)
+     * B(batchs, m, n, k, len) := A(batchs, m, X(batchs, n, k), k, len)
+     */
+    public function gatherb(
+        bool $reverse,
+        bool $addMode,
+        int $batches, // num_batchs
+        int $m, // outer_shape
+        int $n, // broadcast_shape
+        int $k, // inner_shape
+        int $len, // detail_shape
+        int $numClass, // source axis class
+        BufferInterface $A, int $offsetA,
+        BufferInterface $X, int $offsetX,
+        BufferInterface $B, int $offsetB,
+        object $events=null, object $waitEvents=null
+    ) : void
+    {
+        if($reverse&&$addMode&&$n>1) {
+            $this->scatterbAdd(
+                $batches,
+                $m,
+                $n,
+                $k,
+                $len,
+                $numClass,
+                $A, $offsetA,
+                $X, $offsetX,
+                $B, $offsetB,
+                $events, $waitEvents
+            );
+            return;
+        }
+        $type = $this->dtypeToOpenCLType[$A->dtype()];
+        if(!$addMode) {
+            $add = 's';
+            $operation = '=';
+        } else {
+            $add = 'a';
+            $operation = '+=';
+        }
+        if(!$reverse) {
+            $direction = 'f';
+            $expression = "b[iB++] {$operation} a[iA++];";
+        } else {
+            $direction = 'f';
+            $expression = "a[iA++] {$operation} b[iB++];";
+        }
+        $kernel_name = "gatherb_{$direction}_{$add}_{$type}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+                "__kernel void {$kernel_name}(\n".
+                "    const        uint m,\n".
+                "    const        uint n,\n".
+                "    const        uint k,\n".
+                "    const        uint len,\n".
+                "    const        uint numClass,\n".
+                "        __global {$type} * a,\n".
+                "    const        uint offsetA,\n".
+                "    const global uint * x,\n".
+                "    const        uint offsetX,\n".
+                "        __global {$type} * b,\n".
+                "    const        uint offsetB)\n".
+                "{\n".
+                "    const uint gid0 = get_global_id(0);\n".
+                "    const uint gid1 = get_global_id(1);\n".
+                "    const uint batch_id = gid0/m;\n".
+                "    const uint i = gid0%m;\n".
+                "    const uint j = gid1/k;\n".
+                "    const uint h = gid1%k;\n".
+                "    const uint index = x[offsetX + (batch_id*n + j)*k + h];\n".
+                "    if(index>=numClass) {\n".
+                "        return;\n".
+                "    }\n".
+                "    uint iA = offsetA + (((batch_id*m + i)*numClass + index)*k + h)*len;\n".
+                "    uint iB = offsetB + (((batch_id*m + i)*n + j)*k + h)*len;\n".
+                "    for(uint p=0; p<len; ++p) {\n".
+                "        {$expression}\n".
+                "    }\n".
+                "}\n";
+        }
+        $kernel = $this->createKernel($kernel_name);
+
+        $kernel->setArg(0,$m,NDArray::uint32);
+        $kernel->setArg(1,$n,NDArray::uint32);
+        $kernel->setArg(2,$k,NDArray::uint32);
+        $kernel->setArg(3,$len,NDArray::uint32);
+        $kernel->setArg(4,$numClass,NDArray::uint32);
+        $kernel->setArg(5,$A);
+        $kernel->setArg(6,$offsetA,NDArray::uint32);
+        $kernel->setArg(7,$X);
+        $kernel->setArg(8,$offsetX,NDArray::uint32);
+        $kernel->setArg(9,$B);
+        $kernel->setArg(10,$offsetB,NDArray::uint32);
+        //$multiple = $this->kernelMultiple($kernel);
+        //$global_work_size = [$this->ceil($k,$multiple)];
+        //$local_work_size = [$multiple];
+        $global_work_size = [$batches*$m,$n*$k];
+        $local_work_size = null;
+        $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
+            $events,$waitEvents);
+    }
+
+    /**
+     * A: (batchs, m, numClass, k, len)
+     * X: (batchs, n, k)
+     * B: (batchs, m, n, k, len)
+     * A(batchs, m, X(batchs, n, k), k, len) += B(batchs, m, n, k, len)
+     */
+    protected function scatterbAdd(
+        int $batches, // num_batchs
+        int $m, // outer_shape
+        int $n, // broadcast_shape
+        int $k, // inner_shape
+        int $len, // detail_shape
+        int $numClass, // source axis class
+        BufferInterface $A, int $offsetA,
+        BufferInterface $X, int $offsetX,
+        BufferInterface $B, int $offsetB,
+        object $events=null, object $waitEvents=null
+    ) : void
+    {
+        $dtype = $B->dtype();
+        $value_width = $B->value_size();
+        $type = $this->dtypeToOpenCLType[$B->dtype()];
+        $parallel_n = $this->maxComputeUnits;
+        $size_m = $batches*$m;
+        if($n<$parallel_n) {
+            $parallel_n = $n;
+        }
+        $cell_size = intdiv($n, $parallel_n);
+        $remainder = $n - $cell_size * $parallel_n;
+    
+        // n*[batches,m,numClass,k,len]
+        $blockSize = $batches*$m*$numClass*$k*$len;
+        $a_buf = $this->newBuffer(
+            ($parallel_n-1)*$blockSize*$value_width,
+            OpenCL::CL_MEM_READ_WRITE,null,null,$dtype
+        );
+
+        $kernel_name1 = "scatterbadd_L1_{$type}";
+        $kernel_name2 = "scatterbadd_L2_{$type}";
+        if(!isset($this->sources[$kernel_name1])) {
+            $this->sources[$kernel_name1] =
+                "__kernel void {$kernel_name1}(\n".
+                "    const        uint parallel_n,\n".
+                "    const        uint cell_size,\n".
+                "    const        uint remainder,\n".
+                "    const        uint blockSize,\n".
+                "    const        uint m,\n".
+                "    const        uint n,\n".
+                "    const        uint k,\n".
+                "    const        uint len,\n".
+                "    const        uint numClass,\n".
+                "        __global {$type} * a,\n".
+                "    const        uint offsetA,\n".
+                "    const global uint * x,\n".
+                "    const        uint offsetX,\n".
+                "        __global {$type} * b,\n".
+                "    const        uint offsetB,\n".
+                "        __global {$type} * a_buf)\n".
+                "{\n".
+                "    const uint gid0 = get_global_id(0);\n".
+                "    const uint thread_id = get_global_id(1);\n".
+                "    const uint gid2 = get_global_id(2);\n".
+                "    const uint batch_id = gid0/m;\n".
+                "    const uint i = gid0%m;\n".
+                "    const uint h = gid2;\n".
+                "    uint begin;\n".
+                "    uint end;\n".
+                "    begin = thread_id * cell_size;\n".
+                "    if(thread_id == parallel_n - 1) {\n".
+                "        end = (thread_id+1) * cell_size + remainder;\n".
+                "    } else {\n".
+                "        end = (thread_id+1) * cell_size;\n".
+                "    }\n".
+                "    if(thread_id>0) {\n".
+                "        uint offset = (thread_id-1)*blockSize + (((batch_id*m + i)*numClass)*k)*len;\n".
+                "        for(uint j=0; j<numClass; j++) {\n".
+                "            for(uint p=0; p<len; ++p) {\n".
+                "                a_buf[offset + (j*k+h)*len+p] = 0;\n".
+                "            }\n".
+                "        }\n".
+                "    }\n".
+                "    uint ofsX = offsetX + batch_id*n*k + h;\n".
+                "    uint ofsA = offsetA + (((batch_id*m + i)*numClass)*k)*len;\n".
+                "    uint ofsB = offsetB + (((batch_id*m + i)*n)*k)*len;\n".
+                "    for(uint j=begin; j<end; j++) {\n".
+                "        __global {$type} * a_addr;\n".
+                "        if(thread_id==0) {\n".
+                "            a_addr = a;\n".
+                "        } else {\n".
+                "            a_addr = &a_buf[(thread_id-1)*blockSize];\n".
+                "        }\n".
+                "        const uint index = x[ofsX + j*k];\n".
+                "        if(index>=numClass) {\n".
+                "            continue;\n".
+                "        }\n".
+                "        uint iA = ofsA + (index*k + h)*len;\n".
+                "        uint iB = ofsB + (j*k + h)*len;\n".
+                "        for(uint p=0; p<len; ++p) {\n".
+                "            a_addr[iA++] += b[iB++];\n".
+                "        }\n".
+                "    }\n".
+                "}\n";
+        }
+        $kernel1 = $this->createKernel($kernel_name1);
+
+        if(!isset($this->sources[$kernel_name2])) {
+            $this->sources[$kernel_name2] =
+                "__kernel void {$kernel_name2}(\n".
+                "    const        uint parallel_n,\n".
+                "    const        uint blockSize,\n".
+                "        __global {$type} * a,\n".
+                "    const        uint offsetA,\n".
+                "        __global {$type} * a_buf)\n".
+                "{\n".
+                "    const uint pos = get_global_id(0);\n".
+                "    for(uint thread_id=1; thread_id<parallel_n; thread_id++) {\n".
+                "        a[offsetA + pos] += a_buf[blockSize*(thread_id-1)+pos];\n".
+                "    }\n".
+                "}\n";
+        }
+        $kernel2 = $this->createKernel($kernel_name2);
+
+        $kernel1->setArg(0,$parallel_n,NDArray::uint32);
+        $kernel1->setArg(1,$cell_size,NDArray::uint32);
+        $kernel1->setArg(2,$remainder,NDArray::uint32);
+        $kernel1->setArg(3,$blockSize,NDArray::uint32);
+        $kernel1->setArg(4,$m,NDArray::uint32);
+        $kernel1->setArg(5,$n,NDArray::uint32);
+        $kernel1->setArg(6,$k,NDArray::uint32);
+        $kernel1->setArg(7,$len,NDArray::uint32);
+        $kernel1->setArg(8,$numClass,NDArray::uint32);
+        $kernel1->setArg(9,$A);
+        $kernel1->setArg(10,$offsetA,NDArray::uint32);
+        $kernel1->setArg(11,$X);
+        $kernel1->setArg(12,$offsetX,NDArray::uint32);
+        $kernel1->setArg(13,$B);
+        $kernel1->setArg(14,$offsetB,NDArray::uint32);
+        $kernel1->setArg(15,$a_buf);
+        //$multiple = $this->kernelMultiple($kernel);
+        //$global_work_size = [$this->ceil($k,$multiple)];
+        //$local_work_size = [$multiple];
+        $global_work_size = [$batches*$m,$parallel_n,$k];
+        $local_work_size = null;
+        $phase1Events = $this->newEventList();
+        $kernel1->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
+            $phase1Events,$waitEvents);
+
+        $kernel2->setArg(0,$parallel_n,NDArray::uint32);
+        $kernel2->setArg(1,$blockSize,NDArray::uint32);
+        $kernel2->setArg(2,$A);
+        $kernel2->setArg(3,$offsetA,NDArray::uint32);
+        $kernel2->setArg(4,$a_buf);
+        //$multiple = $this->kernelMultiple($kernel);
+        //$global_work_size = [$this->ceil($k,$multiple)];
+        //$local_work_size = [$multiple];
+        $global_work_size = [$blockSize];
+        $local_work_size = null;
+        $kernel2->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
+            $events,$phase1Events);
+
+    }
+
+    /**
+     * This function is unofficial.
+     * It may be removed or changed without notice.
+     * 
+     * A: (m, (paramShape), k)
+     * X: (m, n, index_depth)
+     * B: (m, n, k)
+     * B(m, n, k) := A(m,(X(m,n)),k)
+     */
+    public function gathernd(
+        bool $reverse,
+        bool $addMode,
+        int $m, // num_indices=num_batchs
+        int $n, // outer_shape
+        int $k, // inner_shape
+        int $indexDepth,
+        HostBufferInterface $paramShape, // paramShape[indexDepth]
+        BufferInterface $A, int $offsetA,
+        BufferInterface $X, int $offsetX,
+        BufferInterface $B, int $offsetB,
+        object $events=null, object $waitEvents=null
+    ) : void
+    {
+        if($reverse&&$addMode) {
+            $this->scatterNDAdd(
+                $m, // num_indices=num_batchs
+                $n, // outer_shape
+                $k, // inner_shape
+                $indexDepth,
+                $paramShape, // paramShape[indexDepth]
+                $A, $offsetA,
+                $X, $offsetX,
+                $B, $offsetB,
+                $events, $waitEvents
+            );
+            return;
+        }
+        $type = $this->dtypeToOpenCLType[$A->dtype()];
+        if(!$addMode) {
+            $add = 's';
+            $operation = '=';
+        } else {
+            $add = 'a';
+            $operation = '+=';
+        }
+        if(!$reverse) {
+            $direction = 'f';
+            $expression = "b[iB++] {$operation} a[iA++];";
+        } else {
+            $direction = 'f';
+            $expression = "a[iA++] {$operation} b[iB++];";
+        }
+        $paramSize = 1;
+        for($h=0; $h<$indexDepth; ++$h) {
+            $iSize = $paramShape[$h];
+            if($iSize<=0) {
+                throw new InvalidArgumentException('all of paramShape must be greater than 0');
+            }
+            $paramSize *= $iSize;
+        }
+        $paramShape = $this->newBuffer(
+            count($paramShape)*$paramShape->value_size(),
+            OpenCL::CL_MEM_READ_ONLY|OpenCL::CL_MEM_COPY_HOST_PTR,
+            $paramShape, 0,
+            $paramShape->dtype()
+        );
+    
+        $kernel_name = "gathernd_{$direction}_{$add}_{$type}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+                "__kernel void {$kernel_name}(\n".
+                "    const        uint n,\n".
+                "    const        uint k,\n".
+                "    const        uint indexDepth,\n".
+                "    const global uint * paramShape,\n".
+                "    const        uint paramSize,\n".
+                "        __global {$type} * a,\n".
+                "    const        uint offsetA,\n".
+                "    const global uint * x,\n".
+                "    const        uint offsetX,\n".
+                "        __global {$type} * b,\n".
+                "    const        uint offsetB)\n".
+                "{\n".
+                "    const uint i = get_global_id(0);\n".
+                "    const uint j = get_global_id(1);\n".
+                "    uint offset = 0;\n".
+                "    for(uint h=0; h<indexDepth; ++h) {\n".
+                "        offset *= paramShape[h];\n".
+                "        uint index = x[offsetX + i*n*indexDepth + j*indexDepth + h];\n".
+                "        if(index>=paramShape[h]) {\n".
+                "            return;\n".
+                "        }\n".
+                "        offset += index;\n".
+                "    }\n".
+                "    uint iA = offsetA + i*paramSize*k + offset*k;\n".
+                "    uint iB = offsetB + i*n*k + j*k;\n".
+                "    for(uint h=0; h<k; ++h) {\n".
+                "        {$expression}\n".
+                "    }\n".
+                "}\n";
+        }
+        $kernel = $this->createKernel($kernel_name);
+
+        $kernel->setArg(0,$n,NDArray::uint32);
+        $kernel->setArg(1,$k,NDArray::uint32);
+        $kernel->setArg(2,$indexDepth,NDArray::uint32);
+        $kernel->setArg(3,$paramShape);
+        $kernel->setArg(4,$paramSize,NDArray::uint32);
+        $kernel->setArg(5,$A);
+        $kernel->setArg(6,$offsetA,NDArray::uint32);
+        $kernel->setArg(7,$X);
+        $kernel->setArg(8,$offsetX,NDArray::uint32);
+        $kernel->setArg(9,$B);
+        $kernel->setArg(10,$offsetB,NDArray::uint32);
+        //$multiple = $this->kernelMultiple($kernel);
+        //$global_work_size = [$this->ceil($k,$multiple)];
+        //$local_work_size = [$multiple];
+        $global_work_size = [$m,$n];
+        $local_work_size = null;
+        $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
+            $events,$waitEvents);
+    }
+
+    /**
+     * A: (m, (paramShape), k)
+     * X: (m, n, index_depth)
+     * B: (m, n, k)
+     * A(m,(X(m,n)),k) += B(m, n, k)
+     */
+
+    protected function scatterNDAdd(
+        int $m, // num_indices=num_batchs
+        int $n, // outer_shape
+        int $k, // inner_shape
+        int $indexDepth,
+        HostBufferInterface $paramShape, // paramShape[indexDepth]
+        BufferInterface $A, int $offsetA,
+        BufferInterface $X, int $offsetX,
+        BufferInterface $B, int $offsetB,
+        object $events=null, object $waitEvents=null
+    ) : void
+    {
+        $dtype = $B->dtype();
+        $value_width = $B->value_size();
+        $type = $this->dtypeToOpenCLType[$B->dtype()];
+        $parallel_n = $this->maxComputeUnits;
+        if($n<$parallel_n) {
+            $parallel_n = $n;
+        }
+        $cell_size = intdiv($n, $parallel_n);
+        $remainder = $n - $cell_size * $parallel_n;
+        $paramSize = 1;
+        for($h=0; $h<$indexDepth; ++$h) {
+            $iSize = $paramShape[$h];
+            if($iSize<=0) {
+                throw new InvalidArgumentException('all of paramShape must be greater than 0');
+            }
+            $paramSize *= $iSize;
+        }
+        $paramShape = $this->newBuffer(
+            count($paramShape)*$paramShape->value_size(),
+            OpenCL::CL_MEM_READ_ONLY|OpenCL::CL_MEM_COPY_HOST_PTR,
+            $paramShape, 0,
+            $paramShape->dtype()
+        );
+    
+        // n*[m,p0,p1,k]
+        $blockSize = $m*$paramSize*$k;
+        $a_buf = $this->newBuffer(
+            ($parallel_n-1)*$blockSize*$value_width,
+            OpenCL::CL_MEM_READ_WRITE,null,null,$dtype
+        );
+
+        $kernel_name1 = "scatterndadd_L1_{$type}";
+        $kernel_name2 = "scatterndadd_L2_{$type}";
+        if(!isset($this->sources[$kernel_name1])) {
+            $this->sources[$kernel_name1] =
+                "__kernel void {$kernel_name1}(\n".
+                "    const        uint parallel_n,\n".
+                "    const        uint cell_size,\n".
+                "    const        uint remainder,\n".
+                "    const        uint blockSize,\n".
+                "    const        uint n,\n".
+                "    const        uint k,\n".
+                "    const        uint indexDepth,\n".
+                "    const global uint * paramShape,\n".
+                "    const        uint paramSize,\n".
+                "        __global {$type} * a,\n".
+                "    const        uint offsetA,\n".
+                "    const global uint * x,\n".
+                "    const        uint offsetX,\n".
+                "        __global {$type} * b,\n".
+                "    const        uint offsetB,\n".
+                "        __global {$type} * a_buf)\n".
+                "{\n".
+                "    const uint i = get_global_id(0);\n".
+                "    const uint thread_id = get_global_id(1);\n".
+                "    uint begin;\n".
+                "    uint end;\n".
+                "    begin = thread_id * cell_size;\n".
+                "    if(thread_id == parallel_n - 1) {\n".
+                "        end = (thread_id+1) * cell_size + remainder;\n".
+                "    } else {\n".
+                "        end = (thread_id+1) * cell_size;\n".
+                "    }\n".
+                "    if(thread_id>0) {\n".
+                "        uint offset = (thread_id-1)*blockSize;\n".
+                "        for(uint pos=0; pos<blockSize; pos++) {\n".
+                "            a_buf[offset + pos] = 0;\n".
+                "        }\n".
+                "    }\n".
+                "    for(uint j=begin; j<end; j++) {\n".
+                "        __global {$type} * a_addr;\n".
+                "        if(thread_id==0) {\n".
+                "            a_addr = a;\n".
+                "        } else {\n".
+                "            a_addr = &a_buf[(thread_id-1)*blockSize];\n".
+                "        }\n".
+                "        uint offset = 0;\n".
+                "        for(uint h=0; h<indexDepth; ++h) {\n".
+                "            offset *= paramShape[h];\n".
+                "            uint index = x[offsetX + i*n*indexDepth + j*indexDepth + h];\n".
+                "            if(index>=paramShape[h]) {\n".
+                "                return;\n".
+                "            }\n".
+                "            offset += index;\n".
+                "        }\n".
+                "        uint iA = offsetA + i*paramSize*k + offset*k;\n".
+                "        uint iB = offsetB + i*n*k + j*k;\n".
+                "        for(uint h=0; h<k; ++h) {\n".
+                "            a_addr[iA++] += b[iB++];\n".
+                "        }\n".
+                "    }\n".
+                "}\n";
+        }
+        $kernel1 = $this->createKernel($kernel_name1);
+
+        if(!isset($this->sources[$kernel_name2])) {
+            $this->sources[$kernel_name2] =
+                "__kernel void {$kernel_name2}(\n".
+                "    const        uint parallel_n,\n".
+                "    const        uint blockSize,\n".
+                "        __global {$type} * a,\n".
+                "    const        uint offsetA,\n".
+                "        __global {$type} * a_buf)\n".
+                "{\n".
+                "    const uint pos = get_global_id(0);\n".
+                "    for(uint thread_id=1; thread_id<parallel_n; thread_id++) {\n".
+                "        a[offsetA + pos] += a_buf[blockSize*(thread_id-1)+pos];\n".
+                "    }\n".
+                "}\n";
+        }
+        $kernel2 = $this->createKernel($kernel_name2);
+
+        $kernel1->setArg(0,$parallel_n,NDArray::uint32);
+        $kernel1->setArg(1,$cell_size,NDArray::uint32);
+        $kernel1->setArg(2,$remainder,NDArray::uint32);
+        $kernel1->setArg(3,$blockSize,NDArray::uint32);
+        $kernel1->setArg(4,$n,NDArray::uint32);
+        $kernel1->setArg(5,$k,NDArray::uint32);
+        $kernel1->setArg(6,$indexDepth,NDArray::uint32);
+        $kernel1->setArg(7,$paramShape);
+        $kernel1->setArg(8,$paramSize,NDArray::uint32);
+        $kernel1->setArg(9,$A);
+        $kernel1->setArg(10,$offsetA,NDArray::uint32);
+        $kernel1->setArg(11,$X);
+        $kernel1->setArg(12,$offsetX,NDArray::uint32);
+        $kernel1->setArg(13,$B);
+        $kernel1->setArg(14,$offsetB,NDArray::uint32);
+        $kernel1->setArg(15,$a_buf);
+        //$multiple = $this->kernelMultiple($kernel);
+        //$global_work_size = [$this->ceil($k,$multiple)];
+        //$local_work_size = [$multiple];
+        $global_work_size = [$m,$parallel_n];
+        $local_work_size = null;
+        $phase1Events = $this->newEventList();
+        $kernel1->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
+            $phase1Events,$waitEvents);
+
+        $kernel2->setArg(0,$parallel_n,NDArray::uint32);
+        $kernel2->setArg(1,$blockSize,NDArray::uint32);
+        $kernel2->setArg(2,$A);
+        $kernel2->setArg(3,$offsetA,NDArray::uint32);
+        $kernel2->setArg(4,$a_buf);
+        //$multiple = $this->kernelMultiple($kernel);
+        //$global_work_size = [$this->ceil($k,$multiple)];
+        //$local_work_size = [$multiple];
+        $global_work_size = [$blockSize];
+        $local_work_size = null;
+        $kernel2->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
+            $events,$phase1Events);
+
     }
 
     /**

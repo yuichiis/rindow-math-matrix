@@ -1422,6 +1422,14 @@ class MatrixOperator
         return $this->dtypeToString[$dtype];
     }
 
+    /**
+     * @param array<int> $shape
+     */
+    public function shapeToString(array $shape) : string
+    {
+        return '('.implode(',',$shape).')';
+    }
+
     public function toString(
         NDArray $array,
         string $format=null,

@@ -2551,125 +2551,240 @@ class LinearAlgebra
     }
 
     /**
-    */
+     * params:  (batches, m, numClass, k, len)
+     * indices: (batches, n, k)
+     * outputs: (batches, m, n, k, len)
+     * outputs(batches, m, n, k, len) := A(batches, m, X(batches, n, k), k, len)
+     */
     public function doGatherb(
         bool $reverse,
         bool $addMode,
         NDArray $A,
-        NDArray $X,
+        NDarray $X,
         int $axis=null,
-        NDArray $output=null,
-        int $dtype=null) : NDArray
+        int $batchDims=null,
+        int $detailDepth=null,
+        int $indexDepth=null,
+        NDArray $B=null,
+    ) : NDArray
     {
-//echo "shapeX=[".implode(',',$X->shape())."],shapeA=[".implode(',',$A->shape())."]\n";
-        $axis ??= 0;
-        $ndimBatch = $X->ndim();
-        $shape = $A->shape();
-        $batchShape = array_slice($shape,0,$ndimBatch);
-        if($batchShape!=$X->shape()) {
-            throw new InvalidArgumentException('Unmatch Shape A and X:'.
-                                    $this->printableShapes([$A,$X]));
+        $batchDims ??= 0;
+        if($batchDims<0) {
+            $batchDims += $A->ndim();
         }
-        $ndim = $A->ndim()-$ndimBatch;
-        $orgAxis = $axis;
+        if($batchDims>=$A->ndim()) {
+            throw new InvalidArgumentException(
+                "batchDims ($batchDims) must be less than to ndims of params (".$A->ndim().")"
+            );
+        }
+        $axis ??= $batchDims;
         if($axis<0) {
-            $axis = $ndim+$axis;
+            $axis += $A->ndim();
         }
-        if($axis<0||$axis>=$ndim) {
-            throw new InvalidArgumentException('Unmatch Shape A and X and axis: '.
-                                    $this->printableShapes([$A,$X]).' and axis is '.$orgAxis);
+        if($axis>=$A->ndim()) {
+            throw new InvalidArgumentException(
+                "axis ($axis) must be less than to ndims of params (".$A->ndim().")"
+            );
         }
-        $prefixShape = array_slice($shape,$ndimBatch,$axis);
-        $numClass = array_slice($shape,$ndimBatch+$axis,1)[0];
-        $postfixShape = array_slice($shape,$ndimBatch+$axis+1);
-        //echo "========================================\n";
-        //echo "A:[".implode(',',$A->shape())."]\n";
-        //echo "X:[".implode(',',$X->shape())."]\n";
-        //echo "ndimBatch: ".$ndimBatch."\n";
-        //echo "ndim: ".$ndim."\n";
-        //echo "axis: ".$axis."\n";
-        //echo "batch:[".implode(',',$batchShape)."]\n";
-        //echo "prefix:[".implode(',',$prefixShape)."]\n";
-        //echo "numClass:".$numClass."\n";
-        //echo "postfix:[".implode(',',$postfixShape)."]\n";
-        //return $this->array([0,0]);
-        //throw new \Exception("Error Processing Request", 1);
-        
-        $m = array_product($batchShape);
-        $n = array_product($prefixShape);
-        $k = array_product($postfixShape);
-        $outputShape = array_merge($batchShape,$prefixShape,$postfixShape);
-//echo "outputShape=[".implode(',',$outputShape)."]\n";
-        $dtype = $A->dtype();
-        if($output==null) {
-            $output = $this->zeros($this->alloc($outputShape,dtype:$dtype));
-        } else {
-            if($output->shape()!=$outputShape) {
-                throw new InvalidArgumentException("Unmatch output shape of dimension: ".
-                                            $this->printableShapes([$outputShape,$output]));
+        $detailDepth ??= $axis+1;
+        $indexDepth ??= $X->ndim();
+        if($batchDims>$axis) {
+            if($axis==0) {
+                $batchDims = 0;
+            } else {
+                throw new InvalidArgumentException("batchDims ($batchDims) must be less than or equal to axis ($axis)");
             }
         }
 
-        $AA = $A->buffer();
-        $offA = $A->offset();
-        $XX = $X->buffer();
-        $offX = $X->offset();
-        $BB = $output->buffer();
-        $offB = $output->offset();
+        //echo "params  sh: ".$this->printableShapes($A->shape())."\n";
+        //echo "indices sh: ".$this->printableShapes($X->shape())."\n";
+        //echo "batchDims: ".$batchDims."\n";
+        // A
+        $batchShape = $A->shape();
+        $outerShape = array_splice($batchShape, $batchDims);
+        $innerShape = array_splice($outerShape, $axis-$batchDims);
+        $numClass = array_shift($innerShape);
+        $detailShape = array_splice($innerShape, $detailDepth-1-$axis);
+        // X
+        $batchShapeX = $X->shape();
+        $indexShape = array_splice($batchShapeX, $batchDims);
+        $innerShapeX = array_splice($indexShape, $indexDepth-$batchDims);
 
+        //echo "==========\n";
+        //echo "params:     ".$this->printableShapes($A->shape())."\n";
+        //echo "indices:    ".$this->printableShapes($X->shape())."\n";
+        //echo "batchDims:  $batchDims\n";
+        //echo "axis:       $axis\n";
+        //echo "detailDepth:$detailDepth\n";
+        //echo "indexDepth: $indexDepth\n";
+        //echo "==params==\n";
+        //echo "batchShape: ".$this->printableShapes($batchShape)."\n";
+        //echo "outerShape: ".$this->printableShapes($outerShape)."\n";
+        //echo "numClass:   ".$numClass."\n";
+        //echo "innerShape: ".$this->printableShapes($innerShape)."\n";
+        //echo "detailShape: ".$this->printableShapes($detailShape)."\n";
+        //echo "==indices==\n";
+        //echo "batchShape: ".$this->printableShapes($batchShapeX)."\n";
+        //echo "indexShape: ".$this->printableShapes($indexShape)."\n";
+        //echo "innerShape: ".$this->printableShapes($innerShapeX)."\n";
+        if($batchShape!=$batchShapeX) {
+            throw new InvalidArgumentException(
+                "Unmatch batch shape of params and indices: ".
+                $this->printableShapes($batchShape).",".
+                $this->printableShapes($batchShapeX).","
+            );
+        }
+        if($innerShape!=$innerShapeX) {
+            throw new InvalidArgumentException(
+                "Unmatch inner shape of params and indices: ".
+                "param's inner shape is ".$this->printableShapes($innerShape).",".
+                "index's inner shape is ".$this->printableShapes($innerShapeX).","
+            );
+        }
+
+        $batches = array_product($batchShape);
+        $m = array_product($outerShape);
+        $n = array_product($indexShape);
+        $k = array_product($innerShape);
+        $len = array_product($detailShape);
+        $outputShape = array_merge($batchShape, $outerShape, $indexShape, $innerShape, $detailShape);
+        //echo "==outputs==\n";
+        //echo "outputShape: ".$this->printableShapes($outputShape)."\n";
+        //echo "batches=$batches,m=$m,n=$n,k=$k,len=$len,numClass=$numClass\n";
+        if($B==null) {
+            $B = $this->zeros($this->alloc($outputShape, dtype:$A->dtype()));
+        } else {
+            if($B->shape()!=$outputShape) {
+                $expects = $this->printableShapes($outputShape);
+                $gives = $this->printableShapes($B->shape());
+                if($reverse) {
+                    $msg = "Unmatch updates shape: expects {$expects}, but gives {$gives}";
+                } else {
+                    $msg = "Unmatch output shape: expects {$expects}, but gives {$gives}";
+                }
+                throw new InvalidArgumentException($msg);
+            }
+        }
+        $AA = $A->buffer();
+        $offsetA = $A->offset();
+        $XX = $X->buffer();
+        $offsetX = $X->offset();
+        $BB = $B->buffer();
+        $offsetB = $B->offset();
         $this->math->gatherb(
             $reverse,
             $addMode,
+            $batches,
             $m,
             $n,
             $k,
+            $len,
             $numClass,
-            $AA,$offA,
-            $XX,$offX,
-            $BB,$offB);
-
-        return $output;
+            $AA,
+            $offsetA,
+            $XX,
+            $offsetX,
+            $BB,
+            $offsetB,
+        );
+        return $B;
     }
 
     /**
-    *  input:  A,X
-    *  output: B
-    *  B(m,n,k) := A(m,n,X(m),k)
-    */
+     * params: (batches, m, numClass, k, len)
+     * indices: (batches, n, k)
+     * outputs: (batches, m, n, k, len)
+     * outputs(batches, m, n, k, len) := A(batches, m, X(batches, n, k), k, len)
+     */
     public function gatherb(
         NDArray $params,
-        NDArray $indices,
+        NDarray $indices,
         int $axis=null,
-        NDArray $output=null,
-        ) : NDArray
+        int $batchDims=null,
+        int $detailDepth=null,
+        int $indexDepth=null,
+        NDArray $outputs=null,
+    ) : NDArray
     {
-        return $this->doGatherb(false,false,$params,$indices,$axis,$output);
+        return $this->doGatherb(
+            $reverse=false,
+            $addMode=false,
+            $params,
+            $indices,
+            $axis,
+            $batchDims,
+            $detailDepth,
+            $indexDepth,
+            $outputs,
+        );
     }
 
     /**
-    *  input:  A,X
-    *  output: B
-    *  B(m,n,X(m),k) := A(m,n,k)
+     * indices: (batches, n, k)
+     * updates: (batches, m, n, k, len)
+     * outputs: (batches, m, numClass, k, len)
+     * outputs(batches, m, n, k, len) := A(batches, m, X(batches, n, k), k, len)
     */
     public function scatterb(
-        NDArray $X,
-        NDArray $A,
-        int $numClass,
+        NDarray $indices,
+        NDArray $updates,
+        array $shape,
         int $axis=null,
-        NDArray $output=null,
-        int $dtype=null) : NDArray
+        int $batchDims=null,
+        int $detailDepth=null,
+        int $indexDepth=null,
+        NDArray $outputs=null,
+    ): NDArray
     {
-        $axis ??= 0;
-        if($output===null) {
-            $shape = $A->shape();
-            $ndimBatch = $X->ndim();
-            $batchShape = array_splice($shape,0,$ndimBatch);
-            $prefixShape = array_splice($shape,0,$axis);
-            $outputShape = array_merge($batchShape,$prefixShape,[$numClass],$shape);
-            $output = $this->alloc($outputShape,dtype:$A->dtype());
+        if($outputs==null) {
+            $outputs = $this->zeros($this->alloc($shape,$updates->dtype()));
         }
-        $this->doGatherb(true,false,$output,$X,$axis,$A,$dtype);
-        return $output;
+        $this->doGatherb(
+            $reverse=true,
+            $addMode=false,
+            $outputs,
+            $indices,
+            $axis,
+            $batchDims,
+            $detailDepth,
+            $indexDepth,
+            $updates,
+        );
+        return $outputs;
+    }
+
+    /**
+     * indices: (batches, n, k)
+     * updates: (batches, m, n, k, len)
+     * outputs: (batches, m, numClass, k, len)
+     * outputs(batches, m, n, k, len) := A(batches, m, X(batches, n, k), k, len)
+    */
+    public function scatterbAdd(
+        NDarray $indices,
+        NDArray $updates,
+        array $shape,
+        int $axis=null,
+        int $batchDims=null,
+        int $detailDepth=null,
+        int $indexDepth=null,
+        NDArray $outputs=null,
+    ): NDArray
+    {
+        if($outputs==null) {
+            $outputs = $this->zeros($this->alloc($shape,$updates->dtype()));
+        }
+        $this->doGatherb(
+            $reverse=true,
+            $addMode=true,
+            $outputs,
+            $indices,
+            $axis,
+            $batchDims,
+            $detailDepth,
+            $indexDepth,
+            $updates,
+        );
+        return $outputs;
     }
 
     /**
@@ -2719,8 +2834,14 @@ class LinearAlgebra
             $B = $this->zeros($this->alloc($outputShape,dtype:$A->dtype()));
         } else {
             if($B->shape()!=$outputShape) {
-                throw new InvalidArgumentException("Unmatch output shape: ".
-                    $this->printableShapes([$outputShape]));
+                $expects = $this->printableShapes($outputShape);
+                $gives = $this->printableShapes($B->shape());
+                if($reverse) {
+                    $msg = "Unmatch updates shape: expects {$expects}, but gives {$gives}";
+                } else {
+                    $msg = "Unmatch output shape: expects {$expects}, but gives {$gives}";
+                }
+                throw new InvalidArgumentException($msg);
             }
         }
         $paramShape = $this->array($paramShape,dtype:NDArray::int32);
@@ -2731,7 +2852,7 @@ class LinearAlgebra
         $offsetX = $X->offset();
         $BB = $B->buffer();
         $offsetB = $B->offset();
-        $this->math->gatherNd(
+        $this->math->gathernd(
             $reverse,
             $addMode,
             $m,
@@ -2747,6 +2868,9 @@ class LinearAlgebra
     }
 
     /**
+     * This function is unofficial.
+     * It may be removed or changed without notice.
+     * 
      * params:  (m, (indices(m,n)), k)
      * indices: (m, n, index_depth)
      * outputs: (m, n, k)
@@ -2769,6 +2893,9 @@ class LinearAlgebra
     }
 
     /**
+     * This function is unofficial.
+     * It may be removed or changed without notice.
+     * 
      * params:  (m, n, k)
      * indices: (m, n, index_depth)
      * outputs: (m, (indices(m,n)), k)
@@ -2788,6 +2915,37 @@ class LinearAlgebra
         $this->doGatherND(
             $reverse=true,
             $addMode=false,
+            $outputs,
+            $indices,
+            $batchDims,
+            $updates,
+        );
+        return $outputs;
+    }
+
+    /**
+     * This function is unofficial.
+     * It may be removed or changed without notice.
+     * 
+     * params:  (m, n, k)
+     * indices: (m, n, index_depth)
+     * outputs: (m, (indices(m,n)), k)
+     */
+    public function scatterNDAdd(
+        NDarray $indices,
+        NDArray $updates,
+        array $shape,
+        int $batchDims=null,
+        NDArray $outputs=null,
+    ) : NDArray
+    {
+        if($outputs==null) {
+            $outputs = $this->zeros($this->alloc($shape,$updates->dtype()));
+        }
+        
+        $this->doGatherND(
+            $reverse=true,
+            $addMode=true,
             $outputs,
             $indices,
             $batchDims,
@@ -4558,6 +4716,35 @@ class LinearAlgebra
         $value = $start;
         for($i=0;$i<$num;$i++) {
             $array[$i] = min($start+$step*$i,$stop);
+        }
+        return $array;
+    }
+
+    public function range(
+        int|float $limit,
+        int|float $start=null,
+        int|float $delta=null,
+        int $dtype=null
+        ) : NDArray
+    {
+        $start ??= 0;
+        $delta ??= ($limit>=$start)? 1 : -1;
+
+        if($delta==0.0) {
+            throw new RuntimeException('infinite times');
+        }
+        $count = (int)floor(($limit-$start)/$delta);
+
+        $array = $this->alloc([$count],dtype:$dtype);
+        $value = $start;
+        for($i=0;$i<$count;$i++) {
+            $value = $start+$delta*$i;
+            if($delta>0) {
+                $value = min($value,$limit);
+            } else {
+                $value = max($value,$limit);
+            }
+            $array[$i] = $value;
         }
         return $array;
     }

@@ -728,6 +728,30 @@ class LinearAlgebraCL
         return $array;
     }
 
+    public function range(
+        int|float $limit,
+        int|float $start=null,
+        int|float $delta=null,
+        int $dtype=null
+        ) : NDArray
+    {
+        $start ??= 0;
+        $delta ??= (($limit>=$start)? 1 : -1);
+
+        if($delta==0.0) {
+            throw new RuntimeException('infinite times');
+        }
+        $count = (int)floor(($limit-$start)/$delta);
+
+        $array = new NDArrayPhp(null,dtype:$dtype,shape:[$count],service:$this->service);
+        $value = $start;
+        for($i=0;$i<$count;$i++) {
+            $array[$i] = min($start+$delta*$i,$limit);
+        }
+        $array = $this->array($array);
+        return $array;
+    }
+
     /**
      * @param array<int> $shape
      */
@@ -4059,6 +4083,494 @@ class LinearAlgebraCL
             $this->profilingEnd("scatter");
         }
         return $output;
+    }
+
+    /**
+     * params:  (batches, m, numClass, k, len)
+     * indices: (batches, n, k)
+     * outputs: (batches, m, n, k, len)
+     * outputs(batches, m, n, k, len) := A(batches, m, X(batches, n, k), k, len)
+     */
+    public function doGatherb(
+        bool $reverse,
+        bool $addMode,
+        NDArray $A,
+        NDarray $X,
+        int $axis=null,
+        int $batchDims=null,
+        int $detailDepth=null,
+        int $indexDepth=null,
+        NDArray $B=null,
+        object $events=null,object $waitEvents=null
+    ) : NDArray
+    {
+        $batchDims ??= 0;
+        if($batchDims<0) {
+            $batchDims += $A->ndim();
+        }
+        if($batchDims>=$A->ndim()) {
+            throw new InvalidArgumentException(
+                "batchDims ($batchDims) must be less than to ndims of A (".$A->ndim().")"
+            );
+        }
+        $axis ??= $batchDims;
+        if($axis<0) {
+            $axis += $A->ndim();
+        }
+        if($axis>=$A->ndim()) {
+            throw new InvalidArgumentException(
+                "axis ($axis) must be less than to ndims of A (".$A->ndim().")"
+            );
+        }
+        $detailDepth ??= $axis+1;
+        $indexDepth ??= $X->ndim();
+        if($batchDims>$axis) {
+            if($axis==0) {
+                $batchDims = 0;
+            } else {
+                throw new InvalidArgumentException("batchDims ($batchDims) must be less than or equal to axis ($axis)");
+            }
+        }
+
+        //echo "params  sh: ".$this->printableShapes($A->shape())."\n";
+        //echo "indices sh: ".$this->printableShapes($X->shape())."\n";
+        //echo "batchDims: ".$batchDims."\n";
+        // A
+        $batchShape = $A->shape();
+        $outerShape = array_splice($batchShape, $batchDims);
+        $innerShape = array_splice($outerShape, $axis-$batchDims);
+        $numClass = array_shift($innerShape);
+        $detailShape = array_splice($innerShape, $detailDepth-1-$axis);
+        // X
+        $batchShapeX = $X->shape();
+        $indexShape = array_splice($batchShapeX, $batchDims);
+        $innerShapeX = array_splice($indexShape, $indexDepth-$batchDims);
+
+        //echo "==========\n";
+        //echo "params:     ".$this->printableShapes($A->shape())."\n";
+        //echo "indices:    ".$this->printableShapes($X->shape())."\n";
+        //echo "batchDims:  $batchDims\n";
+        //echo "axis:       $axis\n";
+        //echo "detailDepth:$detailDepth\n";
+        //echo "indexDepth: $indexDepth\n";
+        //echo "==params==\n";
+        //echo "batchShape: ".$this->printableShapes($batchShape)."\n";
+        //echo "outerShape: ".$this->printableShapes($outerShape)."\n";
+        //echo "numClass:   ".$numClass."\n";
+        //echo "innerShape: ".$this->printableShapes($innerShape)."\n";
+        //echo "detailShape: ".$this->printableShapes($detailShape)."\n";
+        //echo "==indices==\n";
+        //echo "batchShape: ".$this->printableShapes($batchShapeX)."\n";
+        //echo "indexShape: ".$this->printableShapes($indexShape)."\n";
+        //echo "innerShape: ".$this->printableShapes($innerShapeX)."\n";
+        if($batchShape!=$batchShapeX) {
+            throw new InvalidArgumentException(
+                "Unmatch batch shape of params and indices: ".
+                $this->printableShapes($batchShape).",".
+                $this->printableShapes($batchShapeX).","
+            );
+        }
+        if($innerShape!=$innerShapeX) {
+            throw new InvalidArgumentException(
+                "Unmatch inner shape of params and indices: ".
+                "param's inner shape is ".$this->printableShapes($innerShape).",".
+                "index's inner shape is ".$this->printableShapes($innerShapeX).","
+            );
+        }
+
+        $batches = array_product($batchShape);
+        $m = array_product($outerShape);
+        $n = array_product($indexShape);
+        $k = array_product($innerShape);
+        $len = array_product($detailShape);
+        $outputShape = array_merge($batchShape, $outerShape, $indexShape, $innerShape, $detailShape);
+        //echo "==outputs==\n";
+        //echo "outputShape: ".$this->printableShapes($outputShape)."\n";
+        //echo "batches=$batches,m=$m,n=$n,k=$k,len=$len,numClass=$numClass\n";
+        if($B==null) {
+            $B = $this->alloc($outputShape, dtype:$A->dtype());
+            $waitPrev = $waitEvents;
+            $waitEvents = $this->newEventList();
+            $this->zeros($B,$waitEvents,$waitPrev);
+        } else {
+            if($B->shape()!=$outputShape) {
+                $expects = $this->printableShapes($outputShape);
+                $gives = $this->printableShapes($B->shape());
+                if($reverse) {
+                    $msg = "Unmatch updates shape: expects {$expects}, but gives {$gives}";
+                } else {
+                    $msg = "Unmatch output shape: expects {$expects}, but gives {$gives}";
+                }
+                throw new InvalidArgumentException($msg);
+            }
+        }
+        $AA = $A->buffer();
+        $offsetA = $A->offset();
+        $XX = $X->buffer();
+        $offsetX = $X->offset();
+        $BB = $B->buffer();
+        $offsetB = $B->offset();
+        $this->openclmath->gatherb(
+            $reverse,
+            $addMode,
+            $batches,
+            $m,
+            $n,
+            $k,
+            $len,
+            $numClass,
+            $AA,
+            $offsetA,
+            $XX,
+            $offsetX,
+            $BB,
+            $offsetB,
+        );
+        return $B;
+    }
+
+    /**
+     * params: (batches, m, numClass, k, len)
+     * indices: (batches, n, k)
+     * outputs: (batches, m, n, k, len)
+     * outputs(batches, m, n, k, len) := A(batches, m, X(batches, n, k), k, len)
+     */
+    public function gatherb(
+        NDArray $params,
+        NDarray $indices,
+        int $axis=null,
+        int $batchDims=null,
+        int $detailDepth=null,
+        int $indexDepth=null,
+        NDArray $outputs=null,
+        object $events=null,object $waitEvents=null
+    ) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("gatherb");
+        }
+        $results = $this->doGatherb(
+            $reverse=false,
+            $addMode=false,
+            $params,
+            $indices,
+            $axis,
+            $batchDims,
+            $detailDepth,
+            $indexDepth,
+            $outputs,
+            $events, $waitEvents
+        );
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("gatherb");
+        }
+        return $results;
+    }
+
+    /**
+     * indices: (batches, n, k)
+     * updates: (batches, m, n, k, len)
+     * outputs: (batches, m, numClass, k, len)
+     * outputs(batches, m, n, k, len) := A(batches, m, X(batches, n, k), k, len)
+    */
+    public function scatterb(
+        NDarray $indices,
+        NDArray $updates,
+        array $shape,
+        int $axis=null,
+        int $batchDims=null,
+        int $detailDepth=null,
+        int $indexDepth=null,
+        NDArray $outputs=null,
+        object $events=null,object $waitEvents=null
+    ): NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("scatterb");
+        }
+        if($outputs==null) {
+            $outputs = $this->alloc($shape,$updates->dtype());
+            $waitPrev = $waitEvents;
+            $waitEvents = $this->newEventList();
+            $this->zeros($outputs,$waitEvents,$waitPrev);
+        }
+        $this->doGatherb(
+            $reverse=true,
+            $addMode=false,
+            $outputs,
+            $indices,
+            $axis,
+            $batchDims,
+            $detailDepth,
+            $indexDepth,
+            $updates,
+            $events, $waitEvents
+        );
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("scatterb");
+        }
+        return $outputs;
+    }
+
+    /**
+     * indices: (batches, n, k)
+     * updates: (batches, m, n, k, len)
+     * outputs: (batches, m, numClass, k, len)
+     * outputs(batches, m, n, k, len) := A(batches, m, X(batches, n, k), k, len)
+    */
+    public function scatterbAdd(
+        NDarray $indices,
+        NDArray $updates,
+        array $shape,
+        int $axis=null,
+        int $batchDims=null,
+        int $detailDepth=null,
+        int $indexDepth=null,
+        NDArray $outputs=null,
+        object $events=null,object $waitEvents=null
+    ): NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("scatterbAdd");
+        }
+        if($outputs==null) {
+            $outputs = $this->alloc($shape,$updates->dtype());
+            $waitPrev = $waitEvents;
+            $waitEvents = $this->newEventList();
+            $this->zeros($outputs,$waitEvents,$waitPrev);
+        }
+        $this->doGatherb(
+            $reverse=true,
+            $addMode=true,
+            $outputs,
+            $indices,
+            $axis,
+            $batchDims,
+            $detailDepth,
+            $indexDepth,
+            $updates,
+            $events, $waitEvents
+        );
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("scatterbAdd");
+        }
+        return $outputs;
+    }
+
+    /**
+     * params:  (m, (indices(m,n)), k)
+     * indices: (m, n, index_depth)
+     * outputs: (m, n, k)
+     */
+    public function doGatherND(
+        bool $reverse,
+        bool $addMode,
+        NDArray $A, 
+        NDarray $X,
+        int $batchDims=null,
+        NDArray $B=null,
+        object $events=null,object $waitEvents=null
+    ) : NDArray
+    {
+        $batchDims ??= 0;
+        //echo "params  sh: ".$this->printableShapes($A->shape())."\n";
+        //echo "indices sh: ".$this->printableShapes($X->shape())."\n";
+        //echo "batchDims: ".$batchDims."\n";
+        $batchShape = $X->shape();
+        $indexDepth = array_pop($batchShape);
+        $outerShape = array_splice($batchShape,$batchDims);
+
+        $innerShape = $A->shape();
+        $paramsBatchShape = array_splice($innerShape,0,$batchDims);
+        if($paramsBatchShape!=$batchShape) {
+            throw new InvalidArgumentException("Unmatch batch shape of params and indices: ".
+                $this->printableShapes([$paramsBatchShape,$batchShape]));
+        }
+        if($indexDepth > $A->ndim()-$batchDims) {
+            throw new InvalidArgumentException(
+                "ndim of params must greater than index depth or equal: ".
+                "ndim of params gives ".$A->ndim()." , index depth gives ".$indexDepth);
+        }
+        $paramShape = array_splice($innerShape,0,$indexDepth);
+        $outputShape = array_merge($batchShape,$outerShape,$innerShape);
+        $m = array_product($batchShape);
+        $n = array_product($outerShape);
+        $k = array_product($innerShape);
+        //echo "batchShape: ".$this->printableShapes($batchShape)."\n";
+        //echo "outerShape: ".$this->printableShapes($outerShape)."\n";
+        //echo "innerShape: ".$this->printableShapes($innerShape)."\n";
+        //echo "indexDepth: ".$indexDepth."\n";
+        //echo "outputShape: ".$this->printableShapes($outputShape)."\n";
+        if($B==null) {
+            $B = $this->alloc($outputShape,dtype:$A->dtype());
+            $waitPrev = $waitEvents;
+            $waitEvents = $this->newEventList();
+            $this->zeros($B,$waitEvents,$waitPrev);
+        } else {
+            if($B->shape()!=$outputShape) {
+                throw new InvalidArgumentException("Unmatch output shape: ".
+                    $this->printableShapes([$outputShape]));
+            }
+        }
+        $paramSize = (int)array_product($paramShape);
+        $paramShape = new NDArrayPhp($paramShape,dtype:NDArray::int32,service:$this->service);
+        $paramShape = $paramShape->buffer();
+        $AA = $A->buffer();
+        $offsetA = $A->offset();
+        $XX = $X->buffer();
+        $offsetX = $X->offset();
+        $BB = $B->buffer();
+        $offsetB = $B->offset();
+        $this->openclmath->gathernd(
+            $reverse,
+            $addMode,
+            $m,
+            $n,
+            $k,
+            $indexDepth,
+            $paramShape, // paramShape[indexDepth]
+            $AA, $offsetA,
+            $XX, $offsetX,
+            $BB, $offsetB,
+            $events, $waitEvents
+        );
+        return $B;
+    }
+
+    /**
+     * This function is unofficial.
+     * It may be removed or changed without notice.
+     * 
+     * params:  (m, (indices(m,n)), k)
+     * indices: (m, n, index_depth)
+     * outputs: (m, n, k)
+     */
+    public function gatherND(
+        NDArray $params, 
+        NDarray $indices,
+        int $batchDims=null,
+        NDArray $outputs=null,
+        object $events=null,object $waitEvents=null
+    ) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("gatherND");
+        }
+        $results = $this->doGatherND(
+            $reverse=false,
+            $addMode=false,
+            $params,
+            $indices,
+            $batchDims,
+            $outputs,
+            $events,$waitEvents
+        );
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("gatherND");
+        }
+        return $results;
+    }
+
+    /**
+     * This function is unofficial.
+     * It may be removed or changed without notice.
+     * 
+     * params:  (m, n, k)
+     * indices: (m, n, index_depth)
+     * outputs: (m, (indices(m,n)), k)
+     */
+    public function scatterND(
+        NDarray $indices,
+        NDArray $updates,
+        array $shape,
+        int $batchDims=null,
+        NDArray $outputs=null,
+        object $events=null,object $waitEvents=null
+    ) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("scatterND");
+        }
+        if($outputs==null) {
+            $outputs = $this->alloc($shape,$updates->dtype());
+            $waitPrev = $waitEvents;
+            $waitEvents = $this->newEventList();
+            $this->zeros($outputs,$waitEvents,$waitPrev);
+        }
+        
+        $this->doGatherND(
+            $reverse=true,
+            $addMode=false,
+            $outputs,
+            $indices,
+            $batchDims,
+            $updates,
+            $events,$waitEvents
+        );
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("scatterND");
+        }
+        return $outputs;
+    }
+
+    /**
+     * This function is unofficial.
+     * It may be removed or changed without notice.
+     * 
+     * params:  (m, n, k)
+     * indices: (m, n, index_depth)
+     * outputs: (m, (indices(m,n)), k)
+     */
+    public function scatterNDAdd(
+        NDarray $indices,
+        NDArray $updates,
+        array $shape,
+        int $batchDims=null,
+        NDArray $outputs=null,
+        object $events=null,object $waitEvents=null
+    ) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("scatterNDAdd");
+        }
+        if($outputs==null) {
+            $outputs = $this->alloc($shape,$updates->dtype());
+            $waitPrev = $waitEvents;
+            $waitEvents = $this->newEventList();
+            $this->zeros($outputs,$waitEvents,$waitPrev);
+        }
+        
+        $this->doGatherND(
+            $reverse=true,
+            $addMode=true,
+            $outputs,
+            $indices,
+            $batchDims,
+            $updates,
+            $events,$waitEvents
+        );
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("scatterNDAdd");
+        }
+        return $outputs;
     }
 
     public function onehot(

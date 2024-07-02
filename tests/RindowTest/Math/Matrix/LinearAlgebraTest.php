@@ -4537,6 +4537,39 @@ class LinearAlgebraTest extends TestCase
         $max = $la->reduceMax($a,axis:1);
         $this->assertEquals($max->toArray(),$trues->toArray());
         $this->assertEquals($trues->toArray(),$b->toArray());
+
+        // axis = -1
+        // 1D indices
+        // A:   2D [m,numClass]
+        // X:   1D [m]
+        // res: 21 [m]
+        $x = $la->array([
+            [ 0, 0, 3],
+            [ 0, 0, 4],
+            [ 0, 2, 0],
+            [ 1, 0, 0]
+        ]);
+        $x = $la->reduceArgMax($x,axis:-1,dtype:NDArray::int32);
+        $a = $la->array([
+            [ 0, 0, 3],
+            [ 0, 0, 4],
+            [ 0, 2, 0],
+            [ 1, 0, 0]
+        ]);
+        $b = $la->gather($a,$x,axis:-1);
+        $this->assertEquals([4],$x->shape());
+        $this->assertEquals([4,3],$a->shape());
+        $this->assertEquals([4],$b->shape()); // reduction axis1
+        $trues = $la->array([3,4,2,1]);
+        //echo $mo->toString($b,null,true)."\n";
+        $max = $la->reduceMax($a,axis:-1);
+        //echo $mo->toString($max,null,true)."\n";
+        $max = $la->reduceArgMax($a,axis:-1);
+        //echo $mo->toString($max,null,true)."\n";
+        $this->assertEquals($max->toArray(),$x->toArray());
+        $max = $la->reduceMax($a,axis:-1);
+        $this->assertEquals($max->toArray(),$trues->toArray());
+        $this->assertEquals($trues->toArray(),$b->toArray());
     }
 
     public function testGatherAxis1Dtypes()
@@ -4583,95 +4616,817 @@ class LinearAlgebraTest extends TestCase
         $la = $this->newLA($mo);
 
         // axis = 0
-        // 1D indices
-        // A:   2D [m,numClass]
-        // X:   1D [m]
-        // res: 1D [m]
-        $a = $la->array([
-            [ 0, 0, 3],
-            [ 0, 0, 4],
-            [ 0, 2, 0],
-            [ 1, 0, 0]]);
-        $x = $la->array([2,2,1,0],dtype:NDArray::int32);
-        $b = $la->gatherb($a,$x,axis:0);
-        $this->assertEquals([4,3],$a->shape());
-        $this->assertEquals([4],$x->shape());
-        $this->assertEquals([4],$b->shape()); // reduction axis1
-        $trues = $la->array([3,4,2,1]);
+        // A:   1D [numClass]
+        // X:   1D [n]
+        // res: 1D [n]
+        $shapeA = [4];
+        $a = $la->array(range(0,array_product($shapeA)-1))->reshape($shapeA);
+        $x = $la->array([2,2,1],dtype:NDArray::int32);
+        $b = $la->gatherb($a,$x);
+        $this->assertEquals([4],$a->shape());
+        $this->assertEquals([3],$x->shape());
+        $this->assertEquals([3],$b->shape()); // reduction axis1
+        $trues = $la->array([2,2,1]);
         $b = $la->toNDArray($b);
         $trues = $la->toNDArray($trues);
         $this->assertTrue($mo->la()->isclose($trues,$b));
         
         // axis = 0
-        // 1D indices
-        // A:   3D [m,numClass,k]
-        // X:   1D [m]
-        // res: 2D [m,k]
-        $a = $la->array([
-            [ [0,0], [0,0], [3,3]],
-            [ [0,0], [0,0], [4,4]],
-            [ [0,0], [2,2], [0,0]],
-            [ [1,1], [0,0], [0,0]]]);
+        // detailDepth = 2
+        // indexDepth = 0
+        // A:   2D [numClass,k]
+        // X:   1D [k]
+        // res: 1D [k]
+        $shapeA = [4,3];
+        $a = $la->array(range(0,array_product($shapeA)-1))->reshape($shapeA);
+        $x = $la->array([2,2,1],dtype:NDArray::int32);
+        $b = $la->gatherb($a,$x,detailDepth:2,indexDepth:0);
+        $this->assertEquals([4,3],$a->shape());
+        $this->assertEquals([3],$x->shape());
+        $this->assertEquals([3],$b->shape()); // reduction axis1
+        $trues = $la->array([6,7,5]);
+        $b = $la->toNDArray($b);
+        $trues = $la->toNDArray($trues);
+        $this->assertTrue($mo->la()->isclose($trues,$b));
+
+        // batchDims = 1
+        // axis = 1
+        // A:   2D [batches,numClass]
+        // X:   1D [batches]
+        // res: 2D [batches]
+        $shapeA = [4,3];
+        $a = $la->array(range(0,array_product($shapeA)-1))->reshape($shapeA);
         $x = $la->array([2,2,1,0],dtype:NDArray::int32);
-        $b = $la->gatherb($a,$x,axis:0);
+        $b = $la->gatherb($a,$x,axis:1,batchDims:1);
+        $this->assertEquals([4,3],$a->shape());
+        $this->assertEquals([4],$x->shape());
+        $this->assertEquals([4],$b->shape()); // reduction axis1
+        $trues = $la->array([2,5,7,9]);
+        $b = $la->toNDArray($b);
+        $trues = $la->toNDArray($trues);
+        $this->assertTrue($mo->la()->isclose($trues,$b));
+
+        // batchDims = 1
+        // axis = 1
+        // A:   3D [bathces,numClass,len]
+        // X:   1D [bathces]
+        // res: 2D [bathces,len]
+        $shapeA = [4,3,2];
+        $a = $la->array(range(0,array_product($shapeA)-1))->reshape($shapeA);
+        $x = $la->array([2,2,1,0],dtype:NDArray::int32);
+        $b = $la->gatherb($a,$x,axis:1,batchDims:1);
         $this->assertEquals([4,3,2],$a->shape());
         $this->assertEquals([4],$x->shape());
         $this->assertEquals([4,2],$b->shape()); // reduction axis1
-        $trues = $la->array([[3,3],[4,4],[2,2],[1,1]]);
+        $trues = $la->array([
+            [4,5],
+            [10,11],
+            [14,15],
+            [18,19],
+        ]);
         $b = $la->toNDArray($b);
         $trues = $la->toNDArray($trues);
         $this->assertTrue($mo->la()->isclose($trues,$b));
 
-        // axis = 1
-        // 1D indices
-        // A:   3D [m,n,numClass]
-        // X:   1D [m]
-        // res: 2D [m,n]
-        $a = $la->array([
-            [[0, 0, 3],
-             [0, 0,13]],
-            [[0, 0, 4],
-             [ 0, 0,14]],
-            [[ 0, 2, 0],
-             [ 0,12, 0]],
-            [[ 1, 0, 0],
-             [11, 0, 0]],
+        // for argmax
+        // batchDims = 1    // batchDims=axis
+        // axis = 1         // default: axis=batchDims
+        // detailDepth = 3  // detailDepth=params->ndim()
+        // indexDepth = 1   // indexDepth=batchDims
+        // A:   2D [batches,numClass,k]
+        // X:   2D [batches,k]
+        // res: 2D [batches,k]
+        $shapeA = [3,2,4];
+        $a = $la->array(range(0,array_product($shapeA)-1))->reshape($shapeA);
+        $x = $la->array([
+            [1,1,1,1],
+            [1,1,1,1],
+            [1,1,1,1],
+        ],dtype:NDArray::int32);
+        $b = $la->gatherb($a,$x,batchDims:1,detailDepth:$a->ndim(),indexDepth:1);
+        $this->assertEquals([3,2,4],$a->shape());
+        $this->assertEquals([3,4],$x->shape());
+        $this->assertEquals([3,4],$b->shape()); // reduction axis1
+        $trues = $la->array([
+            [ 4, 5, 6, 7],
+            [12,13,14,15],
+            [20,21,22,23],
         ]);
+        //echo $mo->toString($b,null,true)."\n";
+        $max = $la->reduceMax($a,axis:1);
+        //echo $mo->toString($max,null,true)."\n";
+        $max = $la->reduceArgMax($a,axis:1);
+        //echo $mo->toString($max,null,true)."\n";
+        $this->assertEquals($max->toArray(),$x->toArray());
+        $max = $la->reduceMax($a,axis:1);
+        //echo $mo->toString($max,null,true)."\n";
+        $this->assertEquals($max->toArray(),$trues->toArray());
+        $this->assertEquals($trues->toArray(),$b->toArray());
+
+        // batchDims = 1
+        // axis = 2
+        // A:   3D [batches,m,numClass]
+        // X:   1D [batches]
+        // res: 2D [batches,m]
+        $shapeA = [4,2,3];
+        $a = $la->array(range(0,array_product($shapeA)-1))->reshape($shapeA);
         $x = $la->array([2,2,1,0],dtype:NDArray::int32);
-        $b = $la->gatherb($a,$x,axis:1);
+        $b = $la->gatherb($a,$x,axis:2,batchDims:1);
         $this->assertEquals([4,2,3],$a->shape());
         $this->assertEquals([4],$x->shape());
         $this->assertEquals([4,2],$b->shape()); // reduction axis1
-        $trues = $la->array([[3,13],[4,14],[2,12],[1,11]]);
+        $trues = $la->array([
+            [ 2, 5],
+            [ 8,11],
+            [13,16],
+            [18,21],
+        ]);
         $b = $la->toNDArray($b);
         $trues = $la->toNDArray($trues);
         $this->assertTrue($mo->la()->isclose($trues,$b));
 
-        // axis = 1
-        // 1D indices
-        // A:   4D [m,n,numClass,k]
-        // X:   1D [m]
-        // res: 3D [m,n,k]
-        $a = $la->array([
-            [[[ 0, 0],[ 0, 0],[ 3, 3]],
-             [[ 0, 0],[ 0, 0],[13,13]]],
-            [[[ 0, 0],[ 0, 0],[ 4, 4]],
-             [[ 0, 0],[ 0, 0],[14,14]]],
-            [[[ 0, 0],[ 2, 2],[ 0, 0]],
-             [[ 0, 0],[12,12],[ 0, 0]]],
-            [[[ 1, 1],[ 0, 0],[ 0, 0]],
-             [[11,11],[ 0, 0],[ 0, 0]]],
-        ]);
+        // batchDims = 1
+        // axis = 2
+        // A:   4D [batches,m,numClass,len]
+        // X:   1D [batches]
+        // res: 3D [batches,m,len]
+        $shapeA = [4,2,3,2];
+        $a = $la->array(range(0,array_product($shapeA)-1))->reshape($shapeA);
         $x = $la->array([2,2,1,0],dtype:NDArray::int32);
-        $b = $la->gatherb($a,$x,axis:1);
+        $b = $la->gatherb($a,$x,axis:2,batchDims:1);
         $this->assertEquals([4,2,3,2],$a->shape());
         $this->assertEquals([4],$x->shape());
         $this->assertEquals([4,2,2],$b->shape()); // reduction axis1
-        $trues = $la->array([[[3,3],[13,13]],[[4,4],[14,14]],[[2,2],[12,12]],[[1,1],[11,11]]]);
+        $trues = $la->array([
+            [[ 4, 5],[10,11]],
+            [[16,17],[22,23]],
+            [[26,27],[32,33]],
+            [[36,37],[42,43]],
+        ]);
         $b = $la->toNDArray($b);
         $trues = $la->toNDArray($trues);
         $this->assertTrue($mo->la()->isclose($trues,$b));
 
+        // batchDims = 1
+        // axis = 1
+        // A:   2D [batches,numClass]
+        // X:   2D [batches,n]
+        // res: 2D [batches,n]
+        $shapeA = [4,3];
+        $a = $la->array(range(0,array_product($shapeA)-1))->reshape($shapeA);
+        $x = $la->array([
+            [0,1],
+            [1,0],
+            [2,2],
+            [1,0]
+        ],dtype:NDArray::int32);
+        $b = $la->gatherb($a,$x,axis:1,batchDims:1);
+        $this->assertEquals([4,3],$a->shape());
+        $this->assertEquals([4,2],$x->shape());
+        $this->assertEquals([4,2],$b->shape()); // reduction axis1
+        $trues = $la->array([
+            [0,1],
+            [4,3],
+            [8,8],
+            [10,9]
+        ]);
+        $b = $la->toNDArray($b);
+        $trues = $la->toNDArray($trues);
+        $this->assertTrue($mo->la()->isclose($trues,$b));
+
+        // batchDims = 1
+        // axis = 1
+        // detailDepth = 3
+        // indexDepth = 2
+        // A:   3D [batches,numClass,k]
+        // X:   3D [batches,n,k]
+        // res: 3D [batches,n,k]
+        $shapeA = [4,5,2];
+        $a = $la->array(range(0,array_product($shapeA)-1))->reshape($shapeA);
+        $x = $la->array([
+            [[0,1],[0,1],[0,1]],
+            [[1,0],[1,0],[1,0]],
+            [[2,2],[2,2],[2,2]],
+            [[1,0],[1,0],[1,0]]
+        ],dtype:NDArray::int32);
+        $b = $la->gatherb($a,$x,axis:1,batchDims:1,detailDepth:3,indexDepth:2);
+        $this->assertEquals([4,5,2],$a->shape());
+        $this->assertEquals([4,3,2],$x->shape());
+        $this->assertEquals([4,3,2],$b->shape()); // reduction axis1
+        $trues = $la->array([
+            [[ 0, 3],[ 0, 3],[ 0, 3]],
+            [[12,11],[12,11],[12,11]],
+            [[24,25],[24,25],[24,25]],
+            [[32,31],[32,31],[32,31]]
+        ]);
+        $b = $la->toNDArray($b);
+        $trues = $la->toNDArray($trues);
+        $this->assertTrue($mo->la()->isclose($trues,$b));
+
+        // batchDims = 1
+        // axis = 1
+        // detailDepth = 3
+        // indexDepth = 2
+        // A:   4D [batches,numClass,k,len]
+        // X:   3D [batches,n,k]
+        // res: 4D [batches,n,k,len]
+        $shapeA = [4,5,2,3];
+        $a = $la->array(range(0,array_product($shapeA)-1))->reshape($shapeA);
+        $x = $la->array([
+            [[0,1],[0,1],[0,1]],
+            [[1,0],[1,0],[1,0]],
+            [[2,2],[2,2],[2,2]],
+            [[1,0],[1,0],[1,0]],
+        ],dtype:NDArray::int32);
+        $b = $la->gatherb($a,$x,axis:1,batchDims:1,detailDepth:3,indexDepth:2);
+        $this->assertEquals([4,5,2,3],$a->shape());
+        $this->assertEquals([4,3,2],$x->shape());
+        $this->assertEquals([4,3,2,3],$b->shape()); // reduction axis1
+        $trues = $la->array([
+            [[[ 0, 1, 2],[ 9,10,11]],
+             [[ 0, 1, 2],[ 9,10,11]],
+             [[ 0, 1, 2],[ 9,10,11]],],
+            [[[36,37,38],[33,34,35]],
+             [[36,37,38],[33,34,35]],
+             [[36,37,38],[33,34,35]],],
+            [[[72,73,74],[75,76,77]],
+             [[72,73,74],[75,76,77]],
+             [[72,73,74],[75,76,77]],],
+            [[[96,97,98],[93,94,95]],
+             [[96,97,98],[93,94,95]],
+             [[96,97,98],[93,94,95]],]
+        ]);
+        $b = $la->toNDArray($b);
+        $trues = $la->toNDArray($trues);
+        $this->assertTrue($mo->la()->isclose($trues,$b));
+
+        // batchDims = 1
+        // axis = 2
+        // detailDepth = 4
+        // indexDepth = 2
+        // A:   5D [batches,m,numClass,k,len]
+        // X:   3D [batches,n,k]
+        // res: 5D [batches,m,n,k,len]
+        $shapeA = [4,2,5,2,3];
+        $a = $la->array(range(0,array_product($shapeA)-1))->reshape($shapeA);
+        $x = $la->array([
+            [[0,1],[0,1],[0,1]],
+            [[1,0],[1,0],[1,0]],
+            [[2,2],[2,2],[2,2]],
+            [[1,0],[1,0],[1,0]],
+        ],dtype:NDArray::int32);
+        $b = $la->gatherb($a,$x,axis:2,batchDims:1,detailDepth:4,indexDepth:2);
+        $this->assertEquals([4,2,5,2,3],$a->shape());
+        $this->assertEquals([4,3,2],$x->shape());
+        $this->assertEquals([4,2,3,2,3],$b->shape()); // reduction axis1
+        $trues = $la->array([
+            [[[[ 0, 1, 2],[ 9,10,11]],
+              [[ 0, 1, 2],[ 9,10,11]],
+              [[ 0, 1, 2],[ 9,10,11]]],
+             [[[30,31,32],[39,40,41]],
+              [[30,31,32],[39,40,41]],
+              [[30,31,32],[39,40,41]]]],
+            [[[[66,67,68],[63,64,65]],
+              [[66,67,68],[63,64,65]],
+              [[66,67,68],[63,64,65]]],
+             [[[96,97,98],[93,94,95]],
+              [[96,97,98],[93,94,95]],
+              [[96,97,98],[93,94,95]]]],
+            [[[[132,133,134],[135,136,137]],
+              [[132,133,134],[135,136,137]],
+              [[132,133,134],[135,136,137]]],
+             [[[162,163,164],[165,166,167]],
+              [[162,163,164],[165,166,167]],
+              [[162,163,164],[165,166,167]]]],
+            [[[[186,187,188],[183,184,185]],
+              [[186,187,188],[183,184,185]],
+              [[186,187,188],[183,184,185]]],
+             [[[216,217,218],[213,214,215]],
+              [[216,217,218],[213,214,215]],
+              [[216,217,218],[213,214,215]]]]
+        ]);
+        $b = $la->toNDArray($b);
+        $trues = $la->toNDArray($trues);
+        $this->assertTrue($mo->la()->isclose($trues,$b));
+
+        // batchDims = -1
+        // A:   2D [m,numClass]
+        // X:   1D [m]
+        // res: 1D [m]
+        $x = $la->array([
+            [ 0, 0, 3],
+            [ 0, 0, 4],
+            [ 0, 2, 0],
+            [ 1, 0, 0]
+        ]);
+        $x = $la->reduceArgMax($x,axis:-1,dtype:NDArray::int32);
+        $a = $la->array([
+            [ 0, 0, 3],
+            [ 0, 0, 4],
+            [ 0, 2, 0],
+            [ 1, 0, 0]
+        ]);
+        $b = $la->gatherb($a,$x,batchDims:-1);
+        $this->assertEquals([4],$x->shape());
+        $this->assertEquals([4,3],$a->shape());
+        $this->assertEquals([4],$b->shape()); // reduction axis1
+        $trues = $la->array([3,4,2,1]);
+        //echo $mo->toString($b,null,true)."\n";
+        $max = $la->reduceMax($a,axis:-1);
+        //echo $mo->toString($max,null,true)."\n";
+        $max = $la->reduceArgMax($a,axis:-1);
+        //echo $mo->toString($max,null,true)."\n";
+        $this->assertEquals($max->toArray(),$x->toArray());
+        $max = $la->reduceMax($a,axis:-1);
+        $this->assertEquals($max->toArray(),$trues->toArray());
+        $this->assertEquals($trues->toArray(),$b->toArray());
+    }
+
+    public function testScatterbNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // axis = 0
+        // A:   1D [n]
+        // X:   1D [n]
+        // res: 1D [numClass]
+        $shapeA = [3];
+        $a = $la->array([2,2,1]);
+        $x = $la->array([2,2,1],dtype:NDArray::int32);
+        $shapeB = [4];
+        $b = $la->scatterb($x,$a,$shapeB);
+        $this->assertEquals([3],$a->shape());
+        $this->assertEquals([3],$x->shape());
+        $this->assertEquals([4],$b->shape());
+        $trues = $la->array([0,1,2,0]);
+        $b = $la->toNDArray($b);
+        $trues = $la->toNDArray($trues);
+        $this->assertTrue($mo->la()->isclose($trues,$b));
+        
+        // axis = 0
+        // detailDepth = 2
+        // indexDepth = 0
+        // A:   1D [k]
+        // X:   1D [k]
+        // res: 2D [numClass,k]
+        $shapeA = [4,3];
+        $a = $la->array([6,7,5]);
+        $x = $la->array([2,2,1],dtype:NDArray::int32);
+        $shapeB = [4,3];
+        $b = $la->scatterb($x,$a,$shapeB,detailDepth:2,indexDepth:0);
+        $this->assertEquals([3],$a->shape());
+        $this->assertEquals([3],$x->shape());
+        $this->assertEquals([4,3],$b->shape());
+        $trues = $la->array([
+            [0,0,0],
+            [0,0,5],
+            [6,7,0],
+            [0,0,0],
+        ]);
+        $b = $la->toNDArray($b);
+        $trues = $la->toNDArray($trues);
+        $this->assertTrue($mo->la()->isclose($trues,$b));
+
+        // batchDims = 1
+        // axis = 1
+        // A:   2D [batches]
+        // X:   1D [batches]
+        // res: 2D [batches,numClass]
+        $shapeA = [4];
+        $a = $la->array([2,5,7,9]);
+        $x = $la->array([2,2,1,0],dtype:NDArray::int32);
+        $shapeB = [4,3];
+        $b = $la->scatterb($x,$a,$shapeB,axis:1,batchDims:1);
+        $this->assertEquals([4],$a->shape());
+        $this->assertEquals([4],$x->shape());
+        $this->assertEquals([4,3],$b->shape());
+        $trues = $la->array([
+            [0,0,2],
+            [0,0,5],
+            [0,7,0],
+            [9,0,0]
+        ]);
+        $b = $la->toNDArray($b);
+        $trues = $la->toNDArray($trues);
+        $this->assertTrue($mo->la()->isclose($trues,$b));
+
+        // batchDims = 1
+        // axis = 1
+        // A:   2D [bathces,len]
+        // X:   1D [bathces]
+        // res: 3D [bathces,numClass,len]
+        $shapeA = [4,2];
+        $a = $la->array([
+            [4,5],
+            [10,11],
+            [14,15],
+            [18,19]
+        ]);
+        $x = $la->array([2,2,1,0],dtype:NDArray::int32);
+        $shapeB = [4,3,2];
+        $b = $la->scatterb($x,$a,$shapeB,axis:1,batchDims:1);
+        $this->assertEquals([4,2],$a->shape());
+        $this->assertEquals([4],$x->shape());
+        $this->assertEquals([4,3,2],$b->shape());
+        $trues = $la->array([
+            [[0,0],[0,0],[4,5]],
+            [[0,0],[0,0],[10,11]],
+            [[0,0],[14,15],[0,0]],
+            [[18,19],[0,0],[0,0]]
+        ]);
+        $b = $la->toNDArray($b);
+        $trues = $la->toNDArray($trues);
+        $this->assertTrue($mo->la()->isclose($trues,$b));
+
+        // for argmax
+        // batchDims = 1    // batchDims=axis
+        // axis = 1         // default: axis=batchDims
+        // detailDepth = 3  // detailDepth=params->ndim()
+        // indexDepth = 1   // indexDepth=batchDims
+        // A:   2D [batches,k]
+        // X:   2D [batches,k]
+        // res: 2D [batches,numClass,k]
+        $shapeA = [3,4];
+        $a = $la->array([
+            [ 4, 5, 6, 7],
+            [12,13,14,15],
+            [20,21,22,23]
+        ]);
+        $x = $la->array([
+            [1,1,1,1],
+            [1,1,1,1],
+            [1,1,1,1],
+        ],dtype:NDArray::int32);
+        $shapeB = [3,2,4];
+        $b = $la->scatterb($x,$a,$shapeB,batchDims:1,detailDepth:count($shapeB),indexDepth:1);
+        $this->assertEquals([3,4],$a->shape());
+        $this->assertEquals([3,4],$x->shape());
+        $this->assertEquals([3,2,4],$b->shape());
+        $trues = $la->array([
+            [[0,0,0,0],[4,5,6,7]],
+            [[0,0,0,0],[12,13,14,15]],
+            [[0,0,0,0],[20,21,22,23]],
+        ]);
+        //echo $mo->toString($b,null,true)."\n";
+        $this->assertEquals($trues->toArray(),$b->toArray());
+        $sourceDataShape = [3,2,4];
+        $sourceData = $la->array(range(0,array_product($sourceDataShape)-1))->reshape($sourceDataShape);
+        $max = $la->reduceMax($sourceData,axis:1);
+        //echo $mo->toString($max,null,true)."\n";
+        $imax = $la->reduceArgMax($sourceData,axis:1,dtype:NDArray::int32);
+        //echo $mo->toString($max,null,true)."\n";
+        $this->assertEquals($imax->toArray(),$x->toArray());
+        $d = $la->scatterb($imax,$max,$shapeB,batchDims:1,detailDepth:count($shapeB),indexDepth:1);
+        //echo $mo->toString($max,null,true)."\n";
+        $this->assertEquals($d->toArray(),$trues->toArray());
+
+        // batchDims = 1
+        // axis = 2
+        // A:   2D [batches,m]
+        // X:   1D [batches]
+        // res: 3D [batches,m,numClass]
+        $shapeA = [4,2,3];
+        $a = $la->array([
+            [ 2, 5],
+            [ 8,11],
+            [13,16],
+            [18,21],
+        ]);
+        $x = $la->array([2,2,1,0],dtype:NDArray::int32);
+        $shapeB = [4,2,3];
+        $b = $la->scatterb($x,$a,$shapeB,axis:2,batchDims:1);
+        $this->assertEquals([4,2],$a->shape());
+        $this->assertEquals([4],$x->shape());
+        $this->assertEquals([4,2,3],$b->shape());
+        $trues = $la->array([
+            [[0,0,2],[0,0,5]],
+            [[0,0,8],[0,0,11]],
+            [[0,13,0],[0,16,0]],
+            [[18,0,0],[21,0,0]],
+        ]);
+        $b = $la->toNDArray($b);
+        $trues = $la->toNDArray($trues);
+        $this->assertTrue($mo->la()->isclose($trues,$b));
+
+        // batchDims = 1
+        // axis = 2
+        // A:   3D [batches,m,len]
+        // X:   1D [batches]
+        // res: 4D [batches,m,numClass,len]
+        $shapeA = [4,2,3,2];
+        $a = $la->array([
+            [[ 4, 5],[10,11]],
+            [[16,17],[22,23]],
+            [[26,27],[32,33]],
+            [[36,37],[42,43]],
+        ]);
+        $x = $la->array([2,2,1,0],dtype:NDArray::int32);
+        $shapeB = [4,2,3,2];
+        $b = $la->scatterb($x,$a,$shapeB,axis:2,batchDims:1);
+        $this->assertEquals([4,2,2],$a->shape());
+        $this->assertEquals([4],$x->shape());
+        $this->assertEquals([4,2,3,2],$b->shape());
+        $trues = $la->array([
+            [[[0,0],[0,0],[4,5]],  [[0,0],[0,0],[10,11]]],
+            [[[0,0],[0,0],[16,17]],[[0,0],[0,0],[22,23]]],
+            [[[0,0],[26,27],[0,0]],[[0,0],[32,33],[0,0]]],
+            [[[36,37],[0,0],[0,0]],[[42,43],[0,0],[0,0]]],
+        ]);
+        $b = $la->toNDArray($b);
+        $trues = $la->toNDArray($trues);
+        $this->assertTrue($mo->la()->isclose($trues,$b));
+
+        // batchDims = 1
+        // axis = 1
+        // A:   2D [batches,n]
+        // X:   2D [batches,n]
+        // res: 2D [batches,numClass]
+        $shapeA = [4,2];
+        $a = $la->array([
+            [0,1],
+            [4,3],
+            [8,8],
+            [10,9]
+        ]);
+        $x = $la->array([
+            [0,1],
+            [1,0],
+            [2,2],
+            [1,0]
+        ],dtype:NDArray::int32);
+        $shapeB = [4,3];
+        $b = $la->scatterb($x,$a,$shapeB,axis:1,batchDims:1);
+        $this->assertEquals([4,2],$a->shape());
+        $this->assertEquals([4,2],$x->shape());
+        $this->assertEquals([4,3],$b->shape());
+        $trues = $la->array([
+            [0,1,0],
+            [3,4,0],
+            [0,0,8],
+            [9,10,0]
+        ]);
+        $b = $la->toNDArray($b);
+        $trues = $la->toNDArray($trues);
+        $this->assertTrue($mo->la()->isclose($trues,$b));
+
+        // batchDims = 1
+        // axis = 1
+        // detailDepth = 3
+        // indexDepth = 2
+        // A:   3D [batches,n,k]
+        // X:   3D [batches,n,k]
+        // res: 3D [batches,numClass,k]
+        $shapeA = [4,3,2];
+        $a = $la->array([
+            [[ 0, 3],[ 0, 3],[ 0, 3]],
+            [[12,11],[12,11],[12,11]],
+            [[24,25],[24,25],[24,25]],
+            [[32,31],[32,31],[32,31]]
+        ]);
+        $x = $la->array([
+            [[0,1],[0,1],[0,1]],
+            [[1,0],[1,0],[1,0]],
+            [[2,2],[2,2],[2,2]],
+            [[1,0],[1,0],[1,0]]
+        ],dtype:NDArray::int32);
+        $shapeB = [4,5,2];
+        $b = $la->scatterb($x,$a,$shapeB,axis:1,batchDims:1,detailDepth:3,indexDepth:2);
+        $this->assertEquals([4,3,2],$a->shape());
+        $this->assertEquals([4,3,2],$x->shape());
+        $this->assertEquals([4,5,2],$b->shape());
+        $trues = $la->array([
+            [[0,0], [0,3], [0,0],  [0,0],[0,0]],
+            [[0,11],[12,0],[0,0],  [0,0],[0,0]],
+            [[0,0], [0,0], [24,25],[0,0],[0,0]],
+            [[0,31],[32,0],[0,0],  [0,0],[0,0]]
+        ]);
+        $b = $la->toNDArray($b);
+        $trues = $la->toNDArray($trues);
+        $this->assertTrue($mo->la()->isclose($trues,$b));
+
+        // batchDims = 1
+        // axis = 1
+        // detailDepth = 3
+        // indexDepth = 2
+        // res: 4D [batches,n,k,len]
+        // X:   3D [batches,n,k]
+        // A:   4D [batches,numClass,k,len]
+        $shapeA = [4,3,2,3];
+        $a = $la->array([
+            [[[ 0, 1, 2],[ 9,10,11]],
+             [[ 0, 1, 2],[ 9,10,11]],
+             [[ 0, 1, 2],[ 9,10,11]],],
+            [[[36,37,38],[33,34,35]],
+             [[36,37,38],[33,34,35]],
+             [[36,37,38],[33,34,35]],],
+            [[[72,73,74],[75,76,77]],
+             [[72,73,74],[75,76,77]],
+             [[72,73,74],[75,76,77]],],
+            [[[96,97,98],[93,94,95]],
+             [[96,97,98],[93,94,95]],
+             [[96,97,98],[93,94,95]],]
+        ]);
+        $x = $la->array([
+            [[0,1],[0,1],[0,1]],
+            [[1,0],[1,0],[1,0]],
+            [[2,2],[2,2],[2,2]],
+            [[1,0],[1,0],[1,0]],
+        ],dtype:NDArray::int32);
+        $shapeB = [4,5,2,3];
+        $b = $la->scatterb($x,$a,$shapeB,axis:1,batchDims:1,detailDepth:3,indexDepth:2);
+        $this->assertEquals([4,3,2,3],$a->shape());
+        $this->assertEquals([4,3,2],$x->shape());
+        $this->assertEquals([4,5,2,3],$b->shape());
+        $trues = $la->array([
+            [[[0,1,2],   [0,0,0]],
+             [[0,0,0],   [9,10,11]],
+             [[0,0,0],   [0,0,0]],
+             [[0,0,0],   [0,0,0]],
+             [[0,0,0],   [0,0,0]]],
+            [[[0,0,0],   [33,34,35]],
+             [[36,37,38],[0,0,0]],
+             [[0,0,0],   [0,0,0]],
+             [[0,0,0],   [0,0,0]],
+             [[0,0,0],   [0,0,0]]],
+            [[[0,0,0],   [0,0,0]],
+             [[0,0,0],   [0,0,0]],
+             [[72,73,74],[75,76,77]],
+             [[0,0,0],   [0,0,0]],
+             [[0,0,0],   [0,0,0]]],
+            [[[0,0,0],   [93,94,95]],
+             [[96,97,98],[0,0,0]],
+             [[0,0,0],   [0,0,0]],
+             [[0,0,0],   [0,0,0]],
+             [[0,0,0],   [0,0,0]]],
+        ]);
+        $b = $la->toNDArray($b);
+        $trues = $la->toNDArray($trues);
+        $this->assertTrue($mo->la()->isclose($trues,$b));
+
+        // batchDims = 1
+        // axis = 2
+        // detailDepth = 4
+        // indexDepth = 2
+        // A:   5D [batches,m,n,k,len]
+        // X:   3D [batches,n,k]
+        // res: 5D [batches,m,numClass,k,len]
+        $shapeA = [4,2,3,2,3];
+        $a = $la->array([
+            [[[[ 0, 1, 2],[ 9,10,11]],
+              [[ 0, 1, 2],[ 9,10,11]],
+              [[ 0, 1, 2],[ 9,10,11]]],
+             [[[30,31,32],[39,40,41]],
+              [[30,31,32],[39,40,41]],
+              [[30,31,32],[39,40,41]]]],
+            [[[[66,67,68],[63,64,65]],
+              [[66,67,68],[63,64,65]],
+              [[66,67,68],[63,64,65]]],
+             [[[96,97,98],[93,94,95]],
+              [[96,97,98],[93,94,95]],
+              [[96,97,98],[93,94,95]]]],
+            [[[[132,133,134],[135,136,137]],
+              [[132,133,134],[135,136,137]],
+              [[132,133,134],[135,136,137]]],
+             [[[162,163,164],[165,166,167]],
+              [[162,163,164],[165,166,167]],
+              [[162,163,164],[165,166,167]]]],
+            [[[[186,187,188],[183,184,185]],
+              [[186,187,188],[183,184,185]],
+              [[186,187,188],[183,184,185]]],
+             [[[216,217,218],[213,214,215]],
+              [[216,217,218],[213,214,215]],
+              [[216,217,218],[213,214,215]]]]
+        ]);
+        $x = $la->array([
+            [[0,1],[0,1],[0,1]],
+            [[1,0],[1,0],[1,0]],
+            [[2,2],[2,2],[2,2]],
+            [[1,0],[1,0],[1,0]],
+        ],dtype:NDArray::int32);
+        $shapeB = [4,2,5,2,3];
+        $b = $la->scatterb($x,$a,$shapeB,axis:2,batchDims:1,detailDepth:4,indexDepth:2);
+        $this->assertEquals([4,2,3,2,3],$a->shape());
+        $this->assertEquals([4,3,2],$x->shape());
+        $this->assertEquals([4,2,5,2,3],$b->shape());
+        $trues = $la->array([
+            [[[[ 0, 1, 2],[ 0, 0, 0]],
+              [[ 0, 0, 0],[ 9,10,11]],
+              [[ 0, 0, 0],[ 0, 0, 0]],
+              [[ 0, 0, 0],[ 0, 0, 0]],
+              [[ 0, 0, 0],[ 0, 0, 0]]],
+             [[[30,31,32],[ 0, 0, 0]],
+              [[ 0, 0, 0],[39,40,41]],
+              [[ 0, 0, 0],[ 0, 0, 0]],
+              [[ 0, 0, 0],[ 0, 0, 0]],
+              [[ 0, 0, 0],[ 0, 0, 0]]]],
+            [[[[ 0, 0, 0],[63,64,65]],
+              [[66,67,68],[ 0, 0, 0]],
+              [[ 0, 0, 0],[ 0, 0, 0]],
+              [[ 0, 0, 0],[ 0, 0, 0]],
+              [[ 0, 0, 0],[ 0, 0, 0]]],
+             [[[ 0, 0, 0],[93,94,95]],
+              [[96,97,98],[ 0, 0, 0]],
+              [[ 0, 0, 0],[ 0, 0, 0]],
+              [[ 0, 0, 0],[ 0, 0, 0]],
+              [[ 0, 0, 0],[ 0, 0, 0]]]],
+            [[[[  0,  0,  0],[  0,  0,  0]],
+              [[  0,  0,  0],[  0,  0,  0]],
+              [[132,133,134],[135,136,137]],
+              [[  0,  0,  0],[  0,  0,  0]],
+              [[  0,  0,  0],[  0,  0,  0]]],
+             [[[  0,  0,  0],[  0,  0,  0]],
+              [[  0,  0,  0],[  0,  0,  0]],
+              [[162,163,164],[165,166,167]],
+              [[  0,  0,  0],[  0,  0,  0]],
+              [[  0,  0,  0],[  0,  0,  0]]]],
+            [[[[  0,  0,  0],[183,184,185]],
+              [[186,187,188],[  0,  0,  0]],
+              [[  0,  0,  0],[  0,  0,  0]],
+              [[  0,  0,  0],[  0,  0,  0]],
+              [[  0,  0,  0],[  0,  0,  0]]],
+             [[[  0,  0,  0],[213,214,215]],
+              [[216,217,218],[  0,  0,  0]],
+              [[  0,  0,  0],[  0,  0,  0]],
+              [[  0,  0,  0],[  0,  0,  0]],
+              [[  0,  0,  0],[  0,  0,  0]]]]
+        ]);
+        $b = $la->toNDArray($b);
+        $trues = $la->toNDArray($trues);
+        $this->assertTrue($mo->la()->isclose($trues,$b));
+    }
+
+    public function testScatterbAddNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // for Embedding backword.
+        // parallel on scatter add mode
+        // axis = 0
+        // A:   1D [n]
+        // X:   1D [n]
+        // res: 1D [numClass]
+        $shapeA = [3];
+        $a = $la->array([2,2,1]);
+        $x = $la->array([2,2,1], dtype:NDArray::int32);
+        $shapeB = [4];
+        $b = $la->scatterbAdd($x, $a, $shapeB);
+        $this->assertEquals([3], $a->shape());
+        $this->assertEquals([3], $x->shape());
+        $this->assertEquals([4], $b->shape());
+        $trues = $la->array([0,1,4,0]);
+        $b = $la->toNDArray($b);
+        $trues = $la->toNDArray($trues);
+        $this->assertTrue($mo->la()->isclose($trues, $b));
+
+        // axis = 0
+        // detailDepth = 2
+        // indexDepth = 0
+        // A:   1D [k]
+        // X:   1D [k]
+        // res: 2D [numClass,k]
+        $shapeA = [4,3];
+        $a = $la->array([6,7,5]);
+        $x = $la->array([2,2,1],dtype:NDArray::int32);
+        $shapeB = [4,3];
+        $b = $la->scatterbAdd($x,$a,$shapeB,detailDepth:2,indexDepth:0);
+        $this->assertEquals([3],$a->shape());
+        $this->assertEquals([3],$x->shape());
+        $this->assertEquals([4,3],$b->shape());
+        $trues = $la->array([
+            [0,0,0],
+            [0,0,5],
+            [6,7,0],
+            [0,0,0],
+        ]);
+        $b = $la->toNDArray($b);
+        $trues = $la->toNDArray($trues);
+        $this->assertTrue($mo->la()->isclose($trues,$b));
+
+        // parallel on batch mode
+        // batchDims = 1
+        // axis = 1
+        // A:   2D [batches]
+        // X:   1D [batches]
+        // res: 2D [batches,numClass]
+        $shapeA = [4];
+        $a = $la->array([2,5,7,9]);
+        $x = $la->array([2,2,1,0],dtype:NDArray::int32);
+        $shapeB = [4,3];
+        $b = $la->scatterbAdd($x,$a,$shapeB,axis:1,batchDims:1);
+        $this->assertEquals([4],$a->shape());
+        $this->assertEquals([4],$x->shape());
+        $this->assertEquals([4,3],$b->shape());
+        $trues = $la->array([
+            [0,0,2],
+            [0,0,5],
+            [0,7,0],
+            [9,0,0]
+        ]);
+        $b = $la->toNDArray($b);
+        $trues = $la->toNDArray($trues);
+        $this->assertTrue($mo->la()->isclose($trues,$b));
     }
 
     public function testGatherNDNormal()
@@ -5121,6 +5876,78 @@ class LinearAlgebraTest extends TestCase
              [[0,0],[0,0],[0,0],[0,0],[0,0],[0,0]],
              [[0,0],[0,0],[0,0],[0,0],[0,0],[0,0]]],
         ],$b->toArray());
+    }
+
+    public function testScatterNDAddNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // batchDims = 0
+        // 2D indices
+        // A:   2D [n,k]
+        // X:   2D [n,depth]
+        // res: 3D [p0,p1,k]
+        $a = $la->array([
+            [1,10],
+            [2,3],
+            [30,31],
+            [1,10],
+        ]);
+        $x = $la->array([
+            [4,5],
+            [0,1],
+            [2,3],
+            [4,5],
+        ],dtype:NDArray::int32);
+        $shape = [5,6,2];
+        $b = $la->scatterNDAdd($x,$a,shape:$shape,batchDims:0);
+        $this->assertEquals([4,2],$a->shape());
+        $this->assertEquals([4,2],$x->shape());
+        $this->assertEquals([5,6,2],$b->shape());
+        $this->assertEquals([
+            [[0,0],[2,3],[0,0],[0,0],  [0,0],[0,0]],
+            [[0,0],[0,0],[0,0],[0,0],  [0,0],[0,0]],
+            [[0,0],[0,0],[0,0],[30,31],[0,0],[0,0]],
+            [[0,0],[0,0],[0,0],[0,0],  [0,0],[0,0]],
+            [[0,0],[0,0],[0,0],[0,0],  [0,0],[2,20]],
+        ],$b->toArray());
+
+        // batchDims = 1
+        // 1D indices
+        // A:   3D [m,n,k]
+        // X:   3D [m,n,depth]
+        // res: 3D [m,p0,k]
+        $a = $la->array([
+           [[ 0,  1],
+            [ 0,  1],
+            [12, 13],
+            [12, 13]],
+           [[24, 25],
+            [24, 25],
+            [30, 31],
+            [30, 31]],
+        ]);
+        $x = $la->array([
+            [[0],
+             [0],
+             [1],
+             [1]],
+            [[2],
+             [2],
+             [0],
+             [0]],
+        ],dtype:NDArray::int32);
+        $shape = [2,5,2];
+        $b = $la->scatterNDAdd($x,$a,shape:$shape,batchDims:1);
+        $this->assertEquals([2,4,2],$a->shape());
+        $this->assertEquals([2,4,1],$x->shape());
+        $this->assertEquals([2,5,2],$b->shape());
+        $this->assertEquals([
+            [[0,2],[24,26],[0,0],[0,0],[0,0]],
+            [[60,62],[0,0],[48,50],[0,0],[0,0]],
+        ],$b->toArray());
+
     }
 
     public function testScatterAxisNullNormal()
@@ -6205,6 +7032,7 @@ class LinearAlgebraTest extends TestCase
         }
     }
 
+/*
     public function testScatterbNormal()
     {
         $mo = $this->newMatrixOperator();
@@ -6302,7 +7130,7 @@ class LinearAlgebraTest extends TestCase
         $this->assertTrue($mo->la()->isclose($trues,$b));
 
     }
-
+*/
     public function testOnehot()
     {
         $mo = $this->newMatrixOperator();
