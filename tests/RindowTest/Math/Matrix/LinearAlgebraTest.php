@@ -4622,6 +4622,8 @@ class LinearAlgebraTest extends TestCase
         $shapeA = [4];
         $a = $la->array(range(0,array_product($shapeA)-1))->reshape($shapeA);
         $x = $la->array([2,2,1],dtype:NDArray::int32);
+        $copyA = $la->copy($a);
+        $copyX = $la->copy($x);
         $b = $la->gatherb($a,$x);
         $this->assertEquals([4],$a->shape());
         $this->assertEquals([3],$x->shape());
@@ -4630,6 +4632,12 @@ class LinearAlgebraTest extends TestCase
         $b = $la->toNDArray($b);
         $trues = $la->toNDArray($trues);
         $this->assertTrue($mo->la()->isclose($trues,$b));
+        $a = $la->toNDArray($a);
+        $copyA = $la->toNDArray($copyA);
+        $this->assertTrue($mo->la()->isclose($copyA,$a));
+        $x = $la->toNDArray($x);
+        $copyX = $la->toNDArray($copyX);
+        $this->assertEquals($copyX->toArray(),$x->toArray());
         
         // axis = 0
         // detailDepth = 2
@@ -4640,6 +4648,8 @@ class LinearAlgebraTest extends TestCase
         $shapeA = [4,3];
         $a = $la->array(range(0,array_product($shapeA)-1))->reshape($shapeA);
         $x = $la->array([2,2,1],dtype:NDArray::int32);
+        $copyA = $la->copy($a);
+        $copyX = $la->copy($x);
         $b = $la->gatherb($a,$x,detailDepth:2,indexDepth:0);
         $this->assertEquals([4,3],$a->shape());
         $this->assertEquals([3],$x->shape());
@@ -4648,6 +4658,12 @@ class LinearAlgebraTest extends TestCase
         $b = $la->toNDArray($b);
         $trues = $la->toNDArray($trues);
         $this->assertTrue($mo->la()->isclose($trues,$b));
+        $a = $la->toNDArray($a);
+        $copyA = $la->toNDArray($copyA);
+        $this->assertTrue($mo->la()->isclose($copyA,$a));
+        $x = $la->toNDArray($x);
+        $copyX = $la->toNDArray($copyX);
+        $this->assertEquals($copyX->toArray(),$x->toArray());
 
         // batchDims = 1
         // axis = 1
@@ -4657,6 +4673,8 @@ class LinearAlgebraTest extends TestCase
         $shapeA = [4,3];
         $a = $la->array(range(0,array_product($shapeA)-1))->reshape($shapeA);
         $x = $la->array([2,2,1,0],dtype:NDArray::int32);
+        $copyA = $la->copy($a);
+        $copyX = $la->copy($x);
         $b = $la->gatherb($a,$x,axis:1,batchDims:1);
         $this->assertEquals([4,3],$a->shape());
         $this->assertEquals([4],$x->shape());
@@ -4665,6 +4683,12 @@ class LinearAlgebraTest extends TestCase
         $b = $la->toNDArray($b);
         $trues = $la->toNDArray($trues);
         $this->assertTrue($mo->la()->isclose($trues,$b));
+        $a = $la->toNDArray($a);
+        $copyA = $la->toNDArray($copyA);
+        $this->assertTrue($mo->la()->isclose($copyA,$a));
+        $x = $la->toNDArray($x);
+        $copyX = $la->toNDArray($copyX);
+        $this->assertEquals($copyX->toArray(),$x->toArray());
 
         // batchDims = 1
         // axis = 1
@@ -4674,6 +4698,8 @@ class LinearAlgebraTest extends TestCase
         $shapeA = [4,3,2];
         $a = $la->array(range(0,array_product($shapeA)-1))->reshape($shapeA);
         $x = $la->array([2,2,1,0],dtype:NDArray::int32);
+        $copyA = $la->copy($a);
+        $copyX = $la->copy($x);
         $b = $la->gatherb($a,$x,axis:1,batchDims:1);
         $this->assertEquals([4,3,2],$a->shape());
         $this->assertEquals([4],$x->shape());
@@ -4687,6 +4713,12 @@ class LinearAlgebraTest extends TestCase
         $b = $la->toNDArray($b);
         $trues = $la->toNDArray($trues);
         $this->assertTrue($mo->la()->isclose($trues,$b));
+        $a = $la->toNDArray($a);
+        $copyA = $la->toNDArray($copyA);
+        $this->assertTrue($mo->la()->isclose($copyA,$a));
+        $x = $la->toNDArray($x);
+        $copyX = $la->toNDArray($copyX);
+        $this->assertEquals($copyX->toArray(),$x->toArray());
 
         // for argmax
         // batchDims = 1    // batchDims=axis
@@ -4703,6 +4735,8 @@ class LinearAlgebraTest extends TestCase
             [1,1,1,1],
             [1,1,1,1],
         ],dtype:NDArray::int32);
+        $copyA = $la->copy($a);
+        $copyX = $la->copy($x);
         $b = $la->gatherb($a,$x,batchDims:1,detailDepth:$a->ndim(),indexDepth:1);
         $this->assertEquals([3,2,4],$a->shape());
         $this->assertEquals([3,4],$x->shape());
@@ -4722,6 +4756,12 @@ class LinearAlgebraTest extends TestCase
         //echo $mo->toString($max,null,true)."\n";
         $this->assertEquals($max->toArray(),$trues->toArray());
         $this->assertEquals($trues->toArray(),$b->toArray());
+        $a = $la->toNDArray($a);
+        $copyA = $la->toNDArray($copyA);
+        $this->assertTrue($mo->la()->isclose($copyA,$a));
+        $x = $la->toNDArray($x);
+        $copyX = $la->toNDArray($copyX);
+        $this->assertEquals($copyX->toArray(),$x->toArray());
 
         // batchDims = 1
         // axis = 2
@@ -4731,6 +4771,8 @@ class LinearAlgebraTest extends TestCase
         $shapeA = [4,2,3];
         $a = $la->array(range(0,array_product($shapeA)-1))->reshape($shapeA);
         $x = $la->array([2,2,1,0],dtype:NDArray::int32);
+        $copyA = $la->copy($a);
+        $copyX = $la->copy($x);
         $b = $la->gatherb($a,$x,axis:2,batchDims:1);
         $this->assertEquals([4,2,3],$a->shape());
         $this->assertEquals([4],$x->shape());
@@ -4744,6 +4786,12 @@ class LinearAlgebraTest extends TestCase
         $b = $la->toNDArray($b);
         $trues = $la->toNDArray($trues);
         $this->assertTrue($mo->la()->isclose($trues,$b));
+        $a = $la->toNDArray($a);
+        $copyA = $la->toNDArray($copyA);
+        $this->assertTrue($mo->la()->isclose($copyA,$a));
+        $x = $la->toNDArray($x);
+        $copyX = $la->toNDArray($copyX);
+        $this->assertEquals($copyX->toArray(),$x->toArray());
 
         // batchDims = 1
         // axis = 2
@@ -4753,6 +4801,8 @@ class LinearAlgebraTest extends TestCase
         $shapeA = [4,2,3,2];
         $a = $la->array(range(0,array_product($shapeA)-1))->reshape($shapeA);
         $x = $la->array([2,2,1,0],dtype:NDArray::int32);
+        $copyA = $la->copy($a);
+        $copyX = $la->copy($x);
         $b = $la->gatherb($a,$x,axis:2,batchDims:1);
         $this->assertEquals([4,2,3,2],$a->shape());
         $this->assertEquals([4],$x->shape());
@@ -4766,6 +4816,12 @@ class LinearAlgebraTest extends TestCase
         $b = $la->toNDArray($b);
         $trues = $la->toNDArray($trues);
         $this->assertTrue($mo->la()->isclose($trues,$b));
+        $a = $la->toNDArray($a);
+        $copyA = $la->toNDArray($copyA);
+        $this->assertTrue($mo->la()->isclose($copyA,$a));
+        $x = $la->toNDArray($x);
+        $copyX = $la->toNDArray($copyX);
+        $this->assertEquals($copyX->toArray(),$x->toArray());
 
         // batchDims = 1
         // axis = 1
@@ -4780,6 +4836,8 @@ class LinearAlgebraTest extends TestCase
             [2,2],
             [1,0]
         ],dtype:NDArray::int32);
+        $copyA = $la->copy($a);
+        $copyX = $la->copy($x);
         $b = $la->gatherb($a,$x,axis:1,batchDims:1);
         $this->assertEquals([4,3],$a->shape());
         $this->assertEquals([4,2],$x->shape());
@@ -4793,6 +4851,12 @@ class LinearAlgebraTest extends TestCase
         $b = $la->toNDArray($b);
         $trues = $la->toNDArray($trues);
         $this->assertTrue($mo->la()->isclose($trues,$b));
+        $a = $la->toNDArray($a);
+        $copyA = $la->toNDArray($copyA);
+        $this->assertTrue($mo->la()->isclose($copyA,$a));
+        $x = $la->toNDArray($x);
+        $copyX = $la->toNDArray($copyX);
+        $this->assertEquals($copyX->toArray(),$x->toArray());
 
         // batchDims = 1
         // axis = 1
@@ -4809,6 +4873,8 @@ class LinearAlgebraTest extends TestCase
             [[2,2],[2,2],[2,2]],
             [[1,0],[1,0],[1,0]]
         ],dtype:NDArray::int32);
+        $copyA = $la->copy($a);
+        $copyX = $la->copy($x);
         $b = $la->gatherb($a,$x,axis:1,batchDims:1,detailDepth:3,indexDepth:2);
         $this->assertEquals([4,5,2],$a->shape());
         $this->assertEquals([4,3,2],$x->shape());
@@ -4822,6 +4888,12 @@ class LinearAlgebraTest extends TestCase
         $b = $la->toNDArray($b);
         $trues = $la->toNDArray($trues);
         $this->assertTrue($mo->la()->isclose($trues,$b));
+        $a = $la->toNDArray($a);
+        $copyA = $la->toNDArray($copyA);
+        $this->assertTrue($mo->la()->isclose($copyA,$a));
+        $x = $la->toNDArray($x);
+        $copyX = $la->toNDArray($copyX);
+        $this->assertEquals($copyX->toArray(),$x->toArray());
 
         // batchDims = 1
         // axis = 1
@@ -4838,6 +4910,8 @@ class LinearAlgebraTest extends TestCase
             [[2,2],[2,2],[2,2]],
             [[1,0],[1,0],[1,0]],
         ],dtype:NDArray::int32);
+        $copyA = $la->copy($a);
+        $copyX = $la->copy($x);
         $b = $la->gatherb($a,$x,axis:1,batchDims:1,detailDepth:3,indexDepth:2);
         $this->assertEquals([4,5,2,3],$a->shape());
         $this->assertEquals([4,3,2],$x->shape());
@@ -4859,6 +4933,12 @@ class LinearAlgebraTest extends TestCase
         $b = $la->toNDArray($b);
         $trues = $la->toNDArray($trues);
         $this->assertTrue($mo->la()->isclose($trues,$b));
+        $a = $la->toNDArray($a);
+        $copyA = $la->toNDArray($copyA);
+        $this->assertTrue($mo->la()->isclose($copyA,$a));
+        $x = $la->toNDArray($x);
+        $copyX = $la->toNDArray($copyX);
+        $this->assertEquals($copyX->toArray(),$x->toArray());
 
         // batchDims = 1
         // axis = 2
@@ -4875,6 +4955,8 @@ class LinearAlgebraTest extends TestCase
             [[2,2],[2,2],[2,2]],
             [[1,0],[1,0],[1,0]],
         ],dtype:NDArray::int32);
+        $copyA = $la->copy($a);
+        $copyX = $la->copy($x);
         $b = $la->gatherb($a,$x,axis:2,batchDims:1,detailDepth:4,indexDepth:2);
         $this->assertEquals([4,2,5,2,3],$a->shape());
         $this->assertEquals([4,3,2],$x->shape());
@@ -4908,6 +4990,12 @@ class LinearAlgebraTest extends TestCase
         $b = $la->toNDArray($b);
         $trues = $la->toNDArray($trues);
         $this->assertTrue($mo->la()->isclose($trues,$b));
+        $a = $la->toNDArray($a);
+        $copyA = $la->toNDArray($copyA);
+        $this->assertTrue($mo->la()->isclose($copyA,$a));
+        $x = $la->toNDArray($x);
+        $copyX = $la->toNDArray($copyX);
+        $this->assertEquals($copyX->toArray(),$x->toArray());
 
         // batchDims = -1
         // A:   2D [m,numClass]
@@ -4926,6 +5014,8 @@ class LinearAlgebraTest extends TestCase
             [ 0, 2, 0],
             [ 1, 0, 0]
         ]);
+        $copyA = $la->copy($a);
+        $copyX = $la->copy($x);
         $b = $la->gatherb($a,$x,batchDims:-1);
         $this->assertEquals([4],$x->shape());
         $this->assertEquals([4,3],$a->shape());
@@ -4940,6 +5030,12 @@ class LinearAlgebraTest extends TestCase
         $max = $la->reduceMax($a,axis:-1);
         $this->assertEquals($max->toArray(),$trues->toArray());
         $this->assertEquals($trues->toArray(),$b->toArray());
+        $a = $la->toNDArray($a);
+        $copyA = $la->toNDArray($copyA);
+        $this->assertTrue($mo->la()->isclose($copyA,$a));
+        $x = $la->toNDArray($x);
+        $copyX = $la->toNDArray($copyX);
+        $this->assertEquals($copyX->toArray(),$x->toArray());
     }
 
     public function testScatterbNormal()
@@ -4954,6 +5050,8 @@ class LinearAlgebraTest extends TestCase
         $shapeA = [3];
         $a = $la->array([2,2,1]);
         $x = $la->array([2,2,1],dtype:NDArray::int32);
+        $copyA = $la->copy($a);
+        $copyX = $la->copy($x);
         $shapeB = [4];
         $b = $la->scatterb($x,$a,$shapeB);
         $this->assertEquals([3],$a->shape());
@@ -4963,6 +5061,12 @@ class LinearAlgebraTest extends TestCase
         $b = $la->toNDArray($b);
         $trues = $la->toNDArray($trues);
         $this->assertTrue($mo->la()->isclose($trues,$b));
+        $a = $la->toNDArray($a);
+        $copyA = $la->toNDArray($copyA);
+        $this->assertTrue($mo->la()->isclose($copyA,$a));
+        $x = $la->toNDArray($x);
+        $copyX = $la->toNDArray($copyX);
+        $this->assertEquals($copyX->toArray(),$x->toArray());
         
         // axis = 0
         // detailDepth = 2
@@ -4973,6 +5077,8 @@ class LinearAlgebraTest extends TestCase
         $shapeA = [4,3];
         $a = $la->array([6,7,5]);
         $x = $la->array([2,2,1],dtype:NDArray::int32);
+        $copyA = $la->copy($a);
+        $copyX = $la->copy($x);
         $shapeB = [4,3];
         $b = $la->scatterb($x,$a,$shapeB,detailDepth:2,indexDepth:0);
         $this->assertEquals([3],$a->shape());
@@ -4987,6 +5093,12 @@ class LinearAlgebraTest extends TestCase
         $b = $la->toNDArray($b);
         $trues = $la->toNDArray($trues);
         $this->assertTrue($mo->la()->isclose($trues,$b));
+        $a = $la->toNDArray($a);
+        $copyA = $la->toNDArray($copyA);
+        $this->assertTrue($mo->la()->isclose($copyA,$a));
+        $x = $la->toNDArray($x);
+        $copyX = $la->toNDArray($copyX);
+        $this->assertEquals($copyX->toArray(),$x->toArray());
 
         // batchDims = 1
         // axis = 1
@@ -4996,6 +5108,8 @@ class LinearAlgebraTest extends TestCase
         $shapeA = [4];
         $a = $la->array([2,5,7,9]);
         $x = $la->array([2,2,1,0],dtype:NDArray::int32);
+        $copyA = $la->copy($a);
+        $copyX = $la->copy($x);
         $shapeB = [4,3];
         $b = $la->scatterb($x,$a,$shapeB,axis:1,batchDims:1);
         $this->assertEquals([4],$a->shape());
@@ -5010,6 +5124,12 @@ class LinearAlgebraTest extends TestCase
         $b = $la->toNDArray($b);
         $trues = $la->toNDArray($trues);
         $this->assertTrue($mo->la()->isclose($trues,$b));
+        $a = $la->toNDArray($a);
+        $copyA = $la->toNDArray($copyA);
+        $this->assertTrue($mo->la()->isclose($copyA,$a));
+        $x = $la->toNDArray($x);
+        $copyX = $la->toNDArray($copyX);
+        $this->assertEquals($copyX->toArray(),$x->toArray());
 
         // batchDims = 1
         // axis = 1
@@ -5024,6 +5144,8 @@ class LinearAlgebraTest extends TestCase
             [18,19]
         ]);
         $x = $la->array([2,2,1,0],dtype:NDArray::int32);
+        $copyA = $la->copy($a);
+        $copyX = $la->copy($x);
         $shapeB = [4,3,2];
         $b = $la->scatterb($x,$a,$shapeB,axis:1,batchDims:1);
         $this->assertEquals([4,2],$a->shape());
@@ -5038,6 +5160,12 @@ class LinearAlgebraTest extends TestCase
         $b = $la->toNDArray($b);
         $trues = $la->toNDArray($trues);
         $this->assertTrue($mo->la()->isclose($trues,$b));
+        $a = $la->toNDArray($a);
+        $copyA = $la->toNDArray($copyA);
+        $this->assertTrue($mo->la()->isclose($copyA,$a));
+        $x = $la->toNDArray($x);
+        $copyX = $la->toNDArray($copyX);
+        $this->assertEquals($copyX->toArray(),$x->toArray());
 
         // for argmax
         // batchDims = 1    // batchDims=axis
@@ -5058,6 +5186,8 @@ class LinearAlgebraTest extends TestCase
             [1,1,1,1],
             [1,1,1,1],
         ],dtype:NDArray::int32);
+        $copyA = $la->copy($a);
+        $copyX = $la->copy($x);
         $shapeB = [3,2,4];
         $b = $la->scatterb($x,$a,$shapeB,batchDims:1,detailDepth:count($shapeB),indexDepth:1);
         $this->assertEquals([3,4],$a->shape());
@@ -5080,6 +5210,12 @@ class LinearAlgebraTest extends TestCase
         $d = $la->scatterb($imax,$max,$shapeB,batchDims:1,detailDepth:count($shapeB),indexDepth:1);
         //echo $mo->toString($max,null,true)."\n";
         $this->assertEquals($d->toArray(),$trues->toArray());
+        $a = $la->toNDArray($a);
+        $copyA = $la->toNDArray($copyA);
+        $this->assertTrue($mo->la()->isclose($copyA,$a));
+        $x = $la->toNDArray($x);
+        $copyX = $la->toNDArray($copyX);
+        $this->assertEquals($copyX->toArray(),$x->toArray());
 
         // batchDims = 1
         // axis = 2
@@ -5094,6 +5230,8 @@ class LinearAlgebraTest extends TestCase
             [18,21],
         ]);
         $x = $la->array([2,2,1,0],dtype:NDArray::int32);
+        $copyA = $la->copy($a);
+        $copyX = $la->copy($x);
         $shapeB = [4,2,3];
         $b = $la->scatterb($x,$a,$shapeB,axis:2,batchDims:1);
         $this->assertEquals([4,2],$a->shape());
@@ -5108,6 +5246,12 @@ class LinearAlgebraTest extends TestCase
         $b = $la->toNDArray($b);
         $trues = $la->toNDArray($trues);
         $this->assertTrue($mo->la()->isclose($trues,$b));
+        $a = $la->toNDArray($a);
+        $copyA = $la->toNDArray($copyA);
+        $this->assertTrue($mo->la()->isclose($copyA,$a));
+        $x = $la->toNDArray($x);
+        $copyX = $la->toNDArray($copyX);
+        $this->assertEquals($copyX->toArray(),$x->toArray());
 
         // batchDims = 1
         // axis = 2
@@ -5122,6 +5266,8 @@ class LinearAlgebraTest extends TestCase
             [[36,37],[42,43]],
         ]);
         $x = $la->array([2,2,1,0],dtype:NDArray::int32);
+        $copyA = $la->copy($a);
+        $copyX = $la->copy($x);
         $shapeB = [4,2,3,2];
         $b = $la->scatterb($x,$a,$shapeB,axis:2,batchDims:1);
         $this->assertEquals([4,2,2],$a->shape());
@@ -5136,6 +5282,12 @@ class LinearAlgebraTest extends TestCase
         $b = $la->toNDArray($b);
         $trues = $la->toNDArray($trues);
         $this->assertTrue($mo->la()->isclose($trues,$b));
+        $a = $la->toNDArray($a);
+        $copyA = $la->toNDArray($copyA);
+        $this->assertTrue($mo->la()->isclose($copyA,$a));
+        $x = $la->toNDArray($x);
+        $copyX = $la->toNDArray($copyX);
+        $this->assertEquals($copyX->toArray(),$x->toArray());
 
         // batchDims = 1
         // axis = 1
@@ -5155,6 +5307,8 @@ class LinearAlgebraTest extends TestCase
             [2,2],
             [1,0]
         ],dtype:NDArray::int32);
+        $copyA = $la->copy($a);
+        $copyX = $la->copy($x);
         $shapeB = [4,3];
         $b = $la->scatterb($x,$a,$shapeB,axis:1,batchDims:1);
         $this->assertEquals([4,2],$a->shape());
@@ -5169,6 +5323,12 @@ class LinearAlgebraTest extends TestCase
         $b = $la->toNDArray($b);
         $trues = $la->toNDArray($trues);
         $this->assertTrue($mo->la()->isclose($trues,$b));
+        $a = $la->toNDArray($a);
+        $copyA = $la->toNDArray($copyA);
+        $this->assertTrue($mo->la()->isclose($copyA,$a));
+        $x = $la->toNDArray($x);
+        $copyX = $la->toNDArray($copyX);
+        $this->assertEquals($copyX->toArray(),$x->toArray());
 
         // batchDims = 1
         // axis = 1
@@ -5190,6 +5350,8 @@ class LinearAlgebraTest extends TestCase
             [[2,2],[2,2],[2,2]],
             [[1,0],[1,0],[1,0]]
         ],dtype:NDArray::int32);
+        $copyA = $la->copy($a);
+        $copyX = $la->copy($x);
         $shapeB = [4,5,2];
         $b = $la->scatterb($x,$a,$shapeB,axis:1,batchDims:1,detailDepth:3,indexDepth:2);
         $this->assertEquals([4,3,2],$a->shape());
@@ -5204,6 +5366,12 @@ class LinearAlgebraTest extends TestCase
         $b = $la->toNDArray($b);
         $trues = $la->toNDArray($trues);
         $this->assertTrue($mo->la()->isclose($trues,$b));
+        $a = $la->toNDArray($a);
+        $copyA = $la->toNDArray($copyA);
+        $this->assertTrue($mo->la()->isclose($copyA,$a));
+        $x = $la->toNDArray($x);
+        $copyX = $la->toNDArray($copyX);
+        $this->assertEquals($copyX->toArray(),$x->toArray());
 
         // batchDims = 1
         // axis = 1
@@ -5233,6 +5401,8 @@ class LinearAlgebraTest extends TestCase
             [[2,2],[2,2],[2,2]],
             [[1,0],[1,0],[1,0]],
         ],dtype:NDArray::int32);
+        $copyA = $la->copy($a);
+        $copyX = $la->copy($x);
         $shapeB = [4,5,2,3];
         $b = $la->scatterb($x,$a,$shapeB,axis:1,batchDims:1,detailDepth:3,indexDepth:2);
         $this->assertEquals([4,3,2,3],$a->shape());
@@ -5263,6 +5433,12 @@ class LinearAlgebraTest extends TestCase
         $b = $la->toNDArray($b);
         $trues = $la->toNDArray($trues);
         $this->assertTrue($mo->la()->isclose($trues,$b));
+        $a = $la->toNDArray($a);
+        $copyA = $la->toNDArray($copyA);
+        $this->assertTrue($mo->la()->isclose($copyA,$a));
+        $x = $la->toNDArray($x);
+        $copyX = $la->toNDArray($copyX);
+        $this->assertEquals($copyX->toArray(),$x->toArray());
 
         // batchDims = 1
         // axis = 2
@@ -5304,6 +5480,8 @@ class LinearAlgebraTest extends TestCase
             [[2,2],[2,2],[2,2]],
             [[1,0],[1,0],[1,0]],
         ],dtype:NDArray::int32);
+        $copyA = $la->copy($a);
+        $copyX = $la->copy($x);
         $shapeB = [4,2,5,2,3];
         $b = $la->scatterb($x,$a,$shapeB,axis:2,batchDims:1,detailDepth:4,indexDepth:2);
         $this->assertEquals([4,2,3,2,3],$a->shape());
@@ -5354,6 +5532,12 @@ class LinearAlgebraTest extends TestCase
         $b = $la->toNDArray($b);
         $trues = $la->toNDArray($trues);
         $this->assertTrue($mo->la()->isclose($trues,$b));
+        $a = $la->toNDArray($a);
+        $copyA = $la->toNDArray($copyA);
+        $this->assertTrue($mo->la()->isclose($copyA,$a));
+        $x = $la->toNDArray($x);
+        $copyX = $la->toNDArray($copyX);
+        $this->assertEquals($copyX->toArray(),$x->toArray());
     }
 
     public function testScatterbAddNormal()
@@ -5370,6 +5554,8 @@ class LinearAlgebraTest extends TestCase
         $shapeA = [3];
         $a = $la->array([2,2,1]);
         $x = $la->array([2,2,1], dtype:NDArray::int32);
+        $copyA = $la->copy($a);
+        $copyX = $la->copy($x);
         $shapeB = [4];
         $b = $la->scatterbAdd($x, $a, $shapeB);
         $this->assertEquals([3], $a->shape());
@@ -5379,6 +5565,12 @@ class LinearAlgebraTest extends TestCase
         $b = $la->toNDArray($b);
         $trues = $la->toNDArray($trues);
         $this->assertTrue($mo->la()->isclose($trues, $b));
+        $a = $la->toNDArray($a);
+        $copyA = $la->toNDArray($copyA);
+        $this->assertTrue($mo->la()->isclose($copyA,$a));
+        $x = $la->toNDArray($x);
+        $copyX = $la->toNDArray($copyX);
+        $this->assertEquals($copyX->toArray(),$x->toArray());
 
         // axis = 0
         // detailDepth = 2
@@ -5389,6 +5581,8 @@ class LinearAlgebraTest extends TestCase
         $shapeA = [4,3];
         $a = $la->array([6,7,5]);
         $x = $la->array([2,2,1],dtype:NDArray::int32);
+        $copyA = $la->copy($a);
+        $copyX = $la->copy($x);
         $shapeB = [4,3];
         $b = $la->scatterbAdd($x,$a,$shapeB,detailDepth:2,indexDepth:0);
         $this->assertEquals([3],$a->shape());
@@ -5403,6 +5597,12 @@ class LinearAlgebraTest extends TestCase
         $b = $la->toNDArray($b);
         $trues = $la->toNDArray($trues);
         $this->assertTrue($mo->la()->isclose($trues,$b));
+        $a = $la->toNDArray($a);
+        $copyA = $la->toNDArray($copyA);
+        $this->assertTrue($mo->la()->isclose($copyA,$a));
+        $x = $la->toNDArray($x);
+        $copyX = $la->toNDArray($copyX);
+        $this->assertEquals($copyX->toArray(),$x->toArray());
 
         // parallel on batch mode
         // batchDims = 1
@@ -5413,6 +5613,8 @@ class LinearAlgebraTest extends TestCase
         $shapeA = [4];
         $a = $la->array([2,5,7,9]);
         $x = $la->array([2,2,1,0],dtype:NDArray::int32);
+        $copyA = $la->copy($a);
+        $copyX = $la->copy($x);
         $shapeB = [4,3];
         $b = $la->scatterbAdd($x,$a,$shapeB,axis:1,batchDims:1);
         $this->assertEquals([4],$a->shape());
@@ -5427,6 +5629,12 @@ class LinearAlgebraTest extends TestCase
         $b = $la->toNDArray($b);
         $trues = $la->toNDArray($trues);
         $this->assertTrue($mo->la()->isclose($trues,$b));
+        $a = $la->toNDArray($a);
+        $copyA = $la->toNDArray($copyA);
+        $this->assertTrue($mo->la()->isclose($copyA,$a));
+        $x = $la->toNDArray($x);
+        $copyX = $la->toNDArray($copyX);
+        $this->assertEquals($copyX->toArray(),$x->toArray());
     }
 
     public function testGatherNDNormal()

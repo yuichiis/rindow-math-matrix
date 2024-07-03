@@ -3656,7 +3656,7 @@ EOT;
             $direction = 'f';
             $expression = "b[iB++] {$operation} a[iA++];";
         } else {
-            $direction = 'f';
+            $direction = 'r';
             $expression = "a[iA++] {$operation} b[iB++];";
         }
         $kernel_name = "gatherb_{$direction}_{$add}_{$type}";
@@ -3925,7 +3925,7 @@ EOT;
             $direction = 'f';
             $expression = "b[iB++] {$operation} a[iA++];";
         } else {
-            $direction = 'f';
+            $direction = 'r';
             $expression = "a[iA++] {$operation} b[iB++];";
         }
         $paramSize = 1;
