@@ -4082,11 +4082,14 @@ EOT;
                 "        end = (thread_id+1) * cell_size;\n".
                 "    }\n".
                 "    if(thread_id>0) {\n".
-                "        uint offset = (thread_id-1)*blockSize;\n".
-                "        for(uint pos=0; pos<blockSize; pos++) {\n".
+                "        uint offset = (thread_id-1)*blockSize+i*paramSize*k;\n".
+                "        for(uint pos=0; pos<paramSize*k; pos++) {\n".
                 "            a_buf[offset + pos] = 0;\n".
                 "        }\n".
                 "    }\n".
+                #"    uint buf_offset = (thread_id-1)*blockSize;\n".
+                #"    printf(\"thread_id=%d,buf_offset=%d\\n\",thread_id,buf_offset);\n".
+                #"    printf(\"thread_id=%d,begin=%d,end=%d,k=%d\\n\",thread_id,begin,end,k);\n".
                 "    for(uint j=begin; j<end; j++) {\n".
                 "        __global {$type} * a_addr;\n".
                 "        if(thread_id==0) {\n".
@@ -4105,6 +4108,7 @@ EOT;
                 "        }\n".
                 "        uint iA = offsetA + i*paramSize*k + offset*k;\n".
                 "        uint iB = offsetB + i*n*k + j*k;\n".
+                #"        printf(\"thread_id=%d,iA=%d,iB=%d\\n\",thread_id,iA,iB);\n".
                 "        for(uint h=0; h<k; ++h) {\n".
                 "            a_addr[iA++] += b[iB++];\n".
                 "        }\n".
@@ -4154,6 +4158,42 @@ EOT;
         $phase1Events = $this->newEventList();
         $kernel1->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
             $phase1Events,$waitEvents);
+
+        #$phase1Events->wait();
+        #// display b
+        #$tmp = $this->toHostBuffer($B,0);
+        #echo "===================================\n";
+        #echo "====b:{$m}*{$paramSize}*{$k}======\n";
+        #for($tt=0;$tt<$tmp->count();$tt++) {
+        #    if($tt%($m*$paramSize*$k)==0) {
+        #        echo "\n====\n";
+        #    }
+        #    if($tt%($paramSize*$k)==0) {
+        #        echo "\n===\n";
+        #    }
+        #    if($tt%($k)==0) {
+        #        echo " | ";
+        #    }
+        #    echo $tmp[$tt].",";
+        #}
+        #echo "\n==========\n";
+#
+        #// display a_buf
+        #$tmp = $this->toHostBuffer($a_buf,0);
+        #echo "====a_buf:{$m}*{$paramSize}*{$k}======\n";
+        #for($tt=0;$tt<$tmp->count();$tt++) {
+        #    if($tt%($m*$paramSize*$k)==0) {
+        #        echo "\n==a_buf[]==\n";
+        #    }
+        #    if($tt%($paramSize*$k)==0) {
+        #        echo "\n===\n";
+        #    }
+        #    if($tt%($k)==0) {
+        #        echo " | ";
+        #    }
+        #    echo $tmp[$tt].",";
+        #}
+        #echo "\n==========\n";
 
         $kernel2->setArg(0,$parallel_n,NDArray::uint32);
         $kernel2->setArg(1,$blockSize,NDArray::uint32);
