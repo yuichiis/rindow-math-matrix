@@ -4087,9 +4087,6 @@ EOT;
                 "            a_buf[offset + pos] = 0;\n".
                 "        }\n".
                 "    }\n".
-                #"    uint buf_offset = (thread_id-1)*blockSize;\n".
-                #"    printf(\"thread_id=%d,buf_offset=%d\\n\",thread_id,buf_offset);\n".
-                #"    printf(\"thread_id=%d,begin=%d,end=%d,k=%d\\n\",thread_id,begin,end,k);\n".
                 "    for(uint j=begin; j<end; j++) {\n".
                 "        __global {$type} * a_addr;\n".
                 "        if(thread_id==0) {\n".
@@ -4108,7 +4105,6 @@ EOT;
                 "        }\n".
                 "        uint iA = offsetA + i*paramSize*k + offset*k;\n".
                 "        uint iB = offsetB + i*n*k + j*k;\n".
-                #"        printf(\"thread_id=%d,iA=%d,iB=%d\\n\",thread_id,iA,iB);\n".
                 "        for(uint h=0; h<k; ++h) {\n".
                 "            a_addr[iA++] += b[iB++];\n".
                 "        }\n".
