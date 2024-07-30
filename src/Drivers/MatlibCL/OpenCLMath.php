@@ -6154,6 +6154,93 @@ EOT;
     }
 
     /**
+     *     Y(n) := X(n) + Y(n-1)
+     */
+    public function cumsumb(
+        int $m,
+        int $n,
+        int $k,
+        BufferInterface $A, int $offsetA, // float
+        bool $exclusive,
+        bool $reverse,
+        BufferInterface $B, int $offsetB, // float
+        object $events=null, object $waitEvents=null
+        ) : void
+    {
+        $dtypeA = $A->dtype();
+        $dtypeB = $B->dtype();
+        if($dtypeA==NDArray::float64) {
+            $this->assertFP64();
+        }
+        if($A->dtype()!=$B->dtype()) {
+            throw new InvalidArgumentException('dtype of X and Y must be same.');
+        }
+        $exclusive = $exclusive ? 1 : 0;
+        $reverse = $reverse ? 1 : 0;
+        $type = $this->dtypeToOpenCLType[$dtypeA];
+        $kernel_name = "cumsumb_{$type}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+                "__kernel void {$kernel_name}(\n".
+                "    const        int n,\n".
+                "    const        int k,\n".
+                "        __global {$type} * a,\n".
+                "    const        int offset_a,\n".
+                "    const        int exclusive,\n".
+                "    const        int reverse,\n".
+                "        __global {$type} * b,\n".
+                "    const        int offset_b)\n".
+                "{\n".
+                "    int i = get_global_id(0);\n".
+                "    int h = get_global_id(1);\n".
+                "    int ida;\n".
+                "    int ldA;\n".
+                "    int idb;\n".
+                "    int ldB;\n".
+                "    if(reverse) {\n".
+                "        ida = offset_a+i*n*k+(n-1)*k;\n".
+                "        ldA = -k;\n".
+                "        idb = offset_b+i*n*k+(n-1)*k;\n".
+                "        ldB = -k;\n".
+                "    } else {\n".
+                "        ida = offset_a+i*n*k;\n".
+                "        ldA = k;\n".
+                "        idb = offset_b+i*n*k;\n".
+                "        ldB = k;\n".
+                "    }\n".
+                "    if(exclusive) {\n".
+                "        b[idb+h] = 0;\n".
+                "        for(int j=0; j<n-1; j++) {\n".
+                "            idb += ldB;\n".
+                "            b[idb+h] = b[idb-ldB+h] + a[ida+h];\n".
+                "            ida += ldA;\n".
+                "        }\n".
+                "    } else {\n".
+                "        b[idb+h] = a[ida+h];\n".
+                "        for(int j=0; j<n-1; j++) {\n".
+                "            idb += ldB;\n".
+                "            ida += ldA;\n".
+                "            b[idb+h] = b[idb-ldB+h] + a[ida+h];\n".
+                "        }\n".
+                "    }\n".
+                "}\n";
+        }
+
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$n,NDArray::int32);
+        $kernel->setArg(1,$k,NDArray::int32);
+        $kernel->setArg(2,$A);
+        $kernel->setArg(3,$offsetA,NDArray::int32);
+        $kernel->setArg(4,$exclusive,NDArray::int32);
+        $kernel->setArg(5,$reverse,NDArray::int32);
+        $kernel->setArg(6,$B);
+        $kernel->setArg(7,$offsetA,NDArray::int32);
+        $global_work_size = [$m,$k];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
+            $events,$waitEvents);
+    }
+
+    /**
      *     X := nan2num(X)
      */
     public function nan2num(

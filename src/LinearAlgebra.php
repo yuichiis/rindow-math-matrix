@@ -4624,40 +4624,53 @@ class LinearAlgebra
     }
 
     public function cumsum(
-        NDArray $X,
+        NDArray $inputs,
+        int $axis=null,
         bool $exclusive=null,
         bool $reverse=null,
-        NDArray $Y=null
+        NDArray $outputs=null
         ) : NDArray
     {
-        if($exclusive===null) {
-            $exclusive = false;
+        $ndim = $inputs->ndim();
+        $origAxis = $axis;
+        $axis ??= 0;
+        if($axis<0) {
+            $axis = $ndim+$axis;
         }
-        if($reverse===null) {
-            $reverse = false;
+        if($axis<0 || $axis>$ndim-1) {
+            $origAxis = $origAxis ?? 'null';
+            throw new InvalidArgumentException("Invalid axis: ".$origAxis);
         }
-        if($Y===null) {
-            $Y = $this->alloc($X->shape(),dtype:$X->dtype());
+        $exclusive ??= false;
+        $reverse ??= false;
+        $postfixShape = $inputs->shape();
+        $prefixShape = array_splice($postfixShape, 0, $axis);
+        $m = array_product($prefixShape);
+        $n = array_shift($postfixShape);
+        $k = array_product($postfixShape);
+        if($outputs===null) {
+            $outputs = $this->alloc($inputs->shape(),dtype:$inputs->dtype());
         }
-        if($X->shape()!=$Y->shape()) {
-            $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
+        if($inputs->shape()!=$outputs->shape()) {
+            $shapeError = '('.implode(',',$inputs->shape()).'),('.implode(',',$outputs->shape()).')';
             throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
         }
-        $n = $X->size();
-        $XX = $X->buffer();
-        $offX = $X->offset();
-        $YY = $Y->buffer();
-        $offY = $Y->offset();
+        $AA = $inputs->buffer();
+        $offA = $inputs->offset();
+        $BB = $outputs->buffer();
+        $offB = $outputs->offset();
 
-        $this->math->cumsum(
+        $this->math->cumsumb(
+            $m,
             $n,
-            $XX,$offX,1,
+            $k,
+            $AA,$offA,
             $exclusive,
             $reverse,
-            $YY,$offY,1
+            $BB,$offB,
         );
 
-        return $Y;
+        return $outputs;
     }
 
     /**

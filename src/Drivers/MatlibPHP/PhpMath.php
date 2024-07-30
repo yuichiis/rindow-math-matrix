@@ -1820,6 +1820,54 @@ class PhpMath
         }
     }
 
+    public function cumsumb(
+        int $m,
+        int $n,
+        int $k,
+        Buffer $A, int $offsetA, // float
+        bool $exclusive,
+        bool $reverse,
+        Buffer $B, int $offsetB, // int
+        ) : void
+    {
+        for($i=0; $i<$m; $i++) {
+            if($reverse) {
+                $ida = $offsetA+$i*$n*$k+($n-1)*$k;
+                $ldA = -$k;
+                $idb = $offsetB+$i*$n*$k+($n-1)*$k;
+                $ldB = -$k;
+            } else {
+                $ida = $offsetA+$i*$n*$k;
+                $ldA = $k;
+                $idb = $offsetB+$i*$n*$k;
+                $ldB = $k;
+            }
+            if($exclusive) {
+                for($h=0;$h<$k;$h++) {
+                    $B[$idb+$h] = 0;
+                }
+                for($j=0;$j<$n-1;$j++) {
+                    $idb += $ldB;
+                    for($h=0;$h<$k;$h++) {
+                        $B[$idb+$h] = $B[$idb-$ldB+$h] + $A[$ida+$h];
+                    }
+                    $ida += $ldA;
+                }
+            } else {
+                for($h=0;$h<$k;$h++) {
+                    $B[$idb+$h] = $A[$ida+$h];
+                }
+                for($j=0;$j<$n-1;$j++) {
+                    $idb += $ldB;
+                    $ida += $ldA;
+                    for($h=0;$h<$k;$h++) {
+                        $B[$idb+$h] = $B[$idb-$ldB+$h] + $A[$ida+$h];
+                    }
+                }
+            }
+        }
+    }
+
     /**
      * copy a image with channels
      */

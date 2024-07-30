@@ -12857,7 +12857,7 @@ class LinearAlgebraTest extends TestCase
         );
     }
 
-    public function testcumsum()
+    public function testcumsumNormal()
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
@@ -12870,21 +12870,54 @@ class LinearAlgebraTest extends TestCase
             $Y->toArray()
         );
 
+        $X = $mo->array([1,2,3,4]);
+        $X = $la->array($X);
+        $Y = $la->cumsum($X);
+        $this->assertEquals(
+            [1,3,6,10],
+            $Y->toArray()
+        );
+
         // exclusive=true
         $X = $mo->array([1,2,1,2]);
         $X = $la->array($X);
-        $Y = $la->cumsum($X,$exclusive=true);
+        $Y = $la->cumsum($X,exclusive:true);
         $this->assertEquals(
             [0,1,3,4],
+            $Y->toArray()
+        );
+
+        $X = $mo->array([1,2,3,4]);
+        $X = $la->array($X);
+        $Y = $la->cumsum($X,exclusive:true);
+        $this->assertEquals(
+            [0, 1, 3, 6],
             $Y->toArray()
         );
 
         // reverse=true
         $X = $mo->array([1,2,1,2]);
         $X = $la->array($X);
-        $Y = $la->cumsum($X,null,$reverse=true);
+        $Y = $la->cumsum($X,reverse:true);
         $this->assertEquals(
-            [6,4,3,1],
+            [6,5,3,2],
+            $Y->toArray()
+        );
+
+        $X = $mo->array([1,2,3,4]);
+        $X = $la->array($X);
+        $Y = $la->cumsum($X,reverse:true);
+        $this->assertEquals(
+            [10,9,7,4],
+            $Y->toArray()
+        );
+
+        // exclusive=true & reverse=true
+        $X = $mo->array([1,2,3,4]);
+        $X = $la->array($X);
+        $Y = $la->cumsum($X,exclusive:true,reverse:true);
+        $this->assertEquals(
+            [9, 7, 4, 0],
             $Y->toArray()
         );
 
@@ -12898,14 +12931,122 @@ class LinearAlgebraTest extends TestCase
         $this->assertTrue(is_nan($Y[2]));
         $this->assertTrue(is_nan($Y[3]));
 
+        // nan data with reverse
         $X = $mo->array([1,2,NAN,2]);
         $X = $la->array($X);
-        $Y = $la->cumsum($X,null,$reverse=true);
+        $Y = $la->cumsum($X,null,reverse:true);
         $Y = $la->toNDArray($Y);
         $this->assertTrue(is_nan($Y[0]));
         $this->assertTrue(is_nan($Y[1]));
-        $this->assertEquals(3.0,$Y[2]);
-        $this->assertEquals(1.0,$Y[3]);
+        $this->assertTrue(is_nan($Y[2]));
+        $this->assertEquals(2.0,$Y[3]);
+        //$this->assertEquals(3.0,$Y[2]);
+        //$this->assertEquals(1.0,$Y[3]);
+    }
+
+    public function testcumsumWithAxis()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $X = $mo->array([
+            [[ 1, 2, 3],[ 4, 5, 6],[ 7, 8, 9]],
+            [[11,12,13],[14,15,16],[17,18,19]],
+            [[21,22,23],[24,25,26],[27,28,29]],
+        ]);
+        $X = $la->array($X);
+        $Y = $la->cumsum($X,axis:0);
+        $this->assertEquals([
+            [[ 1,  2,  3],
+             [ 4,  5,  6],
+             [ 7,  8,  9]],
+    
+            [[12, 14, 16],
+             [18, 20, 22],
+             [24, 26, 28]],
+    
+            [[33, 36, 39],
+             [42, 45, 48],
+             [51, 54, 57]]
+        ],$Y->toArray());
+
+        $Y = $la->cumsum($X,axis:1);
+        $this->assertEquals([
+            [[ 1,  2,  3],
+             [ 5,  7,  9],
+             [12, 15, 18]],
+    
+            [[11, 12, 13],
+             [25, 27, 29],
+             [42, 45, 48]],
+    
+            [[21, 22, 23],
+             [45, 47, 49],
+             [72, 75, 78]]
+        ],$Y->toArray());
+
+        $Y = $la->cumsum($X,axis:2);
+        $this->assertEquals([
+            [[ 1,  3,  6],
+             [ 4,  9, 15],
+             [ 7, 15, 24]],
+    
+            [[11, 23, 36],
+             [14, 29, 45],
+             [17, 35, 54]],
+    
+            [[21, 43, 66],
+             [24, 49, 75],
+             [27, 55, 84]]
+        ],$Y->toArray());
+
+        // exclusive
+        $Y = $la->cumsum($X,axis:1,exclusive:true);
+        $this->assertEquals([
+            [[ 0,  0,  0],
+            [ 1,  2,  3],
+            [ 5,  7,  9]],
+    
+           [[ 0,  0,  0],
+            [11, 12, 13],
+            [25, 27, 29]],
+    
+           [[ 0,  0,  0],
+            [21, 22, 23],
+            [45, 47, 49]]
+        ],$Y->toArray());
+
+        // reverse
+        $Y = $la->cumsum($X,axis:1,reverse:true);
+        $this->assertEquals([
+            [[12, 15, 18],
+            [11, 13, 15],
+            [ 7,  8,  9]],
+    
+           [[42, 45, 48],
+            [31, 33, 35],
+            [17, 18, 19]],
+    
+           [[72, 75, 78],
+            [51, 53, 55],
+            [27, 28, 29]]
+        ],$Y->toArray());
+
+        // exclusive & reverse
+        $Y = $la->cumsum($X,axis:1,exclusive:true,reverse:true);
+        $this->assertEquals([
+            [[11, 13, 15],
+            [ 7,  8,  9],
+            [ 0,  0,  0]],
+    
+           [[31, 33, 35],
+            [17, 18, 19],
+            [ 0,  0,  0]],
+    
+           [[51, 53, 55],
+            [27, 28, 29],
+            [ 0,  0,  0]]
+        ],$Y->toArray());
     }
 
     public function testNan2num()
