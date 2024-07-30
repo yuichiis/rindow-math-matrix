@@ -752,7 +752,7 @@ class LinearAlgebraCL
         $delta ??= (($limit>=$start)? 1 : -1);
 
         if($delta==0.0) {
-            throw new RuntimeException('infinite times');
+            throw new InvalidArgumentException('infinite times');
         }
         $count = (int)floor(($limit-$start)/$delta);
 
@@ -4288,6 +4288,7 @@ class LinearAlgebraCL
      * updates: (batches, m, n, k, len)
      * outputs: (batches, m, numClass, k, len)
      * outputs(batches, m, n, k, len) := A(batches, m, X(batches, n, k), k, len)
+     * @param array<int> $shape
     */
     public function scatterb(
         NDarray $indices,
@@ -4336,6 +4337,7 @@ class LinearAlgebraCL
      * updates: (batches, m, n, k, len)
      * outputs: (batches, m, numClass, k, len)
      * outputs(batches, m, n, k, len) := A(batches, m, X(batches, n, k), k, len)
+     * @param array<int> $shape
     */
     public function scatterbAdd(
         NDarray $indices,
@@ -4503,6 +4505,7 @@ class LinearAlgebraCL
      * params:  (m, n, k)
      * indices: (m, n, index_depth)
      * outputs: (m, (indices(m,n)), k)
+     * @param array<int> $shape
      */
     public function scatterND(
         NDarray $indices,
@@ -4548,6 +4551,7 @@ class LinearAlgebraCL
      * params:  (m, n, k)
      * indices: (m, n, index_depth)
      * outputs: (m, (indices(m,n)), k)
+     * @param array<int> $shape
      */
     public function scatterNDAdd(
         NDarray $indices,
