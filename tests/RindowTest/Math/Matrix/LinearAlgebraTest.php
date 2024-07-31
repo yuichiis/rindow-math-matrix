@@ -13387,4 +13387,17 @@ class LinearAlgebraTest extends TestCase
 
         $this->assertFalse($la->isFloat($la->array(1,dtype:NDArray::bool)));
     }
+
+    public function testEinsum()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $x = $mo->array([[1,2],[3,4]]);
+        $y = $mo->array([[5,6],[7,8]]);
+        
+        $z = $la->einsum(' ij , ik -> i ',$x,$y);
+        
+        $this->assertEquals([33,105],$z->toArray());
+    }
 }
