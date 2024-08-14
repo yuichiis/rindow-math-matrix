@@ -13388,7 +13388,7 @@ class LinearAlgebraTest extends TestCase
         $this->assertFalse($la->isFloat($la->array(1,dtype:NDArray::bool)));
     }
 
-    public function testEinsum()
+    public function testEinsumExplicitNormal()
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
@@ -13396,8 +13396,236 @@ class LinearAlgebraTest extends TestCase
         $x = $mo->array([[1,2],[3,4]]);
         $y = $mo->array([[5,6],[7,8]]);
         
-        $z = $la->einsum(' ij , ik -> i ',$x,$y);
-        
-        $this->assertEquals([33,105],$z->toArray());
+        // cross product
+        $z = $la->einsum(' ik , kj -> ij ',$x,$y);
+        $this->assertEquals([[19,22],[43,50]],$z->toArray());
+
+        // Diagonal Extraction
+        $z = $la->einsum(' ii -> i ',$x);
+        $this->assertEquals([1,4],$z->toArray());
+
+        // dot product
+        $z = $la->einsum(' ik , kj -> ',$x,$y);
+        $this->assertEquals(134,$z->toArray());
+
+        // transpose
+        $z = $la->einsum(' ij->ji ',$x);
+        $this->assertEquals([[1,3],[2,4]],$z->toArray());
+
+        // sum
+        $z = $la->einsum(' ik -> ',$x);
+        $this->assertEquals(10,$z->toArray());
+
     }
+
+    public function testEinsumImplicitNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $x = $mo->array([[1,2],[3,4]]);
+        $y = $mo->array([[5,6],[7,8]]);
+        
+        ///////////////////////////////
+        // multi tensor mode
+        ///////////////////////////////
+        // cross product
+        $z = $la->einsum(' ik,kj ',$x,$y);
+        $this->assertEquals([[19,22],[43,50]],$z->toArray());
+        $z = $la->einsum(' jk,ki ',$x,$y);
+        $this->assertEquals([[19,43],[22,50]],$z->toArray());
+
+        // dot product
+        $z = $la->einsum(' ij,ij ',$x,$y);
+        $this->assertEquals(70,$z->toArray());
+
+        ///////////////////////////////
+        // single tensor mode
+        ///////////////////////////////
+        $x = $mo->array([[1,2],[3,4]]);
+        $x3 = $mo->array([[[1,2],[3,4]],[[5,6],[7,8]]]);
+        // no transpose
+        $z = $la->einsum(' ij ',$x);
+        $this->assertEquals([[1,2],[3,4]],$z->toArray());
+        $z = $la->einsum(' ijk ',$x3);
+        $this->assertEquals([[[1,2],[3,4]],[[5,6],[7,8]]],$z->toArray());
+
+        // transpose
+        $z = $la->einsum(' ji ',$x);
+        $this->assertEquals([[1,3],[2,4]],$z->toArray());
+        $z = $la->einsum(' kji ',$x3);
+        $this->assertEquals([[[1,5],[3,7]],[[2,6],[4,8]]],$z->toArray());
+
+        // trace
+        $z = $la->einsum(' ii ',$x);
+        $this->assertEquals(5,$z->toArray());
+        $z = $la->einsum(' iii ',$x3);
+        $this->assertEquals(9,$z->toArray());
+
+        // some conversions
+        $z = $la->einsum(' ijj ',$x3);
+        $this->assertEquals([5,13],$z->toArray());
+        $z = $la->einsum(' iij ',$x3);
+        $this->assertEquals([8,10],$z->toArray());
+    }
+    public function testEinsumPlaceholderExplicitNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        
+        // simple placeholder (left)
+        $x = $mo->array([[[1,2],[3,4]],[[5,6],[7,8]]]);         // x.shape = (2,2,2)
+        $this->assertEquals([2,2,2],$x->shape());
+        $z = $la->einsum(' ...i->...i',$x);
+        $this->assertEquals([[[1,2],[3,4]],[[5,6],[7,8]]],$z->toArray());
+
+        // simple placeholder (right)
+        $x = $mo->array([[[1,2],[3,4]],[[5,6],[7,8]]]);         // x.shape = (2,2,2)
+        $this->assertEquals([2,2,2],$x->shape());
+        $z = $la->einsum(' i...->i...',$x);
+        $this->assertEquals([[[1,2],[3,4]],[[5,6],[7,8]]],$z->toArray());
+
+        // transpose with blaceholder (left)
+        $x = $mo->array([ // x.shape = (2,2,2)
+            [[1,2],
+             [3,4]],
+            [[5,6],
+             [7,8]]
+        ]);
+        $this->assertEquals([2,2,2],$x->shape());
+        $z = $la->einsum(' ...i->i...',$x);         // (a,b,c)->(c,a,b)
+        $this->assertEquals([ 
+            [[1,3],
+             [5,7]],
+            [[2,4],
+             [6,8]]
+        ],$z->toArray());
+        $this->assertEquals($la->transpose($x,perm:[2,0,1])->toArray(),$z->toArray());
+
+        // transpose complex array with blaceholder (left)
+        $x = $la->range(start:0,limit:(2*3*4))->reshape([2,3,4]); // x.shape = (2,3,4)
+        $this->assertEquals([2,3,4],$x->shape());
+        $z = $la->einsum(' ...i->i...',$x); // (a,b,c)->(c,a,b)
+        $this->assertEquals([4,2,3],$z->shape());
+        $this->assertEquals($la->transpose($x,perm:[2,0,1])->toArray(),$z->toArray());
+
+        // transpose with blaceholder (right)
+        $x = $mo->array([ // x.shape = (2,2,2)
+            [[1,2],
+             [3,4]],
+            [[5,6],
+             [7,8]]
+        ]);
+        $this->assertEquals([2,2,2],$x->shape());
+        $z = $la->einsum(' i...->...i',$x);     // (a,b,c)->(b,c,a)
+        $this->assertEquals([ 
+            [[1,5],
+             [2,6]],
+            [[3,7],
+             [4,8]]
+        ],$z->toArray());
+        $this->assertEquals($la->transpose($x,perm:[1,2,0])->toArray(),$z->toArray());
+
+        // transpose complex array with blaceholder (right)
+        $x = $la->range(start:0,limit:(2*3*4))->reshape([2,3,4]); // x.shape = (2,3,4)
+        $this->assertEquals([2,3,4],$x->shape());
+        $z = $la->einsum(' i...->...i',$x);                 // (a,b,c)->(b,c,a)
+        $this->assertEquals([3,4,2],$z->shape());
+        $this->assertEquals($la->transpose($x,perm:[1,2,0])->toArray(),$z->toArray());
+
+        // multi array placeholder (left)
+        $x = $mo->array([[[1,2],[3,4]],[[5,6],[7,8]]]);         // x.shape = (2,2,2)
+        $y = $mo->array([[[11,12],[13,14]],[[15,16],[17,18]]]); // y.shape = (2,2,2)
+        $this->assertEquals([2,2,2],$x->shape());
+        $this->assertEquals([2,2,2],$y->shape());
+        $z = $la->einsum(' ...i,...j-> ...ij',$x,$y);       // (abi,abj->abij)
+        $this->assertEquals([
+            [[[11,12],[22,24]],
+             [[39,42],[52,56]]],
+            [[[75,80],[90,96]],
+             [[119,126],[136,144]]]
+        ],$z->toArray());
+
+        // multi array placeholder (left and right and left)
+        $x = $mo->array([[[1,2],[3,4]],[[5,6],[7,8]]]);         // x.shape = (2,2,2)
+        $y = $mo->array([[[11,12],[13,14]],[[15,16],[17,18]]]); // y.shape = (2,2,2)
+        $this->assertEquals([2,2,2],$x->shape());
+        $this->assertEquals([2,2,2],$y->shape());
+        $z = $la->einsum(' i...,...j-> ...ij',$x,$y);       // (iab,abj->abij)
+        $this->assertEquals([
+            [[[11,12],[55,60]],
+             [[26,28],[78,84]]],
+            [[[45,48],[105,112]],
+             [[68,72],[136,144]]]
+        ],$z->toArray());
+
+        // multi array placeholder (left and right and right)
+        $x = $mo->array([[[1,2],[3,4]],[[5,6],[7,8]]]);         // x.shape = (2,2,2)
+        $y = $mo->array([[[11,12],[13,14]],[[15,16],[17,18]]]); // y.shape = (2,2,2)
+        $this->assertEquals([2,2,2],$x->shape());
+        $this->assertEquals([2,2,2],$y->shape());
+        $z = $la->einsum(' i...,...j-> ij...',$x,$y);   // (iab,abj->ijab)
+        $this->assertEquals([
+            [[[11,26],[45,68]],
+             [[12,28],[48,72]]],
+            [[[55,78],[105,136]],
+             [[60,84],[112,144]]]
+        ],$z->toArray());
+
+        // broadcast mode with small array (left)
+        $x = $mo->array([[[1,2],[3,4]],[[5,6],[7,8]]]); // x.shape = (2,2,2)
+        $y = $mo->array([[9,10],[11,12]]);              // y.shape = (2,2)
+        $this->assertEquals([2,2,2],$x->shape());
+        $this->assertEquals([2,2],$y->shape());
+        $z = $la->einsum(' ...i,...i->...i ',$x,$y);    // (abi,bi->abi)
+        $this->assertEquals([
+            [[9,20],[33,48]],
+            [[45,60],[77,96]],
+        ],$z->toArray());
+
+        // broadcast mode with small array (right)
+        $x = $mo->array([[[1,2],[3,4]],[[5,6],[7,8]]]); // x.shape = (2,2,2)
+        $y = $mo->array([[9,10],[11,12]]);              // y.shape = (2,2)
+        $this->assertEquals([2,2,2],$x->shape());
+        $this->assertEquals([2,2],$y->shape());
+        $z = $la->einsum(' ...i,i...->...i ',$x,$y);    // (abi,ib->abi)
+        $this->assertEquals([
+            [[9,22],[30,48]],
+            [[45,66],[70,96]],
+        ],$z->toArray());
+
+        // broadcast mode with Collapsed array
+        $x = $mo->array([[[1,2],[3,4]],[[5,6],[7,8]]]); // x.shape = (2,2,2)
+        $y = $mo->array([[[9,10]],[[11,12]]]);          // y.shape = (2,1,2)
+        $this->assertEquals([2,2,2],$x->shape());
+        $this->assertEquals([2,1,2],$y->shape());
+        $z = $la->einsum(' ...i,...i->...i ',$x,$y);    // (abi,a0i->abi)
+        $this->assertEquals([
+            [[9,20],[27,40]],
+            [[55,72],[77,96]],
+        ],$z->toArray());
+
+        // placeholder only
+        $x = $mo->array([[[1,2],[3,4]],[[5,6],[7,8]]]); // x.shape = (2,2,2)
+        $z = $la->einsum(' ...->... ',$x);    // (abc->abc)
+        $this->assertEquals([[[1,2],[3,4]],[[5,6],[7,8]]],$z->toArray());
+
+        // indices with placeholder to placeholder only
+        $x = $mo->array([[[1,2],[3,4]],[[5,6],[7,8]]]); // x.shape = (2,2,2)
+        $z = $la->einsum(' ...i->... ',$x);    // (abc->abc)
+        $this->assertEquals([[3,7],[11,15]],$z->toArray());
+
+        // indices with placeholder and indices only
+        $x = $mo->array([[[1,2],[3,4]],[[5,6],[7,8]]]); // x.shape = (2,2,2)
+        $y = $mo->array([[9,10],[11,12]]);              // y.shape = (2,2)
+        $this->assertEquals([2,2,2],$x->shape());
+        $this->assertEquals([2,2],$y->shape());
+        $z = $la->einsum(' ...i,ij->...j ',$x,$y);    // (abi,ij->abj)
+        $this->assertEquals([
+            [[31,34],[71,78]],
+            [[111,122],[151,166]],
+        ],$z->toArray());
+
+    }
+
 }
