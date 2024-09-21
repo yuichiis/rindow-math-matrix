@@ -1669,6 +1669,44 @@ class PhpMath
         }
     }
 
+    public function softmaxb(
+        int $m,
+        int $n,
+        int $k,
+        Buffer $A, int $offsetA, int $ldA) : void
+    {
+        if($offsetA+($m-1)*$ldA+($n-1)>=count($A))
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
+
+        $idA = $offsetA;
+        for($i=0;$i<$m;$i++,$idA+=$ldA) {
+            //float t,max_a,sum_exp;
+            $max_a = $this->math_max($n,$A,$idA,1);
+            $sum_exp = 0;
+            for($j=0;$j<$n;$j++) {
+                $t = exp($A[$idA+$j]-$max_a);
+                $sum_exp += $t;
+                $A[$idA+$j] = $t;
+            }
+            if($sum_exp==0.0) {
+                throw new RuntimeException("Zero divide in softmax.");
+            }
+            for($j=0;$j<$n;$j++) {
+                $A[$idA+$j] = $A[$idA+$j] / $sum_exp;
+            }
+        }
+
+        //$idxA = $offsetA;
+        //$idxB = $offsetB;
+        //$ldA = $n*$k;
+        //$ldB = $k;
+        //for($i=0; $i<$m; $i++,$idxA+=$ldA,$idxB+=$ldB) {
+        //    for($j=0; $j<$k; $j++) {
+        //        $B[$idxB+$j] = $this->math_sum($n, $A, $idxA+$j, $k);
+        //    }
+        //}
+    }
+
     public function astype(
         int $n,
         int $dtype,
