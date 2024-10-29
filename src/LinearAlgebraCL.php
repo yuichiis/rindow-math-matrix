@@ -1779,7 +1779,7 @@ class LinearAlgebraCL
         bool $transB=null,
         bool $conjA=null,
         bool $conjB=null,
-        object $events=null) : NDArray
+        object $events=null,object $waitEvents=null) : NDArray
     {
         [$transA,$conjA] = $this->complementTrans($transA,$conjA,$A->dtype());
         [$transB,$conjB] = $this->complementTrans($transB,$conjB,$B->dtype());
@@ -1836,15 +1836,27 @@ class LinearAlgebraCL
         $transA = $this->transToCode($transA,$conjA);
         $transB = $this->transToCode($transB,$conjB);
 
-        $this->blas->gemm(
-            BLAS::RowMajor,$transA,$transB,
-            $M,$N,$K,
-            $alpha,
-            $AA,$offA,$lda,
-            $BB,$offB,$ldb,
-            $beta,
-            $CC,$offC,$ldc,
-            $this->queue,$events);
+        if($this->isComplex($A->dtype())) {
+            $this->blas->gemm(
+                BLAS::RowMajor,$transA,$transB,
+                $M,$N,$K,
+                $alpha,
+                $AA,$offA,$lda,
+                $BB,$offB,$ldb,
+                $beta,
+                $CC,$offC,$ldc,
+                $this->queue,$events);
+        } else {
+            $this->openclmath->gemm(
+                BLAS::RowMajor,$transA,$transB,
+                $M,$N,$K,
+                $alpha,
+                $AA,$offA,$lda,
+                $BB,$offB,$ldb,
+                $beta,
+                $CC,$offC,$ldc,
+                $events);
+        }
 
         if($this->blocking) {
             $this->finish();

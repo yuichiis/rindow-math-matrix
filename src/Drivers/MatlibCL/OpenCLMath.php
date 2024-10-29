@@ -10,6 +10,7 @@ use Interop\Polite\Math\Matrix\OpenCL;
 use Interop\Polite\Math\Matrix\LinearBuffer as HostBufferInterface;
 use Interop\Polite\Math\Matrix\DeviceBuffer as BufferInterface;
 use Interop\Polite\Math\Matrix\Buffer as AnyBuffer;
+use Interop\Polite\Math\Matrix\BLAS;
 use Rindow\Math\Matrix\NDArrayPhp;
 use Rindow\Math\Matrix\NDArrayCL;
 use Rindow\Math\Matrix\Drivers\Service;
@@ -7568,6 +7569,182 @@ EOT;
         $kernel->setArg(3,$offset,NDArray::uint32);
         $kernel->setArg(4,$lower,NDArray::uint32);
         $kernel->setArg(5,$upper,NDArray::uint32);
+        $global_work_size = [$m,$n];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
+            $events,$waitEvents);
+    }
+
+    protected function assertShapeParameter(
+        string $name, int $n) : void
+    {
+        if($n<1) {
+            throw new InvalidArgumentException("Argument $name must be greater than 0.");
+        }
+    }
+    
+    protected function assertMatrixBufferSpec(
+        string $name, BufferInterface $buffer,
+        int $m, int $n, int $offset, int $ld) : void
+    {
+        if($offset<0) {
+            throw new InvalidArgumentException("Argument offset$name must be greater than equals 0.");
+        }
+        if($ld<1) {
+            throw new InvalidArgumentException("Argument ld$name must be greater than 0.");
+        }
+        if($offset+($m-1)*$ld+($n-1) >= count($buffer)) {
+            throw new InvalidArgumentException("Matrix specification too large for buffer$name.");
+        }
+    }
+
+    /**
+     * @param  int $trans BLAS::NoTrans, BLAS::Trans, BLAS::ConjTrans, BLAS::ConjNoTrans
+     * @return array<bool> [bool $trans, bool $conj]
+     */
+    protected function codeToTrans(int $trans) : array
+    {
+        switch($trans) {
+            case BLAS::NoTrans: {
+                return [false,false];
+            }
+            case BLAS::Trans: {
+                return [true,false];
+            }
+            case BLAS::ConjTrans: {
+                return [true,true];
+            }
+            case BLAS::ConjNoTrans: {
+                return [false,true];
+            }
+            default: {
+                throw new InvalidArgumentException('Unknown Tranpose Code: '.$trans);
+            }
+        }
+    }
+
+    protected function cleanFloatNumber(mixed $value,string $name) : float
+    {
+        if(!is_numeric($value)) {
+            throw new RuntimeException("$name is not float");
+        }
+        return (float)$value;
+    }
+
+    public function gemm(
+        int $order,
+        int $transA,
+        int $transB,
+        int $m,
+        int $n,
+        int $k,
+        float|object $alpha,
+        BufferInterface $A, int $offsetA, int $ldA,
+        BufferInterface $B, int $offsetB, int $ldB,
+        float|object $beta,
+        BufferInterface $C, int $offsetC, int $ldC,
+        object $events=null, object $waitEvents=null
+        ) : void
+    {
+        if($order==BLAS::ColMajor) {
+            [$m,$n] = [$n,$m];
+        } elseif($order!=BLAS::RowMajor) {
+            throw new InvalidArgumentException('Invalid Order type');
+        }
+        [$transA,$conjA] = $this->codeToTrans($transA);
+        [$transB,$conjB] = $this->codeToTrans($transB);
+
+        $this->assertShapeParameter('m',$m);
+        $this->assertShapeParameter('n',$n);
+        $this->assertShapeParameter('k',$k);
+
+        $rowsA = (!$transA) ? $m : $k;
+        $colsA = (!$transA) ? $k : $m;
+        $rowsB = (!$transB) ? $k : $n;
+        $colsB = (!$transB) ? $n : $k;
+
+        $this->assertMatrixBufferSpec("A", $A, $rowsA, $colsA, $offsetA, $ldA);
+        $this->assertMatrixBufferSpec("B", $B, $rowsB, $colsB, $offsetB, $ldB);
+        $this->assertMatrixBufferSpec("C", $C, $m, $n, $offsetC, $ldC);
+
+        $ldA_m = (!$transA) ? $ldA : 1;
+        $ldA_k = (!$transA) ? 1 : $ldA;
+        $ldB_k = (!$transB) ? $ldB : 1;
+        $ldB_n = (!$transB) ? 1 : $ldB;
+
+        //$idA_m = $offsetA;
+        //$idC_m = $offsetC;
+        $alpha = $this->cleanFloatNumber($alpha,'alpha');
+        $beta = $this->cleanFloatNumber($beta,'beta');
+        //for ($im=0; $im<$m; $im++,$idA_m+=$ldA_m,$idC_m+=$ldC) {
+        //    $idB_n = $offsetB;
+        //    $idC = $idC_m;
+        //    for ($in=0; $in<$n; $in++,$idB_n+=$ldB_n,$idC++) {
+        //        $idA = $idA_m;
+        //        $idB = $idB_n;
+        //        $acc = 0.0;
+        //        for ($ik=0; $ik<$k; $ik++,$idA+=$ldA_k,$idB+=$ldB_k) {
+        //            $acc += $A[$idA] * $B[$idB];
+        //        }
+        //        if($beta==0.0) {
+        //            $C[$idC] = $alpha * $acc;
+        //        } else {
+        //            $C[$idC] = $alpha * $acc + $beta * $C[$idC];
+        //        }
+        //    }
+        //}
+        $dtype = $A->dtype();
+        if($dtype==NDArray::float64) {
+            $this->assertFP64();
+        }
+        $type = $this->dtypeToOpenCLType[$dtype];
+        $kernel_name = "bandpart_{$type}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+                "__kernel void {$kernel_name}(\n".
+                "    const        int k,\n".
+                "    const        {$type} alpha,\n".
+                "        __global {$type} * a,\n".
+                "    const        int offsetA,\n".
+                "    const        int ldA_m,\n".
+                "    const        int ldA_k,\n".
+                "        __global {$type} * b,\n".
+                "    const        int offsetB,\n".
+                "    const        int ldB_n,\n".
+                "    const        int ldB_k,\n".
+                "    const        {$type} beta,\n".
+                "        __global {$type} * c,\n".
+                "    const        int offsetC,\n".
+                "    const        int ldC)\n".
+                "{\n".
+                "    int i = get_global_id(0);\n".
+                "    int j = get_global_id(1);\n".
+                "    int posC = offsetC+i*ldC+j;\n".
+                "    {$type} acc = 0.0;\n".
+                "    for(int p=0;p<k;p++) {\n".
+                "        acc += a[offsetA+i*ldA_m+p*ldA_k]*b[offsetB+j*ldB_n+p*ldB_k];\n".
+                "    }\n".
+                "    if(beta==0.0) {\n".
+                "        c[posC] = alpha*acc;\n".
+                "    } else {\n".
+                "        c[posC] = alpha*acc + beta*c[posC];\n".
+                "    }\n".
+                "}\n";
+        }
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$k,NDArray::uint32);
+        $kernel->setArg(1,$alpha,$dtype);
+        $kernel->setArg(2,$A);
+        $kernel->setArg(3,$offsetA,NDArray::uint32);
+        $kernel->setArg(4,$ldA_m,NDArray::uint32);
+        $kernel->setArg(5,$ldA_k,NDArray::uint32);
+        $kernel->setArg(6,$B);
+        $kernel->setArg(7,$offsetB,NDArray::uint32);
+        $kernel->setArg(8,$ldB_n,NDArray::uint32);
+        $kernel->setArg(9,$ldB_k,NDArray::uint32);
+        $kernel->setArg(10,$beta,$dtype);
+        $kernel->setArg(11,$C);
+        $kernel->setArg(12,$offsetC,NDArray::uint32);
+        $kernel->setArg(13,$ldC,NDArray::uint32);
         $global_work_size = [$m,$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
