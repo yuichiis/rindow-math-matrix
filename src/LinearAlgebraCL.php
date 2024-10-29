@@ -27,6 +27,7 @@ class LinearAlgebraCL
     protected object $blas;
     protected object $lapack;
     protected object $math;
+    protected object $blas2;
     protected object $openclmath;
     protected object $openblasmath;
     protected int $defaultFloatType = NDArray::float32;
@@ -64,6 +65,7 @@ class LinearAlgebraCL
         $this->blas = $service->blasCL($queue);
         $this->lapack = $service->lapack(Service::LV_ADVANCED);
         $this->math = $service->mathCLBlast($queue);
+        $this->blas2 = $service->blasCL2($queue);
         $this->openclmath = $service->mathCL($queue);
         $this->openblasmath = $service->math(Service::LV_ADVANCED);
         if($defaultFloatType!==null) {
@@ -847,7 +849,8 @@ class LinearAlgebraCL
     public function copy(
         NDArray $X,
         NDArray $Y=null,
-        object $events=null) : NDArray
+        object $events=null, object $waitEvents=null,
+        ) : NDArray
     {
         if($this->profiling) {
             $this->profilingStart("copy");
@@ -865,7 +868,8 @@ class LinearAlgebraCL
         $offX = $X->offset();
         $YY = $Y->buffer();
         $offY = $Y->offset();
-        $this->blas->copy($N,$XX,$offX,1,$YY,$offY,1,$this->queue,$events);
+        //$this->blas->copy($N,$XX,$offX,1,$YY,$offY,1,$this->queue,$events);
+        $this->blas2->copy($N,$XX,$offX,1,$YY,$offY,1,$events,$waitEvents);
         if($this->blocking) {
             $this->finish();
         }
@@ -881,7 +885,8 @@ class LinearAlgebraCL
     public function scal(
         float|object $alpha,
         NDArray $X,
-        object $events=null) : NDArray
+        object $events=null, object $waitEvents=null,
+        ) : NDArray
     {
         if($this->profiling) {
             $this->profilingStart("scal");
@@ -889,7 +894,8 @@ class LinearAlgebraCL
         $N = $X->size();
         $XX = $X->buffer();
         $offX = $X->offset();
-        $this->blas->scal($N,$alpha,$XX,$offX,1,$this->queue,$events);
+        //$this->blas->scal($N,$alpha,$XX,$offX,1,$this->queue,$events);
+        $this->blas2->scal($N,$alpha,$XX,$offX,1,$events,$waitEvents);
         if($this->blocking) {
             $this->finish();
         }
@@ -906,7 +912,8 @@ class LinearAlgebraCL
         NDArray $X,
         NDArray $Y,
         float|object $alpha=null,
-        object $events=null) : NDArray
+        object $events=null, object $waitEvents=null,
+        ) : NDArray
     {
         if($this->profiling) {
             $this->profilingStart("axpy");
@@ -923,7 +930,8 @@ class LinearAlgebraCL
         if($alpha===null) {
             $alpha = $this->buildValByType(1.0,$X->dtype());
         }
-        $this->blas->axpy($N,$alpha,$XX,$offX,1,$YY,$offY,1,$this->queue,$events);
+        //$this->blas->axpy($N,$alpha,$XX,$offX,1,$YY,$offY,1,$this->queue,$events);
+        $this->blas2->axpy($N,$alpha,$XX,$offX,1,$YY,$offY,1,$events,$waitEvents);
         if($this->blocking) {
             $this->finish();
         }
@@ -1847,7 +1855,7 @@ class LinearAlgebraCL
                 $CC,$offC,$ldc,
                 $this->queue,$events);
         } else {
-            $this->openclmath->gemm(
+            $this->blas2->gemm(
                 BLAS::RowMajor,$transA,$transB,
                 $M,$N,$K,
                 $alpha,
@@ -2468,8 +2476,7 @@ class LinearAlgebraCL
     public function sum(
         NDArray $X,
         NDArray $R=null,
-        object $events=null
-        //object $waitEvents=null
+        object $events=null, object $waitEvents=null,
         ) : mixed
     {
         if($this->profiling) {
@@ -2484,11 +2491,11 @@ class LinearAlgebraCL
         $XX = $X->buffer();
         $offX = $X->offset();
         $dtype = $X->dtype();
-        if($dtype==NDArray::float32 || $dtype==NDArray::float64) {
-            $this->math->sum($N,$RR,$offR,$XX,$offX,1,$this->queue,$events);
-        } else {
-            $this->openclmath->sum($N,$RR,$offR,$XX,$offX,1,$events,null);
-        }
+        //if($dtype==NDArray::float32 || $dtype==NDArray::float64) {
+        //    $this->math->sum($N,$RR,$offR,$XX,$offX,1,$this->queue,$events);
+        //} else {
+            $this->openclmath->sum($N,$RR,$offR,$XX,$offX,1,$events,$waitEvents);
+        //}
         if($this->blocking) {
             $this->finish();
         }

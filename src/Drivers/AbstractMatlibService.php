@@ -325,6 +325,11 @@ abstract class AbstractMatlibService implements Service
         return $this->blasCLFactory()->Blas($queue, service:$this);
     }
 
+    public function blasCL2(object $queue) : object
+    {
+        return $this->mathCLFactory()->Blas($queue, service:$this);
+    }
+
     public function mathCL(object $queue) : object
     {
         return $this->mathCLFactory()->Math($queue, service:$this);
