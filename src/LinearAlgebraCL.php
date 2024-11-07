@@ -27,7 +27,7 @@ class LinearAlgebraCL
     protected object $blas;
     protected object $lapack;
     protected object $math;
-    protected object $blas2;
+    //protected object $blas2;
     protected object $openclmath;
     protected object $openblasmath;
     protected int $defaultFloatType = NDArray::float32;
@@ -65,7 +65,7 @@ class LinearAlgebraCL
         $this->blas = $service->blasCL($queue);
         $this->lapack = $service->lapack(Service::LV_ADVANCED);
         $this->math = $service->mathCLBlast($queue);
-        $this->blas2 = $service->blasCL2($queue);
+        //$this->blas2 = $service->blasCL2($queue);
         $this->openclmath = $service->mathCL($queue);
         $this->openblasmath = $service->math(Service::LV_ADVANCED);
         if($defaultFloatType!==null) {
@@ -868,8 +868,8 @@ class LinearAlgebraCL
         $offX = $X->offset();
         $YY = $Y->buffer();
         $offY = $Y->offset();
-        //$this->blas->copy($N,$XX,$offX,1,$YY,$offY,1,$this->queue,$events);
-        $this->blas2->copy($N,$XX,$offX,1,$YY,$offY,1,$events,$waitEvents);
+        $this->blas->copy($N,$XX,$offX,1,$YY,$offY,1,$this->queue,$events);
+        //$this->blas2->copy($N,$XX,$offX,1,$YY,$offY,1,$events,$waitEvents);
         if($this->blocking) {
             $this->finish();
         }
@@ -894,8 +894,8 @@ class LinearAlgebraCL
         $N = $X->size();
         $XX = $X->buffer();
         $offX = $X->offset();
-        //$this->blas->scal($N,$alpha,$XX,$offX,1,$this->queue,$events);
-        $this->blas2->scal($N,$alpha,$XX,$offX,1,$events,$waitEvents);
+        $this->blas->scal($N,$alpha,$XX,$offX,1,$this->queue,$events);
+        //$this->blas2->scal($N,$alpha,$XX,$offX,1,$events,$waitEvents);
         if($this->blocking) {
             $this->finish();
         }
@@ -930,8 +930,8 @@ class LinearAlgebraCL
         if($alpha===null) {
             $alpha = $this->buildValByType(1.0,$X->dtype());
         }
-        //$this->blas->axpy($N,$alpha,$XX,$offX,1,$YY,$offY,1,$this->queue,$events);
-        $this->blas2->axpy($N,$alpha,$XX,$offX,1,$YY,$offY,1,$events,$waitEvents);
+        $this->blas->axpy($N,$alpha,$XX,$offX,1,$YY,$offY,1,$this->queue,$events);
+        //$this->blas2->axpy($N,$alpha,$XX,$offX,1,$YY,$offY,1,$events,$waitEvents);
         if($this->blocking) {
             $this->finish();
         }
@@ -1844,7 +1844,6 @@ class LinearAlgebraCL
         $transA = $this->transToCode($transA,$conjA);
         $transB = $this->transToCode($transB,$conjB);
 
-        if($this->isComplex($A->dtype())) {
             $this->blas->gemm(
                 BLAS::RowMajor,$transA,$transB,
                 $M,$N,$K,
@@ -1854,17 +1853,15 @@ class LinearAlgebraCL
                 $beta,
                 $CC,$offC,$ldc,
                 $this->queue,$events);
-        } else {
-            $this->blas2->gemm(
-                BLAS::RowMajor,$transA,$transB,
-                $M,$N,$K,
-                $alpha,
-                $AA,$offA,$lda,
-                $BB,$offB,$ldb,
-                $beta,
-                $CC,$offC,$ldc,
-                $events);
-        }
+        //    $this->blas2->gemm(
+        //        BLAS::RowMajor,$transA,$transB,
+        //        $M,$N,$K,
+        //        $alpha,
+        //        $AA,$offA,$lda,
+        //        $BB,$offB,$ldb,
+        //        $beta,
+        //        $CC,$offC,$ldc,
+        //        $events,$waitEvents);
 
         if($this->blocking) {
             $this->finish();

@@ -604,7 +604,7 @@ class OpenCLBlas
         if(!$this->isComplex($dtype)) {
             $alpha = $this->cleanFloatNumber($alpha,'alpha');
             $beta = $this->cleanFloatNumber($beta,'beta');
-                $kernel_name = "gemm_{$type}";
+            $kernel_name = "gemm_{$type}";
             if(!isset($this->sources[$kernel_name])) {
                 $this->sources[$kernel_name] =
                     "__kernel void {$kernel_name}(\n".
@@ -653,8 +653,12 @@ class OpenCLBlas
             $kernel->setArg(12,$offsetC,NDArray::uint32);
             $kernel->setArg(13,$ldC,NDArray::uint32);
         } else {
+            $conjA = $conjA ? 1:0;
+            $conjB = $conjB ? 1:0;
             $alpha = $this->cleanComplexNumber($alpha,'alpha');
             $beta = $this->cleanComplexNumber($beta,'beta');
+            //$hasAlpha = !$this->cisone($alpha);
+            $hasBeta = (!$this->ciszero($beta)) ? 1:0;
             $kernel_name = "cgemm_{$type}";
             if(!isset($this->sources[$kernel_name])) {
                 $this->sources[$kernel_name] =
@@ -674,37 +678,67 @@ class OpenCLBlas
                     "    const        {$type} beta_imag,\n".
                     "        __global {$type} * c,\n".
                     "    const        int offsetC,\n".
-                    "    const        int ldC)\n".
+                    "    const        int ldC,\n".
+                    "    const        int conjA,\n".
+                    "    const        int conjB,\n".
+                    "    const        int hasBeta)\n".
                     "{\n".
                     "    int i = get_global_id(0);\n".
                     "    int j = get_global_id(1);\n".
-                    "    int posC = offsetC+i*ldC+j;\n".
-                    "    {$type} acc = 0.0;\n".
+                    "    int posC = (offsetC+i*ldC+j)*2;\n".
+                    "    {$type} acc_real = 0.0;\n".
+                    "    {$type} acc_imag = 0.0;\n".
                     "    for(int p=0;p<k;p++) {\n".
-                    "        acc += a[offsetA+i*ldA_m+p*ldA_k]*b[offsetB+j*ldB_n+p*ldB_k];\n".
+                    "        int posA = (offsetA+i*ldA_m+p*ldA_k)*2;\n".
+                    "        int posB = (offsetB+j*ldB_n+p*ldB_k)*2;\n".
+                    "        {$type} valueA_real = a[posA];\n".
+                    "        {$type} valueA_imag = a[posA+1];\n".
+                    "        {$type} valueB_real = b[posB];\n".
+                    "        {$type} valueB_imag = b[posB+1];\n".
+                    "        if(conjA) {\n".
+                    "            valueA_imag = -valueA_imag;\n".
+                    "        }\n".
+                    "        if(conjB) {\n".
+                    "            valueB_imag = -valueB_imag;\n".
+                    "        }\n".
+                    "        acc_real += valueA_real*valueB_real - valueA_imag*valueB_imag;\n".
+                    "        acc_imag += valueA_real*valueB_imag + valueA_imag*valueB_real;\n".
                     "    }\n".
-                    "    if(beta==0.0) {\n".
-                    "        c[posC] = alpha*acc;\n".
-                    "    } else {\n".
-                    "        c[posC] = alpha*acc + beta*c[posC];\n".
+                    "    {$type} tmp_real = alpha_real*acc_real - alpha_imag*acc_imag;\n".
+                    "    {$type} tmp_imag = alpha_real*acc_imag + alpha_imag*acc_real;\n".
+                    "    acc_real = tmp_real;\n".
+                    "    acc_imag = tmp_imag;\n".
+                    "    if(hasBeta) {\n".
+                    "        {$type} valueC_real = beta_real*c[posC]   - beta_imag*c[posC+1];\n".
+                    "        {$type} valueC_imag = beta_real*c[posC+1] + beta_imag*c[posC];\n".
+                    "        acc_real += valueC_real;\n".
+                    "        acc_imag += valueC_imag;\n".
                     "    }\n".
+                    "    c[posC]   = acc_real;\n".
+                    "    c[posC+1] = acc_imag;\n".
                     "}\n";
             }
+            $dtype = ($dtype==NDArray::complex64) ? NDArray::float32 : NDArray::float64;
             $kernel = $this->createKernel($kernel_name);
             $kernel->setArg(0,$k,NDArray::uint32);
-            $kernel->setArg(1,$alpha,$dtype);
-            $kernel->setArg(2,$A);
-            $kernel->setArg(3,$offsetA,NDArray::uint32);
-            $kernel->setArg(4,$ldA_m,NDArray::uint32);
-            $kernel->setArg(5,$ldA_k,NDArray::uint32);
-            $kernel->setArg(6,$B);
-            $kernel->setArg(7,$offsetB,NDArray::uint32);
-            $kernel->setArg(8,$ldB_n,NDArray::uint32);
-            $kernel->setArg(9,$ldB_k,NDArray::uint32);
-            $kernel->setArg(10,$beta,$dtype);
-            $kernel->setArg(11,$C);
-            $kernel->setArg(12,$offsetC,NDArray::uint32);
-            $kernel->setArg(13,$ldC,NDArray::uint32);
+            $kernel->setArg(1,$alpha->real,$dtype);
+            $kernel->setArg(2,$alpha->imag,$dtype);
+            $kernel->setArg(3,$A);
+            $kernel->setArg(4,$offsetA,NDArray::uint32);
+            $kernel->setArg(5,$ldA_m,NDArray::uint32);
+            $kernel->setArg(6,$ldA_k,NDArray::uint32);
+            $kernel->setArg(7,$B);
+            $kernel->setArg(8,$offsetB,NDArray::uint32);
+            $kernel->setArg(9,$ldB_n,NDArray::uint32);
+            $kernel->setArg(10,$ldB_k,NDArray::uint32);
+            $kernel->setArg(11,$beta->real,$dtype);
+            $kernel->setArg(12,$beta->imag,$dtype);
+            $kernel->setArg(13,$C);
+            $kernel->setArg(14,$offsetC,NDArray::uint32);
+            $kernel->setArg(15,$ldC,NDArray::uint32);
+            $kernel->setArg(16,$conjA,NDArray::uint32);
+            $kernel->setArg(17,$conjB,NDArray::uint32);
+            $kernel->setArg(18,$hasBeta,NDArray::uint32);
         }
         $global_work_size = [$m,$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
