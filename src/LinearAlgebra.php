@@ -1853,16 +1853,19 @@ class LinearAlgebra
         }
         $shapeX = $X->shape();
         $shapeA = $A->shape();
-        if($trans)
+        if($trans) {
             $shapeA = array_reverse($shapeA);
+        }
         while(true) {
             $xd = array_pop($shapeX);
-            if($xd===null)
+            if($xd===null) {
                 break;
+            }
             $ad = array_pop($shapeA);
-            if($xd!==$ad)
+            if($xd!==$ad) {
                 throw new InvalidArgumentException('Unmatch dimension size for broadcast.: '.
                     '['.implode(',',$X->shape()).'] => ['.implode(',',$A->shape()).']');
+            }
         }
         $n = $X->size();
         $XX = $X->buffer();
@@ -1880,7 +1883,8 @@ class LinearAlgebra
             $n,
             $alpha,
             $XX,$offX,1,
-            $AA,$offA,$n);
+            $AA,$offA,$n
+        );
 
         return $A;
     }
