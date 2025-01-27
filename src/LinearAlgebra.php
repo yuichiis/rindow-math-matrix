@@ -5247,6 +5247,106 @@ class LinearAlgebra
         return $outputs;
     }
 
+    /**
+     *    A(m,n,k) := A(m,n,k) : X(m,k) = True
+     *                0        : X(m,k) = False
+     */
+    public function masking(
+        NDArray $mask,
+        NDArray $data,
+        int $batchDims=null,
+        int $axis=null,
+        float $fill=null,
+        ) : NDArray
+    {
+
+        if($mask->dtype()!=NDArray::bool) {
+            $types = $this->dtypeToString[$mask->dtype()];
+            throw new InvalidArgumentException('dtype of mask must be bool. :'.$types);
+        }
+        $batchDims ??= 0;
+        if($batchDims<0) {
+            $batchDims += $data->ndim();
+        }
+        if($batchDims>$data->ndim()) {
+            throw new InvalidArgumentException(
+                "batchDims ($batchDims) must be less than dims of data (".$data->ndim().") or equal."
+            );
+        }
+        $axis ??= $batchDims;
+        if($axis<0) {
+            $axis += $data->ndim();
+        }
+        if($axis>$data->ndim()) {
+            throw new InvalidArgumentException(
+                "axis ($axis) must be less than to ndims of data (".$data->ndim().")"
+            );
+        }
+        if($batchDims>$axis) {
+            if($axis==0) {
+                $batchDims = 0;
+            } else {
+                throw new InvalidArgumentException("batchDims ($batchDims) must be less than or equal to axis ($axis)");
+            }
+        }
+        $fill ??= 0;
+
+        //echo "data  sh: ".$this->printableShapes($data->shape())."\n";
+        //echo "mask sh: ".$this->printableShapes($mask->shape())."\n";
+        //echo "batchDims: ".$batchDims."\n";
+        // data
+        $outerShape = $data->shape();
+        $brodacastShape = array_splice($outerShape, $batchDims);
+        $innerShape = array_splice($brodacastShape, $axis-$batchDims);
+        // mask
+        $outerShapeX = $mask->shape();
+        $innerShapeX = array_splice($outerShapeX, $batchDims);
+
+        //echo "mask: ".$this->printableShapes($mask->shape())."\n";
+        //echo "data: ".$this->printableShapes($data->shape())."\n";
+        //echo "batchDims: ".$batchDims."\n";
+        //echo "axis: ".$axis."\n";
+        //echo "outerShape: ".$this->printableShapes($outerShape)."\n";
+        //echo "brodacastShape: ".$this->printableShapes($brodacastShape)."\n";
+        //echo "innerShape: ".$this->printableShapes($innerShape)."\n";
+        //echo "outerShapeX: ".$this->printableShapes($outerShapeX)."\n";
+        //echo "innerShapeX: ".$this->printableShapes($innerShapeX)."\n";
+
+        if($outerShape!=$outerShapeX) {
+            throw new InvalidArgumentException('Unmatch dimension outer shape.: '.
+                'mask('.implode(',',$mask->shape()).') => data('.implode(',',$data->shape()).')');
+        }
+        if($innerShape!=$innerShapeX) {
+            throw new InvalidArgumentException('Unmatch dimension inner shape.: '.
+                'mask('.implode(',',$mask->shape()).') => data('.implode(',',$data->shape()).')');
+        }
+        $m = (int)array_product($outerShape);
+        $n = (int)array_product($brodacastShape);
+        $k = (int)array_product($innerShape);
+
+        if($n==1) {
+            $k = $m*$k;
+            $m = 1;
+        }
+        //echo "m=$m,n=$n,k=$k\n";
+
+        $XX = $mask->buffer();
+        $offX = $mask->offset();
+        $AA = $data->buffer();
+        $offA = $data->offset();
+
+        $this->math->masking(  // tempolary implements
+            $m,
+            $n,
+            $k,
+            $fill,
+            $XX,$offX,
+            $AA,$offA,
+        );
+
+        return $data;
+    }
+
     public function isclose(NDArray $a, NDArray $b, float|object $rtol=null, float $atol=null) : bool
     {
         $isCpx = $this->isComplexDtype($a->dtype());

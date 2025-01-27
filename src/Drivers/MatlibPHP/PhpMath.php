@@ -3221,4 +3221,40 @@ class PhpMath
             }
         }
     }
+
+    /**
+     *    A(m,n,k) := A(m,n,k)   : X(m,k) = True
+     *                fill_value : X(m,k) = False
+     */
+    public function masking(
+        int $m,
+        int $n,
+        int $k,
+        float $fill,
+        Buffer $X, int $offsetX,
+        Buffer $A, int $offsetA,
+        ) : void
+    {
+        if($X->dtype()!=NDArray::bool) {
+            throw new InvalidArgumentException('dtype of X must be bool.');
+        }
+
+        if($offsetX+$m*$k > count($X)) {
+            throw new InvalidArgumentException('Matrix specification too large for buffer X.');
+        }
+        if($offsetA+$m*$n*$k > count($A)) {
+            throw new InvalidArgumentException('Matrix specification too large for buffer A.');
+        }
+
+        for($i=0; $i<$m; $i++) {
+            for($j=0; $j<$n; $j++) {
+                for($h=0; $h<$k; $h++) {
+                    if(!$X[$offsetX + $i*$k+$h]) {
+                        $A[$offsetA + ($i*$n+$j)*$k+$h] = $fill;
+                    }
+                }
+            }
+        }
+    }
+
 }

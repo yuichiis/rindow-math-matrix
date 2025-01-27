@@ -7574,4 +7574,69 @@ EOT;
             $events,$waitEvents);
     }
 
+    /**
+     *    A(m,n,k) := A(m,n,k)   : X(m,k) = True
+     *                fill_value : X(m,k) = False
+     */
+    public function masking(
+        int $m,
+        int $n,
+        int $k,
+        float $fill,
+        BufferInterface $X, int $offsetX,
+        BufferInterface $A, int $offsetA,
+        object $events=null, object $waitEvents=null
+        ) : void
+    {
+        if($X->dtype()!=NDArray::bool) {
+            throw new InvalidArgumentException('dtype of X must be bool.');
+        }
+
+        if($offsetX+$m*$k > count($X)) {
+            throw new InvalidArgumentException('Matrix specification too large for buffer X.');
+        }
+        if($offsetA+$m*$n*$k > count($A)) {
+            throw new InvalidArgumentException('Matrix specification too large for buffer A.');
+        }
+
+        $dtypeA = $A->dtype();
+        if($dtypeA==NDArray::float64) {
+            $this->assertFP64();
+        }
+        $type = $this->dtypeToOpenCLType[$dtypeA];
+        $booltype = $this->dtypeToOpenCLType[NDArray::bool];
+        $kernel_name = "masking_{$type}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+                "__kernel void {$kernel_name}(\n".
+                "    const        uint n,\n".
+                "    const        uint k,\n".
+                "    const        {$type} fill,\n".
+                "    const global {$booltype} * x,\n".
+                "    const        uint offset_x,\n".
+                "        __global {$type} * a,\n".
+                "    const        uint offset_a)\n".
+                "{\n".
+                "    const uint i = get_global_id(0);\n".
+                "    const uint j = get_global_id(1);\n".
+                "    const uint h = get_global_id(2);\n".
+                "    const uint index_x = offset_x + i*k+h;\n".
+                "    const uint index_a = offset_a + (i*n+j)*k+h;\n".
+                "    if(!x[index_x]) {\n".
+                "        a[index_a] = fill;\n".
+                "    }\n".
+                "}\n";
+        }
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$n,NDArray::uint32);
+        $kernel->setArg(1,$k,NDArray::uint32);
+        $kernel->setArg(2,$fill,$dtypeA);
+        $kernel->setArg(3,$X);
+        $kernel->setArg(4,$offsetX,NDArray::uint32);
+        $kernel->setArg(5,$A);
+        $kernel->setArg(6,$offsetA,NDArray::uint32);
+        $global_work_size = [$m,$n,$k];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
+            $events,$waitEvents);
+    }
 }

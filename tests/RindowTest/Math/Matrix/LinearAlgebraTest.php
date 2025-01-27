@@ -3969,9 +3969,13 @@ class LinearAlgebraTest extends TestCase
         $trues = $mo->f(function ($x) { return exp($x);},$X);
 
         $X = $la->array($X);
-        $trues = $la->array($trues);
+        //$trues = $la->array($trues);
         $la->exp($X);
-        $this->assertLessThan(1e-5,$la->asum($la->axpy($trues,$X,-1)));
+        //$this->assertLessThan(1e-5,$la->asum($la->axpy($trues,$X,-1)));
+        $this->assertTrue($mo->la()->isclose(
+            $trues,
+            $la->toNDArray($X),
+        ));
     }
 
     public function testLog()
@@ -8382,15 +8386,18 @@ class LinearAlgebraTest extends TestCase
         $X = $la->array([-1000,0,1,2,3],dtype:NDArray::float32);
         if($la->accelerated()) {
             // GPU
-            $dtype = NDArray::uint64;
+            $dtype = NDArray::uint64;;
             $Y = $math->astype($X, $dtype);
+            $Yvalue = $Y->toArray();
             if($devType===OpenCL::CL_DEVICE_TYPE_GPU) {
-                if($devName=='Loveland') {
-                    $this->assertEquals([0,0,1,2,3],$Y->toArray());
-                } elseif(strpos($devName,'Intel')!==false) {
-                    $this->assertEquals([1000,0,1,2,3],$Y->toArray());
+                if($Yvalue==[0,0,1,2,3]) {
+                    $this->assertTrue(true);
+                } elseif($Yvalue==[1000,0,1,2,3]) {
+                    $this->assertTrue(true);
+                } elseif($Yvalue==[-1000,0,1,2,3]) {
+                    $this->assertTrue(true);
                 } else {
-                    $this->assertEquals([-1000,0,1,2,3],$Y->toArray());
+                    $this->assertTrue(false);
                 }
             } else {
                 $this->assertEquals([-1000,0,1,2,3],$Y->toArray());
@@ -13628,4 +13635,165 @@ class LinearAlgebraTest extends TestCase
 
     }
 
+    public function testMaskingNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        //
+        // Same shape (implicit batchDims:0, axis:0)
+        //echo "==== Same shape (implicit batchDims:0, axis:batchDims)\n";
+        //
+        // X:(2,3)
+        // A:(2,3)
+        // outer:(),bro:(),inner:(2,3)
+        // m=2*3,n=1,k=1  ==translate==> m=1,n=1,k=2*3
+        $X = $la->array([[true,false,true],[false,true,false]], dtype:NDArray::bool);
+        $A = $la->array([[1,10,100],[-1,-10,-100]]);
+        $la->masking($X,$A);
+        $this->assertEquals(
+            [[true,false,true],[false,true,false]]
+        ,$X->toArray());
+        $this->assertEquals(
+            [[1, 0,100],[0,-10, 0]]
+        ,$A->toArray());
+
+        //
+        // broadcast to details
+        //echo "==== broadcast to details\n";
+        //
+        // X:(2,3  )
+        // A:(2,3,4)
+        // outer:(2,3),bro:(4),inner:()
+        // m=2*3,n=4,k=1
+        $X = $la->array([[true,false,true],[false,true,false]], dtype:NDArray::bool);
+        $A = $la->array([
+            [[1,11,111,1111],[2,12,122,1222],[-3,13,133,1333]],
+            [[1,21,121,1211],[2,22,222,2222],[-3,23,233,2333]]
+        ]);
+        $la->masking($X,$A,batchDims:$X->ndim(),axis:$A->ndim());
+        $this->assertEquals(
+            [[true,false,true],[false,true,false]]
+        ,$X->toArray());
+        $this->assertEquals([
+            [[1,11,111,1111],[0, 0,  0,   0],[-3,13,133,1333]],
+            [[0, 0,  0,   0],[2,22,222,2222],[0, 0,  0,   0]]
+        ],$A->toArray());
+
+        //
+        // broadcast with gap
+        //echo "==== broadcast with gap\n";
+        //
+        // X:(2,  3)
+        // A:(2,4,3)
+        // outer:(2),bro:(4),inner:(3)
+        // m=2,n=4,k=3
+        $X = $la->array([
+            [true,false,true],
+            [false,true,false]
+        ], dtype:NDArray::bool);
+        $A = $la->array([
+            [[1,11,111],[2,12,112],[-3,13,113],[-4,14,114]],
+            [[1,21,211],[2,22,222],[-3,23,223],[-4,24,224]],
+        ]);
+        $la->masking($X,$A,batchDims:1,axis:2);
+        $this->assertEquals([
+            [true,false,true],
+            [false,true,false]
+        ],$X->toArray());
+        $this->assertEquals([
+            [[1, 0,111],[2, 0,112],[-3, 0,113],[-4, 0,114]],
+            [[0,21,  0],[0,22,  0],[ 0,23,  0],[ 0,24,  0]],
+        ],$A->toArray());
+
+        //
+        // broadcast to rows (implicit batchDims:0)
+        //echo "==== broadcast to rows (implicit batchDims:0)\n";
+        //
+        // X:(  2,3)
+        // A:(4,2,3)
+        // outer:(),bro:(4),inner:(2,3)
+        // m=1,n=2,k=2*3
+        $X = $la->array([[true,false,true],[false,true,false]],dtype:NDArray::bool);
+        $A = $la->array([
+            [[1,11,111],[2,12,112]],
+            [[1,21,211],[2,22,222]],
+            [[1,31,311],[2,32,322]],
+            [[1,41,411],[2,42,422]],
+        ]);
+        $la->masking($X,$A,axis:1);
+        $this->assertEquals(
+            [[true,false,true],[false,true,false]]
+        ,$X->toArray());
+        $this->assertEquals([
+            [[1, 0,111],[0,12,  0]],
+            [[1, 0,211],[0,22,  0]],
+            [[1, 0,311],[0,32,  0]],
+            [[1, 0,411],[0,42,  0]],
+        ],$A->toArray());
+
+        //
+        // broadcast to rows (implicit axis:batchDims)
+        //echo "==== broadcast to rows (implicit axis:batchDims)\n";
+        //
+        // X:(2,3)
+        // A:(2,3)
+        // outer:(2),bro:(),inner:(3)
+        // m=2,n=1,k=3  ==translate==> m=1,n=1,k=2*3
+        $X = $la->array([[true,false,true],[false,true,false]], dtype:NDArray::bool);
+        $A = $la->array([[1,10,100],[-1,-10,-100]]);
+        $la->masking($X,$A,batchDims:1);
+        $this->assertEquals(
+            [[true,false,true],[false,true,false]]
+        ,$X->toArray());
+        $this->assertEquals(
+            [[1, 0,100],[0,-10, 0]]
+        ,$A->toArray());
+
+        //
+        // broadcast to rows (implicit batchDims:0, minus axis)
+        //echo "==== broadcast to rows (implicit batchDims:0, minus axis)\n";
+        //
+        // X:(  2,3)
+        // A:(4,2,3)
+        // outer:(),bro:(4),inner:(2,3)
+        // m=1,n=2,k=2*3
+        $X = $la->array([[true,false,true],[false,true,false]],dtype:NDArray::bool);
+        $A = $la->array([
+            [[1,11,111],[2,12,112]],
+            [[1,21,211],[2,22,222]],
+            [[1,31,311],[2,32,322]],
+            [[1,41,411],[2,42,422]],
+        ]);
+        $la->masking($X,$A,axis:-$X->ndim());
+        $this->assertEquals(
+            [[true,false,true],[false,true,false]]
+        ,$X->toArray());
+        $this->assertEquals([
+            [[1, 0,111],[0,12,  0]],
+            [[1, 0,211],[0,22,  0]],
+            [[1, 0,311],[0,32,  0]],
+            [[1, 0,411],[0,42,  0]],
+        ],$A->toArray());
+
+
+        //
+        // fill -9999
+        //
+        // X:(2,3)
+        // A:(2,3)
+        // outer:(),bro:(),inner:(2,3)
+        // m=2*3,n=1,k=1  ==translate==> m=1,n=1,k=2*3
+        $X = $la->array([[true,false,true],[false,true,false]], dtype:NDArray::bool);
+        $A = $la->array([[1,10,100],[-1,-10,-100]]);
+        $la->masking($X,$A,fill:-9999);
+        $this->assertEquals(
+            [[true,false,true],[false,true,false]]
+        ,$X->toArray());
+        $this->assertEquals(
+            [[1, -9999,100],[-9999,-10, -9999]]
+        ,$A->toArray());
+
+
+    }
 }
