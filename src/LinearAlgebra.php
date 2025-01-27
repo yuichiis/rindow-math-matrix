@@ -5262,7 +5262,7 @@ class LinearAlgebra
 
         if($mask->dtype()!=NDArray::bool) {
             $types = $this->dtypeToString[$mask->dtype()];
-            throw new InvalidArgumentException('dtype of mask must be bool. :'.$types);
+            throw new InvalidArgumentException('dtype of mask must be bool.: '.$types);
         }
         $batchDims ??= 0;
         if($batchDims<0) {
