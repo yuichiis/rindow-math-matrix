@@ -325,8 +325,8 @@ class OpenCLBlas
             $kernel = $this->createKernel($kernel_name);
             $kernel->setArg(0,$alpha,$dtype);
             $kernel->setArg(1,$X);
-            $kernel->setArg(2,$offsetX,NDArray::uint32);
-            $kernel->setArg(3,$incX,NDArray::uint32);
+            $kernel->setArg(2,$offsetX,NDArray::int32);
+            $kernel->setArg(3,$incX,NDArray::int32);
         } else {
             $alpha = $this->cleanComplexNumber($alpha,'alpha');
             $kernel_name = "cscal_{$type}";
@@ -352,8 +352,8 @@ class OpenCLBlas
             $kernel->setArg(0,$alpha->real,$dtype);
             $kernel->setArg(1,$alpha->imag,$dtype);
             $kernel->setArg(2,$X);
-            $kernel->setArg(3,$offsetX,NDArray::uint32);
-            $kernel->setArg(4,$incX,NDArray::uint32);
+            $kernel->setArg(3,$offsetX,NDArray::int32);
+            $kernel->setArg(4,$incX,NDArray::int32);
         }
         $global_work_size = [$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
@@ -420,11 +420,11 @@ class OpenCLBlas
             $kernel = $this->createKernel($kernel_name);
             $kernel->setArg(0,$alpha,$dtype);
             $kernel->setArg(1,$X);
-            $kernel->setArg(2,$offsetX,NDArray::uint32);
-            $kernel->setArg(3,$incX,NDArray::uint32);
+            $kernel->setArg(2,$offsetX,NDArray::int32);
+            $kernel->setArg(3,$incX,NDArray::int32);
             $kernel->setArg(4,$Y);
-            $kernel->setArg(5,$offsetY,NDArray::uint32);
-            $kernel->setArg(6,$incY,NDArray::uint32);
+            $kernel->setArg(5,$offsetY,NDArray::int32);
+            $kernel->setArg(6,$incY,NDArray::int32);
         } else {
             $alpha = $this->cleanComplexNumber($alpha,'alpha');
             $kernel_name = "caxpy_{$type}";
@@ -454,11 +454,11 @@ class OpenCLBlas
             $kernel->setArg(0,$alpha->real,$dtype);
             $kernel->setArg(1,$alpha->imag,$dtype);
             $kernel->setArg(2,$X);
-            $kernel->setArg(3,$offsetX,NDArray::uint32);
-            $kernel->setArg(4,$incX,NDArray::uint32);
+            $kernel->setArg(3,$offsetX,NDArray::int32);
+            $kernel->setArg(4,$incX,NDArray::int32);
             $kernel->setArg(5,$Y);
-            $kernel->setArg(6,$offsetY,NDArray::uint32);
-            $kernel->setArg(7,$incY,NDArray::uint32);
+            $kernel->setArg(6,$offsetY,NDArray::int32);
+            $kernel->setArg(7,$incY,NDArray::int32);
         }
         $global_work_size = [$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
@@ -524,11 +524,11 @@ class OpenCLBlas
         }
         $kernel = $this->createKernel($kernel_name);
         $kernel->setArg(0,$X);
-        $kernel->setArg(1,$offsetX,NDArray::uint32);
-        $kernel->setArg(2,$incX,NDArray::uint32);
+        $kernel->setArg(1,$offsetX,NDArray::int32);
+        $kernel->setArg(2,$incX,NDArray::int32);
         $kernel->setArg(3,$Y);
-        $kernel->setArg(4,$offsetY,NDArray::uint32);
-        $kernel->setArg(5,$incY,NDArray::uint32);
+        $kernel->setArg(4,$offsetY,NDArray::int32);
+        $kernel->setArg(5,$incY,NDArray::int32);
         $global_work_size = [$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
@@ -638,20 +638,20 @@ class OpenCLBlas
                     "}\n";
             }
             $kernel = $this->createKernel($kernel_name);
-            $kernel->setArg(0,$k,NDArray::uint32);
+            $kernel->setArg(0,$k,NDArray::int32);
             $kernel->setArg(1,$alpha,$dtype);
             $kernel->setArg(2,$A);
-            $kernel->setArg(3,$offsetA,NDArray::uint32);
-            $kernel->setArg(4,$ldA_m,NDArray::uint32);
-            $kernel->setArg(5,$ldA_k,NDArray::uint32);
+            $kernel->setArg(3,$offsetA,NDArray::int32);
+            $kernel->setArg(4,$ldA_m,NDArray::int32);
+            $kernel->setArg(5,$ldA_k,NDArray::int32);
             $kernel->setArg(6,$B);
-            $kernel->setArg(7,$offsetB,NDArray::uint32);
-            $kernel->setArg(8,$ldB_n,NDArray::uint32);
-            $kernel->setArg(9,$ldB_k,NDArray::uint32);
+            $kernel->setArg(7,$offsetB,NDArray::int32);
+            $kernel->setArg(8,$ldB_n,NDArray::int32);
+            $kernel->setArg(9,$ldB_k,NDArray::int32);
             $kernel->setArg(10,$beta,$dtype);
             $kernel->setArg(11,$C);
-            $kernel->setArg(12,$offsetC,NDArray::uint32);
-            $kernel->setArg(13,$ldC,NDArray::uint32);
+            $kernel->setArg(12,$offsetC,NDArray::int32);
+            $kernel->setArg(13,$ldC,NDArray::int32);
         } else {
             $conjA = $conjA ? 1:0;
             $conjB = $conjB ? 1:0;
@@ -720,25 +720,25 @@ class OpenCLBlas
             }
             $dtype = ($dtype==NDArray::complex64) ? NDArray::float32 : NDArray::float64;
             $kernel = $this->createKernel($kernel_name);
-            $kernel->setArg(0,$k,NDArray::uint32);
+            $kernel->setArg(0,$k,NDArray::int32);
             $kernel->setArg(1,$alpha->real,$dtype);
             $kernel->setArg(2,$alpha->imag,$dtype);
             $kernel->setArg(3,$A);
-            $kernel->setArg(4,$offsetA,NDArray::uint32);
-            $kernel->setArg(5,$ldA_m,NDArray::uint32);
-            $kernel->setArg(6,$ldA_k,NDArray::uint32);
+            $kernel->setArg(4,$offsetA,NDArray::int32);
+            $kernel->setArg(5,$ldA_m,NDArray::int32);
+            $kernel->setArg(6,$ldA_k,NDArray::int32);
             $kernel->setArg(7,$B);
-            $kernel->setArg(8,$offsetB,NDArray::uint32);
-            $kernel->setArg(9,$ldB_n,NDArray::uint32);
-            $kernel->setArg(10,$ldB_k,NDArray::uint32);
+            $kernel->setArg(8,$offsetB,NDArray::int32);
+            $kernel->setArg(9,$ldB_n,NDArray::int32);
+            $kernel->setArg(10,$ldB_k,NDArray::int32);
             $kernel->setArg(11,$beta->real,$dtype);
             $kernel->setArg(12,$beta->imag,$dtype);
             $kernel->setArg(13,$C);
-            $kernel->setArg(14,$offsetC,NDArray::uint32);
-            $kernel->setArg(15,$ldC,NDArray::uint32);
-            $kernel->setArg(16,$conjA,NDArray::uint32);
-            $kernel->setArg(17,$conjB,NDArray::uint32);
-            $kernel->setArg(18,$hasBeta,NDArray::uint32);
+            $kernel->setArg(14,$offsetC,NDArray::int32);
+            $kernel->setArg(15,$ldC,NDArray::int32);
+            $kernel->setArg(16,$conjA,NDArray::int32);
+            $kernel->setArg(17,$conjB,NDArray::int32);
+            $kernel->setArg(18,$hasBeta,NDArray::int32);
         }
         $global_work_size = [$m,$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,

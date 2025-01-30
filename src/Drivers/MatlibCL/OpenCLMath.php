@@ -358,8 +358,8 @@ class OpenCLMath
     ) : string
     {
         return
-            "    const uint {$low} = {$pointer}%{$base};\n".
-            "    const uint {$high} = {$pointer}/{$base};\n";
+            "    const int {$low} = {$pointer}%{$base};\n".
+            "    const int {$high} = {$pointer}/{$base};\n";
     }
 
     public function kernelTemplateQSum(string $inputs,string $outputs) : string
@@ -511,11 +511,11 @@ class OpenCLMath
     {
         return
         "{\n".
-        "    const uint lid = get_local_id(0);\n".
-        "    const uint lws = get_local_size(0);\n".
-        "    uint seg_count = segments;\n".
-        "    uint local_items = work_items;\n".
-        "    uint left_local_items = total_local_items;\n".
+        "    const int lid = get_local_id(0);\n".
+        "    const int lws = get_local_size(0);\n".
+        "    int seg_count = segments;\n".
+        "    int local_items = work_items;\n".
+        "    int left_local_items = total_local_items;\n".
         "    int is_first=1;\n".
         "    while(1) {\n".
         "        for(int seg=0;seg<seg_count;seg++) {\n".
@@ -569,11 +569,11 @@ class OpenCLMath
     {
         return
         "{\n".
-        "    const uint lid = get_local_id(0);\n".
-        "    const uint lws = get_local_size(0);\n".
-        "    uint seg_count = segments;\n".
-        "    uint local_items = work_items;\n".
-        "    uint left_local_items = total_local_items;\n".
+        "    const int lid = get_local_id(0);\n".
+        "    const int lws = get_local_size(0);\n".
+        "    int seg_count = segments;\n".
+        "    int local_items = work_items;\n".
+        "    int left_local_items = total_local_items;\n".
         "    int is_first=1;\n".
         "    while(1) {\n".
         "        for(int seg=0;seg<seg_count;seg++) {\n".
@@ -630,8 +630,8 @@ class OpenCLMath
     {
         return
         "{\n".
-        "    const uint lid = get_local_id(0);\n".
-        "    const uint lws = get_local_size(0);\n".
+        "    const int lid = get_local_id(0);\n".
+        "    const int lws = get_local_size(0);\n".
         #"    local_work[lid] = 0;\n".
         #"    {$type} input = 0;\n".
         "    if(lid<total_local_items) {\n".
@@ -660,8 +660,8 @@ class OpenCLMath
     {
         return
         "{\n".
-        "    const uint lid = get_local_id(0);\n".
-        "    const uint lws = get_local_size(0);\n".
+        "    const int lid = get_local_id(0);\n".
+        "    const int lws = get_local_size(0);\n".
         #"    local_work[lid] = 0;\n".
         #"    {$type} input = 0;\n".
         "    if(lid<total_local_items) {\n".
@@ -693,12 +693,12 @@ class OpenCLMath
     {
         return
         "{\n".
-        "    const uint lid = get_local_id(0);\n".
-        "    const uint grid = get_group_id(0);\n".
-        "    const uint lws = get_local_size(0);\n".
-        "    const uint grs = get_num_groups(0);\n".
+        "    const int lid = get_local_id(0);\n".
+        "    const int grid = get_group_id(0);\n".
+        "    const int lws = get_local_size(0);\n".
+        "    const int grs = get_num_groups(0);\n".
         "    {$type} value = {$initial};\n".
-        "    uint local_item_id = grid*lws + lid;\n".
+        "    int local_item_id = grid*lws + lid;\n".
         "    while(local_item_id < total_local_items) {\n".
         "        {$inputs}\n".
         "        {$operation1}\n".
@@ -726,11 +726,11 @@ class OpenCLMath
     {
         return
         "{\n".
-        "    const uint lid = get_local_id(0);\n".
-        "    const uint lws = get_local_size(0);\n".
+        "    const int lid = get_local_id(0);\n".
+        "    const int lws = get_local_size(0);\n".
         "    {$operation4}\n".
         "    barrier(CLK_LOCAL_MEM_FENCE);\n".
-        "    for(uint i=lws/2; i>0; i>>=1) {\n".
+        "    for(int i=lws/2; i>0; i>>=1) {\n".
         "        if (lid < i) {\n".
         "            {$operation2}\n".
         "        }\n".
@@ -753,13 +753,13 @@ class OpenCLMath
     {
         return
         "{\n".
-        "    const uint lid = get_local_id(0);\n".
-        "    const uint grid = get_group_id(0);\n".
-        "    const uint lws = get_local_size(0);\n".
-        "    const uint grs = get_num_groups(0);\n".
+        "    const int lid = get_local_id(0);\n".
+        "    const int grid = get_group_id(0);\n".
+        "    const int lws = get_local_size(0);\n".
+        "    const int grs = get_num_groups(0);\n".
         "    {$type} value = {$initial};\n".
-        "    uint    ivalue = 0;\n".
-        "    uint local_item_id = grid*lws + lid;\n".
+        "    int    ivalue = 0;\n".
+        "    int local_item_id = grid*lws + lid;\n".
         "    while(local_item_id < total_local_items) {\n".
         "        {$inputs}\n".
         "        {$operation1}\n".
@@ -828,7 +828,7 @@ class OpenCLMath
         ) : void
     {
         $dtype = $X->dtype();
-        if($R->dtype()!=$dtype) {
+        if($dtype!=NDArray::bool && $R->dtype()!=$dtype) {
             throw new InvalidArgumentException("Unmatch data type R and X:".
             $this->dtypeToString($R->dtype()).",".$this->dtypeToString($dtype));
         }
@@ -892,6 +892,7 @@ class OpenCLMath
         ) : void
     {
         $dtype = $X->dtype();
+        $dtypeR = $R->dtype();
 
         $index_x = 'lid+offset_x';
         $total_local_items = $n;
@@ -905,17 +906,18 @@ class OpenCLMath
         }
         $value_size = $X->value_size();
         $type = $this->dtypeToOpenCLType[$dtype];
-        $kernel_name = "sum_S_{$type}";
+        $typeR = $this->dtypeToOpenCLType[$dtypeR];
+        $kernel_name = "sum_S_{$type}_{$typeR}";
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint total_local_items,\n".
-                "        __global {$type} * r,\n".
-                "    const        uint offset_r,\n".
+                "    const        int total_local_items,\n".
+                "        __global {$typeR} * r,\n".
+                "    const        int offset_r,\n".
                 "        __global {$type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
-                "         __local {$type} * local_work)\n".
+                "    const        int offset_x,\n".
+                "    const        int incx,\n".
+                "         __local {$typeR} * local_work)\n".
                 "{\n".
                     $this->kernelTemplateSSum(
                         "local_work[lid] = x[{$index_x}];",
@@ -925,12 +927,12 @@ class OpenCLMath
         }
         $kernel = $this->createKernel($kernel_name);
 
-        $kernel->setArg(0,$total_local_items,NDArray::uint32);
+        $kernel->setArg(0,$total_local_items,NDArray::int32);
         $kernel->setArg(1,$R);
-        $kernel->setArg(2,$offsetR,NDArray::uint32);
+        $kernel->setArg(2,$offsetR,NDArray::int32);
         $kernel->setArg(3,$X);
-        $kernel->setArg(4,$offsetX,NDArray::uint32);
-        $kernel->setArg(5,$incX,NDArray::uint32);
+        $kernel->setArg(4,$offsetX,NDArray::int32);
+        $kernel->setArg(5,$incX,NDArray::int32);
         $kernel->setArg(6,null,$this->adjBoundary($max_work_items*$value_size));
         $global_work_size = [$max_work_items];
         $local_work_size = [$max_work_items];
@@ -949,6 +951,7 @@ class OpenCLMath
         ) : void
     {
         $dtype = $X->dtype();
+        $dtypeR = $R->dtype();
 
         $index_x = '(seg*lws+lid)+offset_x';
         $total_local_items = $n;
@@ -963,22 +966,23 @@ class OpenCLMath
             $segments = 1; // round up float
             $work_items = $total_local_items;
         }
-        $value_size = $X->value_size();
+        $value_size = $R->value_size();
         $type = $this->dtypeToOpenCLType[$dtype];
-        $kernel_name = "sum_M_{$type}";
+        $typeR = $this->dtypeToOpenCLType[$dtypeR];
+        $kernel_name = "sum_M_{$type}_{$typeR}";
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint total_local_items,\n".
-                "    const        uint segments,\n".
-                "        __global {$type} * r,\n".
-                "    const        uint offset_r,\n".
+                "    const        int total_local_items,\n".
+                "    const        int segments,\n".
+                "        __global {$typeR} * r,\n".
+                "    const        int offset_r,\n".
                 "        __global {$type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
-                "         __local {$type} * local_work,\n".
-                "         __local {$type} * seg_work,\n".
-                "    const        uint work_items)\n".
+                "    const        int offset_x,\n".
+                "    const        int incx,\n".
+                "         __local {$typeR} * local_work,\n".
+                "         __local {$typeR} * seg_work,\n".
+                "    const        int work_items)\n".
                 "{\n".
                     $this->kernelTemplateQSum(
                         "local_work[lid] = x[{$index_x}];",
@@ -990,16 +994,16 @@ class OpenCLMath
 
         //$seg_work_bytes = $segments*$value_size;
         //$seg_work_bytes += ($seg_work_bytes%4) ? 4-($seg_work_bytes%4) : 0; // Adjust Addressing Boundary
-        $kernel->setArg(0,$total_local_items,NDArray::uint32);
-        $kernel->setArg(1,$segments,NDArray::uint32);
+        $kernel->setArg(0,$total_local_items,NDArray::int32);
+        $kernel->setArg(1,$segments,NDArray::int32);
         $kernel->setArg(2,$R);
-        $kernel->setArg(3,$offsetR,NDArray::uint32);
+        $kernel->setArg(3,$offsetR,NDArray::int32);
         $kernel->setArg(4,$X);
-        $kernel->setArg(5,$offsetX,NDArray::uint32);
-        $kernel->setArg(6,$incX,NDArray::uint32);
+        $kernel->setArg(5,$offsetX,NDArray::int32);
+        $kernel->setArg(6,$incX,NDArray::int32);
         $kernel->setArg(7,null,$this->adjBoundary($max_work_items*$value_size));
         $kernel->setArg(8,null,$this->adjBoundary($segments*$value_size));
-        $kernel->setArg(9,$work_items,NDArray::uint32);
+        $kernel->setArg(9,$work_items,NDArray::int32);
         $global_work_size = [$max_work_items];
         $local_work_size = [$max_work_items];
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -1017,6 +1021,7 @@ class OpenCLMath
         ) : void
     {
         $dtype = $X->dtype();
+        $dtypeR = $R->dtype();
 
         $total_local_items = $n;
         $work_items1 = $this->maxWorkItem[0];
@@ -1032,28 +1037,29 @@ class OpenCLMath
             }
         }
 
-        $value_size = $X->value_size();
+        $value_size = $R->value_size();
         $temp_size = 2*$work_items2;
         $temp_buffer = $this->newBuffer(
             $value_size*$temp_size,
-            OpenCL::CL_MEM_READ_WRITE,null,null,$dtype);
+            OpenCL::CL_MEM_READ_WRITE,null,null,$dtypeR);
 
         $type = $this->dtypeToOpenCLType[$dtype];
-        $kernel_name1 = "sum_L1_{$type}";
-        $kernel_name2 = "sum_L2_{$type}";
+        $typeR = $this->dtypeToOpenCLType[$dtypeR];
+        $kernel_name1 = "sum_L1_{$type}_{$typeR}";
+        $kernel_name2 = "sum_L2_{$type}_{$typeR}";
         if(!isset($this->sources[$kernel_name1])) {
             $this->sources[$kernel_name1] =
                 "__kernel void {$kernel_name1}(\n".
-                "    const        uint total_local_items,\n".
+                "    const        int total_local_items,\n".
                 "    const __global {$type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
-                "        __global {$type} * temp_buffer,\n".
-                "         __local {$type} * local_work)\n".
+                "    const        int offset_x,\n".
+                "    const        int incx,\n".
+                "        __global {$typeR} * temp_buffer,\n".
+                "         __local {$typeR} * local_work)\n".
                 "{\n".
                     $this->kernelTemplateLSingleSum1(
-                        "{$type} input = x[local_item_id*incx + offset_x];",
-                        $dtype
+                        "{$typeR} input = x[local_item_id*incx + offset_x];",
+                        $dtypeR
                     ).
                 "}\n";
         }
@@ -1062,10 +1068,10 @@ class OpenCLMath
         if(!isset($this->sources[$kernel_name2])) {
             $this->sources[$kernel_name2] =
                 "__kernel void {$kernel_name2}(\n".
-                "    const __global {$type} * temp_buffer,\n".
-                "        __global {$type} * r,\n".
-                "    const        uint offset_r,\n".
-                "         __local {$type} * local_work)\n".
+                "    const __global {$typeR} * temp_buffer,\n".
+                "        __global {$typeR} * r,\n".
+                "    const        int offset_r,\n".
+                "         __local {$typeR} * local_work)\n".
                 "{\n".
                     $this->kernelTemplateLSingleSum2(
                         "r[offset_r] = local_work[0];"
@@ -1074,10 +1080,10 @@ class OpenCLMath
         }
         $kernel2 = $this->createKernel($kernel_name2);
 
-        $kernel->setArg(0,$total_local_items,NDArray::uint32);
+        $kernel->setArg(0,$total_local_items,NDArray::int32);
         $kernel->setArg(1,$X);
-        $kernel->setArg(2,$offsetX,NDArray::uint32);
-        $kernel->setArg(3,$incX,NDArray::uint32);
+        $kernel->setArg(2,$offsetX,NDArray::int32);
+        $kernel->setArg(3,$incX,NDArray::int32);
         $kernel->setArg(4,$temp_buffer);
         $kernel->setArg(5,null,$this->adjBoundary($work_items1*$value_size));
         $global_work_size = [$work_items1*$temp_size];
@@ -1088,7 +1094,7 @@ class OpenCLMath
 
         $kernel2->setArg(0,$temp_buffer);
         $kernel2->setArg(1,$R);
-        $kernel2->setArg(2,$offsetR,NDArray::uint32);
+        $kernel2->setArg(2,$offsetR,NDArray::int32);
         $kernel2->setArg(3,null,$this->adjBoundary($work_items2*$value_size));
         $global_work_size = [$work_items2];
         $local_work_size = [$work_items2];
@@ -1184,14 +1190,14 @@ class OpenCLMath
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint total_local_items,\n".
+                "    const        int total_local_items,\n".
                 "        __global {$type} * r,\n".
-                "    const        uint offset_r,\n".
+                "    const        int offset_r,\n".
                 "        __global {$type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
+                "    const        int offset_x,\n".
+                "    const        int incx,\n".
                 "         __local {$type} * local_work,\n".
-                "         __local uint * local_iwork)\n".
+                "         __local int * local_iwork)\n".
                 "{\n".
                     $this->kernelTemplateSiMin(
                         "local_work[lid] = x[{$index_x}];\n".
@@ -1203,12 +1209,12 @@ class OpenCLMath
         }
         $kernel = $this->createKernel($kernel_name);
 
-        $kernel->setArg(0,$total_local_items,NDArray::uint32);
+        $kernel->setArg(0,$total_local_items,NDArray::int32);
         $kernel->setArg(1,$R);
-        $kernel->setArg(2,$offsetR,NDArray::uint32);
+        $kernel->setArg(2,$offsetR,NDArray::int32);
         $kernel->setArg(3,$X);
-        $kernel->setArg(4,$offsetX,NDArray::uint32);
-        $kernel->setArg(5,$incX,NDArray::uint32);
+        $kernel->setArg(4,$offsetX,NDArray::int32);
+        $kernel->setArg(5,$incX,NDArray::int32);
         $kernel->setArg(6,null,$this->adjBoundary($max_work_items*$value_size));
         $kernel->setArg(7,null,$this->adjBoundary($max_work_items*$index_value_size));
         $global_work_size = [$max_work_items];
@@ -1249,18 +1255,18 @@ class OpenCLMath
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint total_local_items,\n".
-                "    const        uint segments,\n".
+                "    const        int total_local_items,\n".
+                "    const        int segments,\n".
                 "        __global {$type} * r,\n".
-                "    const        uint offset_r,\n".
+                "    const        int offset_r,\n".
                 "        __global {$type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
+                "    const        int offset_x,\n".
+                "    const        int incx,\n".
                 "         __local {$type} * local_work,\n".
                 "         __local {$type} * seg_work,\n".
-                "         __local uint * local_iwork,\n".
-                "         __local uint * seg_iwork,\n".
-                "    const        uint work_items)\n".
+                "         __local int * local_iwork,\n".
+                "         __local int * seg_iwork,\n".
+                "    const        int work_items)\n".
                 "{\n".
                     $this->kernelTemplateQiMin(
                         "local_work[lid] = x[{$index_x}];\n".
@@ -1274,18 +1280,18 @@ class OpenCLMath
 
         //$seg_work_bytes = $segments*$value_size;
         //$seg_work_bytes += ($seg_work_bytes%4) ? 4-($seg_work_bytes%4) : 0; // Adjust Addressing Boundary
-        $kernel->setArg(0,$total_local_items,NDArray::uint32);
-        $kernel->setArg(1,$segments,NDArray::uint32);
+        $kernel->setArg(0,$total_local_items,NDArray::int32);
+        $kernel->setArg(1,$segments,NDArray::int32);
         $kernel->setArg(2,$R);
-        $kernel->setArg(3,$offsetR,NDArray::uint32);
+        $kernel->setArg(3,$offsetR,NDArray::int32);
         $kernel->setArg(4,$X);
-        $kernel->setArg(5,$offsetX,NDArray::uint32);
-        $kernel->setArg(6,$incX,NDArray::uint32);
+        $kernel->setArg(5,$offsetX,NDArray::int32);
+        $kernel->setArg(6,$incX,NDArray::int32);
         $kernel->setArg(7,null,$this->adjBoundary($max_work_items*$value_size));
         $kernel->setArg(8,null,$this->adjBoundary($segments*$value_size));
         $kernel->setArg(9,null,$this->adjBoundary($max_work_items*$index_value_size));
         $kernel->setArg(10,null,$this->adjBoundary($segments*$index_value_size));
-        $kernel->setArg(11,$work_items,NDArray::uint32);
+        $kernel->setArg(11,$work_items,NDArray::int32);
         $global_work_size = [$max_work_items];
         $local_work_size = [$max_work_items];
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -1314,19 +1320,19 @@ class OpenCLMath
                 "__kernel void {$kernel_name}(\n".
                 "    const        {$type} alpha,\n".
                 "        __global {$type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
+                "    const        int offset_x,\n".
+                "    const        int incx,\n".
                 "    const        {$type} beta)\n".
                 "{\n".
-                "    uint idx = get_global_id(0)*incx+offset_x;\n".
+                "    int idx = get_global_id(0)*incx+offset_x;\n".
                 "    x[idx] = alpha*x[idx]+beta;\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
         $kernel->setArg(0,$alpha,NDArray::float32);
         $kernel->setArg(1,$X);
-        $kernel->setArg(2,$offsetX,NDArray::uint32);
-        $kernel->setArg(3,$incX,NDArray::uint32);
+        $kernel->setArg(2,$offsetX,NDArray::int32);
+        $kernel->setArg(3,$incX,NDArray::int32);
         $kernel->setArg(4,$beta,NDArray::float32);
         $global_work_size = [$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
@@ -1355,19 +1361,19 @@ class OpenCLMath
                 "__kernel void {$kernel_name}(\n".
                 "    const        {$type} alpha,\n".
                 "        __global {$type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
+                "    const        int offset_x,\n".
+                "    const        int incx,\n".
                 "    const        {$type} beta)\n".
                 "{\n".
-                "    uint idx = get_global_id(0)*incx+offset_x;\n".
+                "    int idx = get_global_id(0)*incx+offset_x;\n".
                 "    x[idx] = 1.0/(alpha*x[idx]+beta);\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
         $kernel->setArg(0,$alpha,NDArray::float32);
         $kernel->setArg(1,$X);
-        $kernel->setArg(2,$offsetX,NDArray::uint32);
-        $kernel->setArg(3,$incX,NDArray::uint32);
+        $kernel->setArg(2,$offsetX,NDArray::int32);
+        $kernel->setArg(3,$incX,NDArray::int32);
         $kernel->setArg(4,$beta,NDArray::float32);
         $global_work_size = [$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
@@ -1405,16 +1411,16 @@ class OpenCLMath
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
                 "        __global {$type} * a,\n".
-                "    const        uint offset_a,\n".
-                "    const        uint lda,\n".
+                "    const        int offset_a,\n".
+                "    const        int lda,\n".
                 "        __global {$type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx)\n".
+                "    const        int offset_x,\n".
+                "    const        int incx)\n".
                 "{\n".
-                "    uint row_id = get_global_id(0);\n".
-                "    uint col_id = get_global_id(1);\n".
-                "    uint ida = row_id*lda+col_id+offset_a;\n".
-                "    uint idx = col_id*incx+offset_x;\n".
+                "    int row_id = get_global_id(0);\n".
+                "    int col_id = get_global_id(1);\n".
+                "    int ida = row_id*lda+col_id+offset_a;\n".
+                "    int idx = col_id*incx+offset_x;\n".
                 "    {$type} tmp_a = a[ida];\n".
                 "    {$type} tmp_x = x[idx];\n".
                 "    if(isnan(tmp_x)) {\n".
@@ -1428,11 +1434,11 @@ class OpenCLMath
         }
         $kernel = $this->createKernel($kernel_name);
         $kernel->setArg(0,$A);
-        $kernel->setArg(1,$offsetA,NDArray::uint32);
-        $kernel->setArg(2,$ldA,NDArray::uint32);
+        $kernel->setArg(1,$offsetA,NDArray::int32);
+        $kernel->setArg(2,$ldA,NDArray::int32);
         $kernel->setArg(3,$X);
-        $kernel->setArg(4,$offsetX,NDArray::uint32);
-        $kernel->setArg(5,$incX,NDArray::uint32);
+        $kernel->setArg(4,$offsetX,NDArray::int32);
+        $kernel->setArg(5,$incX,NDArray::int32);
         $global_work_size = [$m,$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
@@ -1469,16 +1475,16 @@ class OpenCLMath
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
                 "        __global {$type} * a,\n".
-                "    const        uint offset_a,\n".
-                "    const        uint lda,\n".
+                "    const        int offset_a,\n".
+                "    const        int lda,\n".
                 "        __global {$type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx)\n".
+                "    const        int offset_x,\n".
+                "    const        int incx)\n".
                 "{\n".
-                "    uint row_id = get_global_id(0);\n".
-                "    uint col_id = get_global_id(1);\n".
-                "    uint ida = row_id*lda+col_id+offset_a;\n".
-                "    uint idx = col_id*incx+offset_x;\n".
+                "    int row_id = get_global_id(0);\n".
+                "    int col_id = get_global_id(1);\n".
+                "    int ida = row_id*lda+col_id+offset_a;\n".
+                "    int idx = col_id*incx+offset_x;\n".
                 "    {$type} tmp_a = a[ida];\n".
                 "    {$type} tmp_x = x[idx];\n".
                 "    if(isnan(tmp_x)) {\n".
@@ -1492,11 +1498,11 @@ class OpenCLMath
         }
         $kernel = $this->createKernel($kernel_name);
         $kernel->setArg(0,$A);
-        $kernel->setArg(1,$offsetA,NDArray::uint32);
-        $kernel->setArg(2,$ldA,NDArray::uint32);
+        $kernel->setArg(1,$offsetA,NDArray::int32);
+        $kernel->setArg(2,$ldA,NDArray::int32);
         $kernel->setArg(3,$X);
-        $kernel->setArg(4,$offsetX,NDArray::uint32);
-        $kernel->setArg(5,$incX,NDArray::uint32);
+        $kernel->setArg(4,$offsetX,NDArray::int32);
+        $kernel->setArg(5,$incX,NDArray::int32);
         $global_work_size = [$m,$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
@@ -1536,16 +1542,16 @@ class OpenCLMath
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
                 "        __global {$type} * a,\n".
-                "    const        uint offset_a,\n".
-                "    const        uint lda,\n".
+                "    const        int offset_a,\n".
+                "    const        int lda,\n".
                 "        __global {$type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx)\n".
+                "    const        int offset_x,\n".
+                "    const        int incx)\n".
                 "{\n".
-                "    uint row_id = get_global_id(0);\n".
-                "    uint col_id = get_global_id(1);\n".
-                "    uint ida = row_id*lda+col_id+offset_a;\n".
-                "    uint idx = col_id*incx+offset_x;\n".
+                "    int row_id = get_global_id(0);\n".
+                "    int col_id = get_global_id(1);\n".
+                "    int ida = row_id*lda+col_id+offset_a;\n".
+                "    int idx = col_id*incx+offset_x;\n".
                 "    {$type} value;\n".
                 //   if NaN set 0.0
                 //   if equal set 0.0
@@ -1559,11 +1565,11 @@ class OpenCLMath
         }
         $kernel = $this->createKernel($kernel_name);
         $kernel->setArg(0,$A);
-        $kernel->setArg(1,$offsetA,NDArray::uint32);
-        $kernel->setArg(2,$ldA,NDArray::uint32);
+        $kernel->setArg(1,$offsetA,NDArray::int32);
+        $kernel->setArg(2,$ldA,NDArray::int32);
         $kernel->setArg(3,$X);
-        $kernel->setArg(4,$offsetX,NDArray::uint32);
-        $kernel->setArg(5,$incX,NDArray::uint32);
+        $kernel->setArg(4,$offsetX,NDArray::int32);
+        $kernel->setArg(5,$incX,NDArray::int32);
         $global_work_size = [$m,$n];
         $local_work_size = null;
         //$multiple = $this->kernelMultiple($kernel);
@@ -1607,16 +1613,16 @@ class OpenCLMath
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
                 "        __global {$type} * a,\n".
-                "    const        uint offset_a,\n".
-                "    const        uint lda,\n".
+                "    const        int offset_a,\n".
+                "    const        int lda,\n".
                 "        __global {$type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx)\n".
+                "    const        int offset_x,\n".
+                "    const        int incx)\n".
                 "{\n".
-                "    uint row_id = get_global_id(0);\n".
-                "    uint col_id = get_global_id(1);\n".
-                "    uint ida = row_id*lda+col_id+offset_a;\n".
-                "    uint idx = col_id*incx+offset_x;\n".
+                "    int row_id = get_global_id(0);\n".
+                "    int col_id = get_global_id(1);\n".
+                "    int ida = row_id*lda+col_id+offset_a;\n".
+                "    int idx = col_id*incx+offset_x;\n".
                 "    {$type} value;\n".
                 //   if NaN set 0.0
                 //   if equal set 1.0
@@ -1630,11 +1636,11 @@ class OpenCLMath
         }
         $kernel = $this->createKernel($kernel_name);
         $kernel->setArg(0,$A);
-        $kernel->setArg(1,$offsetA,NDArray::uint32);
-        $kernel->setArg(2,$ldA,NDArray::uint32);
+        $kernel->setArg(1,$offsetA,NDArray::int32);
+        $kernel->setArg(2,$ldA,NDArray::int32);
         $kernel->setArg(3,$X);
-        $kernel->setArg(4,$offsetX,NDArray::uint32);
-        $kernel->setArg(5,$incX,NDArray::uint32);
+        $kernel->setArg(4,$offsetX,NDArray::int32);
+        $kernel->setArg(5,$incX,NDArray::int32);
         $global_work_size = [$m,$n];
         $local_work_size = null;
         //$multiple = $this->kernelMultiple($kernel);
@@ -1674,16 +1680,16 @@ class OpenCLMath
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
                 "        __global {$type} * a,\n".
-                "    const        uint offset_a,\n".
-                "    const        uint lda,\n".
+                "    const        int offset_a,\n".
+                "    const        int lda,\n".
                 "        __global {$type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx)\n".
+                "    const        int offset_x,\n".
+                "    const        int incx)\n".
                 "{\n".
-                "    uint row_id = get_global_id(0);\n".
-                "    uint col_id = get_global_id(1);\n".
-                "    uint ida = row_id*lda+col_id+offset_a;\n".
-                "    uint idx = col_id*incx+offset_x;\n".
+                "    int row_id = get_global_id(0);\n".
+                "    int col_id = get_global_id(1);\n".
+                "    int ida = row_id*lda+col_id+offset_a;\n".
+                "    int idx = col_id*incx+offset_x;\n".
                 "    {$type} value;\n".
                 //   if NaN set 0.0
                 //   if equal set 0.0
@@ -1697,11 +1703,11 @@ class OpenCLMath
         }
         $kernel = $this->createKernel($kernel_name);
         $kernel->setArg(0,$A);
-        $kernel->setArg(1,$offsetA,NDArray::uint32);
-        $kernel->setArg(2,$ldA,NDArray::uint32);
+        $kernel->setArg(1,$offsetA,NDArray::int32);
+        $kernel->setArg(2,$ldA,NDArray::int32);
         $kernel->setArg(3,$X);
-        $kernel->setArg(4,$offsetX,NDArray::uint32);
-        $kernel->setArg(5,$incX,NDArray::uint32);
+        $kernel->setArg(4,$offsetX,NDArray::int32);
+        $kernel->setArg(5,$incX,NDArray::int32);
         $global_work_size = [$m,$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
@@ -1738,16 +1744,16 @@ class OpenCLMath
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
                 "        __global {$type} * a,\n".
-                "    const        uint offset_a,\n".
-                "    const        uint lda,\n".
+                "    const        int offset_a,\n".
+                "    const        int lda,\n".
                 "        __global {$type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx)\n".
+                "    const        int offset_x,\n".
+                "    const        int incx)\n".
                 "{\n".
-                "    uint row_id = get_global_id(0);\n".
-                "    uint col_id = get_global_id(1);\n".
-                "    uint ida = row_id*lda+col_id+offset_a;\n".
-                "    uint idx = col_id*incx+offset_x;\n".
+                "    int row_id = get_global_id(0);\n".
+                "    int col_id = get_global_id(1);\n".
+                "    int ida = row_id*lda+col_id+offset_a;\n".
+                "    int idx = col_id*incx+offset_x;\n".
                 "    {$type} value;\n".
                 //   if NaN set 0.0
                 //   if equal set 1.0
@@ -1761,11 +1767,11 @@ class OpenCLMath
         }
         $kernel = $this->createKernel($kernel_name);
         $kernel->setArg(0,$A);
-        $kernel->setArg(1,$offsetA,NDArray::uint32);
-        $kernel->setArg(2,$ldA,NDArray::uint32);
+        $kernel->setArg(1,$offsetA,NDArray::int32);
+        $kernel->setArg(2,$ldA,NDArray::int32);
         $kernel->setArg(3,$X);
-        $kernel->setArg(4,$offsetX,NDArray::uint32);
-        $kernel->setArg(5,$incX,NDArray::uint32);
+        $kernel->setArg(4,$offsetX,NDArray::int32);
+        $kernel->setArg(5,$incX,NDArray::int32);
         $global_work_size = [$m,$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
@@ -1807,27 +1813,27 @@ class OpenCLMath
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
                 "    const global {$type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
+                "    const        int offset_x,\n".
+                "    const        int incx,\n".
                 "        __global {$type} * a,\n".
-                "    const        uint offset_a,\n".
-                "    const        uint lda)\n".
+                "    const        int offset_a,\n".
+                "    const        int lda)\n".
                 "{\n".
-                "    const uint row_id = get_global_id(0);\n".
-                "    const uint col_id = get_global_id(1);\n".
-                "    const uint index_a = {$index_a};\n".
-                "    const uint index_x = col_id*incx+offset_x;\n".
+                "    const int row_id = get_global_id(0);\n".
+                "    const int col_id = get_global_id(1);\n".
+                "    const int index_a = {$index_a};\n".
+                "    const int index_x = col_id*incx+offset_x;\n".
                 "    const {$type} work_x = x[index_x];\n".
                 "    a[index_a] = a[index_a] * work_x;\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
         $kernel->setArg(0,$X);
-        $kernel->setArg(1,$offsetX,NDArray::uint32);
-        $kernel->setArg(2,$incX,NDArray::uint32);
+        $kernel->setArg(1,$offsetX,NDArray::int32);
+        $kernel->setArg(2,$incX,NDArray::int32);
         $kernel->setArg(3,$A);
-        $kernel->setArg(4,$offsetA,NDArray::uint32);
-        $kernel->setArg(5,$ldA,NDArray::uint32);
+        $kernel->setArg(4,$offsetA,NDArray::int32);
+        $kernel->setArg(5,$ldA,NDArray::int32);
         $global_work_size = [$rows,$cols];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
@@ -1871,16 +1877,16 @@ class OpenCLMath
                 "__kernel void {$kernel_name}(\n".
                 "    const        {$type} alpha,\n".
                 "    const global {$type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
+                "    const        int offset_x,\n".
+                "    const        int incx,\n".
                 "        __global {$type} * a,\n".
-                "    const        uint offset_a,\n".
-                "    const        uint lda)\n".
+                "    const        int offset_a,\n".
+                "    const        int lda)\n".
                 "{\n".
-                "    const uint row_id = get_global_id(0);\n".
-                "    const uint col_id = get_global_id(1);\n".
-                "    const uint index_a = {$index_a};\n".
-                "    const uint index_x = col_id*incx+offset_x;\n".
+                "    const int row_id = get_global_id(0);\n".
+                "    const int col_id = get_global_id(1);\n".
+                "    const int index_a = {$index_a};\n".
+                "    const int index_x = col_id*incx+offset_x;\n".
                 "    const {$type} work_x = x[index_x];\n".
                 "    a[index_a] = a[index_a] + alpha * work_x;\n".
                 "}\n";
@@ -1888,11 +1894,11 @@ class OpenCLMath
         $kernel = $this->createKernel($kernel_name);
         $kernel->setArg(0,$alpha,NDArray::float32);
         $kernel->setArg(1,$X);
-        $kernel->setArg(2,$offsetX,NDArray::uint32);
-        $kernel->setArg(3,$incX,NDArray::uint32);
+        $kernel->setArg(2,$offsetX,NDArray::int32);
+        $kernel->setArg(3,$incX,NDArray::int32);
         $kernel->setArg(4,$A);
-        $kernel->setArg(5,$offsetA,NDArray::uint32);
-        $kernel->setArg(6,$ldA,NDArray::uint32);
+        $kernel->setArg(5,$offsetA,NDArray::int32);
+        $kernel->setArg(6,$ldA,NDArray::int32);
         $global_work_size = [$rows,$cols];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
@@ -1917,23 +1923,23 @@ class OpenCLMath
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint n,\n".
+                "    const        int n,\n".
                 "        __global {$type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx)\n".
+                "    const        int offset_x,\n".
+                "    const        int incx)\n".
                 "{\n".
-                "    uint gid = get_global_id(0);\n".
+                "    int gid = get_global_id(0);\n".
                 //"    if(gid<n) {\n".
-                "        uint idx = gid*incx+offset_x;\n".
+                "        int idx = gid*incx+offset_x;\n".
                 "        x[idx] = x[idx] * x[idx];\n".
                 //"    }\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
-        $kernel->setArg(0,$n,NDArray::uint32);
+        $kernel->setArg(0,$n,NDArray::int32);
         $kernel->setArg(1,$X);
-        $kernel->setArg(2,$offsetX,NDArray::uint32);
-        $kernel->setArg(3,$incX,NDArray::uint32);
+        $kernel->setArg(2,$offsetX,NDArray::int32);
+        $kernel->setArg(3,$incX,NDArray::int32);
         $global_work_size = [$n];//[$this->ceil($n,32)];
         $local_work_size = null;//[32];
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -1959,17 +1965,17 @@ class OpenCLMath
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
                 "        __global {$type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx)\n".
+                "    const        int offset_x,\n".
+                "    const        int incx)\n".
                 "{\n".
-                "    uint idx = get_global_id(0)*incx+offset_x;\n".
+                "    int idx = get_global_id(0)*incx+offset_x;\n".
                 "    x[idx] = sqrt(x[idx]);\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
         $kernel->setArg(0,$X);
-        $kernel->setArg(1,$offsetX,NDArray::uint32);
-        $kernel->setArg(2,$incX,NDArray::uint32);
+        $kernel->setArg(1,$offsetX,NDArray::int32);
+        $kernel->setArg(2,$incX,NDArray::int32);
         $global_work_size = [$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
@@ -1997,19 +2003,19 @@ class OpenCLMath
                 "__kernel void {$kernel_name}(\n".
                 "    const        {$type} alpha,\n".
                 "        __global {$type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
+                "    const        int offset_x,\n".
+                "    const        int incx,\n".
                 "    const        {$type} beta)\n".
                 "{\n".
-                "    uint idx = get_global_id(0)*incx+offset_x;\n".
+                "    int idx = get_global_id(0)*incx+offset_x;\n".
                 "    x[idx] = 1.0/(alpha * sqrt(x[idx]) + beta);\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
         $kernel->setArg(0,$alpha,NDArray::float32);
         $kernel->setArg(1,$X);
-        $kernel->setArg(2,$offsetX,NDArray::uint32);
-        $kernel->setArg(3,$incX,NDArray::uint32);
+        $kernel->setArg(2,$offsetX,NDArray::int32);
+        $kernel->setArg(3,$incX,NDArray::int32);
         $kernel->setArg(4,$beta,NDArray::float32);
         $global_work_size = [$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
@@ -2052,27 +2058,27 @@ class OpenCLMath
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
                 "    const global {$type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
+                "    const        int offset_x,\n".
+                "    const        int incx,\n".
                 "        __global {$type} * a,\n".
-                "    const        uint offset_a,\n".
-                "    const        uint lda)\n".
+                "    const        int offset_a,\n".
+                "    const        int lda)\n".
                 "{\n".
-                "    const uint row_id = get_global_id(0);\n".
-                "    const uint col_id = get_global_id(1);\n".
-                "    const uint index_a = {$index_a};\n".
-                "    const uint index_x = col_id*incx+offset_x;\n".
+                "    const int row_id = get_global_id(0);\n".
+                "    const int col_id = get_global_id(1);\n".
+                "    const int index_a = {$index_a};\n".
+                "    const int index_x = col_id*incx+offset_x;\n".
                 "    const {$type} work_x = x[index_x];\n".
                 "    a[index_a] = pow(a[index_a],work_x);\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
         $kernel->setArg(0,$X);
-        $kernel->setArg(1,$offsetX,NDArray::uint32);
-        $kernel->setArg(2,$incX,NDArray::uint32);
+        $kernel->setArg(1,$offsetX,NDArray::int32);
+        $kernel->setArg(2,$incX,NDArray::int32);
         $kernel->setArg(3,$A);
-        $kernel->setArg(4,$offsetA,NDArray::uint32);
-        $kernel->setArg(5,$ldA,NDArray::uint32);
+        $kernel->setArg(4,$offsetA,NDArray::int32);
+        $kernel->setArg(5,$ldA,NDArray::int32);
         $global_work_size = [$rows,$cols];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
@@ -2098,17 +2104,17 @@ class OpenCLMath
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
                 "        __global {$type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx)\n".
+                "    const        int offset_x,\n".
+                "    const        int incx)\n".
                 "{\n".
-                "    uint idx = get_global_id(0)*incx+offset_x;\n".
+                "    int idx = get_global_id(0)*incx+offset_x;\n".
                 "    x[idx] = exp(x[idx]);\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
         $kernel->setArg(0,$X);
-        $kernel->setArg(1,$offsetX,NDArray::uint32);
-        $kernel->setArg(2,$incX,NDArray::uint32);
+        $kernel->setArg(1,$offsetX,NDArray::int32);
+        $kernel->setArg(2,$incX,NDArray::int32);
         $global_work_size = [$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
@@ -2133,17 +2139,17 @@ class OpenCLMath
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
                 "        __global {$type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx)\n".
+                "    const        int offset_x,\n".
+                "    const        int incx)\n".
                 "{\n".
-                "    uint idx = get_global_id(0)*incx+offset_x;\n".
+                "    int idx = get_global_id(0)*incx+offset_x;\n".
                 "    x[idx] = log(x[idx]);\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
         $kernel->setArg(0,$X);
-        $kernel->setArg(1,$offsetX,NDArray::uint32);
-        $kernel->setArg(2,$incX,NDArray::uint32);
+        $kernel->setArg(1,$offsetX,NDArray::int32);
+        $kernel->setArg(2,$incX,NDArray::int32);
         $global_work_size = [$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
@@ -2168,17 +2174,17 @@ class OpenCLMath
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
                 "        __global {$type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx)\n".
+                "    const        int offset_x,\n".
+                "    const        int incx)\n".
                 "{\n".
-                "    uint idx = get_global_id(0)*incx+offset_x;\n".
+                "    int idx = get_global_id(0)*incx+offset_x;\n".
                 "    x[idx] = tanh(x[idx]);\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
         $kernel->setArg(0,$X);
-        $kernel->setArg(1,$offsetX,NDArray::uint32);
-        $kernel->setArg(2,$incX,NDArray::uint32);
+        $kernel->setArg(1,$offsetX,NDArray::int32);
+        $kernel->setArg(2,$incX,NDArray::int32);
         $global_work_size = [$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
@@ -2203,17 +2209,17 @@ class OpenCLMath
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
                 "        __global {$type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx)\n".
+                "    const        int offset_x,\n".
+                "    const        int incx)\n".
                 "{\n".
-                "    uint idx = get_global_id(0)*incx+offset_x;\n".
+                "    int idx = get_global_id(0)*incx+offset_x;\n".
                 "    x[idx] = sin(x[idx]);\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
         $kernel->setArg(0,$X);
-        $kernel->setArg(1,$offsetX,NDArray::uint32);
-        $kernel->setArg(2,$incX,NDArray::uint32);
+        $kernel->setArg(1,$offsetX,NDArray::int32);
+        $kernel->setArg(2,$incX,NDArray::int32);
         $global_work_size = [$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
@@ -2238,17 +2244,17 @@ class OpenCLMath
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
                 "        __global {$type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx)\n".
+                "    const        int offset_x,\n".
+                "    const        int incx)\n".
                 "{\n".
-                "    uint idx = get_global_id(0)*incx+offset_x;\n".
+                "    int idx = get_global_id(0)*incx+offset_x;\n".
                 "    x[idx] = cos(x[idx]);\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
         $kernel->setArg(0,$X);
-        $kernel->setArg(1,$offsetX,NDArray::uint32);
-        $kernel->setArg(2,$incX,NDArray::uint32);
+        $kernel->setArg(1,$offsetX,NDArray::int32);
+        $kernel->setArg(2,$incX,NDArray::int32);
         $global_work_size = [$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
@@ -2273,17 +2279,17 @@ class OpenCLMath
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
                 "        __global {$type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx)\n".
+                "    const        int offset_x,\n".
+                "    const        int incx)\n".
                 "{\n".
-                "    uint idx = get_global_id(0)*incx+offset_x;\n".
+                "    int idx = get_global_id(0)*incx+offset_x;\n".
                 "    x[idx] = tan(x[idx]);\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
         $kernel->setArg(0,$X);
-        $kernel->setArg(1,$offsetX,NDArray::uint32);
-        $kernel->setArg(2,$incX,NDArray::uint32);
+        $kernel->setArg(1,$offsetX,NDArray::int32);
+        $kernel->setArg(2,$incX,NDArray::int32);
         $global_work_size = [$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
@@ -2314,15 +2320,15 @@ class OpenCLMath
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
                 "    const global {$dtype} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
+                "    const        int offset_x,\n".
+                "    const        int incx,\n".
                 "        __global {$dtype} * y,\n".
-                "    const        uint offset_y,\n".
-                "    const        uint incy)\n".
+                "    const        int offset_y,\n".
+                "    const        int incy)\n".
                 "{\n".
-                "    uint gid = get_global_id(0);\n".
-                "    uint index_x = gid*incx+offset_x;\n".
-                "    uint index_y = gid*incy+offset_y;\n".
+                "    int gid = get_global_id(0);\n".
+                "    int index_x = gid*incx+offset_x;\n".
+                "    int index_y = gid*incy+offset_y;\n".
                 "    if(x[index_x]==y[index_y]) {\n".
                 "        y[index_y] = 1;\n".
                 "    } else {\n".
@@ -2333,11 +2339,11 @@ class OpenCLMath
         $kernel = $this->createKernel($kernel_name);
 
         $kernel->setArg(0,$X);
-        $kernel->setArg(1,$offsetX,NDArray::uint32);
-        $kernel->setArg(2,$incX,NDArray::uint32);
+        $kernel->setArg(1,$offsetX,NDArray::int32);
+        $kernel->setArg(2,$incX,NDArray::int32);
         $kernel->setArg(3,$Y);
-        $kernel->setArg(4,$offsetY,NDArray::uint32);
-        $kernel->setArg(5,$incY,NDArray::uint32);
+        $kernel->setArg(4,$offsetY,NDArray::int32);
+        $kernel->setArg(5,$incY,NDArray::int32);
         $global_work_size = [$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
@@ -2368,15 +2374,15 @@ class OpenCLMath
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
                 "    const global {$dtype} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
+                "    const        int offset_x,\n".
+                "    const        int incx,\n".
                 "        __global {$dtype} * y,\n".
-                "    const        uint offset_y,\n".
-                "    const        uint incy)\n".
+                "    const        int offset_y,\n".
+                "    const        int incy)\n".
                 "{\n".
-                "    uint gid = get_global_id(0);\n".
-                "    uint index_x = gid*incx+offset_x;\n".
-                "    uint index_y = gid*incy+offset_y;\n".
+                "    int gid = get_global_id(0);\n".
+                "    int index_x = gid*incx+offset_x;\n".
+                "    int index_y = gid*incy+offset_y;\n".
                 "    if(x[index_x]!=y[index_y]) {\n".
                 "        y[index_y] = 1;\n".
                 "    } else {\n".
@@ -2387,11 +2393,11 @@ class OpenCLMath
         $kernel = $this->createKernel($kernel_name);
 
         $kernel->setArg(0,$X);
-        $kernel->setArg(1,$offsetX,NDArray::uint32);
-        $kernel->setArg(2,$incX,NDArray::uint32);
+        $kernel->setArg(1,$offsetX,NDArray::int32);
+        $kernel->setArg(2,$incX,NDArray::int32);
         $kernel->setArg(3,$Y);
-        $kernel->setArg(4,$offsetY,NDArray::uint32);
-        $kernel->setArg(5,$incY,NDArray::uint32);
+        $kernel->setArg(4,$offsetY,NDArray::int32);
+        $kernel->setArg(5,$incY,NDArray::int32);
         $global_work_size = [$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
@@ -2417,11 +2423,11 @@ class OpenCLMath
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
                 "        __global {$dtype} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx)\n".
+                "    const        int offset_x,\n".
+                "    const        int incx)\n".
                 "{\n".
-                "    uint gid = get_global_id(0);\n".
-                "    uint index_x = gid*incx+offset_x;\n".
+                "    int gid = get_global_id(0);\n".
+                "    int index_x = gid*incx+offset_x;\n".
                 "    if(x[index_x]==0) {\n".
                 "        x[index_x] = 1;\n".
                 "    } else {\n".
@@ -2432,8 +2438,8 @@ class OpenCLMath
         $kernel = $this->createKernel($kernel_name);
 
         $kernel->setArg(0,$X);
-        $kernel->setArg(1,$offsetX,NDArray::uint32);
-        $kernel->setArg(2,$incX,NDArray::uint32);
+        $kernel->setArg(1,$offsetX,NDArray::int32);
+        $kernel->setArg(2,$incX,NDArray::int32);
         $global_work_size = [$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
@@ -2477,19 +2483,19 @@ class OpenCLMath
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
                 "        __global {$dtype} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx)\n".
+                "    const        int offset_x,\n".
+                "    const        int incx)\n".
                 "{\n".
-                "    uint gid = get_global_id(0);\n".
-                "    uint index_x = gid*incx+offset_x;\n".
+                "    int gid = get_global_id(0);\n".
+                "    int index_x = gid*incx+offset_x;\n".
                 $statement.
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
 
         $kernel->setArg(0,$X);
-        $kernel->setArg(1,$offsetX,NDArray::uint32);
-        $kernel->setArg(2,$incX,NDArray::uint32);
+        $kernel->setArg(1,$offsetX,NDArray::int32);
+        $kernel->setArg(2,$incX,NDArray::int32);
         $global_work_size = [$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
@@ -2531,27 +2537,27 @@ class OpenCLMath
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
                 "    const global {$type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
+                "    const        int offset_x,\n".
+                "    const        int incx,\n".
                 "        __global {$type} * a,\n".
-                "    const        uint offset_a,\n".
-                "    const        uint lda)\n".
+                "    const        int offset_a,\n".
+                "    const        int lda)\n".
                 "{\n".
-                "    uint i = get_global_id({$idxI});\n".
-                "    uint j = get_global_id({$idxJ});\n".
-                "    uint index_a = {$index_a};\n".
-                "    uint index_x = j*incx+offset_x;\n".
+                "    int i = get_global_id({$idxI});\n".
+                "    int j = get_global_id({$idxJ});\n".
+                "    int index_a = {$index_a};\n".
+                "    int index_x = j*incx+offset_x;\n".
                 "    a[index_a] = x[index_x];\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
 
         $kernel->setArg(0,$X);
-        $kernel->setArg(1,$offsetX,NDArray::uint32);
-        $kernel->setArg(2,$incX,NDArray::uint32);
+        $kernel->setArg(1,$offsetX,NDArray::int32);
+        $kernel->setArg(2,$incX,NDArray::int32);
         $kernel->setArg(3,$A);
-        $kernel->setArg(4,$offsetA,NDArray::uint32);
-        $kernel->setArg(5,$ldA,NDArray::uint32);
+        $kernel->setArg(4,$offsetA,NDArray::int32);
+        $kernel->setArg(5,$ldA,NDArray::int32);
         $global_work_size = [$m,$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
@@ -2584,13 +2590,13 @@ class OpenCLMath
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
                 "    const global {$from} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
+                "    const        int offset_x,\n".
+                "    const        int incx,\n".
                 "        __global {$to} * y,\n".
-                "    const        uint offset_y,\n".
-                "    const        uint incy)\n".
+                "    const        int offset_y,\n".
+                "    const        int incy)\n".
                 "{\n".
-                "    uint gid = get_global_id(0);\n";
+                "    int gid = get_global_id(0);\n";
             if($dtypeY==NDArray::bool) {
                 if($dtypeX==NDArray::float16||$dtypeX==NDArray::float32||$dtypeX==NDArray::float64) {
                 $this->sources[$kernel_name] .=
@@ -2618,11 +2624,11 @@ class OpenCLMath
         $kernel = $this->createKernel($kernel_name);
 
         $kernel->setArg(0,$X);
-        $kernel->setArg(1,$offsetX,NDArray::uint32);
-        $kernel->setArg(2,$incX,NDArray::uint32);
+        $kernel->setArg(1,$offsetX,NDArray::int32);
+        $kernel->setArg(2,$incX,NDArray::int32);
         $kernel->setArg(3,$Y);
-        $kernel->setArg(4,$offsetY,NDArray::uint32);
-        $kernel->setArg(5,$incY,NDArray::uint32);
+        $kernel->setArg(4,$offsetY,NDArray::int32);
+        $kernel->setArg(5,$incY,NDArray::int32);
         $global_work_size = [$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
@@ -2919,34 +2925,34 @@ EOT;
             }
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint n,\n".
-                "    const        uint k,\n".
-                "    const        uint numClass,\n".
-                "    const global uint * x,\n".
-                "    const        uint offset_x,\n".
+                "    const        int n,\n".
+                "    const        int k,\n".
+                "    const        int numClass,\n".
+                "    const global int * x,\n".
+                "    const        int offset_x,\n".
                 "    {$a_arg_type} {$type} * a,\n".
-                "    const        uint offset_a,\n".
+                "    const        int offset_a,\n".
                 "    {$b_arg_type} {$type} * b,\n".
-                "    const        uint offset_b)\n".
+                "    const        int offset_b)\n".
                 "{\n".
-                "    uint p = get_global_id(0);\n".
-                "    uint j = get_global_id(1);\n".
-                "    uint label = x[j+offset_x];\n".
+                "    int p = get_global_id(0);\n".
+                "    int j = get_global_id(1);\n".
+                "    int label = x[j+offset_x];\n".
                 "    if(label<numClass) {\n".
                 "        {$to} {$operator} {$from};\n".
                 "    }\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
-        $kernel->setArg(0,$n,NDArray::uint32);
-        $kernel->setArg(1,$k,NDArray::uint32);
-        $kernel->setArg(2,$numClass,NDArray::uint32);
+        $kernel->setArg(0,$n,NDArray::int32);
+        $kernel->setArg(1,$k,NDArray::int32);
+        $kernel->setArg(2,$numClass,NDArray::int32);
         $kernel->setArg(3,$X);
-        $kernel->setArg(4,$offsetX,NDArray::uint32);
+        $kernel->setArg(4,$offsetX,NDArray::int32);
         $kernel->setArg(5,$A);
-        $kernel->setArg(6,$offsetA,NDArray::uint32);
+        $kernel->setArg(6,$offsetA,NDArray::int32);
         $kernel->setArg(7,$B);
-        $kernel->setArg(8,$offsetB,NDArray::uint32);
+        $kernel->setArg(8,$offsetB,NDArray::int32);
         $global_work_size = [$k,$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
@@ -3013,34 +3019,34 @@ EOT;
             }
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint m,\n".
-                "    const        uint n,\n".
-                "    const        uint numClass,\n".
-                "    const global uint * x,\n".
-                "    const        uint offset_x,\n".
+                "    const        int m,\n".
+                "    const        int n,\n".
+                "    const        int numClass,\n".
+                "    const global int * x,\n".
+                "    const        int offset_x,\n".
                 "    {$a_arg_type} {$type} * a,\n".
-                "    const        uint offset_a,\n".
+                "    const        int offset_a,\n".
                 "    {$b_arg_type} {$type} * b,\n".
-                "    const        uint offset_b)\n".
+                "    const        int offset_b)\n".
                 "{\n".
-                "    uint j = get_global_id(0);\n".
-                "    uint i = get_global_id(1);\n".
-                "    uint label = x[j+offset_x+n*i];\n".
+                "    int j = get_global_id(0);\n".
+                "    int i = get_global_id(1);\n".
+                "    int label = x[j+offset_x+n*i];\n".
                 "    if(label<numClass) {\n".
                 "        {$to} {$operator} {$from};\n".
                 "    }\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
-        $kernel->setArg(0,$m,NDArray::uint32);
-        $kernel->setArg(1,$n,NDArray::uint32);
-        $kernel->setArg(2,$numClass,NDArray::uint32);
+        $kernel->setArg(0,$m,NDArray::int32);
+        $kernel->setArg(1,$n,NDArray::int32);
+        $kernel->setArg(2,$numClass,NDArray::int32);
         $kernel->setArg(3,$X);
-        $kernel->setArg(4,$offsetX,NDArray::uint32);
+        $kernel->setArg(4,$offsetX,NDArray::int32);
         $kernel->setArg(5,$A);
-        $kernel->setArg(6,$offsetA,NDArray::uint32);
+        $kernel->setArg(6,$offsetA,NDArray::int32);
         $kernel->setArg(7,$B);
-        $kernel->setArg(8,$offsetB,NDArray::uint32);
+        $kernel->setArg(8,$offsetB,NDArray::int32);
         $global_work_size = [$n,$m];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
@@ -3231,24 +3237,24 @@ EOT;
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint total_local_items,\n".
-                "    const        uint k,\n".
-                "    const        uint numclass,\n".
-                "    const global uint * x,\n".
-                "    const        uint offset_x,\n".
+                "    const        int total_local_items,\n".
+                "    const        int k,\n".
+                "    const        int numclass,\n".
+                "    const global int * x,\n".
+                "    const        int offset_x,\n".
                 "        __global {$type} * a,\n".
-                "    const        uint offset_a,\n".
+                "    const        int offset_a,\n".
                 "    const global {$type} * b,\n".
-                "    const        uint offset_b)\n".
+                "    const        int offset_b)\n".
                 "{\n".
-                "    const uint p = get_global_id(0);\n".  // A col id(p)
-                "    const uint i = get_global_id(1);\n".  // A row id(i)
-                "    uint pos_x = offset_x;\n".  // A col id
-                "    uint pos_b = offset_b+p;\n".  // A col id
+                "    const int p = get_global_id(0);\n".  // A col id(p)
+                "    const int i = get_global_id(1);\n".  // A row id(i)
+                "    int pos_x = offset_x;\n".  // A col id
+                "    int pos_b = offset_b+p;\n".  // A col id
                 "    {$type} sum = 0;\n".
                 //"    if(p<k && i<numclass) {\n".
                 "        for(int j=0;j<total_local_items;j++,pos_x++,pos_b+=k) {\n".
-                "            uint label = x[pos_x];\n".
+                "            int label = x[pos_x];\n".
                 "            if(label==i) {\n".
                 "                sum += b[pos_b];\n".
                 "            }\n".
@@ -3259,15 +3265,15 @@ EOT;
         }
         $kernel = $this->createKernel($kernel_name);
 
-        $kernel->setArg(0,$total_local_items,NDArray::uint32);
-        $kernel->setArg(1,$k,NDArray::uint32);
-        $kernel->setArg(2,$numClass,NDArray::uint32);
+        $kernel->setArg(0,$total_local_items,NDArray::int32);
+        $kernel->setArg(1,$k,NDArray::int32);
+        $kernel->setArg(2,$numClass,NDArray::int32);
         $kernel->setArg(3,$X);
-        $kernel->setArg(4,$offsetX,NDArray::uint32);
+        $kernel->setArg(4,$offsetX,NDArray::int32);
         $kernel->setArg(5,$A);
-        $kernel->setArg(6,$offsetA,NDArray::uint32);
+        $kernel->setArg(6,$offsetA,NDArray::int32);
         $kernel->setArg(7,$B);
-        $kernel->setArg(8,$offsetB,NDArray::uint32);
+        $kernel->setArg(8,$offsetB,NDArray::int32);
         $global_work_size = [$k,$numClass];
         $local_work_size = null;
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -3306,23 +3312,23 @@ EOT;
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint total_local_items,\n".
-                "    const        uint k,\n".
-                "    const        uint numclass,\n".
-                "    const global uint * x,\n".
-                "    const        uint offset_x,\n".
+                "    const        int total_local_items,\n".
+                "    const        int k,\n".
+                "    const        int numclass,\n".
+                "    const global int * x,\n".
+                "    const        int offset_x,\n".
                 "        __global {$type} * a,\n".
-                "    const        uint offset_a,\n".
+                "    const        int offset_a,\n".
                 "    const global {$type} * b,\n".
-                "    const        uint offset_b,\n".
+                "    const        int offset_b,\n".
                 "         __local {$type} * local_work,\n".
-                "    const        uint work_items)\n".
+                "    const        int work_items)\n".
                 "{\n".
-                "    const uint grid = get_group_id(0);\n".  // A col id (p)
-                "    const uint gid1 = get_global_id(1);\n". // A row id(i)
-                "    const uint pos_b = grid+offset_b;\n".
+                "    const int grid = get_group_id(0);\n".  // A col id (p)
+                "    const int gid1 = get_global_id(1);\n". // A row id(i)
+                "    const int pos_b = grid+offset_b;\n".
                      $this->kernelTemplateSSum(
-                         "uint label = x[lid+offset_x];\n".  // pos_x (j)
+                         "int label = x[lid+offset_x];\n".  // pos_x (j)
                          "if(label==gid1) {\n".
                          "    local_work[lid] = b[lid*k+pos_b];\n".
                          "} else {\n".
@@ -3334,17 +3340,17 @@ EOT;
         }
         $kernel = $this->createKernel($kernel_name);
 
-        $kernel->setArg(0,$total_local_items,NDArray::uint32);
-        $kernel->setArg(1,$k,NDArray::uint32);
-        $kernel->setArg(2,$numClass,NDArray::uint32);
+        $kernel->setArg(0,$total_local_items,NDArray::int32);
+        $kernel->setArg(1,$k,NDArray::int32);
+        $kernel->setArg(2,$numClass,NDArray::int32);
         $kernel->setArg(3,$X);
-        $kernel->setArg(4,$offsetX,NDArray::uint32);
+        $kernel->setArg(4,$offsetX,NDArray::int32);
         $kernel->setArg(5,$A);
-        $kernel->setArg(6,$offsetA,NDArray::uint32);
+        $kernel->setArg(6,$offsetA,NDArray::int32);
         $kernel->setArg(7,$B);
-        $kernel->setArg(8,$offsetB,NDArray::uint32);
+        $kernel->setArg(8,$offsetB,NDArray::int32);
         $kernel->setArg(9,null,$this->adjBoundary($max_work_items*$value_size));
-        $kernel->setArg(10,$work_items,NDArray::uint32);
+        $kernel->setArg(10,$work_items,NDArray::int32);
         $global_work_size = [$max_work_items*$k,$numClass];
         $local_work_size = [$max_work_items,1];
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -3384,25 +3390,25 @@ EOT;
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint total_local_items,\n". // k => n
-                "    const        uint k,\n".
-                "    const        uint numclass,\n".
-                "    const global uint * x,\n".
-                "    const        uint offset_x,\n".
+                "    const        int total_local_items,\n". // k => n
+                "    const        int k,\n".
+                "    const        int numclass,\n".
+                "    const global int * x,\n".
+                "    const        int offset_x,\n".
                 "        __global {$type} * a,\n".
-                "    const        uint offset_a,\n".
+                "    const        int offset_a,\n".
                 "    const global {$type} * b,\n".
-                "    const        uint offset_b,\n".
-                "    const        uint segments,\n".
+                "    const        int offset_b,\n".
+                "    const        int segments,\n".
                 "         __local {$type} * local_work,\n".
                 "         __local {$type} * seg_work,\n".
-                "    const        uint work_items)\n".
+                "    const        int work_items)\n".
                 "{\n".
-                "    const uint grid = get_group_id(0);\n".  // A col id(p)(n => k)
-                "    const uint gid1 = get_global_id(1);\n".  // A row id(i)(m => class)
-                "    const uint pos_b = grid+offset_b;\n".
+                "    const int grid = get_group_id(0);\n".  // A col id(p)(n => k)
+                "    const int gid1 = get_global_id(1);\n".  // A row id(i)(m => class)
+                "    const int pos_b = grid+offset_b;\n".
                      $this->kernelTemplateQSum(
-                         "uint label = x[seg*lws+lid+offset_x];\n". // pos_x (i)
+                         "int label = x[seg*lws+lid+offset_x];\n". // pos_x (i)
                          "if(label==gid1) {\n".
                          "    local_work[lid] = b[(seg*lws+lid)*k+pos_b];\n".
                          "} else {\n".
@@ -3414,19 +3420,19 @@ EOT;
         }
         $kernel = $this->createKernel($kernel_name);
 
-        $kernel->setArg(0,$total_local_items,NDArray::uint32);
-        $kernel->setArg(1,$k,NDArray::uint32);
-        $kernel->setArg(2,$numClass,NDArray::uint32);
+        $kernel->setArg(0,$total_local_items,NDArray::int32);
+        $kernel->setArg(1,$k,NDArray::int32);
+        $kernel->setArg(2,$numClass,NDArray::int32);
         $kernel->setArg(3,$X);
-        $kernel->setArg(4,$offsetX,NDArray::uint32);
+        $kernel->setArg(4,$offsetX,NDArray::int32);
         $kernel->setArg(5,$A);
-        $kernel->setArg(6,$offsetA,NDArray::uint32);
+        $kernel->setArg(6,$offsetA,NDArray::int32);
         $kernel->setArg(7,$B);
-        $kernel->setArg(8,$offsetB,NDArray::uint32);
-        $kernel->setArg(9,$segments,NDArray::uint32);
+        $kernel->setArg(8,$offsetB,NDArray::int32);
+        $kernel->setArg(9,$segments,NDArray::int32);
         $kernel->setArg(10,null,$this->adjBoundary($max_work_items*$value_size));
         $kernel->setArg(11,null,$this->adjBoundary($segments*$value_size));
-        $kernel->setArg(12,$work_items,NDArray::uint32);
+        $kernel->setArg(12,$work_items,NDArray::int32);
         $global_work_size = [$max_work_items*$k,$numClass];
         $local_work_size = [$max_work_items,1];
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -3473,23 +3479,23 @@ EOT;
         if(!isset($this->sources[$kernel_name1])) {
             $this->sources[$kernel_name1] =
                 "__kernel void {$kernel_name1}(\n".
-                "    const        uint total_local_items,\n".
-                "    const        uint k,\n".
-                "    const        uint numclass,\n".
-                "    const global uint * x,\n".
-                "    const        uint offset_x,\n".
+                "    const        int total_local_items,\n".
+                "    const        int k,\n".
+                "    const        int numclass,\n".
+                "    const global int * x,\n".
+                "    const        int offset_x,\n".
                 "    const global {$type} * b,\n".
-                "    const        uint offset_b,\n".
+                "    const        int offset_b,\n".
                 "        __global {$type} * temp_buffer,\n".
                 "         __local {$type} * local_work)\n".
                 "{\n".
-                "    const uint parallel_item_id = get_global_id(1);\n".
+                "    const int parallel_item_id = get_global_id(1);\n".
                 $this->splitPointer('inner_id','outer_id','parallel_item_id','k').
                 $this->kernelTemplateLSum1(
                         "{$type} input;\n".
                         // inner_id = (p)(cols k)
                         // outer_id = (i)(rows class)
-                        "const uint label = x[local_item_id+offset_x];\n".
+                        "const int label = x[local_item_id+offset_x];\n".
                         "if(label==outer_id) {\n".
                         "    input = b[local_item_id*k+inner_id+offset_b];\n".
                         "} else {\n".
@@ -3504,29 +3510,29 @@ EOT;
         if(!isset($this->sources[$kernel_name2])) {
             $this->sources[$kernel_name2] =
                 "__kernel void {$kernel_name2}(\n".
-                "    const        uint k,\n".
+                "    const        int k,\n".
                 "    const __global {$type} * temp_buffer,\n".
                 "          __global {$type} * a,\n".
-                "    const        uint offset_a,\n".
+                "    const        int offset_a,\n".
                 "         __local {$type} * local_work)\n".
                 "{\n".
-                "    const uint parallel_item_id = get_global_id(1);\n".
+                "    const int parallel_item_id = get_global_id(1);\n".
                     $this->kernelTemplateLSum2(
-                        #"const uint inner_id = parallel_item_id%k;\n". // (p)(cols k)
-                        #"const uint outer_id = parallel_item_id/k;\n". // (i)(rows class)
+                        #"const int inner_id = parallel_item_id%k;\n". // (p)(cols k)
+                        #"const int outer_id = parallel_item_id/k;\n". // (i)(rows class)
                         "a[parallel_item_id+offset_a] += local_work[0];\n"
                     ).
                 "}\n";
         }
         $kernel2 = $this->createKernel($kernel_name2);
         //
-        $kernel1->setArg(0,$total_local_items,NDArray::uint32);
-        $kernel1->setArg(1,$k,NDArray::uint32);
-        $kernel1->setArg(2,$numClass,NDArray::uint32);
+        $kernel1->setArg(0,$total_local_items,NDArray::int32);
+        $kernel1->setArg(1,$k,NDArray::int32);
+        $kernel1->setArg(2,$numClass,NDArray::int32);
         $kernel1->setArg(3,$X);
-        $kernel1->setArg(4,$offsetX,NDArray::uint32);
+        $kernel1->setArg(4,$offsetX,NDArray::int32);
         $kernel1->setArg(5,$B);
-        $kernel1->setArg(6,$offsetB,NDArray::uint32);
+        $kernel1->setArg(6,$offsetB,NDArray::int32);
         $kernel1->setArg(7,$temp_buffer);
         $kernel1->setArg(8,null,$this->adjBoundary($work_items1*$value_size));
         $global_work_size = [$work_items1*$temp_size,$k*$numClass];
@@ -3535,10 +3541,10 @@ EOT;
         $kernel1->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
                 $phase1Events,$waitEvents);
         //
-        $kernel2->setArg(0,$k,NDArray::uint32);
+        $kernel2->setArg(0,$k,NDArray::int32);
         $kernel2->setArg(1,$temp_buffer);
         $kernel2->setArg(2,$A);
-        $kernel2->setArg(3,$offsetA,NDArray::uint32);
+        $kernel2->setArg(3,$offsetA,NDArray::int32);
         $kernel2->setArg(4,null,$this->adjBoundary($work_items2*$value_size));
         $global_work_size = [$work_items2,$k*$numClass];
         $local_work_size = [$work_items2,1];
@@ -3565,23 +3571,23 @@ EOT;
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint n,\n".
-                "    const        uint k,\n".
-                "    const        uint numclass,\n".
-                "    const global uint * x,\n".
-                "    const        uint offset_x,\n".
+                "    const        int n,\n".
+                "    const        int k,\n".
+                "    const        int numclass,\n".
+                "    const global int * x,\n".
+                "    const        int offset_x,\n".
                 "        __global {$type} * a,\n".
-                "    const        uint offset_a,\n".
+                "    const        int offset_a,\n".
                 "    const global {$type} * b,\n".
-                "    const        uint offset_b)\n".
+                "    const        int offset_b)\n".
                 "{\n".
-                "    const uint gid = get_global_id(0);\n".
+                "    const int gid = get_global_id(0);\n".
                 //"    if(gid<n) {\n".
-                "        uint pos_x = offset_x;\n".
-                "        uint pos_b = offset_b;\n".
-                "        uint pos_a = gid+offset_a;\n".
-                "        for(uint j=0;j<n;j++,pos_x++,pos_b+=k) {\n".
-                "            uint label = x[pos_x];\n".
+                "        int pos_x = offset_x;\n".
+                "        int pos_b = offset_b;\n".
+                "        int pos_a = gid+offset_a;\n".
+                "        for(int j=0;j<n;j++,pos_x++,pos_b+=k) {\n".
+                "            int label = x[pos_x];\n".
                 "            if(label<numclass) {\n".
                 "                a[label*k+pos_a] += b[pos_b+gid];\n".
                 "            }\n".
@@ -3591,15 +3597,15 @@ EOT;
         }
         $kernel = $this->createKernel($kernel_name);
 
-        $kernel->setArg(0,$n,NDArray::uint32);
-        $kernel->setArg(1,$k,NDArray::uint32);
-        $kernel->setArg(2,$numClass,NDArray::uint32);
+        $kernel->setArg(0,$n,NDArray::int32);
+        $kernel->setArg(1,$k,NDArray::int32);
+        $kernel->setArg(2,$numClass,NDArray::int32);
         $kernel->setArg(3,$X);
-        $kernel->setArg(4,$offsetX,NDArray::uint32);
+        $kernel->setArg(4,$offsetX,NDArray::int32);
         $kernel->setArg(5,$A);
-        $kernel->setArg(6,$offsetA,NDArray::uint32);
+        $kernel->setArg(6,$offsetA,NDArray::int32);
         $kernel->setArg(7,$B);
-        $kernel->setArg(8,$offsetB,NDArray::uint32);
+        $kernel->setArg(8,$offsetB,NDArray::int32);
         //$multiple = $this->kernelMultiple($kernel);
         //$global_work_size = [$this->ceil($k,$multiple)];
         //$local_work_size = [$multiple];
@@ -3664,48 +3670,48 @@ EOT;
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint m,\n".
-                "    const        uint n,\n".
-                "    const        uint k,\n".
-                "    const        uint len,\n".
-                "    const        uint numClass,\n".
+                "    const        int m,\n".
+                "    const        int n,\n".
+                "    const        int k,\n".
+                "    const        int len,\n".
+                "    const        int numClass,\n".
                 "        __global {$type} * a,\n".
-                "    const        uint offsetA,\n".
-                "    const global uint * x,\n".
-                "    const        uint offsetX,\n".
+                "    const        int offsetA,\n".
+                "    const global int * x,\n".
+                "    const        int offsetX,\n".
                 "        __global {$type} * b,\n".
-                "    const        uint offsetB)\n".
+                "    const        int offsetB)\n".
                 "{\n".
-                "    const uint gid0 = get_global_id(0);\n".
-                "    const uint gid1 = get_global_id(1);\n".
-                "    const uint batch_id = gid0/m;\n".
-                "    const uint i = gid0%m;\n".
-                "    const uint j = gid1/k;\n".
-                "    const uint h = gid1%k;\n".
-                "    const uint index = x[offsetX + (batch_id*n + j)*k + h];\n".
+                "    const int gid0 = get_global_id(0);\n".
+                "    const int gid1 = get_global_id(1);\n".
+                "    const int batch_id = gid0/m;\n".
+                "    const int i = gid0%m;\n".
+                "    const int j = gid1/k;\n".
+                "    const int h = gid1%k;\n".
+                "    const int index = x[offsetX + (batch_id*n + j)*k + h];\n".
                 "    if(index>=numClass) {\n".
                 "        return;\n".
                 "    }\n".
-                "    uint iA = offsetA + (((batch_id*m + i)*numClass + index)*k + h)*len;\n".
-                "    uint iB = offsetB + (((batch_id*m + i)*n + j)*k + h)*len;\n".
-                "    for(uint p=0; p<len; ++p) {\n".
+                "    int iA = offsetA + (((batch_id*m + i)*numClass + index)*k + h)*len;\n".
+                "    int iB = offsetB + (((batch_id*m + i)*n + j)*k + h)*len;\n".
+                "    for(int p=0; p<len; ++p) {\n".
                 "        {$expression}\n".
                 "    }\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
 
-        $kernel->setArg(0,$m,NDArray::uint32);
-        $kernel->setArg(1,$n,NDArray::uint32);
-        $kernel->setArg(2,$k,NDArray::uint32);
-        $kernel->setArg(3,$len,NDArray::uint32);
-        $kernel->setArg(4,$numClass,NDArray::uint32);
+        $kernel->setArg(0,$m,NDArray::int32);
+        $kernel->setArg(1,$n,NDArray::int32);
+        $kernel->setArg(2,$k,NDArray::int32);
+        $kernel->setArg(3,$len,NDArray::int32);
+        $kernel->setArg(4,$numClass,NDArray::int32);
         $kernel->setArg(5,$A);
-        $kernel->setArg(6,$offsetA,NDArray::uint32);
+        $kernel->setArg(6,$offsetA,NDArray::int32);
         $kernel->setArg(7,$X);
-        $kernel->setArg(8,$offsetX,NDArray::uint32);
+        $kernel->setArg(8,$offsetX,NDArray::int32);
         $kernel->setArg(9,$B);
-        $kernel->setArg(10,$offsetB,NDArray::uint32);
+        $kernel->setArg(10,$offsetB,NDArray::int32);
         //$multiple = $this->kernelMultiple($kernel);
         //$global_work_size = [$this->ceil($k,$multiple)];
         //$local_work_size = [$multiple];
@@ -3757,31 +3763,31 @@ EOT;
         if(!isset($this->sources[$kernel_name1])) {
             $this->sources[$kernel_name1] =
                 "__kernel void {$kernel_name1}(\n".
-                "    const        uint parallel_n,\n".
-                "    const        uint cell_size,\n".
-                "    const        uint remainder,\n".
-                "    const        uint blockSize,\n".
-                "    const        uint m,\n".
-                "    const        uint n,\n".
-                "    const        uint k,\n".
-                "    const        uint len,\n".
-                "    const        uint numClass,\n".
+                "    const        int parallel_n,\n".
+                "    const        int cell_size,\n".
+                "    const        int remainder,\n".
+                "    const        int blockSize,\n".
+                "    const        int m,\n".
+                "    const        int n,\n".
+                "    const        int k,\n".
+                "    const        int len,\n".
+                "    const        int numClass,\n".
                 "        __global {$type} * a,\n".
-                "    const        uint offsetA,\n".
-                "    const global uint * x,\n".
-                "    const        uint offsetX,\n".
+                "    const        int offsetA,\n".
+                "    const global int * x,\n".
+                "    const        int offsetX,\n".
                 "        __global {$type} * b,\n".
-                "    const        uint offsetB,\n".
+                "    const        int offsetB,\n".
                 "        __global {$type} * a_buf)\n".
                 "{\n".
-                "    const uint gid0 = get_global_id(0);\n".
-                "    const uint thread_id = get_global_id(1);\n".
-                "    const uint gid2 = get_global_id(2);\n".
-                "    const uint batch_id = gid0/m;\n".
-                "    const uint i = gid0%m;\n".
-                "    const uint h = gid2;\n".
-                "    uint begin;\n".
-                "    uint end;\n".
+                "    const int gid0 = get_global_id(0);\n".
+                "    const int thread_id = get_global_id(1);\n".
+                "    const int gid2 = get_global_id(2);\n".
+                "    const int batch_id = gid0/m;\n".
+                "    const int i = gid0%m;\n".
+                "    const int h = gid2;\n".
+                "    int begin;\n".
+                "    int end;\n".
                 "    begin = thread_id * cell_size;\n".
                 "    if(thread_id == parallel_n - 1) {\n".
                 "        end = (thread_id+1) * cell_size + remainder;\n".
@@ -3789,30 +3795,30 @@ EOT;
                 "        end = (thread_id+1) * cell_size;\n".
                 "    }\n".
                 "    if(thread_id>0) {\n".
-                "        uint offset = (thread_id-1)*blockSize + (((batch_id*m + i)*numClass)*k)*len;\n".
-                "        for(uint j=0; j<numClass; j++) {\n".
-                "            for(uint p=0; p<len; ++p) {\n".
+                "        int offset = (thread_id-1)*blockSize + (((batch_id*m + i)*numClass)*k)*len;\n".
+                "        for(int j=0; j<numClass; j++) {\n".
+                "            for(int p=0; p<len; ++p) {\n".
                 "                a_buf[offset + (j*k+h)*len+p] = 0;\n".
                 "            }\n".
                 "        }\n".
                 "    }\n".
-                "    uint ofsX = offsetX + batch_id*n*k + h;\n".
-                "    uint ofsA = offsetA + (((batch_id*m + i)*numClass)*k)*len;\n".
-                "    uint ofsB = offsetB + (((batch_id*m + i)*n)*k)*len;\n".
-                "    for(uint j=begin; j<end; j++) {\n".
+                "    int ofsX = offsetX + batch_id*n*k + h;\n".
+                "    int ofsA = offsetA + (((batch_id*m + i)*numClass)*k)*len;\n".
+                "    int ofsB = offsetB + (((batch_id*m + i)*n)*k)*len;\n".
+                "    for(int j=begin; j<end; j++) {\n".
                 "        __global {$type} * a_addr;\n".
                 "        if(thread_id==0) {\n".
                 "            a_addr = a;\n".
                 "        } else {\n".
                 "            a_addr = &a_buf[(thread_id-1)*blockSize];\n".
                 "        }\n".
-                "        const uint index = x[ofsX + j*k];\n".
+                "        const int index = x[ofsX + j*k];\n".
                 "        if(index>=numClass) {\n".
                 "            continue;\n".
                 "        }\n".
-                "        uint iA = ofsA + (index*k + h)*len;\n".
-                "        uint iB = ofsB + (j*k + h)*len;\n".
-                "        for(uint p=0; p<len; ++p) {\n".
+                "        int iA = ofsA + (index*k + h)*len;\n".
+                "        int iB = ofsB + (j*k + h)*len;\n".
+                "        for(int p=0; p<len; ++p) {\n".
                 "            a_addr[iA++] += b[iB++];\n".
                 "        }\n".
                 "    }\n".
@@ -3823,35 +3829,35 @@ EOT;
         if(!isset($this->sources[$kernel_name2])) {
             $this->sources[$kernel_name2] =
                 "__kernel void {$kernel_name2}(\n".
-                "    const        uint parallel_n,\n".
-                "    const        uint blockSize,\n".
+                "    const        int parallel_n,\n".
+                "    const        int blockSize,\n".
                 "        __global {$type} * a,\n".
-                "    const        uint offsetA,\n".
+                "    const        int offsetA,\n".
                 "        __global {$type} * a_buf)\n".
                 "{\n".
-                "    const uint pos = get_global_id(0);\n".
-                "    for(uint thread_id=1; thread_id<parallel_n; thread_id++) {\n".
+                "    const int pos = get_global_id(0);\n".
+                "    for(int thread_id=1; thread_id<parallel_n; thread_id++) {\n".
                 "        a[offsetA + pos] += a_buf[blockSize*(thread_id-1)+pos];\n".
                 "    }\n".
                 "}\n";
         }
         $kernel2 = $this->createKernel($kernel_name2);
 
-        $kernel1->setArg(0,$parallel_n,NDArray::uint32);
-        $kernel1->setArg(1,$cell_size,NDArray::uint32);
-        $kernel1->setArg(2,$remainder,NDArray::uint32);
-        $kernel1->setArg(3,$blockSize,NDArray::uint32);
-        $kernel1->setArg(4,$m,NDArray::uint32);
-        $kernel1->setArg(5,$n,NDArray::uint32);
-        $kernel1->setArg(6,$k,NDArray::uint32);
-        $kernel1->setArg(7,$len,NDArray::uint32);
-        $kernel1->setArg(8,$numClass,NDArray::uint32);
+        $kernel1->setArg(0,$parallel_n,NDArray::int32);
+        $kernel1->setArg(1,$cell_size,NDArray::int32);
+        $kernel1->setArg(2,$remainder,NDArray::int32);
+        $kernel1->setArg(3,$blockSize,NDArray::int32);
+        $kernel1->setArg(4,$m,NDArray::int32);
+        $kernel1->setArg(5,$n,NDArray::int32);
+        $kernel1->setArg(6,$k,NDArray::int32);
+        $kernel1->setArg(7,$len,NDArray::int32);
+        $kernel1->setArg(8,$numClass,NDArray::int32);
         $kernel1->setArg(9,$A);
-        $kernel1->setArg(10,$offsetA,NDArray::uint32);
+        $kernel1->setArg(10,$offsetA,NDArray::int32);
         $kernel1->setArg(11,$X);
-        $kernel1->setArg(12,$offsetX,NDArray::uint32);
+        $kernel1->setArg(12,$offsetX,NDArray::int32);
         $kernel1->setArg(13,$B);
-        $kernel1->setArg(14,$offsetB,NDArray::uint32);
+        $kernel1->setArg(14,$offsetB,NDArray::int32);
         $kernel1->setArg(15,$a_buf);
         //$multiple = $this->kernelMultiple($kernel);
         //$global_work_size = [$this->ceil($k,$multiple)];
@@ -3862,10 +3868,10 @@ EOT;
         $kernel1->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
             $phase1Events,$waitEvents);
 
-        $kernel2->setArg(0,$parallel_n,NDArray::uint32);
-        $kernel2->setArg(1,$blockSize,NDArray::uint32);
+        $kernel2->setArg(0,$parallel_n,NDArray::int32);
+        $kernel2->setArg(1,$blockSize,NDArray::int32);
         $kernel2->setArg(2,$A);
-        $kernel2->setArg(3,$offsetA,NDArray::uint32);
+        $kernel2->setArg(3,$offsetA,NDArray::int32);
         $kernel2->setArg(4,$a_buf);
         //$multiple = $this->kernelMultiple($kernel);
         //$global_work_size = [$this->ceil($k,$multiple)];
@@ -3948,49 +3954,49 @@ EOT;
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint n,\n".
-                "    const        uint k,\n".
-                "    const        uint indexDepth,\n".
-                "    const global uint * paramShape,\n".
-                "    const        uint paramSize,\n".
+                "    const        int n,\n".
+                "    const        int k,\n".
+                "    const        int indexDepth,\n".
+                "    const global int * paramShape,\n".
+                "    const        int paramSize,\n".
                 "        __global {$type} * a,\n".
-                "    const        uint offsetA,\n".
-                "    const global uint * x,\n".
-                "    const        uint offsetX,\n".
+                "    const        int offsetA,\n".
+                "    const global int * x,\n".
+                "    const        int offsetX,\n".
                 "        __global {$type} * b,\n".
-                "    const        uint offsetB)\n".
+                "    const        int offsetB)\n".
                 "{\n".
-                "    const uint i = get_global_id(0);\n".
-                "    const uint j = get_global_id(1);\n".
-                "    uint offset = 0;\n".
-                "    for(uint h=0; h<indexDepth; ++h) {\n".
+                "    const int i = get_global_id(0);\n".
+                "    const int j = get_global_id(1);\n".
+                "    int offset = 0;\n".
+                "    for(int h=0; h<indexDepth; ++h) {\n".
                 "        offset *= paramShape[h];\n".
-                "        uint index = x[offsetX + i*n*indexDepth + j*indexDepth + h];\n".
+                "        int index = x[offsetX + i*n*indexDepth + j*indexDepth + h];\n".
                 "        if(index>=paramShape[h]) {\n".
                 "            return;\n".
                 "        }\n".
                 "        offset += index;\n".
                 "    }\n".
-                "    uint iA = offsetA + i*paramSize*k + offset*k;\n".
-                "    uint iB = offsetB + i*n*k + j*k;\n".
-                "    for(uint h=0; h<k; ++h) {\n".
+                "    int iA = offsetA + i*paramSize*k + offset*k;\n".
+                "    int iB = offsetB + i*n*k + j*k;\n".
+                "    for(int h=0; h<k; ++h) {\n".
                 "        {$expression}\n".
                 "    }\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
 
-        $kernel->setArg(0,$n,NDArray::uint32);
-        $kernel->setArg(1,$k,NDArray::uint32);
-        $kernel->setArg(2,$indexDepth,NDArray::uint32);
+        $kernel->setArg(0,$n,NDArray::int32);
+        $kernel->setArg(1,$k,NDArray::int32);
+        $kernel->setArg(2,$indexDepth,NDArray::int32);
         $kernel->setArg(3,$paramShape);
-        $kernel->setArg(4,$paramSize,NDArray::uint32);
+        $kernel->setArg(4,$paramSize,NDArray::int32);
         $kernel->setArg(5,$A);
-        $kernel->setArg(6,$offsetA,NDArray::uint32);
+        $kernel->setArg(6,$offsetA,NDArray::int32);
         $kernel->setArg(7,$X);
-        $kernel->setArg(8,$offsetX,NDArray::uint32);
+        $kernel->setArg(8,$offsetX,NDArray::int32);
         $kernel->setArg(9,$B);
-        $kernel->setArg(10,$offsetB,NDArray::uint32);
+        $kernel->setArg(10,$offsetB,NDArray::int32);
         //$multiple = $this->kernelMultiple($kernel);
         //$global_work_size = [$this->ceil($k,$multiple)];
         //$local_work_size = [$multiple];
@@ -4055,27 +4061,27 @@ EOT;
         if(!isset($this->sources[$kernel_name1])) {
             $this->sources[$kernel_name1] =
                 "__kernel void {$kernel_name1}(\n".
-                "    const        uint parallel_n,\n".
-                "    const        uint cell_size,\n".
-                "    const        uint remainder,\n".
-                "    const        uint blockSize,\n".
-                "    const        uint n,\n".
-                "    const        uint k,\n".
-                "    const        uint indexDepth,\n".
-                "    const global uint * paramShape,\n".
-                "    const        uint paramSize,\n".
+                "    const        int parallel_n,\n".
+                "    const        int cell_size,\n".
+                "    const        int remainder,\n".
+                "    const        int blockSize,\n".
+                "    const        int n,\n".
+                "    const        int k,\n".
+                "    const        int indexDepth,\n".
+                "    const global int * paramShape,\n".
+                "    const        int paramSize,\n".
                 "        __global {$type} * a,\n".
-                "    const        uint offsetA,\n".
-                "    const global uint * x,\n".
-                "    const        uint offsetX,\n".
+                "    const        int offsetA,\n".
+                "    const global int * x,\n".
+                "    const        int offsetX,\n".
                 "        __global {$type} * b,\n".
-                "    const        uint offsetB,\n".
+                "    const        int offsetB,\n".
                 "        __global {$type} * a_buf)\n".
                 "{\n".
-                "    const uint i = get_global_id(0);\n".
-                "    const uint thread_id = get_global_id(1);\n".
-                "    uint begin;\n".
-                "    uint end;\n".
+                "    const int i = get_global_id(0);\n".
+                "    const int thread_id = get_global_id(1);\n".
+                "    int begin;\n".
+                "    int end;\n".
                 "    begin = thread_id * cell_size;\n".
                 "    if(thread_id == parallel_n - 1) {\n".
                 "        end = (thread_id+1) * cell_size + remainder;\n".
@@ -4083,30 +4089,30 @@ EOT;
                 "        end = (thread_id+1) * cell_size;\n".
                 "    }\n".
                 "    if(thread_id>0) {\n".
-                "        uint offset = (thread_id-1)*blockSize+i*paramSize*k;\n".
-                "        for(uint pos=0; pos<paramSize*k; pos++) {\n".
+                "        int offset = (thread_id-1)*blockSize+i*paramSize*k;\n".
+                "        for(int pos=0; pos<paramSize*k; pos++) {\n".
                 "            a_buf[offset + pos] = 0;\n".
                 "        }\n".
                 "    }\n".
-                "    for(uint j=begin; j<end; j++) {\n".
+                "    for(int j=begin; j<end; j++) {\n".
                 "        __global {$type} * a_addr;\n".
                 "        if(thread_id==0) {\n".
                 "            a_addr = a;\n".
                 "        } else {\n".
                 "            a_addr = &a_buf[(thread_id-1)*blockSize];\n".
                 "        }\n".
-                "        uint offset = 0;\n".
-                "        for(uint h=0; h<indexDepth; ++h) {\n".
+                "        int offset = 0;\n".
+                "        for(int h=0; h<indexDepth; ++h) {\n".
                 "            offset *= paramShape[h];\n".
-                "            uint index = x[offsetX + i*n*indexDepth + j*indexDepth + h];\n".
+                "            int index = x[offsetX + i*n*indexDepth + j*indexDepth + h];\n".
                 "            if(index>=paramShape[h]) {\n".
                 "                return;\n".
                 "            }\n".
                 "            offset += index;\n".
                 "        }\n".
-                "        uint iA = offsetA + i*paramSize*k + offset*k;\n".
-                "        uint iB = offsetB + i*n*k + j*k;\n".
-                "        for(uint h=0; h<k; ++h) {\n".
+                "        int iA = offsetA + i*paramSize*k + offset*k;\n".
+                "        int iB = offsetB + i*n*k + j*k;\n".
+                "        for(int h=0; h<k; ++h) {\n".
                 "            a_addr[iA++] += b[iB++];\n".
                 "        }\n".
                 "    }\n".
@@ -4117,35 +4123,35 @@ EOT;
         if(!isset($this->sources[$kernel_name2])) {
             $this->sources[$kernel_name2] =
                 "__kernel void {$kernel_name2}(\n".
-                "    const        uint parallel_n,\n".
-                "    const        uint blockSize,\n".
+                "    const        int parallel_n,\n".
+                "    const        int blockSize,\n".
                 "        __global {$type} * a,\n".
-                "    const        uint offsetA,\n".
+                "    const        int offsetA,\n".
                 "        __global {$type} * a_buf)\n".
                 "{\n".
-                "    const uint pos = get_global_id(0);\n".
-                "    for(uint thread_id=1; thread_id<parallel_n; thread_id++) {\n".
+                "    const int pos = get_global_id(0);\n".
+                "    for(int thread_id=1; thread_id<parallel_n; thread_id++) {\n".
                 "        a[offsetA + pos] += a_buf[blockSize*(thread_id-1)+pos];\n".
                 "    }\n".
                 "}\n";
         }
         $kernel2 = $this->createKernel($kernel_name2);
 
-        $kernel1->setArg(0,$parallel_n,NDArray::uint32);
-        $kernel1->setArg(1,$cell_size,NDArray::uint32);
-        $kernel1->setArg(2,$remainder,NDArray::uint32);
-        $kernel1->setArg(3,$blockSize,NDArray::uint32);
-        $kernel1->setArg(4,$n,NDArray::uint32);
-        $kernel1->setArg(5,$k,NDArray::uint32);
-        $kernel1->setArg(6,$indexDepth,NDArray::uint32);
+        $kernel1->setArg(0,$parallel_n,NDArray::int32);
+        $kernel1->setArg(1,$cell_size,NDArray::int32);
+        $kernel1->setArg(2,$remainder,NDArray::int32);
+        $kernel1->setArg(3,$blockSize,NDArray::int32);
+        $kernel1->setArg(4,$n,NDArray::int32);
+        $kernel1->setArg(5,$k,NDArray::int32);
+        $kernel1->setArg(6,$indexDepth,NDArray::int32);
         $kernel1->setArg(7,$paramShape);
-        $kernel1->setArg(8,$paramSize,NDArray::uint32);
+        $kernel1->setArg(8,$paramSize,NDArray::int32);
         $kernel1->setArg(9,$A);
-        $kernel1->setArg(10,$offsetA,NDArray::uint32);
+        $kernel1->setArg(10,$offsetA,NDArray::int32);
         $kernel1->setArg(11,$X);
-        $kernel1->setArg(12,$offsetX,NDArray::uint32);
+        $kernel1->setArg(12,$offsetX,NDArray::int32);
         $kernel1->setArg(13,$B);
-        $kernel1->setArg(14,$offsetB,NDArray::uint32);
+        $kernel1->setArg(14,$offsetB,NDArray::int32);
         $kernel1->setArg(15,$a_buf);
         //$multiple = $this->kernelMultiple($kernel);
         //$global_work_size = [$this->ceil($k,$multiple)];
@@ -4192,10 +4198,10 @@ EOT;
         #}
         #echo "\n==========\n";
 
-        $kernel2->setArg(0,$parallel_n,NDArray::uint32);
-        $kernel2->setArg(1,$blockSize,NDArray::uint32);
+        $kernel2->setArg(0,$parallel_n,NDArray::int32);
+        $kernel2->setArg(1,$blockSize,NDArray::int32);
         $kernel2->setArg(2,$A);
-        $kernel2->setArg(3,$offsetA,NDArray::uint32);
+        $kernel2->setArg(3,$offsetA,NDArray::int32);
         $kernel2->setArg(4,$a_buf);
         //$multiple = $this->kernelMultiple($kernel);
         //$global_work_size = [$this->ceil($k,$multiple)];
@@ -4225,33 +4231,33 @@ EOT;
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint m,\n".
-                "    const        uint k,\n".
-                "    const        uint repeats,\n".
+                "    const        int m,\n".
+                "    const        int k,\n".
+                "    const        int repeats,\n".
                 "    const global {$type} * a,\n".
-                "    const        uint offset_a,\n".
+                "    const        int offset_a,\n".
                 "        __global {$type} * b,\n".
-                "    const        uint offset_b)\n".
+                "    const        int offset_b)\n".
                 "{\n".
-                "    const uint gid = get_global_id(0);\n".
+                "    const int gid = get_global_id(0);\n".
                      $this->splitPointer('p','j','gid','k').
-                "    const uint i = get_global_id(1);\n".
+                "    const int i = get_global_id(1);\n".
                 //"    if(gid<n) {\n".
-                "        uint pos_a = i*k+offset_a;\n".
-                "        uint pos_b = i*repeats*k+offset_b;\n".
+                "        int pos_a = i*k+offset_a;\n".
+                "        int pos_b = i*repeats*k+offset_b;\n".
                 "        b[pos_b+j*k+p] = a[pos_a+p];\n".
                 //"    }\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
 
-        $kernel->setArg(0,$m,NDArray::uint32);
-        $kernel->setArg(1,$k,NDArray::uint32);
-        $kernel->setArg(2,$repeats,NDArray::uint32);
+        $kernel->setArg(0,$m,NDArray::int32);
+        $kernel->setArg(1,$k,NDArray::int32);
+        $kernel->setArg(2,$repeats,NDArray::int32);
         $kernel->setArg(3,$A);
-        $kernel->setArg(4,$offsetA,NDArray::uint32);
+        $kernel->setArg(4,$offsetA,NDArray::int32);
         $kernel->setArg(5,$B);
-        $kernel->setArg(6,$offsetB,NDArray::uint32);
+        $kernel->setArg(6,$offsetB,NDArray::int32);
         //$multiple = $this->kernelMultiple($kernel);
         //$global_work_size = [$this->ceil($k,$multiple)];
         //$local_work_size = [$multiple];
@@ -4292,17 +4298,17 @@ EOT;
         if(!isset($this->sources["onehot_{$type}_{$mode}"])) {
             $this->sources["onehot_{$type}_{$mode}"] =
                 "__kernel void onehot_{$type}_{$mode}(\n".
-                "    const        uint n,\n".
+                "    const        int n,\n".
                 "    const        {$type} alpha,\n".
-                "    const global uint * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
+                "    const global int * x,\n".
+                "    const        int offset_x,\n".
+                "    const        int incx,\n".
                 "        __global {$type} * y,\n".
-                "    const        uint offset_y,\n".
-                "    const        uint ldy)\n".
+                "    const        int offset_y,\n".
+                "    const        int ldy)\n".
                 "{\n".
-                "    uint gid = get_global_id(0);\n".
-                "    uint label = x[gid*incx+offset_x];\n".
+                "    int gid = get_global_id(0);\n".
+                "    int label = x[gid*incx+offset_x];\n".
                 "    if(label<n) {\n".
                 "        y[gid*ldy+label+offset_y] {$operator} alpha;\n".
                 "    }\n".
@@ -4310,14 +4316,14 @@ EOT;
         }
         $kernel = $this->createKernel("onehot_{$type}_{$mode}");
 
-        $kernel->setArg(0,$n,NDArray::uint32);
+        $kernel->setArg(0,$n,NDArray::int32);
         $kernel->setArg(1,$alpha,$Y->dtype());
         $kernel->setArg(2,$X);
-        $kernel->setArg(3,$offsetX,NDArray::uint32);
-        $kernel->setArg(4,$incX,NDArray::uint32);
+        $kernel->setArg(3,$offsetX,NDArray::int32);
+        $kernel->setArg(4,$incX,NDArray::int32);
         $kernel->setArg(5,$Y);
-        $kernel->setArg(6,$offsetY,NDArray::uint32);
-        $kernel->setArg(7,$ldY,NDArray::uint32);
+        $kernel->setArg(6,$offsetY,NDArray::int32);
+        $kernel->setArg(7,$ldY,NDArray::int32);
         $global_work_size = [$m];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
@@ -4455,22 +4461,22 @@ EOT;
             $index_b = 'gid0*ldb+gid1+offset_b';
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint rows,\n".
-                "    const        uint total_local_items,\n".
-                "    const        uint k,\n".
+                "    const        int rows,\n".
+                "    const        int total_local_items,\n".
+                "    const        int k,\n".
                 "    const global {$type} * a,\n".
-                "    const        uint offset_a,\n".
-                "    const        uint lda,\n".
+                "    const        int offset_a,\n".
+                "    const        int lda,\n".
                 "          global {$type} * b,\n".
-                "    const        uint offset_b,\n".
-                "    const        uint ldb)\n".
+                "    const        int offset_b,\n".
+                "    const        int ldb)\n".
                 "{\n".
-                "    const uint gid = get_global_id(0);\n".
+                "    const int gid = get_global_id(0);\n".
                      $this->splitPointer('gid1','gid0','gid','k').
                 "    {$type} sum = 0;\n".
                 //"    if(gid0<rows) {\n".
-                "        uint pos = {$index_a};\n".
-                "        for(uint i=total_local_items; i>0; i--,pos+=k) {\n".
+                "        int pos = {$index_a};\n".
+                "        for(int i=total_local_items; i>0; i--,pos+=k) {\n".
                 "            sum += a[pos];\n".
                 "        }\n".
                 "        b[{$index_b}] = sum;\n".
@@ -4479,15 +4485,15 @@ EOT;
         }
         $kernel = $this->createKernel($kernel_name);
 
-        $kernel->setArg(0,$rows,NDArray::uint32);
-        $kernel->setArg(1,$total_local_items,NDArray::uint32);
-        $kernel->setArg(2,$k,NDArray::uint32);
+        $kernel->setArg(0,$rows,NDArray::int32);
+        $kernel->setArg(1,$total_local_items,NDArray::int32);
+        $kernel->setArg(2,$k,NDArray::int32);
         $kernel->setArg(3,$A);
-        $kernel->setArg(4,$offsetA,NDArray::uint32);
-        $kernel->setArg(5,$ldA,NDArray::uint32);
+        $kernel->setArg(4,$offsetA,NDArray::int32);
+        $kernel->setArg(5,$ldA,NDArray::int32);
         $kernel->setArg(6,$B);
-        $kernel->setArg(7,$offsetB,NDArray::uint32);
-        $kernel->setArg(8,$ldB,NDArray::uint32);
+        $kernel->setArg(7,$offsetB,NDArray::int32);
+        $kernel->setArg(8,$ldB,NDArray::int32);
         //$multiple = $this->kernelMultiple($kernel);
         //$global_work_size = [$this->ceil($rows*$k,$multiple)];
         //$local_work_size = [$multiple];
@@ -4528,20 +4534,20 @@ EOT;
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint total_local_items,\n".
-                "    const        uint k,\n".
+                "    const        int total_local_items,\n".
+                "    const        int k,\n".
                 "    const global {$type} * a,\n".
-                "    const        uint offset_a,\n".
-                "    const        uint lda,\n".
+                "    const        int offset_a,\n".
+                "    const        int lda,\n".
                 "        __global {$type} * b,\n".
-                "    const        uint offset_b,\n".
-                "    const        uint ldb,\n".
+                "    const        int offset_b,\n".
+                "    const        int ldb,\n".
                 "         __local {$type} * local_work)\n".
                 "{\n".
-                "    const uint grid = get_group_id(0);\n".
+                "    const int grid = get_group_id(0);\n".
                      $this->splitPointer('gid_r','gid_l','grid','k').
-                "    const uint pos_a = gid_l*lda+gid_r+offset_a;\n".
-                "    const uint pos_b = gid_l*ldb+gid_r+offset_b;\n".
+                "    const int pos_a = gid_l*lda+gid_r+offset_a;\n".
+                "    const int pos_b = gid_l*ldb+gid_r+offset_b;\n".
                      $this->kernelTemplateSSum(
                          "local_work[lid] = a[pos_a+lid*k];\n",
                          "b[pos_b] = local_work[0];\n"
@@ -4550,14 +4556,14 @@ EOT;
         }
         $kernel = $this->createKernel($kernel_name);
 
-        $kernel->setArg(0,$total_local_items,NDArray::uint32);
-        $kernel->setArg(1,$k,NDArray::uint32);
+        $kernel->setArg(0,$total_local_items,NDArray::int32);
+        $kernel->setArg(1,$k,NDArray::int32);
         $kernel->setArg(2,$A);
-        $kernel->setArg(3,$offsetA,NDArray::uint32);
-        $kernel->setArg(4,$ldA,NDArray::uint32);
+        $kernel->setArg(3,$offsetA,NDArray::int32);
+        $kernel->setArg(4,$ldA,NDArray::int32);
         $kernel->setArg(5,$B);
-        $kernel->setArg(6,$offsetB,NDArray::uint32);
-        $kernel->setArg(7,$ldB,NDArray::uint32);
+        $kernel->setArg(6,$offsetB,NDArray::int32);
+        $kernel->setArg(7,$ldB,NDArray::int32);
         $kernel->setArg(8,null,$this->adjBoundary($max_work_items*$value_size));
         $global_work_size = [$max_work_items*$k*$rows];
         $local_work_size = [$max_work_items];
@@ -4599,23 +4605,23 @@ EOT;
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint total_local_items,\n".
-                "    const        uint segments,\n".
-                "    const        uint k,\n".
+                "    const        int total_local_items,\n".
+                "    const        int segments,\n".
+                "    const        int k,\n".
                 "    const global {$type} * a,\n".
-                "    const        uint offset_a,\n".
-                "    const        uint lda,\n".
+                "    const        int offset_a,\n".
+                "    const        int lda,\n".
                 "        __global {$type} * b,\n".
-                "    const        uint offset_b,\n".
-                "    const        uint ldb,\n".
+                "    const        int offset_b,\n".
+                "    const        int ldb,\n".
                 "         __local {$type} * local_work,\n".
                 "         __local {$type} * seg_work,\n".
-                "    const        uint work_items)\n".
+                "    const        int work_items)\n".
                 "{\n".
-                "    const uint grid = get_group_id(0);\n".
+                "    const int grid = get_group_id(0);\n".
                      $this->splitPointer('gid_r','gid_l','grid','k').
-                "    const uint pos_a = gid_l*lda+gid_r+offset_a;\n".
-                "    const uint pos_b = gid_l*ldb+gid_r+offset_b;\n".
+                "    const int pos_a = gid_l*lda+gid_r+offset_a;\n".
+                "    const int pos_b = gid_l*ldb+gid_r+offset_b;\n".
                      $this->kernelTemplateQSum(
                          "local_work[lid] = a[pos_a+(seg*lws+lid)*k];\n",
                          "b[pos_b] = seg_work[0];\n"
@@ -4624,19 +4630,19 @@ EOT;
         }
         $kernel = $this->createKernel($kernel_name);
 
-        $kernel->setArg(0,$total_local_items,NDArray::uint32);
-        $kernel->setArg(1,$segments,NDArray::uint32);
-        $kernel->setArg(2,$k,NDArray::uint32);
+        $kernel->setArg(0,$total_local_items,NDArray::int32);
+        $kernel->setArg(1,$segments,NDArray::int32);
+        $kernel->setArg(2,$k,NDArray::int32);
         $kernel->setArg(3,$A);
-        $kernel->setArg(4,$offsetA,NDArray::uint32);
-        $kernel->setArg(5,$ldA,NDArray::uint32);
+        $kernel->setArg(4,$offsetA,NDArray::int32);
+        $kernel->setArg(5,$ldA,NDArray::int32);
         $kernel->setArg(6,$B);
-        $kernel->setArg(7,$offsetB,NDArray::uint32);
-        $kernel->setArg(8,$ldB,NDArray::uint32);
+        $kernel->setArg(7,$offsetB,NDArray::int32);
+        $kernel->setArg(8,$ldB,NDArray::int32);
 
         $kernel->setArg(9,null,$this->adjBoundary($max_work_items*$value_size));
         $kernel->setArg(10,null,$this->adjBoundary($segments*$value_size));
-        $kernel->setArg(11,$work_items,NDArray::uint32);
+        $kernel->setArg(11,$work_items,NDArray::int32);
         $global_work_size = [$max_work_items*$k*$rows];
         $local_work_size = [$max_work_items];
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -4684,17 +4690,17 @@ EOT;
         if(!isset($this->sources[$kernel_name1])) {
             $this->sources[$kernel_name1] =
                 "__kernel void {$kernel_name1}(\n".
-                "    const        uint total_local_items,\n".
-                "    const        uint k,\n".
+                "    const        int total_local_items,\n".
+                "    const        int k,\n".
                 "    const __global {$type} * a,\n".
-                "    const        uint offset_a,\n".
-                "    const        uint lda,\n".
+                "    const        int offset_a,\n".
+                "    const        int lda,\n".
                 "        __global {$type} * temp_buffer,\n".
                 "         __local {$type} * local_work)\n".
                 "{\n".
-                "    const uint parallel_item_id = get_global_id(1);\n".
+                "    const int parallel_item_id = get_global_id(1);\n".
                      $this->splitPointer('gid_r','gid_l','parallel_item_id','k').
-                "    const uint pos_a = gid_l*lda+gid_r+offset_a;\n".
+                "    const int pos_a = gid_l*lda+gid_r+offset_a;\n".
                     $this->kernelTemplateLSum1(
                         "{$type} input = a[pos_a+local_item_id*k];",
                         $dtype
@@ -4706,16 +4712,16 @@ EOT;
         if(!isset($this->sources[$kernel_name2])) {
             $this->sources[$kernel_name2] =
                 "__kernel void {$kernel_name2}(\n".
-                "    const        uint k,\n".
+                "    const        int k,\n".
                 "    const __global {$type} * temp_buffer,\n".
                 "        __global {$type} * b,\n".
-                "    const        uint offset_b,\n".
-                "    const        uint ldb,\n".
+                "    const        int offset_b,\n".
+                "    const        int ldb,\n".
                 "         __local {$type} * local_work)\n".
                 "{\n".
-                "    const uint parallel_item_id = get_global_id(1);\n".
+                "    const int parallel_item_id = get_global_id(1);\n".
                      $this->splitPointer('gid_r','gid_l','parallel_item_id','k').
-                "    const uint pos_b = gid_l*ldb+gid_r+offset_b;\n".
+                "    const int pos_b = gid_l*ldb+gid_r+offset_b;\n".
                     $this->kernelTemplateLSum2(
                         "b[pos_b] = local_work[0];"
                     ).
@@ -4723,11 +4729,11 @@ EOT;
         }
         $kernel2 = $this->createKernel($kernel_name2);
 
-        $kernel->setArg(0,$total_local_items,NDArray::uint32);
-        $kernel->setArg(1,$k,NDArray::uint32);
+        $kernel->setArg(0,$total_local_items,NDArray::int32);
+        $kernel->setArg(1,$k,NDArray::int32);
         $kernel->setArg(2,$A);
-        $kernel->setArg(3,$offsetA,NDArray::uint32);
-        $kernel->setArg(4,$ldA,NDArray::uint32);
+        $kernel->setArg(3,$offsetA,NDArray::int32);
+        $kernel->setArg(4,$ldA,NDArray::int32);
         $kernel->setArg(5,$temp_buffer);
         $kernel->setArg(6,null,$this->adjBoundary($work_items1*$value_size));
         $global_work_size = [$work_items1*$temp_size,$rows*$k];
@@ -4736,11 +4742,11 @@ EOT;
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
                 $phase1Events,$waitEvents);
 
-        $kernel2->setArg(0,$k,NDArray::uint32);
+        $kernel2->setArg(0,$k,NDArray::int32);
         $kernel2->setArg(1,$temp_buffer);
         $kernel2->setArg(2,$B);
-        $kernel2->setArg(3,$offsetB,NDArray::uint32);
-        $kernel2->setArg(4,$ldB,NDArray::uint32);
+        $kernel2->setArg(3,$offsetB,NDArray::int32);
+        $kernel2->setArg(4,$ldB,NDArray::int32);
         $kernel2->setArg(5,null,$this->adjBoundary($work_items2*$value_size));
         $global_work_size = [$work_items2,$rows*$k];
         $local_work_size = [$work_items2,1];
@@ -4862,24 +4868,24 @@ EOT;
             $index_b = 'gid0*ldb+gid1+offset_b';
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint rows,\n".
-                "    const        uint total_local_items,\n".
-                "    const        uint k,\n".
+                "    const        int rows,\n".
+                "    const        int total_local_items,\n".
+                "    const        int k,\n".
                 "    const global {$type} * a,\n".
-                "    const        uint offset_a,\n".
-                "    const        uint lda,\n".
+                "    const        int offset_a,\n".
+                "    const        int lda,\n".
                 "          global {$type} * b,\n".
-                "    const        uint offset_b,\n".
-                "    const        uint ldb)\n".
+                "    const        int offset_b,\n".
+                "    const        int ldb)\n".
                 "{\n".
-                "    const uint gid = get_global_id(0);\n".
+                "    const int gid = get_global_id(0);\n".
                      $this->splitPointer('gid1','gid0','gid','k').
                 //"    if(gid0<rows) {\n".
-                "        uint i=0;\n".
-                "        uint pos = {$index_a};\n".
+                "        int i=0;\n".
+                "        int pos = {$index_a};\n".
                 "        {$type} max = a[pos];\n".
                 "        pos += k;\n".
-                "        for(uint i=1; i<total_local_items; i++,pos+=k) {\n".
+                "        for(int i=1; i<total_local_items; i++,pos+=k) {\n".
                 "            {$type} value = a[pos];\n".
                 //           if NaN set NaN
                 //           Compatible with reduce_max of tensorflow 2.6
@@ -4893,15 +4899,15 @@ EOT;
         }
         $kernel = $this->createKernel($kernel_name);
 
-        $kernel->setArg(0,$rows,NDArray::uint32);
-        $kernel->setArg(1,$total_local_items,NDArray::uint32);
-        $kernel->setArg(2,$k,NDArray::uint32);
+        $kernel->setArg(0,$rows,NDArray::int32);
+        $kernel->setArg(1,$total_local_items,NDArray::int32);
+        $kernel->setArg(2,$k,NDArray::int32);
         $kernel->setArg(3,$A);
-        $kernel->setArg(4,$offsetA,NDArray::uint32);
-        $kernel->setArg(5,$ldA,NDArray::uint32);
+        $kernel->setArg(4,$offsetA,NDArray::int32);
+        $kernel->setArg(5,$ldA,NDArray::int32);
         $kernel->setArg(6,$B);
-        $kernel->setArg(7,$offsetB,NDArray::uint32);
-        $kernel->setArg(8,$ldB,NDArray::uint32);
+        $kernel->setArg(7,$offsetB,NDArray::int32);
+        $kernel->setArg(8,$ldB,NDArray::int32);
         //$multiple = $this->kernelMultiple($kernel);
         //$global_work_size = [$this->ceil($rows*$k,$multiple)];
         //$local_work_size = [$multiple];
@@ -4942,20 +4948,20 @@ EOT;
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint total_local_items,\n".
-                "    const        uint k,\n".
+                "    const        int total_local_items,\n".
+                "    const        int k,\n".
                 "    const global {$type} * a,\n".
-                "    const        uint offset_a,\n".
-                "    const        uint lda,\n".
+                "    const        int offset_a,\n".
+                "    const        int lda,\n".
                 "        __global {$type} * b,\n".
-                "    const        uint offset_b,\n".
-                "    const        uint ldb,\n".
+                "    const        int offset_b,\n".
+                "    const        int ldb,\n".
                 "         __local {$type} * local_work)\n".
                 "{\n".
-                "    const uint grid = get_group_id(0);\n".
+                "    const int grid = get_group_id(0);\n".
                      $this->splitPointer('gid_r','gid_l','grid','k').
-                "    const uint pos_a = gid_l*lda+gid_r+offset_a;\n".
-                "    const uint pos_b = gid_l*ldb+gid_r+offset_b;\n".
+                "    const int pos_a = gid_l*lda+gid_r+offset_a;\n".
+                "    const int pos_b = gid_l*ldb+gid_r+offset_b;\n".
                      $this->kernelTemplateSMax(
                          "local_work[lid] = a[pos_a+lid*k];\n",
                          "b[pos_b] = local_work[0];\n",
@@ -4965,14 +4971,14 @@ EOT;
         }
         $kernel = $this->createKernel($kernel_name);
 
-        $kernel->setArg(0,$total_local_items,NDArray::uint32);
-        $kernel->setArg(1,$k,NDArray::uint32);
+        $kernel->setArg(0,$total_local_items,NDArray::int32);
+        $kernel->setArg(1,$k,NDArray::int32);
         $kernel->setArg(2,$A);
-        $kernel->setArg(3,$offsetA,NDArray::uint32);
-        $kernel->setArg(4,$ldA,NDArray::uint32);
+        $kernel->setArg(3,$offsetA,NDArray::int32);
+        $kernel->setArg(4,$ldA,NDArray::int32);
         $kernel->setArg(5,$B);
-        $kernel->setArg(6,$offsetB,NDArray::uint32);
-        $kernel->setArg(7,$ldB,NDArray::uint32);
+        $kernel->setArg(6,$offsetB,NDArray::int32);
+        $kernel->setArg(7,$ldB,NDArray::int32);
         $kernel->setArg(8,null,$this->adjBoundary($max_work_items*$value_size));
         $global_work_size = [$max_work_items*$k*$rows];
         $local_work_size = [$max_work_items];
@@ -5014,23 +5020,23 @@ EOT;
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint total_local_items,\n".
-                "    const        uint segments,\n".
-                "    const        uint k,\n".
+                "    const        int total_local_items,\n".
+                "    const        int segments,\n".
+                "    const        int k,\n".
                 "    const global {$type} * a,\n".
-                "    const        uint offset_a,\n".
-                "    const        uint lda,\n".
+                "    const        int offset_a,\n".
+                "    const        int lda,\n".
                 "        __global {$type} * b,\n".
-                "    const        uint offset_b,\n".
-                "    const        uint ldb,\n".
+                "    const        int offset_b,\n".
+                "    const        int ldb,\n".
                 "         __local {$type} * local_work,\n".
                 "         __local {$type} * seg_work,\n".
-                "    const        uint work_items)\n".
+                "    const        int work_items)\n".
                 "{\n".
-                "    const uint grid = get_group_id(0);\n".
+                "    const int grid = get_group_id(0);\n".
                      $this->splitPointer('gid_r','gid_l','grid','k').
-                "    const uint pos_a = gid_l*lda+gid_r+offset_a;\n".
-                "    const uint pos_b = gid_l*ldb+gid_r+offset_b;\n".
+                "    const int pos_a = gid_l*lda+gid_r+offset_a;\n".
+                "    const int pos_b = gid_l*ldb+gid_r+offset_b;\n".
                      $this->kernelTemplateQMax(
                          "local_work[lid] = a[pos_a+(seg*lws+lid)*k];\n",
                          "b[pos_b] = seg_work[0];\n",
@@ -5040,19 +5046,19 @@ EOT;
         }
         $kernel = $this->createKernel($kernel_name);
 
-        $kernel->setArg(0,$total_local_items,NDArray::uint32);
-        $kernel->setArg(1,$segments,NDArray::uint32);
-        $kernel->setArg(2,$k,NDArray::uint32);
+        $kernel->setArg(0,$total_local_items,NDArray::int32);
+        $kernel->setArg(1,$segments,NDArray::int32);
+        $kernel->setArg(2,$k,NDArray::int32);
         $kernel->setArg(3,$A);
-        $kernel->setArg(4,$offsetA,NDArray::uint32);
-        $kernel->setArg(5,$ldA,NDArray::uint32);
+        $kernel->setArg(4,$offsetA,NDArray::int32);
+        $kernel->setArg(5,$ldA,NDArray::int32);
         $kernel->setArg(6,$B);
-        $kernel->setArg(7,$offsetB,NDArray::uint32);
-        $kernel->setArg(8,$ldB,NDArray::uint32);
+        $kernel->setArg(7,$offsetB,NDArray::int32);
+        $kernel->setArg(8,$ldB,NDArray::int32);
 
         $kernel->setArg(9,null,$this->adjBoundary($max_work_items*$value_size));
         $kernel->setArg(10,null,$this->adjBoundary($segments*$value_size));
-        $kernel->setArg(11,$work_items,NDArray::uint32);
+        $kernel->setArg(11,$work_items,NDArray::int32);
         $global_work_size = [$max_work_items*$k*$rows];
         $local_work_size = [$max_work_items];
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -5100,17 +5106,17 @@ EOT;
         if(!isset($this->sources[$kernel_name1])) {
             $this->sources[$kernel_name1] =
                 "__kernel void {$kernel_name1}(\n".
-                "    const        uint total_local_items,\n".
-                "    const        uint k,\n".
+                "    const        int total_local_items,\n".
+                "    const        int k,\n".
                 "    const __global {$type} * a,\n".
-                "    const        uint offset_a,\n".
-                "    const        uint lda,\n".
+                "    const        int offset_a,\n".
+                "    const        int lda,\n".
                 "        __global {$type} * temp_buffer,\n".
                 "         __local {$type} * local_work)\n".
                 "{\n".
-                "    const uint parallel_item_id = get_global_id(1);\n".
+                "    const int parallel_item_id = get_global_id(1);\n".
                      $this->splitPointer('gid_r','gid_l','parallel_item_id','k').
-                "    const uint pos_a = gid_l*lda+gid_r+offset_a;\n".
+                "    const int pos_a = gid_l*lda+gid_r+offset_a;\n".
                     $this->kernelTemplateLMax1(
                         "{$type} input = a[pos_a+local_item_id*k];",
                         $dtype
@@ -5122,17 +5128,17 @@ EOT;
         if(!isset($this->sources[$kernel_name2])) {
             $this->sources[$kernel_name2] =
                 "__kernel void {$kernel_name2}(\n".
-                "    const        uint k,\n".
+                "    const        int k,\n".
                 "    const __global {$type} * temp_buffer,\n".
                 "        __global {$type} * b,\n".
-                "    const        uint offset_b,\n".
-                "    const        uint ldb,\n".
+                "    const        int offset_b,\n".
+                "    const        int ldb,\n".
                 "         __local {$type} * local_work)\n".
                 "{\n".
-                "    const uint parallel_item_id = get_global_id(1);\n".
-                "    const uint gid_l = parallel_item_id/k;\n".
-                "    const uint gid_r = parallel_item_id%k;\n".
-                "    const uint pos_b = gid_l*ldb+gid_r+offset_b;\n".
+                "    const int parallel_item_id = get_global_id(1);\n".
+                "    const int gid_l = parallel_item_id/k;\n".
+                "    const int gid_r = parallel_item_id%k;\n".
+                "    const int pos_b = gid_l*ldb+gid_r+offset_b;\n".
                     $this->kernelTemplateLMax2(
                         "b[pos_b] = local_work[0];"
                     ).
@@ -5140,11 +5146,11 @@ EOT;
         }
         $kernel2 = $this->createKernel($kernel_name2);
 
-        $kernel->setArg(0,$total_local_items,NDArray::uint32);
-        $kernel->setArg(1,$k,NDArray::uint32);
+        $kernel->setArg(0,$total_local_items,NDArray::int32);
+        $kernel->setArg(1,$k,NDArray::int32);
         $kernel->setArg(2,$A);
-        $kernel->setArg(3,$offsetA,NDArray::uint32);
-        $kernel->setArg(4,$ldA,NDArray::uint32);
+        $kernel->setArg(3,$offsetA,NDArray::int32);
+        $kernel->setArg(4,$ldA,NDArray::int32);
         $kernel->setArg(5,$temp_buffer);
         $kernel->setArg(6,null,$this->adjBoundary($work_items1*$value_size));
         $global_work_size = [$work_items1*$temp_size,$rows*$k];
@@ -5153,11 +5159,11 @@ EOT;
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
                 $phase1Events,$waitEvents);
 
-        $kernel2->setArg(0,$k,NDArray::uint32);
+        $kernel2->setArg(0,$k,NDArray::int32);
         $kernel2->setArg(1,$temp_buffer);
         $kernel2->setArg(2,$B);
-        $kernel2->setArg(3,$offsetB,NDArray::uint32);
-        $kernel2->setArg(4,$ldB,NDArray::uint32);
+        $kernel2->setArg(3,$offsetB,NDArray::int32);
+        $kernel2->setArg(4,$ldB,NDArray::int32);
         $kernel2->setArg(5,null,$this->adjBoundary($work_items2*$value_size));
         $global_work_size = [$work_items2,$rows*$k];
         $local_work_size = [$work_items2,1];
@@ -5280,25 +5286,25 @@ EOT;
             $index_b = 'gid0*ldb+gid1+offset_b';
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint rows,\n".
-                "    const        uint total_local_items,\n".
-                "    const        uint k,\n".
+                "    const        int rows,\n".
+                "    const        int total_local_items,\n".
+                "    const        int k,\n".
                 "    const global {$type} * a,\n".
-                "    const        uint offset_a,\n".
-                "    const        uint lda,\n".
-                "          global uint * b,\n".
-                "    const        uint offset_b,\n".
-                "    const        uint ldb)\n".
+                "    const        int offset_a,\n".
+                "    const        int lda,\n".
+                "          global int * b,\n".
+                "    const        int offset_b,\n".
+                "    const        int ldb)\n".
                 "{\n".
-                "    const uint gid = get_global_id(0);\n".
+                "    const int gid = get_global_id(0);\n".
                      $this->splitPointer('gid1','gid0','gid','k').
                 //"    if(gid0<rows) {\n".
-                "        uint i=0;\n".
-                "        uint pos = {$index_a};\n".
+                "        int i=0;\n".
+                "        int pos = {$index_a};\n".
                 "        {$type} max = a[pos];\n".
-                "        uint imax = i;\n".
+                "        int imax = i;\n".
                 "        pos += k;\n".
-                "        for(uint i=1; i<total_local_items; i++,pos+=k) {\n".
+                "        for(int i=1; i<total_local_items; i++,pos+=k) {\n".
                 "            {$type} value = a[pos];\n".
                 "            if(value>max) {\n".
                 "                max = value;\n".
@@ -5311,15 +5317,15 @@ EOT;
         }
         $kernel = $this->createKernel($kernel_name);
 
-        $kernel->setArg(0,$rows,NDArray::uint32);
-        $kernel->setArg(1,$total_local_items,NDArray::uint32);
-        $kernel->setArg(2,$k,NDArray::uint32);
+        $kernel->setArg(0,$rows,NDArray::int32);
+        $kernel->setArg(1,$total_local_items,NDArray::int32);
+        $kernel->setArg(2,$k,NDArray::int32);
         $kernel->setArg(3,$A);
-        $kernel->setArg(4,$offsetA,NDArray::uint32);
-        $kernel->setArg(5,$ldA,NDArray::uint32);
+        $kernel->setArg(4,$offsetA,NDArray::int32);
+        $kernel->setArg(5,$ldA,NDArray::int32);
         $kernel->setArg(6,$B);
-        $kernel->setArg(7,$offsetB,NDArray::uint32);
-        $kernel->setArg(8,$ldB,NDArray::uint32);
+        $kernel->setArg(7,$offsetB,NDArray::int32);
+        $kernel->setArg(8,$ldB,NDArray::int32);
         //$multiple = $this->kernelMultiple($kernel);
         //$global_work_size = [$this->ceil($rows*$k,$multiple)];
         //$local_work_size = [$multiple];
@@ -5362,21 +5368,21 @@ EOT;
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint total_local_items,\n".
-                "    const        uint k,\n".
+                "    const        int total_local_items,\n".
+                "    const        int k,\n".
                 "    const global {$type} * a,\n".
-                "    const        uint offset_a,\n".
-                "    const        uint lda,\n".
-                "        __global uint * b,\n".
-                "    const        uint offset_b,\n".
-                "    const        uint ldb,\n".
+                "    const        int offset_a,\n".
+                "    const        int lda,\n".
+                "        __global int * b,\n".
+                "    const        int offset_b,\n".
+                "    const        int ldb,\n".
                 "         __local {$type} * local_work,\n".
-                "         __local uint * local_iwork)\n".
+                "         __local int * local_iwork)\n".
                 "{\n".
-                "    const uint grid = get_group_id(0);\n".
+                "    const int grid = get_group_id(0);\n".
                      $this->splitPointer('gid_r','gid_l','grid','k').
-                "    const uint pos_a = gid_l*lda+gid_r+offset_a;\n".
-                "    const uint pos_b = gid_l*ldb+gid_r+offset_b;\n".
+                "    const int pos_a = gid_l*lda+gid_r+offset_a;\n".
+                "    const int pos_b = gid_l*ldb+gid_r+offset_b;\n".
                      $this->kernelTemplateSiMax(
                          "local_work[lid] = a[pos_a+lid*k];\n".
                          "local_iwork[lid] = lid;",
@@ -5387,14 +5393,14 @@ EOT;
         }
         $kernel = $this->createKernel($kernel_name);
 
-        $kernel->setArg(0,$total_local_items,NDArray::uint32);
-        $kernel->setArg(1,$k,NDArray::uint32);
+        $kernel->setArg(0,$total_local_items,NDArray::int32);
+        $kernel->setArg(1,$k,NDArray::int32);
         $kernel->setArg(2,$A);
-        $kernel->setArg(3,$offsetA,NDArray::uint32);
-        $kernel->setArg(4,$ldA,NDArray::uint32);
+        $kernel->setArg(3,$offsetA,NDArray::int32);
+        $kernel->setArg(4,$ldA,NDArray::int32);
         $kernel->setArg(5,$B);
-        $kernel->setArg(6,$offsetB,NDArray::uint32);
-        $kernel->setArg(7,$ldB,NDArray::uint32);
+        $kernel->setArg(6,$offsetB,NDArray::int32);
+        $kernel->setArg(7,$ldB,NDArray::int32);
         $kernel->setArg(8,null,$this->adjBoundary($max_work_items*$value_size));
         $kernel->setArg(9,null,$this->adjBoundary($max_work_items*$index_value_size));
         $global_work_size = [$max_work_items*$k*$rows];
@@ -5439,25 +5445,25 @@ EOT;
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint total_local_items,\n".
-                "    const        uint segments,\n".
-                "    const        uint k,\n".
+                "    const        int total_local_items,\n".
+                "    const        int segments,\n".
+                "    const        int k,\n".
                 "    const global {$type} * a,\n".
-                "    const        uint offset_a,\n".
-                "    const        uint lda,\n".
-                "        __global uint * b,\n".
-                "    const        uint offset_b,\n".
-                "    const        uint ldb,\n".
+                "    const        int offset_a,\n".
+                "    const        int lda,\n".
+                "        __global int * b,\n".
+                "    const        int offset_b,\n".
+                "    const        int ldb,\n".
                 "         __local {$type} * local_work,\n".
                 "         __local {$type} * seg_work,\n".
-                "         __local uint * local_iwork,\n".
-                "         __local uint * seg_iwork,\n".
-                "    const        uint work_items)\n".
+                "         __local int * local_iwork,\n".
+                "         __local int * seg_iwork,\n".
+                "    const        int work_items)\n".
                 "{\n".
-                "    const uint grid = get_group_id(0);\n".
+                "    const int grid = get_group_id(0);\n".
                      $this->splitPointer('gid_r','gid_l','grid','k').
-                "    const uint pos_a = gid_l*lda+gid_r+offset_a;\n".
-                "    const uint pos_b = gid_l*ldb+gid_r+offset_b;\n".
+                "    const int pos_a = gid_l*lda+gid_r+offset_a;\n".
+                "    const int pos_b = gid_l*ldb+gid_r+offset_b;\n".
                      $this->kernelTemplateQiMax(
                          "local_work[lid] = a[pos_a+(seg*lws+lid)*k];\n".
                          "local_iwork[lid] = seg*lws+lid;\n",
@@ -5468,21 +5474,21 @@ EOT;
         }
         $kernel = $this->createKernel($kernel_name);
 
-        $kernel->setArg(0,$total_local_items,NDArray::uint32);
-        $kernel->setArg(1,$segments,NDArray::uint32);
-        $kernel->setArg(2,$k,NDArray::uint32);
+        $kernel->setArg(0,$total_local_items,NDArray::int32);
+        $kernel->setArg(1,$segments,NDArray::int32);
+        $kernel->setArg(2,$k,NDArray::int32);
         $kernel->setArg(3,$A);
-        $kernel->setArg(4,$offsetA,NDArray::uint32);
-        $kernel->setArg(5,$ldA,NDArray::uint32);
+        $kernel->setArg(4,$offsetA,NDArray::int32);
+        $kernel->setArg(5,$ldA,NDArray::int32);
         $kernel->setArg(6,$B);
-        $kernel->setArg(7,$offsetB,NDArray::uint32);
-        $kernel->setArg(8,$ldB,NDArray::uint32);
+        $kernel->setArg(7,$offsetB,NDArray::int32);
+        $kernel->setArg(8,$ldB,NDArray::int32);
 
         $kernel->setArg(9,null,$this->adjBoundary($max_work_items*$value_size));
         $kernel->setArg(10,null,$this->adjBoundary($segments*$value_size));
         $kernel->setArg(11,null,$this->adjBoundary($max_work_items*$index_value_size));
         $kernel->setArg(12,null,$this->adjBoundary($segments*$index_value_size));
-        $kernel->setArg(13,$work_items,NDArray::uint32);
+        $kernel->setArg(13,$work_items,NDArray::int32);
         $global_work_size = [$max_work_items*$k*$rows];
         $local_work_size = [$max_work_items];
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -5533,22 +5539,22 @@ EOT;
         if(!isset($this->sources[$kernel_name1])) {
             $this->sources[$kernel_name1] =
                 "__kernel void {$kernel_name1}(\n".
-                "    const        uint total_local_items,\n".
-                "    const        uint k,\n".
+                "    const        int total_local_items,\n".
+                "    const        int k,\n".
                 "    const __global {$type} * a,\n".
-                "    const        uint offset_a,\n".
-                "    const        uint lda,\n".
+                "    const        int offset_a,\n".
+                "    const        int lda,\n".
                 "        __global {$type} * temp_buffer,\n".
                 "         __local {$type} * local_work,\n".
-                "        __global uint * temp_ibuffer,\n".
-                "         __local uint * local_iwork)\n".
+                "        __global int * temp_ibuffer,\n".
+                "         __local int * local_iwork)\n".
                 "{\n".
-                "    const uint parallel_item_id = get_global_id(1);\n".
+                "    const int parallel_item_id = get_global_id(1);\n".
                      $this->splitPointer('gid_r','gid_l','parallel_item_id','k').
-                "    const uint pos_a = gid_l*lda+gid_r+offset_a;\n".
+                "    const int pos_a = gid_l*lda+gid_r+offset_a;\n".
                     $this->kernelTemplateLiMax1(
                         "{$type} input = a[pos_a+local_item_id*k];".
-                        "uint input_index = local_item_id;\n",
+                        "int input_index = local_item_id;\n",
                         $dtype
                     ).
                 "}\n";
@@ -5558,18 +5564,18 @@ EOT;
         if(!isset($this->sources[$kernel_name2])) {
             $this->sources[$kernel_name2] =
                 "__kernel void {$kernel_name2}(\n".
-                "    const        uint k,\n".
+                "    const        int k,\n".
                 "    const __global {$type} * temp_buffer,\n".
-                "    const __global uint * temp_ibuffer,\n".
-                "        __global uint * b,\n".
-                "    const        uint offset_b,\n".
-                "    const        uint ldb,\n".
+                "    const __global int * temp_ibuffer,\n".
+                "        __global int * b,\n".
+                "    const        int offset_b,\n".
+                "    const        int ldb,\n".
                 "         __local {$type} * local_work,\n".
-                "         __local uint * local_iwork)\n".
+                "         __local int * local_iwork)\n".
                 "{\n".
-                "    const uint parallel_item_id = get_global_id(1);\n".
+                "    const int parallel_item_id = get_global_id(1);\n".
                     $this->splitPointer('gid_r','gid_l','parallel_item_id','k').
-                "    const uint pos_b = gid_l*ldb+gid_r+offset_b;\n".
+                "    const int pos_b = gid_l*ldb+gid_r+offset_b;\n".
                     $this->kernelTemplateLiMax2(
                         "b[pos_b] = local_iwork[0];"
                     ).
@@ -5577,11 +5583,11 @@ EOT;
         }
         $kernel2 = $this->createKernel($kernel_name2);
 
-        $kernel->setArg(0,$total_local_items,NDArray::uint32);
-        $kernel->setArg(1,$k,NDArray::uint32);
+        $kernel->setArg(0,$total_local_items,NDArray::int32);
+        $kernel->setArg(1,$k,NDArray::int32);
         $kernel->setArg(2,$A);
-        $kernel->setArg(3,$offsetA,NDArray::uint32);
-        $kernel->setArg(4,$ldA,NDArray::uint32);
+        $kernel->setArg(3,$offsetA,NDArray::int32);
+        $kernel->setArg(4,$ldA,NDArray::int32);
         $kernel->setArg(5,$temp_buffer);
         $kernel->setArg(6,null,$this->adjBoundary($work_items1*$value_size));
         $kernel->setArg(7,$temp_ibuffer);
@@ -5592,12 +5598,12 @@ EOT;
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
                 $phase1Events,$waitEvents);
 
-        $kernel2->setArg(0,$k,NDArray::uint32);
+        $kernel2->setArg(0,$k,NDArray::int32);
         $kernel2->setArg(1,$temp_buffer);
         $kernel2->setArg(2,$temp_ibuffer);
         $kernel2->setArg(3,$B);
-        $kernel2->setArg(4,$offsetB,NDArray::uint32);
-        $kernel2->setArg(5,$ldB,NDArray::uint32);
+        $kernel2->setArg(4,$offsetB,NDArray::int32);
+        $kernel2->setArg(5,$ldB,NDArray::int32);
         $kernel2->setArg(6,null,$this->adjBoundary($work_items2*$value_size));
         $kernel2->setArg(7,null,$this->adjBoundary($work_items2*$index_value_size));
         $global_work_size = [$work_items2,$rows*$k];
@@ -5672,15 +5678,15 @@ EOT;
             //}
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint rows,\n".
-                "    const        uint total_local_items,\n".
+                "    const        int rows,\n".
+                "    const        int total_local_items,\n".
                 "        __global {$type} * a,\n".
-                "    const        uint offset_a,\n".
-                "    const        uint lda)\n".
+                "    const        int offset_a,\n".
+                "    const        int lda)\n".
                 "{\n".
-                "    const uint gid = get_global_id(0);\n".
+                "    const int gid = get_global_id(0);\n".
                 //"    if(gid<rows) {\n".
-                "        uint i=0;\n".
+                "        int i=0;\n".
                 "        {$type} max = a[{$index_a}];\n".
                 "        for(i=1;i<total_local_items;i++) {\n".
                 "            {$type} value = a[{$index_a}];\n".
@@ -5700,11 +5706,11 @@ EOT;
         }
         $kernel = $this->createKernel($kernel_name);
 
-        $kernel->setArg(0,$rows,NDArray::uint32);
-        $kernel->setArg(1,$total_local_items,NDArray::uint32);
+        $kernel->setArg(0,$rows,NDArray::int32);
+        $kernel->setArg(1,$total_local_items,NDArray::int32);
         $kernel->setArg(2,$A);
-        $kernel->setArg(3,$offsetA,NDArray::uint32);
-        $kernel->setArg(4,$ldA,NDArray::uint32);
+        $kernel->setArg(3,$offsetA,NDArray::int32);
+        $kernel->setArg(4,$ldA,NDArray::int32);
 
         //$multiple = $this->kernelMultiple($kernel);
         //$global_work_size = [$this->ceil($rows,$multiple)];
@@ -5753,13 +5759,13 @@ EOT;
             //}
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint total_local_items,\n".
+                "    const        int total_local_items,\n".
                 "        __global {$type} * a,\n".
-                "    const        uint offset_a,\n".
-                "    const        uint lda,\n".
+                "    const        int offset_a,\n".
+                "    const        int lda,\n".
                 "         __local {$type} * local_work)\n".
                 "{\n".
-                "    const uint grid = get_group_id(0);\n".
+                "    const int grid = get_group_id(0);\n".
                 "    __local {$type} max;\n".
                 "    __local {$type} sum;\n".
                      $this->kernelTemplateSMax(
@@ -5774,8 +5780,8 @@ EOT;
                      ).
                      "barrier(CLK_LOCAL_MEM_FENCE);\n".
                 "    {\n".
-                "        const uint lid = get_local_id(0);\n".
-                "        const uint lws = get_local_size(0);\n".
+                "        const int lid = get_local_id(0);\n".
+                "        const int lws = get_local_size(0);\n".
                 "        if(lid<total_local_items) {\n".
                 "            a[{$index_a}] = exp(a[{$index_a}]-max)/sum;\n".
                 "        }\n".
@@ -5784,10 +5790,10 @@ EOT;
         }
         $kernel = $this->createKernel($kernel_name);
 
-        $kernel->setArg(0,$total_local_items,NDArray::uint32);
+        $kernel->setArg(0,$total_local_items,NDArray::int32);
         $kernel->setArg(1,$A);
-        $kernel->setArg(2,$offsetA,NDArray::uint32);
-        $kernel->setArg(3,$ldA,NDArray::uint32);
+        $kernel->setArg(2,$offsetA,NDArray::int32);
+        $kernel->setArg(3,$ldA,NDArray::int32);
         $kernel->setArg(4,null,$this->adjBoundary($max_work_items*$value_size));
         $global_work_size = [$max_work_items*$rows];
         $local_work_size = [$max_work_items];
@@ -5836,16 +5842,16 @@ EOT;
             //}
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint total_local_items,\n".
-                "    const        uint segments,\n".
+                "    const        int total_local_items,\n".
+                "    const        int segments,\n".
                 "        __global {$type} * a,\n".
-                "    const        uint offset_a,\n".
-                "    const        uint lda,\n".
+                "    const        int offset_a,\n".
+                "    const        int lda,\n".
                 "         __local {$type} * local_work,\n".
                 "         __local {$type} * seg_work,\n".
-                "    const        uint work_items)\n".
+                "    const        int work_items)\n".
                 "{\n".
-                "    const uint grid = get_group_id(0);\n".
+                "    const int grid = get_group_id(0);\n".
                 "    __local {$type} max;\n".
                 "    __local {$type} sum;\n".
                      $this->kernelTemplateQMax(
@@ -5860,11 +5866,11 @@ EOT;
                      ).
                      "barrier(CLK_LOCAL_MEM_FENCE);\n".
                 "    {\n".
-                "        const uint lid = get_local_id(0);\n".
-                "        const uint lws = get_local_size(0);\n".
-                "        uint seg_count = segments;\n".
-                "        uint local_items = work_items;\n".
-                "        uint left_local_items = total_local_items;\n".
+                "        const int lid = get_local_id(0);\n".
+                "        const int lws = get_local_size(0);\n".
+                "        int seg_count = segments;\n".
+                "        int local_items = work_items;\n".
+                "        int left_local_items = total_local_items;\n".
                 "        for(int seg=0;seg<seg_count;seg++) {\n".
                 "            if(lid<local_items) {\n".
                 "                a[{$index_a}] = exp(a[{$index_a}]-max)/sum;\n".
@@ -5880,15 +5886,15 @@ EOT;
         }
         $kernel = $this->createKernel($kernel_name);
 
-        $kernel->setArg(0,$total_local_items,NDArray::uint32);
-        $kernel->setArg(1,$segments,NDArray::uint32);
+        $kernel->setArg(0,$total_local_items,NDArray::int32);
+        $kernel->setArg(1,$segments,NDArray::int32);
         $kernel->setArg(2,$A);
-        $kernel->setArg(3,$offsetA,NDArray::uint32);
-        $kernel->setArg(4,$ldA,NDArray::uint32);
+        $kernel->setArg(3,$offsetA,NDArray::int32);
+        $kernel->setArg(4,$ldA,NDArray::int32);
 
         $kernel->setArg(5,null,$this->adjBoundary($max_work_items*$value_size));
         $kernel->setArg(6,null,$this->adjBoundary($segments*$value_size));
-        $kernel->setArg(7,$work_items,NDArray::uint32);
+        $kernel->setArg(7,$work_items,NDArray::int32);
         $global_work_size = [$max_work_items*$rows];
         $local_work_size = [$max_work_items];
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -5960,24 +5966,24 @@ EOT;
             }
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint n,\n".
-                "    const        uint k,\n".
+                "    const        int n,\n".
+                "    const        int k,\n".
                 "    $a_arg_type {$type} * a,\n".
-                "    const        uint offset_a,\n".
-                "    const        uint inca,\n".
+                "    const        int offset_a,\n".
+                "    const        int inca,\n".
                 "    $y_arg_type {$type} * y,\n".
-                "    const        uint offset_y,\n".
-                "    const        uint incy,\n".
-                "    const        uint startAxis0,\n".
-                "    const        uint startAxis1,\n".
-                "    const        uint startAxis2,\n".
-                "    const        uint i0size,\n".
-                "    const        uint i1size,\n".
-                "    const        uint i2size,\n".
-                "    const        uint size)\n".
+                "    const        int offset_y,\n".
+                "    const        int incy,\n".
+                "    const        int startAxis0,\n".
+                "    const        int startAxis1,\n".
+                "    const        int startAxis2,\n".
+                "    const        int i0size,\n".
+                "    const        int i1size,\n".
+                "    const        int i2size,\n".
+                "    const        int size)\n".
                 "{\n".
-                "    uint gid0 = get_global_id(0);\n".
-                "    uint gid1 = get_global_id(1);\n".
+                "    int gid0 = get_global_id(0);\n".
+                "    int gid1 = get_global_id(1);\n".
                     $this->splitPointer('lid','i2','gid0','size').
                     $this->splitPointer('i1','i0','gid1','i1size').
                 "    {$to} {$operator} {$from};\n".
@@ -5985,21 +5991,21 @@ EOT;
         }
 
         $kernel = $this->createKernel($kernel_name);
-        $kernel->setArg(0,$n,NDArray::uint32);
-        $kernel->setArg(1,$k,NDArray::uint32);
+        $kernel->setArg(0,$n,NDArray::int32);
+        $kernel->setArg(1,$k,NDArray::int32);
         $kernel->setArg(2,$A);
-        $kernel->setArg(3,$offsetA,NDArray::uint32);
-        $kernel->setArg(4,$incA,NDArray::uint32);
+        $kernel->setArg(3,$offsetA,NDArray::int32);
+        $kernel->setArg(4,$incA,NDArray::int32);
         $kernel->setArg(5,$Y);
-        $kernel->setArg(6,$offsetY,NDArray::uint32);
-        $kernel->setArg(7,$incY,NDArray::uint32);
-        $kernel->setArg(8,$startAxis0,NDArray::uint32);
-        $kernel->setArg(9,$startAxis1,NDArray::uint32);
-        $kernel->setArg(10,$startAxis2,NDArray::uint32);
-        $kernel->setArg(11,$sizeAxis0,NDArray::uint32);
-        $kernel->setArg(12,$sizeAxis1,NDArray::uint32);
-        $kernel->setArg(13,$sizeAxis2,NDArray::uint32);
-        $kernel->setArg(14,$size,NDArray::uint32);
+        $kernel->setArg(6,$offsetY,NDArray::int32);
+        $kernel->setArg(7,$incY,NDArray::int32);
+        $kernel->setArg(8,$startAxis0,NDArray::int32);
+        $kernel->setArg(9,$startAxis1,NDArray::int32);
+        $kernel->setArg(10,$startAxis2,NDArray::int32);
+        $kernel->setArg(11,$sizeAxis0,NDArray::int32);
+        $kernel->setArg(12,$sizeAxis1,NDArray::int32);
+        $kernel->setArg(13,$sizeAxis2,NDArray::int32);
+        $kernel->setArg(14,$size,NDArray::int32);
         $global_work_size = [$size*$sizeAxis2,$sizeAxis1*$sizeAxis0];
         $local_work_size=null;
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -6042,21 +6048,21 @@ EOT;
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint n,\n".
+                "    const        int n,\n".
                 "        __global {$type} * a,\n".
-                "    const        uint offset_a,\n".
-                "    const        uint lda,\n".
+                "    const        int offset_a,\n".
+                "    const        int lda,\n".
                 "        __global {$type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx,\n".
-                "        __global uint * y,\n".
-                "    const        uint offset_y,\n".
-                "    const        uint incy)\n".
+                "    const        int offset_x,\n".
+                "    const        int incx,\n".
+                "        __global int * y,\n".
+                "    const        int offset_y,\n".
+                "    const        int incy)\n".
                 "{\n".
-                "    uint ida = get_global_id(0)*lda+offset_a;\n".
-                "    uint idx = get_global_id(0)*incx+offset_x;\n".
-                "    uint idy = get_global_id(0)*incy+offset_y;\n".
-                "    uint i;\n".
+                "    int ida = get_global_id(0)*lda+offset_a;\n".
+                "    int idx = get_global_id(0)*incx+offset_x;\n".
+                "    int idy = get_global_id(0)*incy+offset_y;\n".
+                "    int i;\n".
                 "    {$type} v = x[idx];\n".
                 "    for(i=0;i<n;i++) {\n".
                 "        if(!(v {$cmp} a[ida])) {\n".
@@ -6069,16 +6075,16 @@ EOT;
         }
 
         $kernel = $this->createKernel($kernel_name);
-        $kernel->setArg(0,$n,NDArray::uint32);
+        $kernel->setArg(0,$n,NDArray::int32);
         $kernel->setArg(1,$A);
-        $kernel->setArg(2,$offsetA,NDArray::uint32);
-        $kernel->setArg(3,$ldA,NDArray::uint32);
+        $kernel->setArg(2,$offsetA,NDArray::int32);
+        $kernel->setArg(3,$ldA,NDArray::int32);
         $kernel->setArg(4,$X);
-        $kernel->setArg(5,$offsetX,NDArray::uint32);
-        $kernel->setArg(6,$incX,NDArray::uint32);
+        $kernel->setArg(5,$offsetX,NDArray::int32);
+        $kernel->setArg(6,$incX,NDArray::int32);
         $kernel->setArg(7,$Y);
-        $kernel->setArg(8,$offsetY,NDArray::uint32);
-        $kernel->setArg(9,$incY,NDArray::uint32);
+        $kernel->setArg(8,$offsetY,NDArray::int32);
+        $kernel->setArg(9,$incY,NDArray::int32);
         $global_work_size = [$m];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
@@ -6262,10 +6268,10 @@ EOT;
                 "__kernel void {$kernel_name}(\n".
                 "    const        {$type} alpha,\n".
                 "        __global {$type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx)\n".
+                "    const        int offset_x,\n".
+                "    const        int incx)\n".
                 "{\n".
-                "    uint idx = get_global_id(0)*incx+offset_x;\n".
+                "    int idx = get_global_id(0)*incx+offset_x;\n".
                 "    if(isnan(x[idx])) {\n".
                 "        x[idx] = alpha;\n".
                 "    }\n".
@@ -6274,8 +6280,8 @@ EOT;
         $kernel = $this->createKernel($kernel_name);
         $kernel->setArg(0,$alpha,NDArray::float32);
         $kernel->setArg(1,$X);
-        $kernel->setArg(2,$offsetX,NDArray::uint32);
-        $kernel->setArg(3,$incX,NDArray::uint32);
+        $kernel->setArg(2,$offsetX,NDArray::int32);
+        $kernel->setArg(3,$incX,NDArray::int32);
         $global_work_size = [$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
@@ -6300,10 +6306,10 @@ EOT;
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
                 "        __global {$type} * x,\n".
-                "    const        uint offset_x,\n".
-                "    const        uint incx)\n".
+                "    const        int offset_x,\n".
+                "    const        int incx)\n".
                 "{\n".
-                "    uint idx = get_global_id(0)*incx+offset_x;\n".
+                "    int idx = get_global_id(0)*incx+offset_x;\n".
                 "    if(isnan(x[idx])) {\n".
                 "        x[idx] = 1.0;\n".
                 "    } else {\n".
@@ -6313,8 +6319,8 @@ EOT;
         }
         $kernel = $this->createKernel($kernel_name);
         $kernel->setArg(0,$X);
-        $kernel->setArg(1,$offsetX,NDArray::uint32);
-        $kernel->setArg(2,$incX,NDArray::uint32);
+        $kernel->setArg(1,$offsetX,NDArray::int32);
+        $kernel->setArg(2,$incX,NDArray::int32);
         $global_work_size = [$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
@@ -6389,12 +6395,12 @@ EOT;
                 "    const        int ldC,\n".
                 "    const        int rgbFlip,\n".
                 "    const global {$type} * a,\n".
-                "    const        uint offset_a,\n".
+                "    const        int offset_a,\n".
                 "        __global {$type} * b,\n".
-                "    const        uint offset_b)\n".
+                "    const        int offset_b)\n".
                 "{\n".
-                "    uint gid0 = get_global_id(0);\n".
-                "    uint gid1 = get_global_id(1);\n".
+                "    int gid0 = get_global_id(0);\n".
+                "    int gid1 = get_global_id(1);\n".
                 "    int c  = gid0;\n".
                     $this->splitPointer('x','y','gid1','width').
                 "    int sy = y*directionY+biasY;\n".
@@ -6427,9 +6433,9 @@ EOT;
         $kernel->setArg(8,$ldC,NDArray::int32);
         $kernel->setArg(9,$rgbFlip,NDArray::int32);
         $kernel->setArg(10,$A);
-        $kernel->setArg(11,$offsetA,NDArray::uint32);
+        $kernel->setArg(11,$offsetA,NDArray::int32);
         $kernel->setArg(12,$B);
-        $kernel->setArg(13,$offsetB,NDArray::uint32);
+        $kernel->setArg(13,$offsetB,NDArray::int32);
         $global_work_size = [$channels,$width*$height];
         $local_work_size=null;
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -6524,22 +6530,22 @@ EOT;
                 $this->sources[$kernel_name] =
                     "__kernel void {$kernel_name}(\n".
                     "    $im_arg_type {$type} * images,\n".
-                    "    const        uint offset_images,\n".
+                    "    const        int offset_images,\n".
                     "    $col_arg_type {$type} * cols,\n".
-                    "    const        uint offset_cols,\n".
-                    "    const        uint batches,\n".
-                    "    const        uint im_w,\n".
-                    "    const        uint channels,\n".
-                    "    const        uint kernel_w,\n".
-                    "    const        uint stride_w,\n".
-                    "    const        uint pad_w,\n".
-                    "    const        uint dilation_w,\n".
-                    "    const        uint output_w)\n".
+                    "    const        int offset_cols,\n".
+                    "    const        int batches,\n".
+                    "    const        int im_w,\n".
+                    "    const        int channels,\n".
+                    "    const        int kernel_w,\n".
+                    "    const        int stride_w,\n".
+                    "    const        int pad_w,\n".
+                    "    const        int dilation_w,\n".
+                    "    const        int output_w)\n".
                     "{\n".
-                    "    const uint gid0 = get_global_id(0);\n".
-                    "    const uint gid1 = get_global_id(1);\n".
+                    "    const int gid0 = get_global_id(0);\n".
+                    "    const int gid1 = get_global_id(1);\n".
                         $this->splitPointer('channel_id','input_x','gid0','channels').
-                    "    const uint batch_id   = gid1;\n".
+                    "    const int batch_id   = gid1;\n".
                     "    if(input_x<im_w && batch_id<batches){\n".
                     "        {$type} value=0;\n".
                     "        for(int kernel_x=0;kernel_x<kernel_w;kernel_x++) {\n".
@@ -6557,33 +6563,33 @@ EOT;
                 $this->sources[$kernel_name] =
                     "__kernel void {$kernel_name}(\n".
                     "    $im_arg_type {$type} * images,\n".
-                    "    const        uint offset_images,\n".
+                    "    const        int offset_images,\n".
                     "    $col_arg_type {$type} * cols,\n".
-                    "    const        uint offset_cols,\n".
-                    "    const        uint batches,\n".
-                    "    const        uint im_w,\n".
-                    "    const        uint channels,\n".
-                    "    const        uint kernel_w,\n".
-                    "    const        uint stride_w,\n".
-                    "    const        uint pad_w,\n".
-                    "    const        uint dilation_w,\n".
-                    "    const        uint output_w)\n".
+                    "    const        int offset_cols,\n".
+                    "    const        int batches,\n".
+                    "    const        int im_w,\n".
+                    "    const        int channels,\n".
+                    "    const        int kernel_w,\n".
+                    "    const        int stride_w,\n".
+                    "    const        int pad_w,\n".
+                    "    const        int dilation_w,\n".
+                    "    const        int output_w)\n".
                     "{\n".
-                    "    const uint gid = get_global_id(0);\n".
+                    "    const int gid = get_global_id(0);\n".
                         $this->splitPointer('channel_id','im_x','gid','channels').
-                    "    uint batch_id = get_global_id(1);\n".
-                    //"    uint kernel_x = get_global_id(2);\n".
+                    "    int batch_id = get_global_id(1);\n".
+                    //"    int kernel_x = get_global_id(2);\n".
                     "    if(im_x<output_w && batch_id<batches){\n".
-                    "        for(uint kernel_x=0;kernel_x<kernel_w;kernel_x++) {\n".
+                    "        for(int kernel_x=0;kernel_x<kernel_w;kernel_x++) {\n".
                     "            int input_x = {$input_x};\n".
                     "            {$type} value;\n".
                     "            if(input_x>=0 && input_x<im_w) {\n".
-                    "                uint input_id = {$input_id};\n".
+                    "                int input_id = {$input_id};\n".
                     "                value = images[input_id];\n".
                     "            } else {\n".
                     "                value = 0;\n".
                     "            }\n".
-                    "            uint cols_id = {$cols_id};\n".
+                    "            int cols_id = {$cols_id};\n".
                     "            cols[cols_id] = value;\n".
                     "        }\n".
                     "    }\n".
@@ -6593,17 +6599,17 @@ EOT;
 
         $kernel = $this->createKernel($kernel_name);
         $kernel->setArg(0,$images);
-        $kernel->setArg(1,$images_offset,NDArray::uint32);
+        $kernel->setArg(1,$images_offset,NDArray::int32);
         $kernel->setArg(2,$cols);
-        $kernel->setArg(3,$cols_offset,NDArray::uint32);
-        $kernel->setArg(4,$batches,NDArray::uint32);
-        $kernel->setArg(5,$im_w,NDArray::uint32);
-        $kernel->setArg(6,$channels,NDArray::uint32);
-        $kernel->setArg(7,$kernel_w,NDArray::uint32);
-        $kernel->setArg(8,$stride_w,NDArray::uint32);
-        $kernel->setArg(9,$pad_w,NDArray::uint32);
-        $kernel->setArg(10,$dilation_w,NDArray::uint32);
-        $kernel->setArg(11,$output_w,NDArray::uint32);
+        $kernel->setArg(3,$cols_offset,NDArray::int32);
+        $kernel->setArg(4,$batches,NDArray::int32);
+        $kernel->setArg(5,$im_w,NDArray::int32);
+        $kernel->setArg(6,$channels,NDArray::int32);
+        $kernel->setArg(7,$kernel_w,NDArray::int32);
+        $kernel->setArg(8,$stride_w,NDArray::int32);
+        $kernel->setArg(9,$pad_w,NDArray::int32);
+        $kernel->setArg(10,$dilation_w,NDArray::int32);
+        $kernel->setArg(11,$output_w,NDArray::int32);
         if($reverse) {
             $global_work_size = [$this->ceil($im_w*$channels,4),$this->ceil($batches,8)];
             $local_work_size = [4,8];
@@ -6706,32 +6712,32 @@ EOT;
                 $this->sources[$kernel_name] =
                     "__kernel void {$kernel_name}(\n".
                     "    $im_arg_type {$type} * images,\n".
-                    "    const        uint offset_images,\n".
+                    "    const        int offset_images,\n".
                     "    $col_arg_type {$type} * cols,\n".
-                    "    const        uint offset_cols,\n".
-                    "    const        uint batches,\n".
-                    "    const        uint im_h,\n".
-                    "    const        uint im_w,\n".
-                    "    const        uint channels,\n".
-                    "    const        uint kernel_h,\n".
-                    "    const        uint kernel_w,\n".
-                    "    const        uint stride_h,\n".
-                    "    const        uint stride_w,\n".
-                    "    const        uint pad_h,\n".
-                    "    const        uint pad_w,\n".
-                    "    const        uint dilation_h,\n".
-                    "    const        uint dilation_w,\n".
-                    "    const        uint output_h,\n".
-                    "    const        uint output_w\n".
+                    "    const        int offset_cols,\n".
+                    "    const        int batches,\n".
+                    "    const        int im_h,\n".
+                    "    const        int im_w,\n".
+                    "    const        int channels,\n".
+                    "    const        int kernel_h,\n".
+                    "    const        int kernel_w,\n".
+                    "    const        int stride_h,\n".
+                    "    const        int stride_w,\n".
+                    "    const        int pad_h,\n".
+                    "    const        int pad_w,\n".
+                    "    const        int dilation_h,\n".
+                    "    const        int dilation_w,\n".
+                    "    const        int output_h,\n".
+                    "    const        int output_w\n".
                     "    )\n".
                     "{\n".
-                    "    const uint gid0 = get_global_id(0);\n".
-                    "    const uint gid1 = get_global_id(1);\n".
+                    "    const int gid0 = get_global_id(0);\n".
+                    "    const int gid1 = get_global_id(1);\n".
                          $this->splitPointer('channel_id','input_x','gid0','channels').
                          $this->splitPointer('input_y','batch_id','gid1','im_h').
-                    //"    const uint kernel_idx = {$kernel_idx};\n".
-                    //"    const uint kernel_y = kernel_idx/kernel_w;\n".
-                    //"    const uint kernel_x = kernel_idx%kernel_w;\n".
+                    //"    const int kernel_idx = {$kernel_idx};\n".
+                    //"    const int kernel_y = kernel_idx/kernel_w;\n".
+                    //"    const int kernel_x = kernel_idx%kernel_w;\n".
                     "    if(input_x<im_w && batch_id<batches){\n".
                     "        {$type} value=0;\n".
                     "        for(int kernel_y=0;kernel_y<kernel_h;kernel_y++) {".
@@ -6755,42 +6761,42 @@ EOT;
                 $this->sources[$kernel_name] =
                     "__kernel void {$kernel_name}(\n".
                     "    $im_arg_type {$type} * images,\n".
-                    "    const        uint offset_images,\n".
+                    "    const        int offset_images,\n".
                     "    $col_arg_type {$type} * cols,\n".
-                    "    const        uint offset_cols,\n".
-                    "    const        uint batches,\n".
-                    "    const        uint im_h,\n".
-                    "    const        uint im_w,\n".
-                    "    const        uint channels,\n".
-                    "    const        uint kernel_h,\n".
-                    "    const        uint kernel_w,\n".
-                    "    const        uint stride_h,\n".
-                    "    const        uint stride_w,\n".
-                    "    const        uint pad_h,\n".
-                    "    const        uint pad_w,\n".
-                    "    const        uint dilation_h,\n".
-                    "    const        uint dilation_w,\n".
-                    "    const        uint output_h,\n".
-                    "    const        uint output_w\n".
+                    "    const        int offset_cols,\n".
+                    "    const        int batches,\n".
+                    "    const        int im_h,\n".
+                    "    const        int im_w,\n".
+                    "    const        int channels,\n".
+                    "    const        int kernel_h,\n".
+                    "    const        int kernel_w,\n".
+                    "    const        int stride_h,\n".
+                    "    const        int stride_w,\n".
+                    "    const        int pad_h,\n".
+                    "    const        int pad_w,\n".
+                    "    const        int dilation_h,\n".
+                    "    const        int dilation_w,\n".
+                    "    const        int output_h,\n".
+                    "    const        int output_w\n".
                     "    )\n".
                     "{\n".
-                    "    const uint gid0 = get_global_id(0);\n".
-                    "    const uint gid1 = get_global_id(1);\n".
+                    "    const int gid0 = get_global_id(0);\n".
+                    "    const int gid1 = get_global_id(1);\n".
                          $this->splitPointer('channel_id','im_x','gid0','channels').
                          $this->splitPointer('im_y','batch_id','gid1','output_h').
                     "    if(im_x<output_w && batch_id<batches){\n".
-                    "        for(uint kernel_y=0;kernel_y<kernel_h;kernel_y++) {\n".
-                    "            for(uint kernel_x=0;kernel_x<kernel_w;kernel_x++) {\n".
+                    "        for(int kernel_y=0;kernel_y<kernel_h;kernel_y++) {\n".
+                    "            for(int kernel_x=0;kernel_x<kernel_w;kernel_x++) {\n".
                     "                int input_y = {$input_y};\n".
                     "                int input_x = {$input_x};\n".
                     "                {$type} value;\n".
                     "                if(input_y>=0 && input_y<im_h && input_x>=0 && input_x<im_w) {\n".
-                    "                    uint input_id = {$input_id};\n".
+                    "                    int input_id = {$input_id};\n".
                     "                    value = images[input_id];\n".
                     "                } else {\n".
                     "                    value = 0;\n".
                     "                }\n".
-                    "                uint cols_id = {$cols_id};\n".
+                    "                int cols_id = {$cols_id};\n".
                     "                cols[cols_id] = value;\n".
                     "            }\n".
                     "        }\n".
@@ -6800,23 +6806,23 @@ EOT;
         }
         $kernel = $this->createKernel($kernel_name);
         $kernel->setArg(0,$images);
-        $kernel->setArg(1,$images_offset,NDArray::uint32);
+        $kernel->setArg(1,$images_offset,NDArray::int32);
         $kernel->setArg(2,$cols);
-        $kernel->setArg(3,$cols_offset,NDArray::uint32);
-        $kernel->setArg(4,$batches,NDArray::uint32);
-        $kernel->setArg(5,$im_h,NDArray::uint32);
-        $kernel->setArg(6,$im_w,NDArray::uint32);
-        $kernel->setArg(7,$channels,NDArray::uint32);
-        $kernel->setArg(8,$kernel_h,NDArray::uint32);
-        $kernel->setArg(9,$kernel_w,NDArray::uint32);
-        $kernel->setArg(10,$stride_h,NDArray::uint32);
-        $kernel->setArg(11,$stride_w,NDArray::uint32);
-        $kernel->setArg(12,$pad_h,NDArray::uint32);
-        $kernel->setArg(13,$pad_w,NDArray::uint32);
-        $kernel->setArg(14,$dilation_h,NDArray::uint32);
-        $kernel->setArg(15,$dilation_w,NDArray::uint32);
-        $kernel->setArg(16,$output_h,NDArray::uint32);
-        $kernel->setArg(17,$output_w,NDArray::uint32);
+        $kernel->setArg(3,$cols_offset,NDArray::int32);
+        $kernel->setArg(4,$batches,NDArray::int32);
+        $kernel->setArg(5,$im_h,NDArray::int32);
+        $kernel->setArg(6,$im_w,NDArray::int32);
+        $kernel->setArg(7,$channels,NDArray::int32);
+        $kernel->setArg(8,$kernel_h,NDArray::int32);
+        $kernel->setArg(9,$kernel_w,NDArray::int32);
+        $kernel->setArg(10,$stride_h,NDArray::int32);
+        $kernel->setArg(11,$stride_w,NDArray::int32);
+        $kernel->setArg(12,$pad_h,NDArray::int32);
+        $kernel->setArg(13,$pad_w,NDArray::int32);
+        $kernel->setArg(14,$dilation_h,NDArray::int32);
+        $kernel->setArg(15,$dilation_w,NDArray::int32);
+        $kernel->setArg(16,$output_h,NDArray::int32);
+        $kernel->setArg(17,$output_w,NDArray::int32);
         if($reverse) {
             $global_work_size = [$this->ceil($im_w*$channels,4),$this->ceil($batches*$im_h,8)];
             $local_work_size = [4,8];
@@ -6936,33 +6942,33 @@ EOT;
                 $this->sources[$kernel_name] =
                     "__kernel void {$kernel_name}(\n".
                     "    $im_arg_type {$type} * images,\n".
-                    "    const        uint offset_images,\n".
+                    "    const        int offset_images,\n".
                     "    $col_arg_type {$type} * cols,\n".
-                    "    const        uint offset_cols,\n".
-                    "    const        uint batches,\n".
-                    "    const        uint im_d,\n".
-                    "    const        uint im_h,\n".
-                    "    const        uint im_w,\n".
-                    "    const        uint channels,\n".
-                    "    const        uint kernel_d,\n".
-                    "    const        uint kernel_h,\n".
-                    "    const        uint kernel_w,\n".
-                    "    const        uint stride_d,\n".
-                    "    const        uint stride_h,\n".
-                    "    const        uint stride_w,\n".
-                    "    const        uint pad_d,\n".
-                    "    const        uint pad_h,\n".
-                    "    const        uint pad_w,\n".
-                    "    const        uint dilation_d,\n".
-                    "    const        uint dilation_h,\n".
-                    "    const        uint dilation_w,\n".
-                    "    const        uint output_d,\n".
-                    "    const        uint output_h,\n".
-                    "    const        uint output_w)\n".
+                    "    const        int offset_cols,\n".
+                    "    const        int batches,\n".
+                    "    const        int im_d,\n".
+                    "    const        int im_h,\n".
+                    "    const        int im_w,\n".
+                    "    const        int channels,\n".
+                    "    const        int kernel_d,\n".
+                    "    const        int kernel_h,\n".
+                    "    const        int kernel_w,\n".
+                    "    const        int stride_d,\n".
+                    "    const        int stride_h,\n".
+                    "    const        int stride_w,\n".
+                    "    const        int pad_d,\n".
+                    "    const        int pad_h,\n".
+                    "    const        int pad_w,\n".
+                    "    const        int dilation_d,\n".
+                    "    const        int dilation_h,\n".
+                    "    const        int dilation_w,\n".
+                    "    const        int output_d,\n".
+                    "    const        int output_h,\n".
+                    "    const        int output_w)\n".
                     "{\n".
-                    "    const uint gid0 = get_global_id(0);\n".
-                    "    const uint gid1 = get_global_id(1);\n".
-                    "    const uint gid2 = get_global_id(2);\n".
+                    "    const int gid0 = get_global_id(0);\n".
+                    "    const int gid1 = get_global_id(1);\n".
+                    "    const int gid2 = get_global_id(2);\n".
                          $this->splitPointer('channel_id','input_x','gid0','channels').
                          $this->splitPointer('input_y','input_z','gid1','im_h').
                     "    const int batch_id   = gid2;\n".
@@ -6993,51 +6999,51 @@ EOT;
                 $this->sources[$kernel_name] =
                     "__kernel void {$kernel_name}(\n".
                     "    $im_arg_type {$type} * images,\n".
-                    "    const        uint offset_images,\n".
+                    "    const        int offset_images,\n".
                     "    $col_arg_type {$type} * cols,\n".
-                    "    const        uint offset_cols,\n".
-                    "    const        uint batches,\n".
-                    "    const        uint im_d,\n".
-                    "    const        uint im_h,\n".
-                    "    const        uint im_w,\n".
-                    "    const        uint channels,\n".
-                    "    const        uint kernel_d,\n".
-                    "    const        uint kernel_h,\n".
-                    "    const        uint kernel_w,\n".
-                    "    const        uint stride_d,\n".
-                    "    const        uint stride_h,\n".
-                    "    const        uint stride_w,\n".
-                    "    const        uint pad_d,\n".
-                    "    const        uint pad_h,\n".
-                    "    const        uint pad_w,\n".
-                    "    const        uint dilation_d,\n".
-                    "    const        uint dilation_h,\n".
-                    "    const        uint dilation_w,\n".
-                    "    const        uint output_d,\n".
-                    "    const        uint output_h,\n".
-                    "    const        uint output_w)\n".
+                    "    const        int offset_cols,\n".
+                    "    const        int batches,\n".
+                    "    const        int im_d,\n".
+                    "    const        int im_h,\n".
+                    "    const        int im_w,\n".
+                    "    const        int channels,\n".
+                    "    const        int kernel_d,\n".
+                    "    const        int kernel_h,\n".
+                    "    const        int kernel_w,\n".
+                    "    const        int stride_d,\n".
+                    "    const        int stride_h,\n".
+                    "    const        int stride_w,\n".
+                    "    const        int pad_d,\n".
+                    "    const        int pad_h,\n".
+                    "    const        int pad_w,\n".
+                    "    const        int dilation_d,\n".
+                    "    const        int dilation_h,\n".
+                    "    const        int dilation_w,\n".
+                    "    const        int output_d,\n".
+                    "    const        int output_h,\n".
+                    "    const        int output_w)\n".
                     "{\n".
-                    "    const uint gid0 = get_global_id(0);\n".
-                    "    const uint gid1 = get_global_id(1);\n".
-                    "    const uint gid2 = get_global_id(2);\n".
+                    "    const int gid0 = get_global_id(0);\n".
+                    "    const int gid1 = get_global_id(1);\n".
+                    "    const int gid2 = get_global_id(2);\n".
                          $this->splitPointer('channel_id','im_x','gid0','channels').
                          $this->splitPointer('im_y','im_z','gid1','output_h').
                     "    const int batch_id =   gid2;\n".
                     "    if(im_x<output_w && im_z<output_d && batch_id<batches){\n".
-                    "        for(uint kernel_z=0;kernel_z<kernel_d;kernel_z++) {\n".
-                    "            for(uint kernel_y=0;kernel_y<kernel_h;kernel_y++) {\n".
-                    "                for(uint kernel_x=0;kernel_x<kernel_w;kernel_x++) {\n".
+                    "        for(int kernel_z=0;kernel_z<kernel_d;kernel_z++) {\n".
+                    "            for(int kernel_y=0;kernel_y<kernel_h;kernel_y++) {\n".
+                    "                for(int kernel_x=0;kernel_x<kernel_w;kernel_x++) {\n".
                     "                    int input_z = {$input_z};\n".
                     "                    int input_y = {$input_y};\n".
                     "                    int input_x = {$input_x};\n".
                     "                    {$type} value;\n".
                     "                    if(input_z>=0 && input_z<im_d && input_y>=0 && input_y<im_h && input_x>=0 && input_x<im_w) {\n".
-                    "                        uint input_id = {$input_id};\n".
+                    "                        int input_id = {$input_id};\n".
                     "                        value = images[input_id];\n".
                     "                    } else {\n".
                     "                        value = 0;\n".
                     "                    }\n".
-                    "                    uint cols_id = {$cols_id};\n".
+                    "                    int cols_id = {$cols_id};\n".
                     "                    cols[cols_id] = value;\n".
                     "                }\n".
                     "            }\n".
@@ -7049,29 +7055,29 @@ EOT;
 
         $kernel = $this->createKernel($kernel_name);
         $kernel->setArg(0,$images);
-        $kernel->setArg(1,$images_offset,NDArray::uint32);
+        $kernel->setArg(1,$images_offset,NDArray::int32);
         $kernel->setArg(2,$cols);
-        $kernel->setArg(3,$cols_offset,NDArray::uint32);
-        $kernel->setArg(4,$batches,NDArray::uint32);
-        $kernel->setArg(5,$im_d,NDArray::uint32);
-        $kernel->setArg(6,$im_h,NDArray::uint32);
-        $kernel->setArg(7,$im_w,NDArray::uint32);
-        $kernel->setArg(8,$channels,NDArray::uint32);
-        $kernel->setArg(9,$kernel_d,NDArray::uint32);
-        $kernel->setArg(10,$kernel_h,NDArray::uint32);
-        $kernel->setArg(11,$kernel_w,NDArray::uint32);
-        $kernel->setArg(12,$stride_d,NDArray::uint32);
-        $kernel->setArg(13,$stride_h,NDArray::uint32);
-        $kernel->setArg(14,$stride_w,NDArray::uint32);
-        $kernel->setArg(15,$pad_d,NDArray::uint32);
-        $kernel->setArg(16,$pad_h,NDArray::uint32);
-        $kernel->setArg(17,$pad_w,NDArray::uint32);
-        $kernel->setArg(18,$dilation_d,NDArray::uint32);
-        $kernel->setArg(19,$dilation_h,NDArray::uint32);
-        $kernel->setArg(20,$dilation_w,NDArray::uint32);
-        $kernel->setArg(21,$output_d,NDArray::uint32);
-        $kernel->setArg(22,$output_h,NDArray::uint32);
-        $kernel->setArg(23,$output_w,NDArray::uint32);
+        $kernel->setArg(3,$cols_offset,NDArray::int32);
+        $kernel->setArg(4,$batches,NDArray::int32);
+        $kernel->setArg(5,$im_d,NDArray::int32);
+        $kernel->setArg(6,$im_h,NDArray::int32);
+        $kernel->setArg(7,$im_w,NDArray::int32);
+        $kernel->setArg(8,$channels,NDArray::int32);
+        $kernel->setArg(9,$kernel_d,NDArray::int32);
+        $kernel->setArg(10,$kernel_h,NDArray::int32);
+        $kernel->setArg(11,$kernel_w,NDArray::int32);
+        $kernel->setArg(12,$stride_d,NDArray::int32);
+        $kernel->setArg(13,$stride_h,NDArray::int32);
+        $kernel->setArg(14,$stride_w,NDArray::int32);
+        $kernel->setArg(15,$pad_d,NDArray::int32);
+        $kernel->setArg(16,$pad_h,NDArray::int32);
+        $kernel->setArg(17,$pad_w,NDArray::int32);
+        $kernel->setArg(18,$dilation_d,NDArray::int32);
+        $kernel->setArg(19,$dilation_h,NDArray::int32);
+        $kernel->setArg(20,$dilation_w,NDArray::int32);
+        $kernel->setArg(21,$output_d,NDArray::int32);
+        $kernel->setArg(22,$output_h,NDArray::int32);
+        $kernel->setArg(23,$output_w,NDArray::int32);
         if($reverse) {
             $global_work_size = [$this->ceil($channels*$im_w,2),$this->ceil($im_h*$im_d,2),$this->ceil($batches,8)];
             $local_work_size=[2,2,8];
@@ -7119,10 +7125,10 @@ EOT;
                 "                      const {$type} low,\n".
                 "                      const {$type} high,\n".
                 "                    __global {$type} * x,\n".
-                "                      const uint offsetX,\n".
-                "                      const uint incX)\n".
+                "                      const int offsetX,\n".
+                "                      const int incX)\n".
                 "{\n".
-                "   uint gid = get_global_id(0);\n".
+                "   int gid = get_global_id(0);\n".
                 "   uint randmax = 0;\n".
                 "   randmax--;\n".
                 "   {$type} randx = ({$type})floor((float)wang_hash(gid+seed)*\n".
@@ -7147,10 +7153,10 @@ EOT;
                 "                      const {$type} low,\n".
                 "                      const {$type} high,\n".
                 "                    __global {$type} * x,\n".
-                "                      const uint offsetX,\n".
-                "                      const uint incX)\n".
+                "                      const int offsetX,\n".
+                "                      const int incX)\n".
                 "{\n".
-                "   uint gid = get_global_id(0);\n".
+                "   int gid = get_global_id(0);\n".
                 "   uint randmax = 0;\n".
                 "   randmax--;\n".
                 "   {$type} randx = ({$type})(({$type})wang_hash(gid+seed)*\n".
@@ -7165,8 +7171,8 @@ EOT;
         $kernel->setArg(1,$low,$dtype);
         $kernel->setArg(2,$high,$dtype);
         $kernel->setArg(3,$X);
-        $kernel->setArg(4,$offsetX,NDArray::uint32);
-        $kernel->setArg(5,$incX,NDArray::uint32);
+        $kernel->setArg(4,$offsetX,NDArray::int32);
+        $kernel->setArg(5,$incX,NDArray::int32);
         $global_work_size = [$n];
         $local_work_size=null;
         #$local_work_size = [1,1,$size];
@@ -7212,10 +7218,10 @@ EOT;
             "                      const {$type} mean,\n".
             "                      const {$type} scale,\n".
             "                    __global {$type} * x,\n".
-            "                      const uint offsetX,\n".
-            "                      const uint incX)\n".
+            "                      const int offsetX,\n".
+            "                      const int incX)\n".
             "{\n".
-            "   uint gid = get_global_id(0);\n".
+            "   int gid = get_global_id(0);\n".
             "   uint randmax = 0;\n".
             "   randmax--;\n".
             "   uint seed1 = wang_hash(gid+seed);\n".
@@ -7231,8 +7237,8 @@ EOT;
         $kernel->setArg(1,$mean,$dtype);
         $kernel->setArg(2,$scale,$dtype);
         $kernel->setArg(3,$X);
-        $kernel->setArg(4,$offsetX,NDArray::uint32);
-        $kernel->setArg(5,$incX,NDArray::uint32);
+        $kernel->setArg(4,$offsetX,NDArray::int32);
+        $kernel->setArg(5,$incX,NDArray::int32);
         $global_work_size = [$n];
         $local_work_size=null;
         #$local_work_size = [1,1,$size];
@@ -7260,7 +7266,7 @@ EOT;
             $pattern = ($pattern)?1:0;
         }
         if($dtype==NDArray::bool) {
-            $dtype = NDArray::uint8;
+            $dtype = NDArray::int8;
         } elseif($isInt) {
             $pattern = (int)$pattern;
         } else {
@@ -7271,19 +7277,19 @@ EOT;
             $this->sources[$kernel_name] =
             "__kernel void {$kernel_name}(\n".
             "                    __global {$type} * x,\n".
-            "                      const uint offsetX,\n".
-            "                      const uint incX,\n".
+            "                      const int offsetX,\n".
+            "                      const int incX,\n".
             "                      const {$type} pattern)\n".
             "{\n".
-            "   uint gid = get_global_id(0);\n".
+            "   int gid = get_global_id(0);\n".
             "   x[offsetX+gid*incX] = pattern;\n".
             "}\n";
         }
 
         $kernel = $this->createKernel($kernel_name);
         $kernel->setArg(0,$X);
-        $kernel->setArg(1,$offsetX,NDArray::uint32);
-        $kernel->setArg(2,$incX,NDArray::uint32);
+        $kernel->setArg(1,$offsetX,NDArray::int32);
+        $kernel->setArg(2,$incX,NDArray::int32);
         $kernel->setArg(3,$pattern,$dtype);
         $global_work_size = [$n];
         $local_work_size=null;
@@ -7374,7 +7380,7 @@ EOT;
         }
     
         if($dtype==NDArray::bool) {
-            $dtype = NDArray::uint8;
+            $dtype = NDArray::int8;
         }
 
         $repeat = $shape[0];
@@ -7563,12 +7569,12 @@ EOT;
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
-        $kernel->setArg(0,$n,NDArray::uint32);
-        $kernel->setArg(1,$k,NDArray::uint32);
+        $kernel->setArg(0,$n,NDArray::int32);
+        $kernel->setArg(1,$k,NDArray::int32);
         $kernel->setArg(2,$A);
-        $kernel->setArg(3,$offset,NDArray::uint32);
-        $kernel->setArg(4,$lower,NDArray::uint32);
-        $kernel->setArg(5,$upper,NDArray::uint32);
+        $kernel->setArg(3,$offset,NDArray::int32);
+        $kernel->setArg(4,$lower,NDArray::int32);
+        $kernel->setArg(5,$upper,NDArray::int32);
         $global_work_size = [$m,$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
@@ -7609,32 +7615,32 @@ EOT;
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        uint n,\n".
-                "    const        uint k,\n".
+                "    const        int n,\n".
+                "    const        int k,\n".
                 "    const        {$type} fill,\n".
                 "    const global {$booltype} * x,\n".
-                "    const        uint offset_x,\n".
+                "    const        int offset_x,\n".
                 "        __global {$type} * a,\n".
-                "    const        uint offset_a)\n".
+                "    const        int offset_a)\n".
                 "{\n".
-                "    const uint i = get_global_id(0);\n".
-                "    const uint j = get_global_id(1);\n".
-                "    const uint h = get_global_id(2);\n".
-                "    const uint index_x = offset_x + i*k+h;\n".
-                "    const uint index_a = offset_a + (i*n+j)*k+h;\n".
+                "    const int i = get_global_id(0);\n".
+                "    const int j = get_global_id(1);\n".
+                "    const int h = get_global_id(2);\n".
+                "    const int index_x = offset_x + i*k+h;\n".
+                "    const int index_a = offset_a + (i*n+j)*k+h;\n".
                 "    if(!x[index_x]) {\n".
                 "        a[index_a] = fill;\n".
                 "    }\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
-        $kernel->setArg(0,$n,NDArray::uint32);
-        $kernel->setArg(1,$k,NDArray::uint32);
+        $kernel->setArg(0,$n,NDArray::int32);
+        $kernel->setArg(1,$k,NDArray::int32);
         $kernel->setArg(2,$fill,$dtypeA);
         $kernel->setArg(3,$X);
-        $kernel->setArg(4,$offsetX,NDArray::uint32);
+        $kernel->setArg(4,$offsetX,NDArray::int32);
         $kernel->setArg(5,$A);
-        $kernel->setArg(6,$offsetA,NDArray::uint32);
+        $kernel->setArg(6,$offsetA,NDArray::int32);
         $global_work_size = [$m,$n,$k];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);

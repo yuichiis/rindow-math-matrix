@@ -267,7 +267,11 @@ class LinearAlgebra
     public function ones(
         NDArray $X) : NDArray
     {
-        $value = $this->buildValByType(1.0,$X->dtype());
+        if($X->dtype()==NDArray::bool) {
+            $value = true;
+        } else {
+            $value = $this->buildValByType(1,$X->dtype());
+        }
         $this->fill($value,$X);
         return $X;
     }
@@ -3183,7 +3187,7 @@ class LinearAlgebra
             $outputShape = array_merge($prefixShape,$postfixShape);
         }
         if($dtype===null) {
-            $dtype = NDArray::uint32;
+            $dtype = NDArray::int32;
         }
         if($output==null) {
             $output = $this->alloc($outputShape,dtype:$dtype);
@@ -4587,7 +4591,7 @@ class LinearAlgebra
             $right = false;
         }
         if($dtype===null) {
-            $dtype = NDArray::uint32;
+            $dtype = NDArray::int32;
         }
         if($Y===null) {
             $Y = $this->alloc($X->shape(),dtype:$dtype);

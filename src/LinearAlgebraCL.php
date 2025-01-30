@@ -445,7 +445,11 @@ class LinearAlgebraCL
         NDArray $X,
         object $events=null, object $waitEvents=null) : NDArray
     {
-        $value = $this->buildValByType(1.0,$X->dtype());
+        if($X->dtype()==NDArray::bool) {
+            $value = true;
+        } else {
+            $value = $this->buildValByType(1,$X->dtype());
+        }
         $this->fill($value,$X,$events,$waitEvents);
         return $X;
     }
@@ -548,7 +552,7 @@ class LinearAlgebraCL
             $right = false;
         }
         if($dtype===null) {
-            $dtype = NDArray::uint32;
+            $dtype = NDArray::int32;
         }
         if($Y===null) {
             $Y = $this->alloc($X->shape(),dtype:$dtype);
@@ -2480,7 +2484,11 @@ class LinearAlgebraCL
             $this->profilingStart("sum");
         }
         if($R==null) {
-            $R = $this->alloc([],dtype:$X->dtype(),flags:OpenCL::CL_MEM_READ_WRITE);
+            $dtypeR = $X->dtype();
+            if($dtypeR == NDArray::bool) {
+                $dtypeR = NDArray::int32;
+            }
+            $R = $this->alloc([],dtype:$dtypeR,flags:OpenCL::CL_MEM_READ_WRITE);
         }
         $N = $X->size();
         $RR = $R->buffer();
@@ -4894,7 +4902,7 @@ class LinearAlgebraCL
             $outputShape = array_merge($prefixShape,$postfixShape);
         }
         if($dtype===null) {
-            $dtype = NDArray::uint32;
+            $dtype = NDArray::int32;
         }
         if($output==null) {
             $output = $this->alloc($outputShape,dtype:$dtype);

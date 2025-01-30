@@ -286,6 +286,10 @@ class LinearAlgebraTest extends TestCase
         $x = $la->alloc([10],dtype:NDArray::complex64);
         $la->zeros($x);
         $this->assertEquals(array_fill(0,10,C(0)),$x->toArray());
+
+        $x = $la->alloc([10],dtype:NDArray::bool);
+        $la->zeros($x);
+        $this->assertEquals(array_fill(0,10,false),$x->toArray());
     }
 
     public function testOnes()
@@ -300,6 +304,10 @@ class LinearAlgebraTest extends TestCase
         $x = $la->alloc([10],dtype:NDArray::complex64);
         $la->ones($x);
         $this->assertEquals(array_fill(0,10,C(1)),$x->toArray());
+
+        $x = $la->alloc([10],dtype:NDArray::bool);
+        $la->ones($x);
+        $this->assertEquals(array_fill(0,10,true),$x->toArray());
     }
 
     public function testZerosLike()
@@ -3168,9 +3176,25 @@ class LinearAlgebraTest extends TestCase
         $ret = $la->sum($x);
         $this->assertEquals(1+2-3-4+5-6,$ret);
 
+        $x = $la->ones($la->alloc([2048],NDArray::int32));
+        $ret = $la->sum($x);
+        $this->assertEquals(2048,$ret);
+
         $x = $la->array([[true,false,true],[false,true,false]],NDArray::bool);
         $ret = $la->sum($x);
         $this->assertEquals(3,$ret);
+
+        $x = $la->ones($la->alloc([300],NDArray::bool));
+        $ret = $la->sum($x);
+        $this->assertEquals(300,$ret);
+
+        $x = $la->ones($la->alloc([2048],NDArray::bool));
+        $ret = $la->sum($x);
+        $this->assertEquals(2048,$ret);
+
+        $x = $la->ones($la->alloc([40000],NDArray::bool));
+        $ret = $la->sum($x);
+        $this->assertEquals(40000,$ret);
     }
 
     public function testSumLarge()
@@ -8253,6 +8277,7 @@ class LinearAlgebraTest extends TestCase
         $Y = $math->astype($X, $dtype);
         $this->assertEquals([true,false,true,true,true],$Y->toArray());
         $this->assertEquals(NDArray::bool,$Y->dtype());
+        $this->assertEquals(4,$math->scalar($math->sum($Y)));
         $Z = $math->astype($Y, NDArray::int32);  // check reverse
         $this->assertEquals([1,0,1,1,1],$Z->toArray());
         $this->assertEquals(NDArray::int32,$Z->dtype());
@@ -12245,7 +12270,7 @@ class LinearAlgebraTest extends TestCase
 
     }
 
-    public function testBandpart()
+    public function testBandpartFloat()
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
@@ -12302,6 +12327,66 @@ class LinearAlgebraTest extends TestCase
             [0,1,1,0,0],
             [0,0,1,1,0],
             [0,0,0,1,1],
+        ],$a->toArray());
+    }
+
+    public function testBandpartBool()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        $a = $la->ones($la->alloc([2,5,5],dtype:NDArray::bool));
+        $la->bandpart($a,0,-1);
+        $this->assertEquals([
+            [[true, true, true, true, true],
+             [false,true, true, true, true],
+             [false,false,true, true, true],
+             [false,false,false,true, true],
+             [false,false,false,false,true]],
+            [[true, true, true, true, true],
+             [false,true, true, true, true],
+             [false,false,true, true, true],
+             [false,false,false,true, true],
+             [false,false,false,false,true]],
+        ],$a->toArray());
+
+        $a = $la->ones($la->alloc([5,5],dtype:NDArray::bool));
+        $la->bandpart($a,-1,0);
+        $this->assertEquals([
+            [true, false,false,false,false],
+            [true, true, false,false,false],
+            [true, true, true, false,false],
+            [true, true, true, true, false],
+            [true, true, true, true, true ],
+        ],$a->toArray());
+
+        $a = $la->ones($la->alloc([5,5],dtype:NDArray::bool));
+        $la->bandpart($a,0,0);
+        $this->assertEquals([
+            [true, false,false,false,false],
+            [false,true, false,false,false],
+            [false,false,true, false,false],
+            [false,false,false,true, false],
+            [false,false,false,false,true ],
+        ],$a->toArray());
+
+        $a = $la->ones($la->alloc([5,5],dtype:NDArray::bool));
+        $la->bandpart($a,0,1);
+        $this->assertEquals([
+            [true, true, false,false,false],
+            [false,true, true, false,false],
+            [false,false,true, true, false],
+            [false,false,false,true, true ],
+            [false,false,false,false,true ],
+        ],$a->toArray());
+
+        $a = $la->ones($la->alloc([5,5],dtype:NDArray::bool));
+        $la->bandpart($a,1,0);
+        $this->assertEquals([
+            [true, false,false,false,false],
+            [true, true, false,false,false],
+            [false,true, true, false,false],
+            [false,false,true, true, false],
+            [false,false,false,true, true ],
         ],$a->toArray());
     }
 
