@@ -17,6 +17,8 @@ use Rindow\Math\Matrix\Drivers\Service;
 
 class OpenCLMath
 {
+    const sizeOfMemObj = 8;  // OpenCL Mem ObjectID is 64bit(8byte).
+
     /** @var array<int,string> $dtypeToString */
     protected $dtypeToString = [
         NDArray::bool=>'bool',
@@ -196,9 +198,11 @@ class OpenCLMath
     protected bool $hasDiv5Bug;
     protected ?int $testMode=null;
     /** @var array<mixed> $timesPredictionScatterAdd */
-    protected $timesPredictionScatterAdd = [];
+    protected array $timesPredictionScatterAdd = [];
     /** @var array<mixed> $timesPredictionReduceSum */
-    protected $timesPredictionReduceSum = [];
+    protected array $timesPredictionReduceSum = [];
+    protected int $addressBits;
+    protected int $sizeOfDeviceAddress;
 
     public function __construct(object $queue, Service $service)
     {
@@ -215,6 +219,8 @@ class OpenCLMath
         $this->maxWorkItem = $devices->getInfo(0,OpenCL::CL_DEVICE_MAX_WORK_ITEM_SIZES);
         $this->localMemSize = $devices->getInfo(0,OpenCL::CL_DEVICE_LOCAL_MEM_SIZE);
         $this->maxComputeUnits = $devices->getInfo(0,OpenCL::CL_DEVICE_MAX_COMPUTE_UNITS);
+        $this->addressBits = $devices->getInfo(0,OpenCL::CL_DEVICE_ADDRESS_BITS);
+        $this->sizeOfDeviceAddress = intdiv($this->addressBits,8);
         
         $deviceType = $devices->getInfo(0,OpenCL::CL_DEVICE_TYPE);
         $nDev = count($devices);
@@ -7581,14 +7587,16 @@ EOT;
     }
 
     /**
-     *    A(m,n,k) := A(m,n,k)   : X(m,k) = True
-     *                fill_value : X(m,k) = False
+     *    A(m,n,k,len) := A(m,n,k,len) : X(m,k) = True
+     *                    fill_value   : X(m,k) = False
      */
     public function masking(
-        int $m,
-        int $n,
-        int $k,
+        int $m,     // outer_shape
+        int $n,     // broadcast_shape
+        int $k,     // inner_shape
+        int $len,   // inner_broadcast_shape
         float $fill,
+        int $mode,  // mode=0:set , mode=1:add
         BufferInterface $X, int $offsetX,
         BufferInterface $A, int $offsetA,
         object $events=null, object $waitEvents=null
@@ -7601,7 +7609,7 @@ EOT;
         if($offsetX+$m*$k > count($X)) {
             throw new InvalidArgumentException('Matrix specification too large for buffer X.');
         }
-        if($offsetA+$m*$n*$k > count($A)) {
+        if($offsetA+$m*$n*$k*$len > count($A)) {
             throw new InvalidArgumentException('Matrix specification too large for buffer A.');
         }
 
@@ -7610,39 +7618,300 @@ EOT;
             $this->assertFP64();
         }
         $type = $this->dtypeToOpenCLType[$dtypeA];
+        $mode_name = $mode ? 'add' : 'set';
+        if($dtypeA==NDArray::bool) {
+            $value_type = 'bool';
+            if($mode) {
+                $formula  = "a[index_a] = a[index_a] || fill";
+            } else {
+                $formula  = "a[index_a] = fill";
+            }
+        } else {
+            $value_type = 'normal';
+            $operator  = $mode ? '+=' : '=';
+            $formula  = "a[index_a] {$operator} fill";
+        }
         $booltype = $this->dtypeToOpenCLType[NDArray::bool];
-        $kernel_name = "masking_{$type}";
+        $kernel_name = "masking_{$type}_{$mode_name}_{$value_type}";
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
                 "    const        int n,\n".
                 "    const        int k,\n".
+                "    const        int len,\n".
                 "    const        {$type} fill,\n".
                 "    const global {$booltype} * x,\n".
                 "    const        int offset_x,\n".
                 "        __global {$type} * a,\n".
                 "    const        int offset_a)\n".
                 "{\n".
-                "    const int i = get_global_id(0);\n".
-                "    const int j = get_global_id(1);\n".
-                "    const int h = get_global_id(2);\n".
+                "    const int gid0 = get_global_id(0);\n".
+                "    const int gid1 = get_global_id(1);\n".
+                $this->splitPointer('j','i','gid0','n').
+                $this->splitPointer('l','h','gid1','len').
                 "    const int index_x = offset_x + i*k+h;\n".
-                "    const int index_a = offset_a + (i*n+j)*k+h;\n".
+                "    const int index_a = offset_a + ((i*n+j)*k+h)*len+l;\n".
                 "    if(!x[index_x]) {\n".
-                "        a[index_a] = fill;\n".
+                "        {$formula};\n".
                 "    }\n".
                 "}\n";
         }
         $kernel = $this->createKernel($kernel_name);
         $kernel->setArg(0,$n,NDArray::int32);
         $kernel->setArg(1,$k,NDArray::int32);
-        $kernel->setArg(2,$fill,$dtypeA);
-        $kernel->setArg(3,$X);
-        $kernel->setArg(4,$offsetX,NDArray::int32);
-        $kernel->setArg(5,$A);
-        $kernel->setArg(6,$offsetA,NDArray::int32);
-        $global_work_size = [$m,$n,$k];
+        $kernel->setArg(2,$len,NDArray::int32);
+        $kernel->setArg(3,$fill,$dtypeA);
+        $kernel->setArg(4,$X);
+        $kernel->setArg(5,$offsetX,NDArray::int32);
+        $kernel->setArg(6,$A);
+        $kernel->setArg(7,$offsetA,NDArray::int32);
+        $global_work_size = [$m*$n,$k*$len];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
+            $events,$waitEvents);
+    }
+
+    private function einsum_calc_indices(
+        int $depth,
+        int $ndim,
+        int $index,
+        Buffer $sizeOfIndices,
+    ) : array
+    {
+        $indices = [];
+        for($axis=$ndim-1;$axis>=0;$axis--) {
+            $size = $sizeOfIndices[$axis];
+            $i = $index % $size;
+            array_unshift($indices,$i);
+            $index = intdiv($index,$size);
+        }
+        $indices = array_merge($indices,array_fill(0, $depth-$ndim, 0));
+        return $indices;
+    }
+
+    public function einsum(
+        HostBufferInterface|BufferInterface $sizeOfIndices,
+        BufferInterface $A,
+        int $offsetA,
+        HostBufferInterface|BufferInterface $labelA,
+        BufferInterface $B,
+        int $offsetB,
+        HostBufferInterface|BufferInterface $labelB,
+        BufferInterface $C,
+        int $offsetC,
+        int $ndimC,
+        HostBufferInterface|BufferInterface $shapeA=null,
+        HostBufferInterface|BufferInterface $shapeB=null,
+        object $events=null, object $waitEvents=null
+    )
+    {
+        if($offsetA<0) {
+            throw new InvalidArgumentException("Argument offsetA must be greater than or equals 0.");
+        }
+        if($offsetB<0) {
+            throw new InvalidArgumentException("Argument offsetB must be greater than or equals 0.");
+        }
+        if($offsetC<0) {
+            throw new InvalidArgumentException("Argument offsetC must be greater than or equals 0.");
+        }
+        if($labelA->dtype()!=NDArray::int32) {
+            throw new InvalidArgumentException('dtype of labelA must be int32.');
+        }
+        if($labelB->dtype()!=NDArray::int32) {
+            throw new InvalidArgumentException('dtype of labelB must be int32.');
+        }        if($shapeA!=null) {
+            if($shapeA->dtype()!=NDArray::int32) {
+                throw new InvalidArgumentException('dtype of shapeA must be int32.');
+            }
+            if(count($shapeA)!=count($labelA)) {
+                throw new InvalidArgumentException('size of shapeA must be the same to labelA.');
+            }
+        }
+        if($shapeB!=null) {
+            if($shapeB->dtype()!=NDArray::int32) {
+                throw new InvalidArgumentException('dtype of shapeB must be int32.');
+            }
+            if(count($shapeB)!=count($labelB)) {
+                throw new InvalidArgumentException('size of shapeB must be the same to labelB.');
+            }
+        }
+
+        if($shapeA!=null) {
+            throw new InvalidArgumentException('Broadcasting is not implemented.');
+        }
+        if($shapeB!=null) {
+            throw new InvalidArgumentException('Broadcasting is not implemented.');
+        }
+        // Check Buffer Types
+        if($A->dtype()!=$B->dtype()||$A->dtype()!=$C->dtype()) {
+            throw new InvalidArgumentException('dtype of arrays must be the same.');
+        }
+
+        $depth = count($sizeOfIndices);
+        $ndimA = count($labelA);
+        $ndimB = count($labelB);
+
+        if($ndimC>$depth) {
+            throw new InvalidArgumentException("ndimC must be less or equal size of SizeOfIndices.: {$ndimC} given.");
+        }
+
+        $orgSizeOfIndices = $sizeOfIndices;
+        if($sizeOfIndices instanceof BufferInterface) {
+            $sizeOfIndices = $this->toHostBuffer($sizeOfIndices,0);
+        }
+        $sizeC = 1;
+        for($i=0;$i<$ndimC;$i++) {
+            $sizeC *= $sizeOfIndices[$i];
+        }
+        $sizeOfIndices = $orgSizeOfIndices;
+        
+        $dtypeA = $A->dtype();
+        if($dtypeA==NDArray::float64) {
+            $this->assertFP64();
+        }
+        $value_size = $sizeOfIndices->value_size();
+        $type = $this->dtypeToOpenCLType[$dtypeA];
+        $kernel_name = "einsum_{$type}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+                "void einsum_calc_indices_{$type}(\n".
+                "    const int depth,\n".
+                "    const int ndim,\n".
+                "    const int index,\n".
+                "    __global const int *sizeOfIndices,\n".
+                "    __local int *indices\n".
+                ")\n".
+                "{\n".
+                "    int size;\n".
+                "    int axis;\n".
+                "    int i;\n".
+                "    int ix;\n".
+                "    int dindex = index;\n".
+                "    for(i=0; i<ndim; i++) {\n".
+                "        axis = ndim-i-1;\n".
+                "        size = sizeOfIndices[axis];\n".
+                "        indices[axis] = dindex % size;\n".
+                "        dindex /= size;\n".
+                "    }\n".
+                "    for(i=0; i<depth-ndim; i++) {\n".
+                "        axis = depth-i-1;\n".
+                "        indices[axis] = 0;\n".
+                "    }\n".
+                "}\n".
+                "int einsum_calc_index_{$type}(\n".
+                "    const int depth,\n".
+                "    __local int *indices,\n".
+                "    __global const int *sizeOfIndices,\n".
+                "    const int ndim,\n".
+                "    __global const int *label,\n".
+                "    __global const int *shape\n".
+                ")\n".
+                "{\n".
+                "   int index = 0;\n".
+                "   int idx;\n".
+                "   int size;\n".
+                "   int axis;\n".
+                "   for(axis=0; axis<ndim; axis++) {\n".
+                "       if(label==NULL) {\n".
+                "           idx = axis;\n".
+                "       } else {\n".
+                "           idx = label[axis];\n".
+                "       }\n".
+                "       if(idx>=depth) {\n".
+                "           return -1;\n".
+                "       }\n".
+                "       if(shape!=NULL) {\n".
+                "           size = shape[axis];\n".
+                "       } else {\n".
+                "           size = sizeOfIndices[idx];\n".
+                "       }\n".
+                "       index *= size;\n".
+                "       if(size>1) {\n".
+                "           if(indices[idx]>=size) {\n".
+                "               return -2;\n".
+                "           }\n".
+                "           index += indices[idx];\n".
+                "       }\n".
+                "   }\n".
+                "   return index;\n".
+                "}\n".
+                "int einsum_next_indices_{$type}(\n".
+                "    const int depth,\n".
+                "    const int ndim,\n".
+                "    const __global int *sizeOfIndices,\n".
+                "    __local int *indices\n".
+                ") {\n".
+                "    int i = depth - 1;\n".
+                "    while(i >= 0) {\n".
+                "        if(indices[i] < sizeOfIndices[i]-1) {\n".
+                "            break;\n".
+                "        }\n".
+                "        indices[i] = 0;\n".
+                "        i--;\n".
+                "    }\n".
+                "    if(i>=0) {\n".
+                "        indices[i]++;\n".
+                "    }\n".
+                "    if(i < ndim) {\n".
+                "        return 0;\n".
+                "    }\n".
+                "    return 1;\n".
+                "}\n".
+                "__kernel void {$kernel_name}(\n".
+                "    const        int depth,\n".
+                "    __global const int * sizeOfIndices,\n".
+                "    __global const {$type} * a,\n".
+                "    const        int offsetA,\n".
+                "    const        int ndimA,\n".
+                "    __global const int * labelA,\n".
+                "    __global const {$type} * b,\n".
+                "    const        int offsetB,\n".
+                "    const        int ndimB,\n".
+                "    __global const int * labelB,\n".
+                "    __global     {$type} * c,\n".
+                "    const        int offsetC,\n".
+                "    const        int ndimC,\n".
+                "    __global const int * shapeA,\n".
+                "    __global const int * shapeB,\n".
+                "    __local      int * indices)\n".
+                "{\n".
+                "    const int indexC = get_global_id(0);\n".
+                "    int indexA;\n".
+                "    int indexB;\n".
+                "    {$type} sumC = 0;\n".
+                "    einsum_calc_indices_{$type}(depth,ndimC,indexC,sizeOfIndices,indices);\n".
+                "    while(1) {\n".
+                "        indexA = offsetA+einsum_calc_index_{$type}(\n".
+                "            depth,indices,sizeOfIndices,ndimA,labelA,shapeA);\n".
+                "        indexB = offsetB+einsum_calc_index_{$type}(\n".
+                "            depth,indices,sizeOfIndices,ndimB,labelB,shapeB);\n".
+                "        sumC += a[indexA]*b[indexB];\n".
+                "        if(!einsum_next_indices_{$type}(depth,ndimC,sizeOfIndices,indices)) {\n".
+                "            break;\n".
+                "        }\n".
+                "    }\n".
+                "    c[offsetC+indexC] = sumC;\n".
+                "}\n";
+        }
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$depth,NDArray::int32);
+        $kernel->setArg(1,$sizeOfIndices);
+        $kernel->setArg(2,$A);
+        $kernel->setArg(3,$offsetA,NDArray::int32);
+        $kernel->setArg(4,$ndimA,NDArray::int32);
+        $kernel->setArg(5,$labelA);
+        $kernel->setArg(6,$B);
+        $kernel->setArg(7,$offsetB,NDArray::int32);
+        $kernel->setArg(8,$ndimB,NDArray::int32);
+        $kernel->setArg(9,$labelB);
+        $kernel->setArg(10,$C);
+        $kernel->setArg(11,$offsetC,NDArray::int32);
+        $kernel->setArg(12,$ndimC,NDArray::int32);
+        $kernel->setArg(13,$shapeA,(($shapeA===null)?$this->sizeOfDeviceAddress:null));
+        $kernel->setArg(14,$shapeB,(($shapeB===null)?$this->sizeOfDeviceAddress:null));
+        $kernel->setArg(15,null,$this->adjBoundary($depth*$value_size));
+        $global_work_size = [$sizeC];
+        $local_work_size = [1];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
             $events,$waitEvents);
     }
 }

@@ -22,6 +22,7 @@ class LinearAlgebra
     protected object $lapack;
     protected object $math;
     protected int $defaultFloatType = NDArray::float32;
+    protected array $einsumEquationCache = [];
     /** @var array<int> $intTypes */
     protected array $intTypes= [
         NDArray::int8,NDArray::int16,NDArray::int32,NDArray::int64,
@@ -4854,346 +4855,76 @@ class LinearAlgebra
         return $abs;
     }
 
-    protected function parseIndices(
-        string $indicesString,
-    ) : array
-    {
-        //$indices = strtolower($indices);
-        while(true) {
-            // alphabets only
-            $count = preg_match('/^([a-zA-Z]+)$/',$indicesString,$matches);
-            if($count==1) {
-                $placeholder = null;
-                break;
-            }
-            // alphabets with left placeholder
-            $count = preg_match('/^\\.\\.\\.([a-zA-Z]+)$/',$indicesString,$matches);
-            if($count==1) {
-                $placeholder = 'L';
-                break;
-            }
-            // alphabets with right placeholder
-            $count = preg_match('/^([a-zA-Z]+)\\.\\.\\.$/',$indicesString,$matches);
-            if($count==1) {
-                $placeholder = 'R';
-                break;
-            }
-            // placeholder only
-            $count = preg_match('/^\\.\\.\\.$/',$indicesString,$matches);
-            if($count==1) {
-                $placeholder = 'L';
-                $matches[1] = '';
-                break;
-            }
-            throw new InvalidArgumentException("The array index contains non-alphabetical characters.: {$indicesString}");
-        }
-        return [str_split($matches[1]),$placeholder]; // with right placeholder
-    }
-
     protected function parseEinsum(
         string $equation,
         NDArray ...$arrays,
     ) : array
     {
+        [$a,$b] = $arrays;
         $equation = str_replace(' ','',$equation);
-        $parts = explode('->',$equation);
-        $mode = count($parts); 
-        if($mode==1) {          // implicit mode
-            $sumEquation = $parts[0];
-        } elseif($mode==2) {    // explicit mode
-            [$sumEquation,$target] = $parts;
-        } else {
-            throw new InvalidArgumentException('One "->" symbol is required in the formula string.');
+        if(!preg_match(
+            "/([a-zA-Z]+),([a-zA-Z]+)->([a-zA-Z]+)/",
+            $equation,
+            $split_string
+        )) {
+            throw new InvalidArgumentException("Not recognized as an equation: '{$equation}'");
+        }
+        $labelA = $split_string[1];
+        $labelB = $split_string[2];
+        $labelC = $split_string[3];
+        if($a->ndim()!=strlen($labelA)) {
+            $msg = "(".implode(',',$a->shape()).")";
+            throw new InvalidArgumentException("The rank of array A does not match the equation: '{$equation}', but {$msg} given.");
+        }
+        if($b->ndim()!=strlen($labelB)) {
+            $msg = "(".implode(',',$b->shape()).")";
+            throw new InvalidArgumentException("The rank of array B does not match the equation: '{$equation}', but {$msg} given.");
         }
 
-        // parse input indices
-        $indicesList = explode(',',$sumEquation);
-        if(count($indicesList)!=count($arrays)) {
-            throw new InvalidArgumentException('The number of given sequences does not match the number of sequences written in the equation.');
-        }
-        $parsedIndicesList = [];
         $allIndices = [];
-        foreach($indicesList as $indices) {
-            [$parsedIndices,$placeholder] = $this->parseIndices($indices);
-            $parsedIndicesList[] = $parsedIndices;
-            $placeholderList[] = $placeholder;
-            foreach($parsedIndices as $index) {
-                if(array_key_exists($index,$allIndices)) {
-                    $allIndices[$index] += 1;
-                } else {
-                    $allIndices[$index] = 1;
-                }
-            }
-        }
-
-        if($mode==2) {
-            /////////////////////
-            // explicit mode 
-            /////////////////////
-            // parse target indices
-            if($target==='') {
-                $parsedTargetIndices = [];
-                $tagetPlaceholder = null;
-            } else {
-                [$parsedTargetIndices,$tagetPlaceholder] = $this->parseIndices($target);
-            }
-            foreach($parsedTargetIndices as $index) {
-                if(!array_key_exists($index,$allIndices)) {
-                    throw new InvalidArgumentException(
-                        'The target index is not included in the input array argument.: '.
-                        'Input indices is ('.implode(',',array_keys($allIndices)).'), '.
-                        'Target indices('.implode(',',$parsedTargetIndices).')'
-                    );
-                }
-            }
-        } else {
-            /////////////////////
-            // implicit mode 
-            /////////////////////
-            $parsedTargetIndices = [];
-            $tagetPlaceholder = null;
-            $numTensor = count($parsedIndicesList);
-            if($numTensor>=2) {
-                // muilt tensor mode
-                foreach($allIndices as $index => $count) {
-                    if($numTensor!=$count) {
-                        $parsedTargetIndices[] = $index;
-                    }
-                }
-            } else {
-                // single tensor mode
-                foreach($allIndices as $index => $count) {
-                    if($numTensor==$count) {
-                        $parsedTargetIndices[] = $index;
-                    }
-                }
-            }
-            sort($parsedTargetIndices,SORT_STRING);
-        }
-        $allIndices = array_keys($allIndices);
-
-        // check input indices
-        if(count($parsedIndicesList)!=count($arrays)) {
-            throw new InvalidArgumentException(
-                'The number of input arrays in the einsum expression does not match the number of input arrays in the argument.');
-        }
-
-        ///////////////////////////////////////////////////////
-        // build sizes of index and sizes of placeholder index
-        ///////////////////////////////////////////////////////
-        $sizeOfAllIndices = [];
-        $sizeOfPlaceholderIndices = [];
-        foreach(array_map(null,$parsedIndicesList,$placeholderList,$arrays) as $i => [$indices,$placeholder,$array]) {
-            $numIndices = count($indices);
-            if($placeholder===null) {
-                if($numIndices!=$array->ndim()) {
-                    throw new InvalidArgumentException(
-                        'Number of input indices for '.$i.'th einsum does not match rank of array: '.
-                        'Input indices is ('.implode(',',$indices).'), '.
-                        'shape of array is ('.implode(',',$array->shape()).')'
-                    );
-                }
-            } else {
-                if($numIndices>$array->ndim()) {
-                    throw new InvalidArgumentException(
-                        "too many indices for array {$i} in equation: {$equation}"
-                    );
-                }
-            }
-            $shape = $array->shape();
-            if($placeholder=='L') {
-                $offsetPos = $array->ndim()-$numIndices;
-            } else {
-                $offsetPos = 0;
-            }
-            // collect each shape size
-            foreach($indices as $pos => $index) {
-                $size = $shape[$offsetPos+$pos];
-                // specified index mark
-                if(array_key_exists($index,$sizeOfAllIndices)) {
-                    if($sizeOfAllIndices[$index]!=$size) {
-                        throw new InvalidArgumentException(
-                            'Size of input indices for '.$i.'th einsum does not match size of array: '.
-                            'Input indices is ('.implode(',',$indices).'), '.
-                            'shape of array is ('.implode(',',$array->shape()).'), '.
-                            'index "'.$index.'" must be '.$sizeOfAllIndices[$index].'.'
-                        );
+        $labels = [$labelA,$labelB];
+        $shapes = [$a->shape(),$b->shape()];
+        foreach($labels as $idx => $label) {
+            foreach(str_split($label) as $axis => $chr) {
+                if(array_key_exists($chr,$allIndices)) {
+                    if($allIndices[$chr]!=$shapes[$idx][$axis]) {
+                        $shapeError = '('.implode(',',$a->shape()).'),('.implode(',',$b->shape()).')';
+                        throw new InvalidArgumentException("Unmatch shapes in index letter '{$chr}' in equation:'{$equation}', but shapes {$shapeError} given.");
                     }
                 } else {
-                    $sizeOfAllIndices[$index] = $size;
-                }
-            }
-            // wild index mark of placeholder
-            if($placeholder!=null) {
-                if($placeholder=='L') {
-                    $wildIndexSizes = array_slice($array->shape(),0,$array->ndim()-$numIndices);
-                    $wildIndexSizes = array_reverse($wildIndexSizes);
-                    // reverse sizeOfPlaceholderIndices because proceeding from left to right. 
-                    $sizeOfPlaceholderIndices = array_reverse($sizeOfPlaceholderIndices);
-                } elseif($placeholder=='R') {
-                    $wildIndexSizes = array_slice($array->shape(),$numIndices);
-                } else {
-                    throw new LogicException("illegal placeholder mark: {$placeholder}");
-                }
-                foreach($wildIndexSizes as $pos => $size) {
-                    if(array_key_exists($pos, $sizeOfPlaceholderIndices)) {
-                        if($sizeOfPlaceholderIndices[$pos] == 1) {
-                            $sizeOfPlaceholderIndices[$pos] = $size;
-                        } else {
-                            if($sizeOfPlaceholderIndices[$pos]!=$size && $size!=1) {
-                                throw new InvalidArgumentException(
-                                    'Size of broadcast indices for '.$i.'th einsum does not match size of array: '.
-                                    'Equation is "'.$equation.'", '.
-                                    'shape of array is ('.implode(',',$array->shape()).'), '.
-                                    'wild index size "'.$size.'" must be '.$sizeOfPlaceholderIndices[$pos].'.'
-                                );
-                            }
-                        }
-                    } else {
-                        $sizeOfPlaceholderIndices[$pos] = $size;
-                    }
-                }
-                if($placeholder=='L') {
-                    // Return to normal order of reversed sizeOfPlaceholderIndices. 
-                    $sizeOfPlaceholderIndices = array_reverse($sizeOfPlaceholderIndices);
+                    $allIndices[$chr] = $shapes[$idx][$axis];
                 }
             }
         }
-
-        // assign keys of wild indices
-        $orig = $sizeOfPlaceholderIndices;
-        $sizeOfPlaceholderIndices = [];
-        $placeholderIndices = [];
-        $i=0;
-        foreach($orig as $size) {
-            $index = '*'.$i;
-            $sizeOfPlaceholderIndices[$index] = $size;
-            $placeholderIndices[] = $index;
-            $i++;
-        }
-        // merge explicited indices and wild indices
-        $sizeOfAllIndices = array_merge($sizeOfAllIndices,$sizeOfPlaceholderIndices);
-
-        ////////////////////////////////////////////////////
-        // merge explicited input indices and wild indices
-        ////////////////////////////////////////////////////
-        $orig = $parsedIndicesList;
-        $parsedIndicesList = [];
-        foreach(array_map(null, $orig, $placeholderList,$arrays) as $i => [$indices,$placeholder,$array]) {
-            if($placeholder=='L') {
-                $indices = array_slice(array_merge($placeholderIndices,$indices),-$array->ndim());
-            } elseif($placeholder=='R') {
-                $indices = array_merge($indices,array_slice($placeholderIndices,-($array->ndim()-count($indices))));
+        $outputShape = [];
+        foreach(str_split($labelC) as $axis => $chr) {
+            if(!array_key_exists($chr,$allIndices)) {
+                throw new InvalidArgumentException("Target index letter '{$chr}' not found in inputs.:'{$equation}'");
             }
-            $parsedIndicesList[] = $indices;
+            $outputShape[$chr] = $allIndices[$chr];
+            unset($allIndices[$chr]);
         }
-
-        ///////////////////////
-        // build target array
-        ///////////////////////
-        // merge explicited output indices and wild indices
-        if($tagetPlaceholder=='L') {
-            $parsedTargetIndices = array_merge($placeholderIndices,$parsedTargetIndices);
-        } elseif($tagetPlaceholder=='R') {
-            $parsedTargetIndices = array_merge($parsedTargetIndices,$placeholderIndices);
-        }
-    
-        $targetShape = [];
-        foreach($parsedTargetIndices as $index) {
-            $targetShape[] = $sizeOfAllIndices[$index];
-        }
-        if($tagetPlaceholder===null) {
-            if(count($sizeOfPlaceholderIndices)>0) {
-                throw new InvalidArgumentException("inputs contain broadcast, but output does not contain broadcast.: $equation");
-            }
-        } else {
-            if(count($sizeOfPlaceholderIndices)==0) {
-                throw new InvalidArgumentException("inputs do not contain broadcast, but output contains broadcast.: $equation");
-            }
-        }
-
-        //echo "placeholderList=";
-        //var_dump($placeholderList);
-        //echo "parsedIndicesList=";
-        //var_dump($parsedIndicesList);
-        //echo "parsedTargetIndices=";
-        //var_dump($parsedTargetIndices);
+        $allIndices = array_merge($outputShape,$allIndices);
+        $outputShape = array_values($outputShape);
 
         // complie labels
-        $labels = array_keys($sizeOfAllIndices);
-        $orig = $parsedIndicesList;
-        $parsedIndicesList = [];
-        foreach($orig as $parsedIndices) {
-            $count = count($parsedIndices);
-            for($i=0;$i<$count;$i++) {
-                $parsedIndices[$i] = array_search($parsedIndices[$i],$labels);
-                $inputBroadcast[$i] = false;
+        $allLabels = array_keys($allIndices);
+        $sizeOfIndices = array_values($allIndices);
+        $labels = [$labelA,$labelB,$labelC];
+        $compiledLabels = [];
+        foreach($labels as $label) {
+            $compiledLabel = [];
+            foreach(str_split($label) as $axis => $chr) {
+                $compiledLabel[] = array_search($chr,$allLabels);
             }
-            $parsedIndicesList[] = $parsedIndices;
-        }
-
-        $count = count($parsedTargetIndices);
-        for($i=0;$i<$count;$i++) {
-            $parsedTargetIndices[$i] = array_search($parsedTargetIndices[$i],$labels);
-        }
-        $sizeOfAllIndices = array_values($sizeOfAllIndices);
-
-        // regenerate einsum equation
-        $equation = '';
-        $chrA = ord('a');
-        foreach($parsedIndicesList as $indices) {
-            if($equation!=='') {
-                $equation .= ',';
-            }
-            foreach($indices as $index) {
-                $equation .= chr($chrA+$index);
-            }
-        }
-        $equation .= '->';
-        foreach($parsedTargetIndices as $index) {
-            $equation .= chr($chrA+$index);
+            $compiledLabels[] = $compiledLabel;
         }
 
         return [
-            $equation,
-            $sizeOfAllIndices,
-            $sizeOfPlaceholderIndices,
-            $parsedIndicesList,
-            $parsedTargetIndices,
-            $targetShape
+            $sizeOfIndices,
+            $compiledLabels,
+            $outputShape,
         ];
-    }
-
-    protected function partOfEinsum(
-        array $indices,
-        array $sizeOfIndices,
-        array $inputIndicesList,
-        array $outputIndices,
-        NDArray $outputs,
-        NDArray ...$inputs
-    ) : void
-    {
-        $value = 1;
-        foreach(array_map(null,$inputs,$inputIndicesList) as $i => [$inputArray,$inputIndices]) {
-            $index = 0;
-            foreach(array_map(null,$inputArray->shape(),$inputIndices) as [$size,$label]) {
-                $index *= $size;
-                if($size>1) {
-                    $index += $indices[$label];
-                }
-            }
-            $index += $inputArray->offset();
-            $value *= $inputArray->buffer()[$index];
-        }
-        $index = 0;
-        if($outputs->ndim() > 0) {
-            foreach(array_map(null,$outputs->shape(),$outputIndices) as [$size,$label]) {
-                $index *= $size;
-                $index += $indices[$label];
-            }
-        }
-        $index += $outputs->offset();
-        $outputs->buffer()[$index] = $outputs->buffer()[$index] + $value;
     }
 
     public function einsum(
@@ -5201,59 +4932,74 @@ class LinearAlgebra
         NDArray ...$arrays,
     ) : NDArray
     {
-        ///////////////////
-        // parse einsum string
-        ///////////////////
-        [
-            $formatedEquation,
-            $sizeOfIndices,
-            $sizeOfPlaceholderIndices,
-            $inputIndicesList,
-            $outputIndices,
-            $targetShape
-        ] = $this->parseEinsum($equation, ...$arrays);
-        $outputs = $this->alloc($targetShape,dtype:$arrays[0]->dtype());
-        $this->zeros($outputs);
-
-        ///////////////////
-        // execute eimsum
-        ///////////////////
-        // crawle indices
-        $depth = count($sizeOfIndices);
-        $indices = array_fill(0, $depth, 0);
-        $isFinished = false;
-        while (!$isFinished) {
-            // perform on current indices
-            $this->partOfEinsum(
-                $indices,
-                $sizeOfIndices,
-                $inputIndicesList,
-                $outputIndices,
-                $outputs,
-                ...$arrays
-            );
-        
-            // next indices
-            $i = $depth - 1;
-            while ($i >= 0 && $indices[$i] == $sizeOfIndices[$i] - 1) {
-                $indices[$i] = 0;
-                $i--;
-            }
-    
-            if ($i < 0) {
-                // finished all
-                $isFinished = true;
-            } else {
-                $indices[$i]++;
-            }
+        if(count($arrays)!=2) {
+            throw new InvalidArgumentException("Currently, only two array operations are supported.");
         }
+        [$a,$b] = $arrays;
+        $cacheKey = $equation.':('.implode(',',$a->shape()).'),('.implode(',',$b->shape()).
+            ':'.$a->dtype().':'.$b->dtype().':';
+        if(isset($this->einsumEquationCache[$cacheKey])) {
+            [
+                $sizeOfIndices,
+                $compiledLabels,
+                $outputShape,
+                $sizeOfIndices,
+                $labelA,
+                $labelB,
+            ] = $this->einsumEquationCache[$cacheKey];
+        } else {
+            [
+                $sizeOfIndices,
+                $compiledLabels,
+                $outputShape,
+            ] = $this->parseEinsum($equation, ...$arrays);
+            [$labelA,$labelB,$labelC] = $compiledLabels;
+            $sizeOfIndices = $this->array($sizeOfIndices,dtype:NDArray::int32)->buffer();
+            $labelA = $this->array($labelA,dtype:NDArray::int32)->buffer();
+            $labelB = $this->array($labelB,dtype:NDArray::int32)->buffer();
+            //$labelC = $this->array($labelC,dtype:NDArray::int32)->buffer();
+        }
+        $outputs = $this->alloc($outputShape,dtype:$a->dtype());
+        //$this->zeros($outputs);
 
+        $AA = $a->buffer();
+        $offsetA = $a->offset();
+        $BB = $b->buffer();
+        $offsetB = $b->offset();
+        $CC = $outputs->buffer();
+        $offsetC = $outputs->offset();
+        $ndimC = $outputs->ndim();
+
+        $this->math->einsum(
+            $sizeOfIndices,
+            $AA,
+            $offsetA,
+            $labelA,
+            $BB,
+            $offsetB,
+            $labelB,
+            $CC,
+            $offsetC,
+            $ndimC,
+        );
+
+        if(!isset($this->einsumEquationCache[$cacheKey])) {
+            $this->einsumEquationCache[$cacheKey] = 
+            [
+                $sizeOfIndices,
+                $compiledLabels,
+                $outputShape,
+                $sizeOfIndices,
+                $labelA,
+                $labelB,
+            ];
+        }
         return $outputs;
     }
 
     /**
-     *    A(m,n,k) := A(m,n,k) : X(m,k) = True
-     *                0        : X(m,k) = False
+     *    A(m,n,k,len) := A(m,n,k,len) : X(m,k) = True
+     *                    fill         : X(m,k) = False
      */
     public function masking(
         NDArray $mask,
@@ -5261,6 +5007,7 @@ class LinearAlgebra
         int $batchDims=null,
         int $axis=null,
         float $fill=null,
+        int $mode=null,
         ) : NDArray
     {
 
@@ -5293,7 +5040,13 @@ class LinearAlgebra
                 throw new InvalidArgumentException("batchDims ($batchDims) must be less than or equal to axis ($axis)");
             }
         }
+        if($mask->ndim()<$batchDims) {
+            throw new InvalidArgumentException(
+                "batchDims ($batchDims) must be less than or equal to ndims of mask (".$mask->ndim().")"
+            );
+        }
         $fill ??= 0;
+        $mode ??= 0;
 
         //echo "data  sh: ".$this->printableShapes($data->shape())."\n";
         //echo "mask sh: ".$this->printableShapes($mask->shape())."\n";
@@ -5302,6 +5055,7 @@ class LinearAlgebra
         $outerShape = $data->shape();
         $brodacastShape = array_splice($outerShape, $batchDims);
         $innerShape = array_splice($brodacastShape, $axis-$batchDims);
+        $innterBroadcastShape = array_splice($innerShape,$mask->ndim()-$batchDims);
         // mask
         $outerShapeX = $mask->shape();
         $innerShapeX = array_splice($outerShapeX, $batchDims);
@@ -5327,12 +5081,21 @@ class LinearAlgebra
         $m = (int)array_product($outerShape);
         $n = (int)array_product($brodacastShape);
         $k = (int)array_product($innerShape);
+        $len = (int)array_product($innterBroadcastShape);
 
+        //echo "\n";
+        //echo "org m=$m,n=$n,k=$k,len=$len\n";
         if($n==1) {
             $k = $m*$k;
             $m = 1;
         }
-        //echo "m=$m,n=$n,k=$k\n";
+        if($k==1) {
+            $k = $m;
+            $len = $n*$len;
+            $m = 1;
+            $n = 1;
+        }
+        //echo "adj m=$m,n=$n,k=$k,len=$len\n";
 
         $XX = $mask->buffer();
         $offX = $mask->offset();
@@ -5343,7 +5106,9 @@ class LinearAlgebra
             $m,
             $n,
             $k,
+            $len,
             $fill,
+            $mode,
             $XX,$offX,
             $AA,$offA,
         );
@@ -5351,7 +5116,7 @@ class LinearAlgebra
         return $data;
     }
 
-    public function isclose(NDArray $a, NDArray $b, float|object $rtol=null, float $atol=null) : bool
+    public function isclose(NDArray $a, NDArray $b, float|object $rtol=null, float $atol=null,bool $debug=null) : bool
     {
         $isCpx = $this->isComplexDtype($a->dtype());
         if($rtol===null) {
@@ -5372,6 +5137,9 @@ class LinearAlgebra
         $scaled = $this->scal($rtol,$this->copy($b));
         $close = $atol+$this->abs($this->amax($scaled));
 
+        if($debug) {
+            echo "diff=".sprintf('%14.8e',$diff).", close=".sprintf('%14.8e',$close)."\n";
+        }
         return $diff < $close;
     }
 

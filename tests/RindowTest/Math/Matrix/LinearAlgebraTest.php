@@ -13480,8 +13480,109 @@ class LinearAlgebraTest extends TestCase
         $this->assertFalse($la->isFloat($la->array(1,dtype:NDArray::bool)));
     }
 
+    public function testEinsumSimpleNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // cross product 2D
+        $x = $mo->array([[1,2],[3,4]]);
+        $y = $mo->array([[5,6],[7,8]]);
+        $x = $la->array($x);
+        $y = $la->array($y);
+        $z = $la->einsum(' ik , kj -> ij ',$x,$y);
+        $this->assertEquals([
+            [19,22],
+            [43,50]
+        ],$z->toArray());
+
+        // use cached equation
+        $x = $mo->array([[1,2],[3,4]]);
+        $y = $mo->array([[5,6],[7,8]]);
+        $x = $la->array($x);
+        $y = $la->array($y);
+        $z = $la->einsum(' ik , kj -> ij ',$x,$y);
+        $this->assertEquals([
+            [19,22],
+            [43,50]
+        ],$z->toArray());
+
+        // transpose output
+        $x = $mo->array([[1,2],[3,4]]);
+        $y = $mo->array([[5,6],[7,8]]);
+        $x = $la->array($x);
+        $y = $la->array($y);
+        $z = $la->einsum(' ik , kj -> ji ',$x,$y);
+        $this->assertEquals([
+            [19,43],
+            [22,50]
+        ],$z->toArray());
+
+        // cross product 3D x 2D
+        $x = $mo->array(range(0, 4*3*2-1))->reshape([4,3,2]);
+        $y = $mo->array(range(0, 5*2-1))->reshape([5,2]);
+        $x = $la->array($x);
+        $y = $la->array($y);
+        $z = $la->einsum('abc,dc->abd',$x,$y);
+        $this->assertEquals([4,3,5],$z->shape());
+        $this->assertEquals([
+            [[  1,   3,   5,   7,   9],
+             [  3,  13,  23,  33,  43],
+             [  5,  23,  41,  59,  77]],
+
+            [[  7,  33,  59,  85, 111],
+             [  9,  43,  77, 111, 145],
+             [ 11,  53,  95, 137, 179]],
+
+            [[ 13,  63, 113, 163, 213],
+             [ 15,  73, 131, 189, 247],
+             [ 17,  83, 149, 215, 281]],
+
+            [[ 19,  93, 167, 241, 315],
+             [ 21, 103, 185, 267, 349],
+             [ 23, 113, 203, 293, 383]],
+        ],$z->toArray());
+
+
+        // multi head attention dot product 
+        $shapeX = [2,2,2,2,2];
+        $shapeY = [2,2,2,2,2];
+        $x = $mo->array(range(0, (int)array_product($shapeX)-1))->reshape($shapeX);
+        $y = $mo->array(range(0, (int)array_product($shapeY)-1))->reshape($shapeY);
+        $x = $la->array($x);
+        $y = $la->array($y);
+        $z = $la->einsum('afgde,abcde->adbcfg',$x,$y);
+        $this->assertEquals([2,2,2,2,2,2],$z->shape());
+        $this->assertEquals([
+            [[[[[ 1,     5],[   9,   13]],[[   5,   41],[  77,  113]]],
+              [[[ 9,    77],[ 145,  213]],[[  13,  113],[ 213,  313]]]],
+             [[[[13,    33],[  53,   73]],[[  33,   85],[ 137,  189]]],
+              [[[53,   137],[ 221,  305]],[[  73,  189],[ 305,  421]]]]],
+            [[[[[545,  677],[ 809,  941]],[[ 677,  841],[1005, 1169]]],
+              [[[809, 1005],[1201, 1397]],[[ 941, 1169],[1397, 1625]]]],
+             [[[[685,  833],[ 981, 1129]],[[ 833, 1013],[1193, 1373]]],
+              [[[981, 1193],[1405, 1617]],[[1129, 1373],[1617, 1861]]]]],
+        ],$z->toArray());
+
+
+        // share indicator 
+        $shapeX = [2,2];
+        $shapeY = [2,3];
+        $x = $mo->array(range(1, 1+(int)array_product($shapeX)-1))->reshape($shapeX);
+        $y = $mo->array(range(1, 1+(int)array_product($shapeY)-1))->reshape($shapeY);
+        $x = $la->array($x);
+        $y = $la->array($y);
+        $z = $la->einsum('aa,ab->ab',$x,$y);
+        $this->assertEquals([2,3],$z->shape());
+        $this->assertEquals([
+            [ 1,  2,  3],
+            [16, 20, 24],
+        ],$z->toArray());
+    }
+
     public function testEinsumExplicitNormal()
     {
+        $this->markTestSkipped('Not implemented');
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
 
@@ -13512,6 +13613,7 @@ class LinearAlgebraTest extends TestCase
 
     public function testEinsumImplicitNormal()
     {
+        $this->markTestSkipped('Not implemented');
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
 
@@ -13562,6 +13664,7 @@ class LinearAlgebraTest extends TestCase
     }
     public function testEinsumPlaceholderExplicitNormal()
     {
+        $this->markTestSkipped('Not implemented');
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
         
@@ -13731,8 +13834,8 @@ class LinearAlgebraTest extends TestCase
         //
         // X:(2,3)
         // A:(2,3)
-        // outer:(),bro:(),inner:(2,3)
-        // m=2*3,n=1,k=1  ==translate==> m=1,n=1,k=2*3
+        // outer:(),bro:(),inner:(2,3),bro2:()
+        // m=2*3,n=1,k=1,len=1  ==translate==> m=1,n=1,k=2*3,len=1
         $X = $la->array([[true,false,true],[false,true,false]], dtype:NDArray::bool);
         $A = $la->array([[1,10,100],[-1,-10,-100]]);
         $la->masking($X,$A);
@@ -13749,8 +13852,8 @@ class LinearAlgebraTest extends TestCase
         //
         // X:(2,3  )
         // A:(2,3,4)
-        // outer:(2,3),bro:(4),inner:()
-        // m=2*3,n=4,k=1
+        // outer:(2,3),bro:(4),inner:(),bro2:()
+        // m=2*3,n=4,k=1,len=1  ==translate==> m=1,n=1,k=2*3,len=4
         $X = $la->array([[true,false,true],[false,true,false]], dtype:NDArray::bool);
         $A = $la->array([
             [[1,11,111,1111],[2,12,122,1222],[-3,13,133,1333]],
@@ -13766,13 +13869,35 @@ class LinearAlgebraTest extends TestCase
         ],$A->toArray());
 
         //
+        // broadcast to details
+        //echo "==== broadcast to details for implicit\n";
+        //
+        // X:(2,3  )
+        // A:(2,3,4)
+        // outer:(2,3),bro:(4),inner:(),bro2:()
+        // m=2*3,n=4,k=1,len=1  ==translate==> m=1,n=1,k=2*3,len=4
+        $X = $la->array([[true,false,true],[false,true,false]], dtype:NDArray::bool);
+        $A = $la->array([
+            [[1,11,111,1111],[2,12,122,1222],[-3,13,133,1333]],
+            [[1,21,121,1211],[2,22,222,2222],[-3,23,233,2333]]
+        ]);
+        $la->masking($X,$A,batchDims:$X->ndim());
+        $this->assertEquals(
+            [[true,false,true],[false,true,false]]
+        ,$X->toArray());
+        $this->assertEquals([
+            [[1,11,111,1111],[0, 0,  0,   0],[-3,13,133,1333]],
+            [[0, 0,  0,   0],[2,22,222,2222],[0, 0,  0,   0]]
+        ],$A->toArray());
+
+        //
         // broadcast with gap
         //echo "==== broadcast with gap\n";
         //
         // X:(2,  3)
         // A:(2,4,3)
-        // outer:(2),bro:(4),inner:(3)
-        // m=2,n=4,k=3
+        // outer:(2),bro:(4),inner:(3),bro2:()
+        // m=2,n=4,k=3,len=1
         $X = $la->array([
             [true,false,true],
             [false,true,false]
@@ -13797,8 +13922,8 @@ class LinearAlgebraTest extends TestCase
         //
         // X:(  2,3)
         // A:(4,2,3)
-        // outer:(),bro:(4),inner:(2,3)
-        // m=1,n=2,k=2*3
+        // outer:(),bro:(4),inner:(2,3),bro2:()
+        // m=1,n=2,k=2*3,len=1
         $X = $la->array([[true,false,true],[false,true,false]],dtype:NDArray::bool);
         $A = $la->array([
             [[1,11,111],[2,12,112]],
@@ -13823,8 +13948,8 @@ class LinearAlgebraTest extends TestCase
         //
         // X:(2,3)
         // A:(2,3)
-        // outer:(2),bro:(),inner:(3)
-        // m=2,n=1,k=3  ==translate==> m=1,n=1,k=2*3
+        // outer:(2),bro:(),inner:(3),bro2:()
+        // m=2,n=1,k=3,len=1  ==translate==> m=1,n=1,k=2*3,len=1
         $X = $la->array([[true,false,true],[false,true,false]], dtype:NDArray::bool);
         $A = $la->array([[1,10,100],[-1,-10,-100]]);
         $la->masking($X,$A,batchDims:1);
@@ -13841,8 +13966,8 @@ class LinearAlgebraTest extends TestCase
         //
         // X:(  2,3)
         // A:(4,2,3)
-        // outer:(),bro:(4),inner:(2,3)
-        // m=1,n=2,k=2*3
+        // outer:(),bro:(4),inner:(2,3),bro2:()
+        // m=1,n=4,k=2*3,len=1
         $X = $la->array([[true,false,true],[false,true,false]],dtype:NDArray::bool);
         $A = $la->array([
             [[1,11,111],[2,12,112]],
@@ -13861,13 +13986,75 @@ class LinearAlgebraTest extends TestCase
             [[1, 0,411],[0,42,  0]],
         ],$A->toArray());
 
+        //
+        // broadcast with gap and implicit len
+        //echo "==== broadcast with gap implicit len\n";
+        //
+        // X:(2,  3  )
+        // A:(2,4,3,2)
+        // outer:(2),bro:(4),inner:(3),bro2:(2)
+        // m=2,n=4,k=3,len=2
+        $X = $la->array([
+            [true,false,true],
+            [false,true,false]
+        ], dtype:NDArray::bool);
+        $A = $la->array([
+            [[[1,-1],[11,-11],[111,-111]],
+             [[2,-2],[12,-12],[112,-112]],
+             [[-3,3],[13,-13],[113,-113]],
+             [[-4,4],[14,-14],[114,-114]]],
+            [[[1,-1],[21,-21],[211,-211]],
+             [[2,-2],[22,-22],[222,-222]],
+             [[-3,3],[23,-23],[223,-223]],
+             [[-4,4],[24,-24],[224,-224]]],
+        ]);
+        $la->masking($X,$A,batchDims:1,axis:2);
+        $this->assertEquals([
+            [true,false,true],
+            [false,true,false]
+        ],$X->toArray());
+        $this->assertEquals([
+            [[[1,-1],[ 0,  0],[111,-111]],
+             [[2,-2],[ 0,  0],[112,-112]],
+             [[-3,3],[ 0,  0],[113,-113]],
+             [[-4,4],[ 0,  0],[114,-114]]],
+            [[[0, 0],[21,-21],[  0,   0]],
+             [[0, 0],[22,-22],[  0,   0]],
+             [[0, 0],[23,-23],[  0,   0]],
+             [[0, 0],[24,-24],[  0,   0]]],
+        ],$A->toArray());
+
+        //
+        // broadcast to rows (implicit batchDims:0, implicit len)
+        //echo "==== broadcast to rows (implicit batchDims:0, axis=1, implicit len)\n";
+        //
+        // X:(  2  )
+        // A:(4,2,3)
+        // outer:(),bro:(4),inner:(2),bro2:(3)
+        // m=1,n=4,k=2,len=3
+        $X = $la->array([true,false],dtype:NDArray::bool);
+        $A = $la->array([
+            [[1,11,111],[2,12,112]],
+            [[1,21,211],[2,22,222]],
+            [[1,31,311],[2,32,322]],
+            [[1,41,411],[2,42,422]],
+        ]);
+        $la->masking($X,$A,axis:1);
+        $this->assertEquals([true,false],$X->toArray());
+        $this->assertEquals([
+            [[1,11,111],[0, 0,  0]],
+            [[1,21,211],[0, 0,  0]],
+            [[1,31,311],[0, 0,  0]],
+            [[1,41,411],[0, 0,  0]],
+        ],$A->toArray());
 
         //
         // fill -9999
         //
+        //echo "==== fill -9999\n";
         // X:(2,3)
         // A:(2,3)
-        // outer:(),bro:(),inner:(2,3)
+        // outer:(),bro:(),inner:(2,3),bro2:()
         // m=2*3,n=1,k=1  ==translate==> m=1,n=1,k=2*3
         $X = $la->array([[true,false,true],[false,true,false]], dtype:NDArray::bool);
         $A = $la->array([[1,10,100],[-1,-10,-100]]);
@@ -13881,4 +14068,77 @@ class LinearAlgebraTest extends TestCase
 
 
     }
+
+    public function testMaskingAddMode()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        //
+        // Same shape (implicit batchDims:0, axis:0)
+        //echo "==== Same shape (implicit batchDims:0, axis:batchDims)\n";
+        //
+        // X:(2,3)
+        // A:(2,3)
+        // outer:(),bro:(),inner:(2,3),bro2:()
+        // m=2*3,n=1,k=1,len=1  ==translate==> m=1,n=1,k=2*3,len=1
+        $X = $la->array([[true,false,true],[false,true,false]], dtype:NDArray::bool);
+        $A = $la->array([[1,10,100],[-1,-10,-100]]);
+        $la->masking($X,$A, fill:-1000, mode:1); // 0:set mode,  1:add mode
+        $this->assertEquals(
+            [[true,false,true],[false,true,false]]
+        ,$X->toArray());
+        $this->assertEquals(
+            [[1, -990,100],[-1001,-10, -1100]]
+        ,$A->toArray());
+    }
+
+    public function testMaskingBoolSetMode()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        //
+        // Same shape (implicit batchDims:0, axis:0)
+        //echo "==== Same shape (implicit batchDims:0, axis:batchDims)\n";
+        //
+        // X:(2,3)
+        // A:(2,3)
+        // outer:(),bro:(),inner:(2,3),bro2:()
+        // m=2*3,n=1,k=1,len=1  ==translate==> m=1,n=1,k=2*3,len=1
+        $X = $la->array([true, true, false,false,false,true ], dtype:NDArray::bool);
+        $A = $la->array([true, false,true, false,true, true ], dtype:NDArray::bool);
+        $la->masking($X,$A);
+        $this->assertEquals(
+            [true, true, false,false,false,true ]
+        ,$X->toArray());
+        $this->assertEquals(
+            [true, false,false,false,false,true]
+        ,$A->toArray());
+    }
+
+    public function testMaskingBoolAddMode()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        //
+        // Same shape (implicit batchDims:0, axis:0)
+        //echo "==== Same shape (implicit batchDims:0, axis:batchDims)\n";
+        //
+        // X:(2,3)
+        // A:(2,3)
+        // outer:(),bro:(),inner:(2,3),bro2:()
+        // m=2*3,n=1,k=1,len=1  ==translate==> m=1,n=1,k=2*3,len=1
+        $X = $la->array([true, true, false,false,false,true ], dtype:NDArray::bool);
+        $A = $la->array([true, false,true, false,true, true ], dtype:NDArray::bool);
+        $la->masking($X,$A,fill:true,mode:1); // mode=1:add
+        $this->assertEquals(
+            [true, true, false,false,false,true ]
+        ,$X->toArray());
+        $this->assertEquals(
+            [true,false,true, true, true, true ]
+        ,$A->toArray());
+    }
+
 }

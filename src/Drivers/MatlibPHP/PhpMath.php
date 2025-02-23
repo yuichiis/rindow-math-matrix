@@ -3223,14 +3223,16 @@ class PhpMath
     }
 
     /**
-     *    A(m,n,k) := A(m,n,k)   : X(m,k) = True
-     *                fill_value : X(m,k) = False
+     *    A(m,n,k,len) := A(m,n,k,len) : X(m,k) = True
+     *                    fill_value   : X(m,k) = False
      */
     public function masking(
-        int $m,
-        int $n,
-        int $k,
-        float $fill,
+        int $m,     // outer_shape
+        int $n,     // broadcast_shape
+        int $k,     // inner_shape
+        int $len,   // inner_broadcast_shape
+        float $fill,// fill value
+        int $mode,  // mode=0:set , mode=1:add
         Buffer $X, int $offsetX,
         Buffer $A, int $offsetA,
         ) : void
@@ -3242,19 +3244,151 @@ class PhpMath
         if($offsetX+$m*$k > count($X)) {
             throw new InvalidArgumentException('Matrix specification too large for buffer X.');
         }
-        if($offsetA+$m*$n*$k > count($A)) {
+        if($offsetA+$m*$n*$k*$len > count($A)) {
             throw new InvalidArgumentException('Matrix specification too large for buffer A.');
         }
+        $dtype = $A->dtype();
 
         for($i=0; $i<$m; $i++) {
             for($j=0; $j<$n; $j++) {
                 for($h=0; $h<$k; $h++) {
                     if(!$X[$offsetX + $i*$k+$h]) {
-                        $A[$offsetA + ($i*$n+$j)*$k+$h] = $fill;
+                        for($l=0; $l<$len; $l++) {
+                            $address  = $offsetA + (($i*$n+$j)*$k+$h)*$len+$l;
+                            if($mode==0) {
+                                $A[$address] = $fill;
+                            } else {
+                                if($dtype!=NDArray::bool) {
+                                    $A[$address] = $A[$address] || $fill;
+                                } else {
+                                    $A[$address] = $A[$address] + $fill;
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
     }
 
+    private function einsum_calc_indices(
+        int $depth,
+        int $ndim,
+        int $index,
+        Buffer $sizeOfIndices,
+    ) : array
+    {
+        $indices = [];
+        for($axis=$ndim-1;$axis>=0;$axis--) {
+            $size = $sizeOfIndices[$axis];
+            $i = $index % $size;
+            array_unshift($indices,$i);
+            $index = intdiv($index,$size);
+        }
+        $indices = array_merge($indices,array_fill(0, $depth-$ndim, 0));
+        return $indices;
+    }
+
+    private function einsum_calc_index(
+        int $depth,
+        array $indices,         // array<int>
+        Buffer $sizeOfIndices,  // Buffer<int>
+        int $ndim,
+        Buffer $label=null,     // Buffer<int>
+        Buffer $shape=null,     // Buffer<int>
+    ) : int
+    {
+        $index = 0;
+        for($axis=0; $axis<$ndim; $axis++) {
+            if($label===null) {
+                $idx = $axis;
+            } else {
+                $idx = $label[$axis];
+            }
+            if($idx>=$depth) {
+                throw new InvalidArgumentException('label number is too large.');
+            }
+            if($shape) {
+                $size = $shape[$axis]; // if broadcast then size is 1.
+            } else {
+                $size = $sizeOfIndices[$idx]; // as is shape[$axis];
+            }
+            $index *= $size;
+            if($size>1) {
+                if($idx>=$depth) {
+                    throw new InvalidArgumentException('label number is too large.');
+                }
+                if($indices[$idx]>=$size) {
+                    throw new InvalidArgumentException('indicator number is too large.');
+                }
+                $index += $indices[$idx];
+            }
+        }
+        return $index;
+    }
+
+    private function einsum_next_indices(
+        int $depth,
+        int $ndim,
+        Buffer $sizeOfIndices,
+        array &$indices,
+    ) {
+        $i = $depth - 1;
+        while($i >= 0) {
+            if($indices[$i] < $sizeOfIndices[$i]-1) {
+                break;
+            }
+            $indices[$i] = 0;
+            $i--;
+        }
+        if($i >= 0) {
+            $indices[$i]++;
+        }
+        if($i < $ndim) {
+            // done all
+            return 0;
+        }
+        return 1;
+    }
+    
+    public function einsum(
+        Buffer $sizeOfIndices,
+        Buffer $A,
+        int $offsetA,
+        Buffer $labelA,
+        Buffer $B,
+        int $offsetB,
+        Buffer $labelB,
+        Buffer $C,
+        int $offsetC,
+        int $ndimC,
+        Buffer $shapeA=null,
+        Buffer $shapeB=null,
+    )
+    {
+        $depth = count($sizeOfIndices);
+        $ndimA = count($labelA);
+        $ndimB = count($labelB);
+        $sizeC = 1;
+        for($i=0;$i<$ndimC;$i++) {
+            $sizeC *= $sizeOfIndices[$i];
+        }
+        $indices = array_fill(0, $depth, 0);
+        for($indexC=0; $indexC<$sizeC; $indexC++) {
+            //$indices = $this->einsum_calc_indices($depth,$ndimC,$indexC,$sizeOfIndices);
+            $sumC = 0;
+            while(true) {
+                $indexA = $offsetA+$this->einsum_calc_index($depth,$indices,$sizeOfIndices,$ndimA,$labelA,$shapeA);
+                $indexB = $offsetB+$this->einsum_calc_index($depth,$indices,$sizeOfIndices,$ndimB,$labelB,$shapeB);
+                //$indexC = $offsetC+$this->einsum_calc_index($depth,$indices,$sizeOfIndices,$ndimC,null,null);
+                $sumC += $A[$indexA]*$B[$indexB];
+    
+                // next indices
+                if(!$this->einsum_next_indices($depth,$ndimC,$sizeOfIndices,$indices)) {
+                    break;
+                }
+            }
+            $C[$offsetC+$indexC] = $sumC;
+        }
+    }
 }
