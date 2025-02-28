@@ -154,7 +154,7 @@ class LinearAlgebraCL
 
     protected function profilingEnd(string $name) : void
     {
-        $this->profilingTotalTime[$name] =
+        $this->profilingTotalTime[$name] +=
             microtime(true) - $this->profilingStartTime[$name];
     }
 
