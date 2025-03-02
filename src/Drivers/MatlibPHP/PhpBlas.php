@@ -833,6 +833,9 @@ class PhpBlas
         }
     }
 
+    /**
+     * C(m,k) = A(m,n)*B(n,k)
+     */
     public function gemm(
         int $order,
         int $transA,
