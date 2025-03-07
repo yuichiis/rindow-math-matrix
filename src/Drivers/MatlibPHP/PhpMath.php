@@ -3258,7 +3258,7 @@ class PhpMath
                             if($mode==0) {
                                 $A[$address] = $fill;
                             } else {
-                                if($dtype!=NDArray::bool) {
+                                if($dtype==NDArray::bool) {
                                     $A[$address] = $A[$address] || $fill;
                                 } else {
                                     $A[$address] = $A[$address] + $fill;
@@ -3289,40 +3289,49 @@ class PhpMath
         return $indices;
     }
 
+    private function einsum_build_lds(
+        int $depth,
+        int $rank,
+        Buffer $label,
+        ?Buffer $shape,
+        Buffer $dims,
+    ) : array
+    {
+        $ld=1;
+        $lds = [];
+        for($axis=0;$axis<$depth;$axis++) {
+            $lds[$axis] = 0;
+        }
+        for($axis=$rank-1;$axis>=0;$axis--) {
+            if($axis>=$depth) {
+                throw new \Exception("Error Processing Request", 1);
+            }
+            $lbl = $label[$axis];
+            $broadcast = false;
+            if($shape && $shape[$axis]==1) {
+                $broadcast = true;
+            }
+            if($lbl<$depth) {
+                if(!$broadcast) {
+                    $lds[$lbl] += $ld;
+                }
+                $ld *= $dims[$lbl];
+            } else {
+                throw new \Exception("Error Processing Request", 1);
+            }
+        }
+        return $lds;
+    }
+
     private function einsum_calc_index(
         int $depth,
         array $indices,         // array<int>
-        Buffer $sizeOfIndices,  // Buffer<int>
-        int $ndim,
-        Buffer $label=null,     // Buffer<int>
-        Buffer $shape=null,     // Buffer<int>
+        Buffer|array $lds,
     ) : int
     {
         $index = 0;
-        for($axis=0; $axis<$ndim; $axis++) {
-            if($label===null) {
-                $idx = $axis;
-            } else {
-                $idx = $label[$axis];
-            }
-            if($idx>=$depth) {
-                throw new InvalidArgumentException('label number is too large.');
-            }
-            if($shape) {
-                $size = $shape[$axis]; // if broadcast then size is 1.
-            } else {
-                $size = $sizeOfIndices[$idx]; // as is shape[$axis];
-            }
-            $index *= $size;
-            if($size>1) {
-                if($idx>=$depth) {
-                    throw new InvalidArgumentException('label number is too large.');
-                }
-                if($indices[$idx]>=$size) {
-                    throw new InvalidArgumentException('indicator number is too large.');
-                }
-                $index += $indices[$idx];
-            }
+        for($axis=0; $axis<$depth; $axis++) {
+            $index += $indices[$axis]*$lds[$axis];
         }
         return $index;
     }
@@ -3332,7 +3341,7 @@ class PhpMath
         int $ndim,
         Buffer $sizeOfIndices,
         array &$indices,
-    ) {
+    ) : int {
         $i = $depth - 1;
         while($i >= 0) {
             if($indices[$i] < $sizeOfIndices[$i]-1) {
@@ -3351,36 +3360,34 @@ class PhpMath
         return 1;
     }
     
+    /**
+     * C = sum(A * B)
+     */
     public function einsum(
         Buffer $sizeOfIndices,
         Buffer $A,
         int $offsetA,
-        Buffer $labelA,
+        Buffer $ldA,
         Buffer $B,
         int $offsetB,
-        Buffer $labelB,
+        Buffer $ldB,
         Buffer $C,
         int $offsetC,
         int $ndimC,
-        Buffer $shapeA=null,
-        Buffer $shapeB=null,
-    )
+    ) : void
     {
         $depth = count($sizeOfIndices);
-        $ndimA = count($labelA);
-        $ndimB = count($labelB);
+
         $sizeC = 1;
         for($i=0;$i<$ndimC;$i++) {
             $sizeC *= $sizeOfIndices[$i];
         }
         $indices = array_fill(0, $depth, 0);
         for($indexC=0; $indexC<$sizeC; $indexC++) {
-            //$indices = $this->einsum_calc_indices($depth,$ndimC,$indexC,$sizeOfIndices);
             $sumC = 0;
             while(true) {
-                $indexA = $offsetA+$this->einsum_calc_index($depth,$indices,$sizeOfIndices,$ndimA,$labelA,$shapeA);
-                $indexB = $offsetB+$this->einsum_calc_index($depth,$indices,$sizeOfIndices,$ndimB,$labelB,$shapeB);
-                //$indexC = $offsetC+$this->einsum_calc_index($depth,$indices,$sizeOfIndices,$ndimC,null,null);
+                $indexA = $offsetA+$this->einsum_calc_index($depth,$indices,$ldA);
+                $indexB = $offsetB+$this->einsum_calc_index($depth,$indices,$ldB);
                 $sumC += $A[$indexA]*$B[$indexB];
     
                 // next indices
@@ -3389,6 +3396,75 @@ class PhpMath
                 }
             }
             $C[$offsetC+$indexC] = $sumC;
+        }
+    }
+
+    /**
+     * C = sum(A * B)
+     */
+    public function einsum4p1(
+        int $dim0,
+        int $dim1,
+        int $dim2,
+        int $dim3,
+        int $dim4,
+        Buffer $A,
+        int $offsetA,
+        int $ldA0,
+        int $ldA1,
+        int $ldA2,
+        int $ldA3,
+        int $ldA4,
+        Buffer $B,
+        int $offsetB,
+        int $ldB0,
+        int $ldB1,
+        int $ldB2,
+        int $ldB3,
+        int $ldB4,
+        Buffer $C,
+        int $offsetC,
+    ) : void
+    {
+        $maxA = $ldA0*($dim0-1)+$ldA1*($dim1-1)+$ldA2*($dim2-1)+$ldA3*($dim3-1)+$ldA4*($dim4-1);
+        $maxB = $ldB0*($dim0-1)+$ldB1*($dim1-1)+$ldB2*($dim2-1)+$ldB3*($dim3-1)+$ldB4*($dim4-1);
+        $maxC = $dim0*$dim1*$dim2*$dim3-1;
+
+        if(count($A) <= $offsetA+$maxA) {
+            throw new InvalidArgumentException('Matrix specification too large for buffer A.');
+        }
+        if(count($B) <= $offsetB+$maxB) {
+            throw new InvalidArgumentException('Matrix specification too large for buffer B.');
+        }
+        if(count($C) <= $offsetC+$maxC) {
+            throw new InvalidArgumentException('Matrix specification too large for buffer C.');
+        }
+        $indexC = 0;
+        for($idx0=0; $idx0<$dim0; $idx0++) {
+            for($idx1=0; $idx1<$dim1; $idx1++) {
+                for($idx2=0; $idx2<$dim2; $idx2++) {
+                    for($idx3=0; $idx3<$dim3; $idx3++) {
+                        $indexA =
+                            $offsetA +
+                            $idx0*$ldA0 +
+                            $idx1*$ldA1 +
+                            $idx2*$ldA2 +
+                            $idx3*$ldA3;
+                        $indexB =
+                            $offsetB +
+                            $idx0*$ldB0 +
+                            $idx1*$ldB1 +
+                            $idx2*$ldB2 +
+                            $idx3*$ldB3;
+                        $sum = 0;
+                        for($idx4=0; $idx4<$dim4; $idx4++) {
+                            $sum += $A[$indexA+$idx4*$ldA4] * $B[$indexB+$idx4*$ldB4];
+                        }
+                        $C[$indexC] = $sum;
+                        $indexC++;
+                    }
+                }
+            }
         }
     }
 }

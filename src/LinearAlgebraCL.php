@@ -32,6 +32,8 @@ class LinearAlgebraCL
     protected object $openblasmath;
     protected int $defaultFloatType = NDArray::float32;
     protected array $einsumEquationCache = [];
+    protected array $einsum2EquationCache = [];
+    protected array $einsum4p1EquationCache = [];
     protected bool $blocking = false;
     protected bool $scalarNumeric = false;
     protected bool $autoEvents;
@@ -6684,7 +6686,7 @@ class LinearAlgebraCL
         return [$U,$S,$VT];
     }
 
-    protected function parseEinsum(
+    public function parseEinsum(
         string $equation,
         NDArray ...$arrays,
     ) : array
@@ -6756,6 +6758,74 @@ class LinearAlgebraCL
         ];
     }
 
+    public function einsum_build_dims(
+        string $equation,
+        array $shapeA,
+        array $labelA,
+        array $shapeB,
+        array $labelB,
+        array $labelC,
+    ) : array
+    {
+        if(count($shapeA)!=count($labelA)) {
+            throw new InvalidArgumentException(
+                "Invalid rank of arg A.: (".implode(',',$shapeA)."), '{$equation}' given."
+            );
+        }
+        if(count($shapeB)!=count($labelB)) {
+            throw new InvalidArgumentException(
+                "Invalid rank of arg B.: (".implode(',',$shapeB)."), '{$equation}' given."
+            );
+        }
+        $sizeOfIndices = [];
+        foreach(array_map(null,$shapeA,$labelA) as [$dim,$lbl]) {
+            if(array_key_exists($lbl,$sizeOfIndices)) {
+                if($sizeOfIndices[$lbl] != $dim) {
+                    throw new InvalidArgumentException(
+                        "Invalid shape of args: a(".implode(',',$shapeA)."),b(".implode(',',$shapeB)."), '{$equation}' given."
+                    );
+                }
+            } else {
+                $sizeOfIndices[$lbl] = $dim;
+            }
+        }
+        foreach(array_map(null,$shapeB,$labelB) as [$dim,$lbl]) {
+            if(array_key_exists($lbl,$sizeOfIndices)) {
+                if($sizeOfIndices[$lbl] != $dim) {
+                    throw new InvalidArgumentException(
+                        "Invalid shape of args: a(".implode(',',$shapeA)."),b(".implode(',',$shapeB)."), '{$equation}' given."
+                    );
+                }
+            } else {
+                $sizeOfIndices[$lbl] = $dim;
+            }
+        }
+        ksort($sizeOfIndices);
+        $outputShape = array_slice($sizeOfIndices,0,count($labelC));
+        return [$sizeOfIndices,$outputShape];
+    }
+
+    public function einsum_build_lds(
+        array $sizeOfIndices,
+        array $label,
+        array $shape,
+    ) : array
+    {
+        $lds = array_fill(0,count($sizeOfIndices),0);
+        $ld = 1;
+        foreach(array_reverse($label,true) as $axis => $lbl) {
+            $broadcast = false;
+            if($shape[$axis]==1) {
+                $broadcast = true;
+            }
+            if(!$broadcast) {
+                $lds[$lbl] += $ld;
+            }
+            $ld *= $sizeOfIndices[$lbl];
+        }
+        return $lds;
+    }
+
     public function einsum(
         string $equation,
         NDArray $a,
@@ -6767,20 +6837,18 @@ class LinearAlgebraCL
         if($this->profiling) {
             $this->profilingStart("einsum");
         }
-        //if(count($arrays)!=2) {
-        //    throw new InvalidArgumentException("Currently, only two array operations are supported.");
-        //}
-        $cacheKey = $equation.':('.implode(',',$a->shape()).'),('.implode(',',$b->shape()).
-            ':'.$a->dtype().':'.$b->dtype().':';
+        $shapeA = $a->shape();
+        $shapeB = $b->shape();
+        $cacheKey = $equation;
         if(isset($this->einsumEquationCache[$cacheKey])) {
             [
-                $sizeOfIndices,
                 $compiledLabels,
-                $outputShape,
-                $sizeOfIndices,
-                $labelA,
-                $labelB,
             ] = $this->einsumEquationCache[$cacheKey];
+            [$labelA,$labelB,$labelC] = $compiledLabels;
+            [
+                $sizeOfIndices,
+                $outputShape,
+            ] = $this->einsum_build_dims($equation,$shapeA,$labelA,$shapeB,$labelB,$labelC);
         } else {
             [
                 $sizeOfIndices,
@@ -6788,11 +6856,12 @@ class LinearAlgebraCL
                 $outputShape,
             ] = $this->parseEinsum($equation, $a, $b);
             [$labelA,$labelB,$labelC] = $compiledLabels;
-            $sizeOfIndices = $this->array($sizeOfIndices,dtype:NDArray::int32)->buffer();
-            $labelA = $this->array($labelA,dtype:NDArray::int32)->buffer();
-            $labelB = $this->array($labelB,dtype:NDArray::int32)->buffer();
-            //$labelC = $this->array($labelC,dtype:NDArray::int32)->buffer();
         }
+        $ldA = $this->einsum_build_lds($sizeOfIndices,$labelA,$shapeA);
+        $ldB = $this->einsum_build_lds($sizeOfIndices,$labelB,$shapeB);
+        $sizeOfIndices = $this->array($sizeOfIndices,dtype:NDArray::int32)->buffer();
+        $ldA = $this->array($ldA,dtype:NDArray::int32)->buffer();
+        $ldB = $this->array($ldB,dtype:NDArray::int32)->buffer();
 
         $outputs = $this->alloc($outputShape,dtype:$a->dtype());
         //$this->zeros($outputs);
@@ -6809,13 +6878,15 @@ class LinearAlgebraCL
             $sizeOfIndices,
             $AA,
             $offsetA,
-            $labelA,
+            $ldA,
             $BB,
             $offsetB,
-            $labelB,
+            $ldB,
             $CC,
             $offsetC,
             $ndimC,
+            events:$events,
+            waitEvents:$waitEvents,
         );
 
         if($this->blocking) {
@@ -6824,12 +6895,7 @@ class LinearAlgebraCL
         if(!isset($this->einsumEquationCache[$cacheKey])) {
             $this->einsumEquationCache[$cacheKey] = 
             [
-                $sizeOfIndices,
                 $compiledLabels,
-                $outputShape,
-                $sizeOfIndices,
-                $labelA,
-                $labelB,
             ];
         }
         if($this->profiling) {
@@ -6838,6 +6904,138 @@ class LinearAlgebraCL
         return $outputs;
     }
 
+    public function einsum4p1(
+        string $equation,
+        NDArray $a,
+        NDArray $b,
+        NDArray $c=null,
+        object $events=null,
+        object $waitEvents=null
+    ) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("einsum4p1");
+        }
+
+        $shapeA = $a->shape();
+        $shapeB = $b->shape();
+        if(isset($this->einsum4p1EquationCache[$equation])) {
+            [
+                $compiledLabels,
+            ] = $this->einsum4p1EquationCache[$equation];
+            [$labelA,$labelB,$labelC] = $compiledLabels;
+            [
+                $dims,
+                $shapeC,
+            ] = $this->einsum_build_dims($equation,$shapeA,$labelA,$shapeB,$labelB,$labelC);
+            $sumDims = count($dims)-count($labelC);
+            $inputMaxDims = 5-(1-$sumDims);
+        } else {
+            [
+                $dims,
+                $compiledLabels,
+                $shapeC,
+            ] = $this->parseEinsum($equation, $a, $b);
+            [$labelA,$labelB,$labelC] = $compiledLabels;
+            $sumDims = count($dims)-count($labelC);
+            $inputMaxDims = 5-(1-$sumDims);
+            if(count($labelC)>4) {
+                throw new InvalidArgumentException("rank of C must be less than 4D or equal. (".implode(',',($dims?$dims:array_slice($dims,0,-$dims))).") given.");
+            }
+            if($sumDims>1) {
+                throw new InvalidArgumentException("rank of overlay dims must be less than 1D or equal. '{$equation}' and {$sumDims} sum dims given.");
+            }
+            if(count($dims)>$inputMaxDims) {
+                throw new InvalidArgumentException("dims must be less than {$inputMaxDims}D or equal.");
+            }
+            if(count($labelA)>$inputMaxDims) {
+                throw new InvalidArgumentException("rank of A must be less than {$inputMaxDims}D or equal. (".implode(',',$a->shape()).") given.");
+            }
+            if(count($labelB)>$inputMaxDims) {
+                throw new InvalidArgumentException("rank of B must be less than {$inputMaxDims}D or equal. (".implode(',',$b->shape()).") given.");
+            }
+        }
+        $ldA = $this->einsum_build_lds($dims,$labelA,$shapeA);
+        $ldB = $this->einsum_build_lds($dims,$labelB,$shapeB);
+
+        if($c==null) {
+            $c = $this->alloc($shapeC,dtype:$a->dtype());
+        } else {
+            if($c->shape()!=$shapeC) {
+                throw new InvalidArgumentException(
+                    "unmatch shape of C. the shape must be (".implode(',',$shapeC)."). ".
+                    "(".implode(',',$c->shape()).") given.");
+            }
+        }
+        if($sumDims==0) {
+            $dims[] = 1;
+            $ldA[]  = 1;
+            $ldB[]  = 1;
+        }
+        //echo "equation=$equation\n";
+        //echo "labelA=(".implode(',',$labelA).")\n";
+        //echo "labelB=(".implode(',',$labelB).")\n";
+        //echo "labelC=(".implode(',',$labelC).")\n";
+        //echo "shapeC=(".implode(',',$shapeC).")\n";
+        //echo "dims=(".implode(',',$dims).")\n";
+        //echo "ldA=(".implode(',',$ldA).")\n";
+        //echo "ldB=(".implode(',',$ldB).")\n";
+        $dims = array_pad($dims,-5,1);
+        $ldA = array_pad($ldA,-5,0);
+        $ldB = array_pad($ldB,-5,0);
+        //echo "dims=(".implode(',',$dims).")\n";
+        //echo "ldA=(".implode(',',$ldA).")\n";
+        //echo "ldB=(".implode(',',$ldB).")\n";
+        [$dim0,$dim1,$dim2,$dim3,$dim4] = $dims;
+        [$ldA0,$ldA1,$ldA2,$ldA3,$ldA4] = $ldA;
+        [$ldB0,$ldB1,$ldB2,$ldB3,$ldB4] = $ldB;
+        $AA = $a->buffer();
+        $offsetA = $a->offset();
+        $BB = $b->buffer();
+        $offsetB = $b->offset();
+        $CC = $c->buffer();
+        $offsetC = $c->offset();
+        $this->openclmath->einsum4p1(
+            $dim0,
+            $dim1,
+            $dim2,
+            $dim3,
+            $dim4,
+            $AA,
+            $offsetA,
+            $ldA0,
+            $ldA1,
+            $ldA2,
+            $ldA3,
+            $ldA4,
+            $BB,
+            $offsetB,
+            $ldB0,
+            $ldB1,
+            $ldB2,
+            $ldB3,
+            $ldB4,
+            $CC,
+            $offsetC,
+            $events,
+            $waitEvents,
+        );
+        
+        if($this->blocking) {
+            $this->finish();
+        }
+        if(!isset($this->einsum4p1EquationCache[$equation])) {
+            $this->einsum4p1EquationCache[$equation] = [
+                $compiledLabels,
+            ];
+        }
+
+        if($this->profiling) {
+            $this->profilingEnd("einsum4p1");
+        }
+        return $c;
+    }
+    
     /**
      *    A(m,n,k,len) := A(m,n,k,len) : X(m,k) = True
      *                    fill         : X(m,k) = False

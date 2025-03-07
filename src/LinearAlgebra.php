@@ -23,6 +23,8 @@ class LinearAlgebra
     protected object $math;
     protected int $defaultFloatType = NDArray::float32;
     protected array $einsumEquationCache = [];
+    protected array $einsum4p1EquationCache = [];
+    
     /** @var array<int> $intTypes */
     protected array $intTypes= [
         NDArray::int8,NDArray::int16,NDArray::int32,NDArray::int64,
@@ -4855,7 +4857,7 @@ class LinearAlgebra
         return $abs;
     }
 
-    protected function parseEinsum(
+    public function parseEinsum(
         string $equation,
         NDArray ...$arrays,
     ) : array
@@ -4927,38 +4929,106 @@ class LinearAlgebra
         ];
     }
 
+    public function einsum_build_dims(
+        string $equation,
+        array $shapeA,
+        array $labelA,
+        array $shapeB,
+        array $labelB,
+        array $labelC,
+    ) : array
+    {
+        if(count($shapeA)!=count($labelA)) {
+            throw new InvalidArgumentException(
+                "Invalid rank of arg A.: (".implode(',',$shapeA)."), '{$equation}' given."
+            );
+        }
+        if(count($shapeB)!=count($labelB)) {
+            throw new InvalidArgumentException(
+                "Invalid rank of arg B.: (".implode(',',$shapeB)."), '{$equation}' given."
+            );
+        }
+        $sizeOfIndices = [];
+        foreach(array_map(null,$shapeA,$labelA) as [$dim,$lbl]) {
+            if(array_key_exists($lbl,$sizeOfIndices)) {
+                if($sizeOfIndices[$lbl] != $dim) {
+                    throw new InvalidArgumentException(
+                        "Invalid shape of args: a(".implode(',',$shapeA)."),b(".implode(',',$shapeB)."), '{$equation}' given."
+                    );
+                }
+            } else {
+                $sizeOfIndices[$lbl] = $dim;
+            }
+        }
+        foreach(array_map(null,$shapeB,$labelB) as [$dim,$lbl]) {
+            if(array_key_exists($lbl,$sizeOfIndices)) {
+                if($sizeOfIndices[$lbl] != $dim) {
+                    throw new InvalidArgumentException(
+                        "Invalid shape of args: a(".implode(',',$shapeA)."),b(".implode(',',$shapeB)."), '{$equation}' given."
+                    );
+                }
+            } else {
+                $sizeOfIndices[$lbl] = $dim;
+            }
+        }
+        ksort($sizeOfIndices);
+        $outputShape = array_slice($sizeOfIndices,0,count($labelC));
+        return [$sizeOfIndices,$outputShape];
+    }
+
+    public function einsum_build_lds(
+        array $sizeOfIndices,
+        array $label,
+        array $shape,
+    ) : array
+    {
+        $lds = array_fill(0,count($sizeOfIndices),0);
+        $ld = 1;
+        foreach(array_reverse($label,true) as $axis => $lbl) {
+            $broadcast = false;
+            if($shape[$axis]==1) {
+                $broadcast = true;
+            }
+            if(!$broadcast) {
+                $lds[$lbl] += $ld;
+            }
+            $ld *= $sizeOfIndices[$lbl];
+        }
+        return $lds;
+    }
+
     public function einsum(
         string $equation,
-        NDArray ...$arrays,
+        NDArray $a,
+        NDArray $b,
     ) : NDArray
     {
-        if(count($arrays)!=2) {
-            throw new InvalidArgumentException("Currently, only two array operations are supported.");
-        }
-        [$a,$b] = $arrays;
-        $cacheKey = $equation.':('.implode(',',$a->shape()).'),('.implode(',',$b->shape()).
-            ':'.$a->dtype().':'.$b->dtype().':';
+        $shapeA = $a->shape();
+        $shapeB = $b->shape();
+        $cacheKey = $equation;
         if(isset($this->einsumEquationCache[$cacheKey])) {
             [
-                $sizeOfIndices,
                 $compiledLabels,
-                $outputShape,
-                $sizeOfIndices,
-                $labelA,
-                $labelB,
             ] = $this->einsumEquationCache[$cacheKey];
+            [$labelA,$labelB,$labelC] = $compiledLabels;
+            [
+                $sizeOfIndices,
+                $outputShape,
+            ] = $this->einsum_build_dims($equation,$shapeA,$labelA,$shapeB,$labelB,$labelC);
         } else {
             [
                 $sizeOfIndices,
                 $compiledLabels,
                 $outputShape,
-            ] = $this->parseEinsum($equation, ...$arrays);
+            ] = $this->parseEinsum($equation, $a, $b);
             [$labelA,$labelB,$labelC] = $compiledLabels;
-            $sizeOfIndices = $this->array($sizeOfIndices,dtype:NDArray::int32)->buffer();
-            $labelA = $this->array($labelA,dtype:NDArray::int32)->buffer();
-            $labelB = $this->array($labelB,dtype:NDArray::int32)->buffer();
-            //$labelC = $this->array($labelC,dtype:NDArray::int32)->buffer();
         }
+        $ldA = $this->einsum_build_lds($sizeOfIndices,$labelA,$shapeA);
+        $ldB = $this->einsum_build_lds($sizeOfIndices,$labelB,$shapeB);
+        $sizeOfIndices = $this->array($sizeOfIndices,dtype:NDArray::int32)->buffer();
+        $ldA = $this->array($ldA,dtype:NDArray::int32)->buffer();
+        $ldB = $this->array($ldB,dtype:NDArray::int32)->buffer();
+
         $outputs = $this->alloc($outputShape,dtype:$a->dtype());
         //$this->zeros($outputs);
 
@@ -4974,10 +5044,10 @@ class LinearAlgebra
             $sizeOfIndices,
             $AA,
             $offsetA,
-            $labelA,
+            $ldA,
             $BB,
             $offsetB,
-            $labelB,
+            $ldB,
             $CC,
             $offsetC,
             $ndimC,
@@ -4986,17 +5056,129 @@ class LinearAlgebra
         if(!isset($this->einsumEquationCache[$cacheKey])) {
             $this->einsumEquationCache[$cacheKey] = 
             [
-                $sizeOfIndices,
                 $compiledLabels,
-                $outputShape,
-                $sizeOfIndices,
-                $labelA,
-                $labelB,
             ];
         }
         return $outputs;
     }
 
+    public function einsum4p1(
+        string $equation,
+        NDArray $a,
+        NDArray $b,
+        NDArray $c=null,
+    ) : NDArray
+    {
+        $shapeA = $a->shape();
+        $shapeB = $b->shape();
+        if(isset($this->einsum4p1EquationCache[$equation])) {
+            [
+                $compiledLabels,
+            ] = $this->einsum4p1EquationCache[$equation];
+            [$labelA,$labelB,$labelC] = $compiledLabels;
+            [
+                $dims,
+                $shapeC,
+            ] = $this->einsum_build_dims($equation,$shapeA,$labelA,$shapeB,$labelB,$labelC);
+            $sumDims = count($dims)-count($labelC);
+            $inputMaxDims = 5-(1-$sumDims);
+        } else {
+            [
+                $dims,
+                $compiledLabels,
+                $shapeC,
+            ] = $this->parseEinsum($equation, $a, $b);
+            [$labelA,$labelB,$labelC] = $compiledLabels;
+            $sumDims = count($dims)-count($labelC);
+            $inputMaxDims = 5-(1-$sumDims);
+            if(count($labelC)>4) {
+                throw new InvalidArgumentException("rank of C must be less than 4D or equal. (".implode(',',($dims?$dims:array_slice($dims,0,-$dims))).") given.");
+            }
+            if($sumDims>1) {
+                throw new InvalidArgumentException("rank of overlay dims must be less than 1D or equal. '{$equation}' and {$sumDims} sum dims given.");
+            }
+            if(count($dims)>$inputMaxDims) {
+                throw new InvalidArgumentException("dims must be less than {$inputMaxDims}D or equal.");
+            }
+            if(count($labelA)>$inputMaxDims) {
+                throw new InvalidArgumentException("rank of A must be less than {$inputMaxDims}D or equal. (".implode(',',$a->shape()).") given.");
+            }
+            if(count($labelB)>$inputMaxDims) {
+                throw new InvalidArgumentException("rank of B must be less than {$inputMaxDims}D or equal. (".implode(',',$b->shape()).") given.");
+            }
+        }
+        $ldA = $this->einsum_build_lds($dims,$labelA,$shapeA);
+        $ldB = $this->einsum_build_lds($dims,$labelB,$shapeB);
+
+        if($c==null) {
+            $c = $this->alloc($shapeC,dtype:$a->dtype());
+        } else {
+            if($c->shape()!=$shapeC) {
+                throw new InvalidArgumentException(
+                    "unmatch shape of C. the shape must be (".implode(',',$shapeC)."). ".
+                    "(".implode(',',$c->shape()).") given.");
+            }
+        }
+        if($sumDims==0) {
+            $dims[] = 1;
+            $ldA[]  = 1;
+            $ldB[]  = 1;
+        }
+        //echo "equation=$equation\n";
+        //echo "labelA=(".implode(',',$labelA).")\n";
+        //echo "labelB=(".implode(',',$labelB).")\n";
+        //echo "labelC=(".implode(',',$labelC).")\n";
+        //echo "shapeC=(".implode(',',$shapeC).")\n";
+        //echo "dims=(".implode(',',$dims).")\n";
+        //echo "ldA=(".implode(',',$ldA).")\n";
+        //echo "ldB=(".implode(',',$ldB).")\n";
+        $dims = array_pad($dims,-5,1);
+        $ldA = array_pad($ldA,-5,0);
+        $ldB = array_pad($ldB,-5,0);
+        //echo "dims=(".implode(',',$dims).")\n";
+        //echo "ldA=(".implode(',',$ldA).")\n";
+        //echo "ldB=(".implode(',',$ldB).")\n";
+        [$dim0,$dim1,$dim2,$dim3,$dim4] = $dims;
+        [$ldA0,$ldA1,$ldA2,$ldA3,$ldA4] = $ldA;
+        [$ldB0,$ldB1,$ldB2,$ldB3,$ldB4] = $ldB;
+        $AA = $a->buffer();
+        $offsetA = $a->offset();
+        $BB = $b->buffer();
+        $offsetB = $b->offset();
+        $CC = $c->buffer();
+        $offsetC = $c->offset();
+        $this->math->einsum4p1(
+            $dim0,
+            $dim1,
+            $dim2,
+            $dim3,
+            $dim4,
+            $AA,
+            $offsetA,
+            $ldA0,
+            $ldA1,
+            $ldA2,
+            $ldA3,
+            $ldA4,
+            $BB,
+            $offsetB,
+            $ldB0,
+            $ldB1,
+            $ldB2,
+            $ldB3,
+            $ldB4,
+            $CC,
+            $offsetC,
+        );
+        if(!isset($this->einsum4p1EquationCache[$equation])) {
+            $this->einsum4p1EquationCache[$equation] = [
+                $compiledLabels,
+            ];
+        }
+
+        return $c;
+    }
+    
     /**
      *    A(m,n,k,len) := A(m,n,k,len) : X(m,k) = True
      *                    fill         : X(m,k) = False
@@ -5114,6 +5296,324 @@ class LinearAlgebra
         );
 
         return $data;
+    }
+
+    /**
+     * key(B,Tv,H,Dk),query(B,Tq,H,Dk) -> scores(B,H,Tq,Tv)
+     */
+    public function mhaProduct(
+        NDArray $key,
+        NDArray $query,
+        NDArray $scores=null,
+    ) : NDArray
+    {
+        if($key->ndim()!=4) {
+            throw new InvalidArgumentException("key must be 4D array.:(".implode(',',$key->shape()).") given.");
+        }
+        if($query->ndim()!=4) {
+            throw new InvalidArgumentException("query must be 4D array.:(".implode(',',$query->shape()).") given.");
+        }
+        [$batches,$tv,$numHeads,$keyDim] = $key->shape();
+        [$batchesQ,$tq,$numHeadsQ,$keyDimQ] = $query->shape();
+        if($batches!=$batchesQ||$numHeads!=$numHeadsQ||$keyDim!=$keyDimQ) {
+            throw new InvalidArgumentException("unmatch shapes of key and query.:(".implode(',',$key->shape()).") and (".implode(',',$query->shape()).") given.");
+        }
+        if($scores===null) {
+            $scores = $this->alloc([$batches,$numHeads,$tq,$tv],dtype:$key->dtype());
+        } else {
+            if($scores->ndim()!=4) {
+                throw new InvalidArgumentException("scores must be 4D array.:(".implode(',',$scores->shape()).") given.");
+            }
+            [$batchesS,$numHeadsS,$tqS,$tvS] = $scores->shape();
+            if($batchesS!=$batches||$numHeadsS!=$numHeads||$tqS!=$tq||$tvS!=$tv) {
+                throw new InvalidArgumentException("unmatch shapes of value.:(".implode(',',$value->shape()).") given. but query(".implode(',',$key->shape()).") and query(".implode(',',$query->shape()).")");
+            }
+        }
+        $bufferKey = $key->buffer();
+        $offsetKey = $key->offset();
+        $bufferQuery = $query->buffer();
+        $offsetQuery = $query->offset();
+        $bufferScores = $scores->buffer();
+        $offsetScores = $scores->offset();
+        $this->math->mhaProduct(
+            $batches,
+            $tv,
+            $tq,
+            $numHeads,
+            $keyDim,
+            $bufferKey,
+            $offsetKey,
+            $bufferQuery,
+            $offsetQuery,
+            $bufferScores,
+            $offsetScores,
+        );
+        return $scores;
+    }
+
+    /**
+     * scores(B,H,Tq,Tv),query(B,Tq,H,Dk) -> key(B,Tv,H,Dk)
+     */
+    public function mhaDkProduct(
+        NDArray $scores,
+        NDArray $query,
+        NDArray $key=null,
+    ) : NDArray
+    {
+        if($scores->ndim()!=4) {
+            throw new InvalidArgumentException("scores must be 4D array.:(".implode(',',$scores->shape()).") given.");
+        }
+        if($query->ndim()!=4) {
+            throw new InvalidArgumentException("query must be 4D array.:(".implode(',',$query->shape()).") given.");
+        }
+        [$batches,$numHeads,$tq,$tv] = $scores->shape();
+        [$batchesQ,$tqQ,$numHeadsQ,$keyDim] = $query->shape();
+        if($batches!=$batchesQ||$numHeads!=$numHeadsQ||$tq!=$tqQ) {
+            throw new InvalidArgumentException("unmatch shapes of scores and query.:(".implode(',',$scores->shape()).") and (".implode(',',$query->shape()).") given.");
+        }
+        if($key===null) {
+            $key = $this->alloc([$batches,$tv,$numHeads,$keyDim],dtype:$scores->dtype());
+        } else {
+            if($key->ndim()!=4) {
+                throw new InvalidArgumentException("key must be 4D array.:(".implode(',',$key->shape()).") given.");
+            }
+            [$batchesK,$tvK,$numHeadsK,$keyDimK] = $key->shape();
+            if($batchesK!=$batches||$numHeadsK!=$numHeads||$tvK!=$tv||$keyDimK!=$keyDim) {
+                throw new InvalidArgumentException("unmatch shapes of key.:(".implode(',',$key->shape()).") given. but scores(".implode(',',$scores->shape()).") and query(".implode(',',$query->shape()).")");
+            }
+        }
+        $bufferScores = $scores->buffer();
+        $offsetScores = $scores->offset();
+        $bufferQuery = $query->buffer();
+        $offsetQuery = $query->offset();
+        $bufferKey = $key->buffer();
+        $offsetKey = $key->offset();
+        $this->math->mhaDkproduct(
+            $batches,
+            $tv,
+            $tq,
+            $numHeads,
+            $keyDim,
+            $bufferScores,
+            $offsetScores,
+            $bufferQuery,
+            $offsetQuery,
+            $bufferKey,
+            $offsetKey,
+        );
+        return $key;
+    }
+
+    /**
+     * scores(B,H,Tq,Tv),key(B,Tv,H,Dk) -> query(B,Tq,H,Dk)
+     */
+    public function mhaDqProduct(
+        NDArray $scores,
+        NDArray $key,
+        NDArray $query=null,
+    ) : NDArray
+    {
+        if($scores->ndim()!=4) {
+            throw new InvalidArgumentException("scores must be 4D array.:(".implode(',',$scores->shape()).") given.");
+        }
+        if($key->ndim()!=4) {
+            throw new InvalidArgumentException("key must be 4D array.:(".implode(',',$key->shape()).") given.");
+        }
+        [$batches,$numHeads,$tq,$tv] = $scores->shape();
+        [$batchesK,$tvK,$numHeadsK,$keyDim] = $key->shape();
+        if($batches!=$batchesK||$numHeads!=$numHeadsK||$tv!=$tvK) {
+            throw new InvalidArgumentException("unmatch shapes of scores and key.:(".implode(',',$scores->shape()).") and (".implode(',',$key->shape()).") given.");
+        }
+        if($query===null) {
+            $query = $this->alloc([$batches,$tq,$numHeads,$keyDim],dtype:$scores->dtype());
+        } else {
+            if($query->ndim()!=4) {
+                throw new InvalidArgumentException("query must be 4D array.:(".implode(',',$query->shape()).") given.");
+            }
+            [$batchesQ,$tqQ,$numHeadsQ,$keyDimQ] = $query->shape();
+            if($batchesQ!=$batches||$tqQ!=$tq||$numHeadsQ!=$numHeads||$keyDimQ!=$keyDim) {
+                throw new InvalidArgumentException("unmatch shapes of query.:(".implode(',',$query->shape()).") given. but scores(".implode(',',$scores->shape()).") and key(".implode(',',$key->shape()).")");
+            }
+        }
+        $bufferScores = $scores->buffer();
+        $offsetScores = $scores->offset();
+        $bufferKey = $key->buffer();
+        $offsetKey = $key->offset();
+        $bufferQuery = $query->buffer();
+        $offsetQuery = $query->offset();
+        $this->math->mhaDqproduct(
+            $batches,
+            $tv,
+            $tq,
+            $numHeads,
+            $keyDim,
+            $bufferScores,
+            $offsetScores,
+            $bufferKey,
+            $offsetKey,
+            $bufferQuery,
+            $offsetQuery,
+        );
+        return $query;
+    }
+
+    /**
+     * scores(B,H,Tq,Tv),value(B,Tv,H,Dv)->outputs(B,Tq,H,Dv)
+     */
+    public function mhaCombine(
+        NDArray $scores,
+        NDArray $value,
+        NDArray $outputs=null,
+    ) : NDArray
+    {
+        if($scores->ndim()!=4) {
+            throw new InvalidArgumentException("scores must be 4D array.:(".implode(',',$scores->shape()).") given.");
+        }
+        if($value->ndim()!=4) {
+            throw new InvalidArgumentException("value must be 4D array.:(".implode(',',$value->shape()).") given.");
+        }
+        [$batches,$numHeads,$tq,$tv] = $scores->shape();
+        [$batchesV,$tvV,$numHeadsV,$valueDim] = $value->shape();
+        if($batches!=$batchesV||$tv!=$tvV||$numHeads!=$numHeadsV) {
+            throw new InvalidArgumentException("unmatch shapes of scores and value.:(".implode(',',$scores->shape()).") and (".implode(',',$value->shape()).") given.");
+        }
+        if($outputs===null) {
+            $outputs = $this->alloc([$batches,$tq,$numHeads,$valueDim],dtype:$scores->dtype());
+        } else {
+            if($outputs->ndim()!=4) {
+                throw new InvalidArgumentException("outputs must be 4D array.:(".implode(',',$outputs->shape()).") given.");
+            }
+            [$batchesO,$tqO,$numHeadsO,$valueDimO] = $outputs->shape();
+            if($batchesO!=$batches||$numHeadsO!=$numHeads||$tqO!=$tq||$valueDimO!=$valueDim) {
+                throw new InvalidArgumentException("unmatch shapes of value.:(".implode(',',$outputs->shape()).") given. but scores(".implode(',',$scores->shape()).") and value(".implode(',',$value->shape()).")");
+            }
+        }
+        $bufferScores = $scores->buffer();
+        $offsetScores = $scores->offset();
+        $bufferValue = $value->buffer();
+        $offsetValue = $value->offset();
+        $bufferOutputs = $outputs->buffer();
+        $offsetOutputs = $outputs->offset();
+        $this->math->mhaCombine(
+            $batches,
+            $numHeads,
+            $tq,
+            $tv,
+            $valueDim,
+            $bufferScores,
+            $offsetScores,
+            $bufferValue,
+            $offsetValue,
+            $bufferOutputs,
+            $offsetOutputs,
+        );
+        return $outputs;
+    }
+
+    /**
+     * outputs(B,Tq,H,Dv),scores(B,H,Tq,Tv) -> value(B,Tv,H,Dv)
+     */
+    public function mhaDvCombine(
+        NDArray $outputs,
+        NDArray $scores,
+        NDArray $value=null,
+    ) : NDArray
+    {
+        if($outputs->ndim()!=4) {
+            throw new InvalidArgumentException("outputs must be 4D array.:(".implode(',',$outputs->shape()).") given.");
+        }
+        if($scores->ndim()!=4) {
+            throw new InvalidArgumentException("scores must be 4D array.:(".implode(',',$scores->shape()).") given.");
+        }
+        [$batches,$tq,$numHeads,$valueDim] = $outputs->shape();
+        [$batchesS,$numHeadsS,$tqS,$tv] = $scores->shape();
+        if($batches!=$batchesS||$numHeads!=$numHeadsS||$tq!=$tqS) {
+            throw new InvalidArgumentException("unmatch shapes of outputs and scores.:(".implode(',',$outputs->shape()).") and (".implode(',',$scores->shape()).") given.");
+        }
+        if($value===null) {
+            $value = $this->alloc([$batches,$tv,$numHeads,$valueDim],dtype:$outputs->dtype());
+        } else {
+            if($value->ndim()!=4) {
+                throw new InvalidArgumentException("value must be 4D array.:(".implode(',',$value->shape()).") given.");
+            }
+            [$batchesV,$tvV,$numHeadsV,$valueDimV] = $value->shape();
+            if($batchesV!=$batches||$tvV!=$tv||$numHeadsV!=$numHeads||$valueDimV!=$valueDim) {
+                throw new InvalidArgumentException("unmatch shapes of value.:(".implode(',',$value->shape()).") given. but outputs(".implode(',',$outputs->shape()).") and scores(".implode(',',$scores->shape()).")");
+            }
+        }
+        $bufferOutputs = $outputs->buffer();
+        $offsetOutputs = $outputs->offset();
+        $bufferScores = $scores->buffer();
+        $offsetScores = $scores->offset();
+        $bufferValue = $value->buffer();
+        $offsetValue = $value->offset();
+        $this->math->mhaDvcombine(
+            $batches,
+            $numHeads,
+            $tq,
+            $tv,
+            $valueDim,
+            $bufferOutputs,
+            $offsetOutputs,
+            $bufferScores,
+            $offsetScores,
+            $bufferValue,
+            $offsetValue,
+        );
+        return $value;
+    }
+
+    /**
+     * outputs(B,Tq,H,Dv),value(B,Tv,H,Dv) -> scores(B,H,Tq,Tv)
+     */
+    public function mhaDsCombine(
+        NDArray $outputs,
+        NDArray $value,
+        NDArray $scores=null,
+    ) : NDArray
+    {
+        if($outputs->ndim()!=4) {
+            throw new InvalidArgumentException("outputs must be 4D array.:(".implode(',',$outputs->shape()).") given.");
+        }
+        if($value->ndim()!=4) {
+            throw new InvalidArgumentException("value must be 4D array.:(".implode(',',$value->shape()).") given.");
+        }
+        [$batches,$tq,$numHeads,$valueDim] = $outputs->shape();
+        [$batchesV,$tv,$numHeadsV,$valueDimV] = $value->shape();
+        if($batches!=$batchesV||$numHeads!=$numHeadsV||$valueDim!=$valueDimV) {
+            throw new InvalidArgumentException("unmatch shapes of outputs and value.:(".implode(',',$outputs->shape()).") and (".implode(',',$value->shape()).") given.");
+        }
+        if($scores===null) {
+            $scores = $this->alloc([$batches,$numHeads,$tq,$tv],dtype:$outputs->dtype());
+        } else {
+            if($scores->ndim()!=4) {
+                throw new InvalidArgumentException("scores must be 4D array.:(".implode(',',$scores->shape()).") given.");
+            }
+            [$batchesS,$numHeadsS,$tqS,$tvS] = $scores->shape();
+            if($batchesS!=$batches||$tvS!=$tv||$numHeadsS!=$numHeads||$tvS!=$tv) {
+                throw new InvalidArgumentException("unmatch shapes of scores.:(".implode(',',$scores->shape()).") given. but outputs(".implode(',',$outputs->shape()).") and value(".implode(',',$value->shape()).")");
+            }
+        }
+        $bufferOutputs = $outputs->buffer();
+        $offsetOutputs = $outputs->offset();
+        $bufferValue = $value->buffer();
+        $offsetValue = $value->offset();
+        $bufferScores = $scores->buffer();
+        $offsetScores = $scores->offset();
+        $this->math->mhaDscombine(
+            $batches,
+            $numHeads,
+            $tq,
+            $tv,
+            $valueDim,
+            $bufferOutputs,
+            $offsetOutputs,
+            $bufferValue,
+            $offsetValue,
+            $bufferScores,
+            $offsetScores,
+        );
+        return $scores;
     }
 
     public function isclose(NDArray $a, NDArray $b, float|object $rtol=null, float $atol=null,bool $debug=null) : bool

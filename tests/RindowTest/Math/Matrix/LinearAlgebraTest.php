@@ -13564,6 +13564,45 @@ class LinearAlgebraTest extends TestCase
               [[[981, 1193],[1405, 1617]],[[1129, 1373],[1617, 1861]]]]],
         ],$z->toArray());
 
+        // multi head attention dot product 4D
+        $shapeX = [2,2,2,2];
+        $shapeY = [2,2,2,2];
+        $x = $mo->array(range(0, (int)array_product($shapeX)-1))->reshape($shapeX);
+        $y = $mo->array(range(0, (int)array_product($shapeY)-1))->reshape($shapeY);
+        $x = $la->array($x);
+        $y = $la->array($y);
+        $z = $la->einsum('aecd,abcd->acbe',$x,$y);
+        $this->assertEquals([2,2,2,2],$z->shape());
+        $this->assertEquals([
+          [[[  1,   5],
+            [  5,  41]],
+           [[ 13,  33],
+            [ 33,  85]]],
+          [[[145, 213],
+            [213, 313]],
+           [[221, 305],
+            [305, 421]]],
+        ],$z->toArray());
+
+        // multi head attention combine 4D
+        $shapeX = [2,2,2,2];
+        $shapeY = [2,2,2,2];
+        $x = $mo->array(range(0, (int)array_product($shapeX)-1))->reshape($shapeX);
+        $y = $mo->array(range(0, (int)array_product($shapeY)-1))->reshape($shapeY);
+        $x = $la->array($x);
+        $y = $la->array($y);
+        $z = $la->einsum('acbe,aecd->abcd',$x,$y);
+        $this->assertEquals([2,2,2,2],$z->shape());
+        $this->assertEquals([
+          [[[  4,   5],
+            [ 38,  47]],
+           [[ 12,  17],
+            [ 54,  67]]],
+          [[[172, 189],
+            [302, 327]],
+           [[212, 233],
+            [350, 379]]],
+        ],$z->toArray());
 
         // share indicator 
         $shapeX = [2,2];
@@ -13578,6 +13617,23 @@ class LinearAlgebraTest extends TestCase
             [ 1,  2,  3],
             [16, 20, 24],
         ],$z->toArray());
+
+
+        $shapeX = [2,2];
+        $shapeY = [2,2];
+        $x = $mo->array(range(1, 1+(int)array_product($shapeX)-1))->reshape($shapeX);
+        $y = $mo->array(range(1, 1+(int)array_product($shapeY)-1))->reshape($shapeY);
+        $x = $la->array($x);
+        $y = $la->array($y);
+        //$this->expectException(InvalidArgumentException::class);
+        //$this->expectExceptionMessage('rank of C must be less than 4D or equal.');
+        $z = $la->einsum('ab,ab->ab',$x,$y);
+        $this->assertEquals([2,2],$z->shape());
+        $this->assertEquals([
+            [ 1,  4],
+            [ 9, 16],
+        ],$z->toArray());
+
     }
 
     public function testEinsumExplicitNormal()
@@ -13821,6 +13877,202 @@ class LinearAlgebraTest extends TestCase
             [[111,122],[151,166]],
         ],$z->toArray());
 
+    }
+
+    public function testEinsum4p1Normal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // cross product 2D each dims
+        $a = $mo->array([
+            [0,1],
+            [2,3],
+            [4,5],
+        ]);
+        $b = $mo->array([
+            [0,1,2,3,4],
+            [5,6,7,8,9],
+        ]);
+
+        $a = $la->array($a);
+        $b = $la->array($b);
+        $this->assertEquals([3,2],$a->shape());
+        $this->assertEquals([2,5],$b->shape());
+        $c = $la->einsum4p1('ab,bc->ac',$a,$b,);
+        $c = $la->toNDArray($c);
+        $this->assertEquals([3,5],$c->shape());
+        $this->assertEquals([
+            [5,6,7,8,9],
+            [15,20,25,30,35],
+            [25,34,43,52,61]
+        ],$c->toArray());
+
+        // cross product 2D
+        $x = $mo->array([[1,2],[3,4]]);
+        $y = $mo->array([[5,6],[7,8]]);
+        $x = $la->array($x);
+        $y = $la->array($y);
+        $z = $la->einsum4p1(' ik , kj -> ij ',$x,$y);
+        $this->assertEquals([
+            [19,22],
+            [43,50]
+        ],$z->toArray());
+
+        // use cached equation
+        $x = $mo->array([[1,2],[3,4]]);
+        $y = $mo->array([[5,6],[7,8]]);
+        $x = $la->array($x);
+        $y = $la->array($y);
+        $z = $la->einsum4p1(' ik , kj -> ij ',$x,$y);
+        $this->assertEquals([
+            [19,22],
+            [43,50]
+        ],$z->toArray());
+
+        // transpose output
+        $x = $mo->array([[1,2],[3,4]]);
+        $y = $mo->array([[5,6],[7,8]]);
+        $x = $la->array($x);
+        $y = $la->array($y);
+        $z = $la->einsum4p1(' ik , kj -> ji ',$x,$y);
+        $this->assertEquals([
+            [19,43],
+            [22,50]
+        ],$z->toArray());
+
+        // cross product 3D x 2D
+        $x = $mo->array(range(0, 4*3*2-1))->reshape([4,3,2]);
+        $y = $mo->array(range(0, 5*2-1))->reshape([5,2]);
+        $x = $la->array($x);
+        $y = $la->array($y);
+        $z = $la->einsum4p1('abc,dc->abd',$x,$y);
+        $this->assertEquals([4,3,5],$z->shape());
+        $this->assertEquals([
+            [[  1,   3,   5,   7,   9],
+             [  3,  13,  23,  33,  43],
+             [  5,  23,  41,  59,  77]],
+
+            [[  7,  33,  59,  85, 111],
+             [  9,  43,  77, 111, 145],
+             [ 11,  53,  95, 137, 179]],
+
+            [[ 13,  63, 113, 163, 213],
+             [ 15,  73, 131, 189, 247],
+             [ 17,  83, 149, 215, 281]],
+
+            [[ 19,  93, 167, 241, 315],
+             [ 21, 103, 185, 267, 349],
+             [ 23, 113, 203, 293, 383]],
+        ],$z->toArray());
+
+
+        // multi head attention dot product 4D
+        $shapeX = [2,2,2,2];
+        $shapeY = [2,2,2,2];
+        $x = $mo->array(range(0, (int)array_product($shapeX)-1))->reshape($shapeX);
+        $y = $mo->array(range(0, (int)array_product($shapeY)-1))->reshape($shapeY);
+        $x = $la->array($x);
+        $y = $la->array($y);
+        $z = $la->einsum4p1('aecd,abcd->acbe',$x,$y);
+        $this->assertEquals([2,2,2,2],$z->shape());
+        $this->assertEquals([
+          [[[  1,   5],
+            [  5,  41]],
+           [[ 13,  33],
+            [ 33,  85]]],
+          [[[145, 213],
+            [213, 313]],
+           [[221, 305],
+            [305, 421]]],
+        ],$z->toArray());
+
+        // multi head attention combine 4D
+        $shapeX = [2,2,2,2];
+        $shapeY = [2,2,2,2];
+        $x = $mo->array(range(0, (int)array_product($shapeX)-1))->reshape($shapeX);
+        $y = $mo->array(range(0, (int)array_product($shapeY)-1))->reshape($shapeY);
+        $x = $la->array($x);
+        $y = $la->array($y);
+        $z = $la->einsum4p1('acbe,aecd->abcd',$x,$y);
+        $this->assertEquals([2,2,2,2],$z->shape());
+        $this->assertEquals([
+          [[[  4,   5],
+            [ 38,  47]],
+           [[ 12,  17],
+            [ 54,  67]]],
+          [[[172, 189],
+            [302, 327]],
+           [[212, 233],
+            [350, 379]]],
+        ],$z->toArray());
+
+
+        // share indicator 
+        $shapeX = [2,2];
+        $shapeY = [2,3];
+        $x = $mo->array(range(1, 1+(int)array_product($shapeX)-1))->reshape($shapeX);
+        $y = $mo->array(range(1, 1+(int)array_product($shapeY)-1))->reshape($shapeY);
+        $x = $la->array($x);
+        $y = $la->array($y);
+        $z = $la->einsum4p1('aa,ab->ab',$x,$y);
+        $this->assertEquals([2,3],$z->shape());
+        //echo $mo->toString($z,indent:true)."\n";
+        $this->assertEquals([
+            [ 1,  2,  3],
+            [16, 20, 24],
+        ],$z->toArray());
+
+
+        $shapeX = [2,2];
+        $shapeY = [2,2];
+        $x = $mo->array(range(1, 1+(int)array_product($shapeX)-1))->reshape($shapeX);
+        $y = $mo->array(range(1, 1+(int)array_product($shapeY)-1))->reshape($shapeY);
+        $x = $la->array($x);
+        $y = $la->array($y);
+        //$this->expectException(InvalidArgumentException::class);
+        //$this->expectExceptionMessage('rank of C must be less than 4D or equal.');
+        $z = $la->einsum4p1('ab,ab->ab',$x,$y);
+        $this->assertEquals([2,2],$z->shape());
+        $this->assertEquals([
+            [ 1,  4],
+            [ 9, 16],
+        ],$z->toArray());
+
+    }
+
+    public function testEinsum4p1OverRank()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // multi head attention dot product 5D to 6D
+        $shapeX = [2,2,2,2,2];
+        $shapeY = [2,2,2,2,2];
+        $x = $mo->array(range(0, (int)array_product($shapeX)-1))->reshape($shapeX);
+        $y = $mo->array(range(0, (int)array_product($shapeY)-1))->reshape($shapeY);
+        $x = $la->array($x);
+        $y = $la->array($y);
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('rank of C must be less than 4D or equal.');
+        $z = $la->einsum4p1('afgde,abcde->adbcfg',$x,$y);
+    }
+
+    public function testEinsum4p1OverOverlayRank()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $shapeX = [2,2];
+        $shapeY = [2,2];
+        $x = $mo->array(range(1, 1+(int)array_product($shapeX)-1))->reshape($shapeX);
+        $y = $mo->array(range(1, 1+(int)array_product($shapeY)-1))->reshape($shapeY);
+        $x = $la->array($x);
+        $y = $la->array($y);
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage("rank of overlay dims must be less than 1D or equal. 'ab,ac->a' and 2 sum dims given.");
+        $z = $la->einsum4p1('ab,ac->a',$x,$y);
+        //echo $mo->toString($la->toNDArray($z),indent:true)."\n";
     }
 
     public function testMaskingNormal()
@@ -14088,9 +14340,11 @@ class LinearAlgebraTest extends TestCase
         $this->assertEquals(
             [[true,false,true],[false,true,false]]
         ,$X->toArray());
-        $this->assertEquals(
-            [[1, -990,100],[-1001,-10, -1100]]
-        ,$A->toArray());
+        //var_dump($A->toArray());
+        $this->assertEquals([
+            [1, -990,100],
+            [-1001,-10, -1100]
+        ],$A->toArray());
     }
 
     public function testMaskingBoolSetMode()
