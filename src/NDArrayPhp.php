@@ -384,7 +384,18 @@ class NDArrayPhp implements NDArray, Countable, Serializable, IteratorAggregate
     {
         $offset = $this->castOffset($offset);
         if(!$this->offsetExists($offset)) {
-            throw new OutOfRangeException("Index is out of range");
+            if(count($this->_shape)==0) {
+                throw new OutOfRangeException("This object is scalar.");
+            } else {
+                if(is_array($offset)) {
+                    $string = '('.implode(',', $offset).')';
+                } elseif(is_object($offset)) {
+                    $string = '('.$offset->start().','.$offset->limit().')';
+                } else {
+                    $string = strval($offset);
+                }
+                throw new OutOfRangeException("Index is out of range. range allows (0,{$this->_shape[0]}): $string given.");
+            }
         }
 
         // for single index specification

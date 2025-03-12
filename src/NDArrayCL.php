@@ -328,7 +328,14 @@ class NDArrayCL implements NDArray, Countable, IteratorAggregate
             if(count($this->shape)==0) {
                 throw new OutOfRangeException("This object is scalar.");
             } else {
-                throw new OutOfRangeException("Index is out of range");
+                if(is_array($offset)) {
+                    $string = '('.implode(',', $offset).')';
+                } elseif(is_object($offset)) {
+                    $string = '('.$offset->start().','.$offset->limit().')';
+                } else {
+                    $string = strval($offset);
+                }
+                throw new OutOfRangeException("Index is out of range. range allows (0,{$this->shape[0]}): $string given.");
             }
         }
 
