@@ -31,8 +31,9 @@ class LinearAlgebraCL
     protected object $openclmath;
     protected object $openblasmath;
     protected int $defaultFloatType = NDArray::float32;
+    /** @var array<array{array{array<int>,array<int>,array<int>}}> $einsumEquationCache */
     protected array $einsumEquationCache = [];
-    protected array $einsum2EquationCache = [];
+    /** @var array<array{array{array<int>,array<int>,array<int>}}> $einsum4p1EquationCache */
     protected array $einsum4p1EquationCache = [];
     protected bool $blocking = false;
     protected bool $scalarNumeric = false;
@@ -57,6 +58,18 @@ class LinearAlgebraCL
         NDArray::uint16 => true,
         NDArray::uint32 => true,
         NDArray::uint64 => true,
+    ];
+
+    /** @var array<int,string> $dtypeToString */
+    protected $dtypeToString = [
+        NDArray::bool=>'bool',
+        NDArray::int8=>'int8',   NDArray::uint8=>'uint8',
+        NDArray::int16=>'int16', NDArray::uint16=>'uint16',
+        NDArray::int32=>'int32', NDArray::uint32=>'uint32',
+        NDArray::int64=>'int64', NDArray::uint64=>'uint64',
+        NDArray::float16=>'float16',
+        NDArray::float32=>'float32', NDArray::float64=>'float64',
+        NDArray::complex64=>'complex64', NDArray::complex128=>'complex128',
     ];
 
     public function __construct(
@@ -6686,6 +6699,9 @@ class LinearAlgebraCL
         return [$U,$S,$VT];
     }
 
+    /**
+     * @return array{array<int>,array<array<int>>,array<int>}
+     */
     public function parseEinsum(
         string $equation,
         NDArray ...$arrays,
@@ -6758,6 +6774,14 @@ class LinearAlgebraCL
         ];
     }
 
+    /**
+     * @param array<int> $shapeA
+     * @param array<int> $labelA
+     * @param array<int> $shapeB
+     * @param array<int> $labelB
+     * @param array<int> $labelC
+     * @return array{0:array<int>,1:array<int>}
+     */
     public function einsum_build_dims(
         string $equation,
         array $shapeA,
@@ -6805,6 +6829,12 @@ class LinearAlgebraCL
         return [$sizeOfIndices,$outputShape];
     }
 
+    /**
+     * @param array<int> $sizeOfIndices
+     * @param array<int> $label
+     * @param array<int> $shape
+     * @return array<int>
+     */
     public function einsum_build_lds(
         array $sizeOfIndices,
         array $label,
@@ -6940,7 +6970,7 @@ class LinearAlgebraCL
             $sumDims = count($dims)-count($labelC);
             $inputMaxDims = 5-(1-$sumDims);
             if(count($labelC)>4) {
-                throw new InvalidArgumentException("rank of C must be less than 4D or equal. (".implode(',',($dims?$dims:array_slice($dims,0,-$dims))).") given.");
+                throw new InvalidArgumentException("rank of C must be less than 4D or equal. (".implode(',',array_slice($dims,0,-count($labelC))).") given.");
             }
             if($sumDims>1) {
                 throw new InvalidArgumentException("rank of overlay dims must be less than 1D or equal. '{$equation}' and {$sumDims} sum dims given.");

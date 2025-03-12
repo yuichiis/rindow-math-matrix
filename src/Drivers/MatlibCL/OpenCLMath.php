@@ -7670,24 +7670,6 @@ EOT;
             $events,$waitEvents);
     }
 
-    private function einsum_calc_indices(
-        int $depth,
-        int $ndim,
-        int $index,
-        Buffer $sizeOfIndices,
-    ) : array
-    {
-        $indices = [];
-        for($axis=$ndim-1;$axis>=0;$axis--) {
-            $size = $sizeOfIndices[$axis];
-            $i = $index % $size;
-            array_unshift($indices,$i);
-            $index = intdiv($index,$size);
-        }
-        $indices = array_merge($indices,array_fill(0, $depth-$ndim, 0));
-        return $indices;
-    }
-
     public function einsum(
         HostBufferInterface|BufferInterface $sizeOfIndices,
         BufferInterface $A,
@@ -7700,7 +7682,7 @@ EOT;
         int $offsetC,
         int $ndimC,
         object $events=null, object $waitEvents=null
-    )
+    ) : void
     {
         if($offsetA<0) {
             throw new InvalidArgumentException("Argument offsetA must be greater than or equals 0.");

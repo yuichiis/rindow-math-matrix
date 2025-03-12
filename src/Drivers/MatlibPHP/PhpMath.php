@@ -3271,58 +3271,10 @@ class PhpMath
         }
     }
 
-    private function einsum_calc_indices(
-        int $depth,
-        int $ndim,
-        int $index,
-        Buffer $sizeOfIndices,
-    ) : array
-    {
-        $indices = [];
-        for($axis=$ndim-1;$axis>=0;$axis--) {
-            $size = $sizeOfIndices[$axis];
-            $i = $index % $size;
-            array_unshift($indices,$i);
-            $index = intdiv($index,$size);
-        }
-        $indices = array_merge($indices,array_fill(0, $depth-$ndim, 0));
-        return $indices;
-    }
-
-    private function einsum_build_lds(
-        int $depth,
-        int $rank,
-        Buffer $label,
-        ?Buffer $shape,
-        Buffer $dims,
-    ) : array
-    {
-        $ld=1;
-        $lds = [];
-        for($axis=0;$axis<$depth;$axis++) {
-            $lds[$axis] = 0;
-        }
-        for($axis=$rank-1;$axis>=0;$axis--) {
-            if($axis>=$depth) {
-                throw new \Exception("Error Processing Request", 1);
-            }
-            $lbl = $label[$axis];
-            $broadcast = false;
-            if($shape && $shape[$axis]==1) {
-                $broadcast = true;
-            }
-            if($lbl<$depth) {
-                if(!$broadcast) {
-                    $lds[$lbl] += $ld;
-                }
-                $ld *= $dims[$lbl];
-            } else {
-                throw new \Exception("Error Processing Request", 1);
-            }
-        }
-        return $lds;
-    }
-
+    /**
+     * @param array<int> $indices
+     * @param Buffer|array<int> $lds
+     */
     private function einsum_calc_index(
         int $depth,
         array $indices,         // array<int>
@@ -3336,6 +3288,9 @@ class PhpMath
         return $index;
     }
 
+    /**
+     * @param array<int> $indices
+     */
     private function einsum_next_indices(
         int $depth,
         int $ndim,
