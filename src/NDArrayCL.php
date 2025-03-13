@@ -68,11 +68,11 @@ class NDArrayCL implements NDArray, Countable, IteratorAggregate
     final public function __construct(
         object $queue,
         mixed $buffer=null,
-        int $dtype=null,
-        array $shape = null,
-        int $offset=null,
-        int $flags=null,
-        Service $service=null
+        ?int $dtype=null,
+        ?array $shape = null,
+        ?int $offset=null,
+        ?int $flags=null,
+        ?Service $service=null
     ) {
         if($service===null) {
             throw new InvalidArgumentException("No service specified.");
@@ -149,7 +149,7 @@ class NDArrayCL implements NDArray, Countable, IteratorAggregate
         int $size,
         int $dtype,
         int $flags=0,
-        object $hostBuffer=null,
+        ?object $hostBuffer=null,
         int $hostOffset=0
     ) : DeviceBuffer {
         //if(!extension_loaded('rindow_opencl')) {
@@ -250,9 +250,9 @@ class NDArrayCL implements NDArray, Countable, IteratorAggregate
     }
 
     public function toNDArray(
-        bool $blocking_read=null,
-        object $events=null,
-        object $waitEvents=null
+        ?bool $blocking_read=null,
+        ?object $events=null,
+        ?object $waitEvents=null
     ) : NDArray {
         $blocking_read = $blocking_read ?? true;
         $array = new NDArrayPhp(null, $this->dtype, $this->shape, service:$this->service());

@@ -73,7 +73,7 @@ class LinearAlgebraCL
     ];
 
     public function __construct(
-        object $queue, Service $service, int $defaultFloatType=null)
+        object $queue, Service $service, ?int $defaultFloatType=null)
     {
         $this->service = $service;
         $this->queue = $queue;
@@ -142,7 +142,7 @@ class LinearAlgebraCL
         $this->openclmath->setTestMode($testMode);
     }
 
-    public function blocking(bool $switch=null) : bool
+    public function blocking(?bool $switch=null) : bool
     {
         if($switch===null) {
             return $this->blocking;
@@ -187,7 +187,7 @@ class LinearAlgebraCL
      * @return array<object|null>
      */
     public function prepareAutoEvent(
-        array $inputs, object $events=null, object $waitEvents=null, bool $explicit=null) : array
+        array $inputs, ?object $events=null, ?object $waitEvents=null, ?bool $explicit=null) : array
     {
         if($this->autoEvents) {
             $autoWaitEvents = $this->newEventList();
@@ -217,7 +217,7 @@ class LinearAlgebraCL
         }
     }
 
-    public function scalarNumeric(bool $switch=null) : bool
+    public function scalarNumeric(?bool $switch=null) : bool
     {
         if($switch===null) {
             return $this->scalarNumeric;
@@ -318,7 +318,7 @@ class LinearAlgebraCL
         return $dtype==NDarray::float32||$dtype==NDarray::float64;
     }
 
-    public function array(mixed $array, int $dtype=null, int $flags=null) : NDArray
+    public function array(mixed $array, ?int $dtype=null, ?int $flags=null) : NDArray
     {
         if($this->profiling) {
             $this->profilingStart("array");
@@ -393,7 +393,7 @@ class LinearAlgebraCL
         return $x->reshape($newShape);
     }
 
-    public function squeeze(NDArray $x, int $axis=null) : NDArray
+    public function squeeze(NDArray $x, ?int $axis=null) : NDArray
     {
         $shape = $x->shape();
         if($axis===null) {
@@ -431,7 +431,7 @@ class LinearAlgebraCL
     /**
      * @param array<int> $shape
      */
-    public function alloc(array $shape,int $dtype=null,int $flags=null) : NDArray
+    public function alloc(array $shape,?int $dtype=null,?int $flags=null) : NDArray
     {
         if($this->profiling) {
             $this->profilingStart("alloc");
@@ -450,7 +450,7 @@ class LinearAlgebraCL
 
     public function zeros(
         NDArray $X,
-        object $events=null, object $waitEvents=null) : NDArray
+        ?object $events=null, ?object $waitEvents=null) : NDArray
     {
         $value = $this->buildValByType(0.0,$X->dtype());
         $this->fill($value,$X,$events,$waitEvents);
@@ -459,7 +459,7 @@ class LinearAlgebraCL
 
     public function ones(
         NDArray $X,
-        object $events=null, object $waitEvents=null) : NDArray
+        ?object $events=null, ?object $waitEvents=null) : NDArray
     {
         if($X->dtype()==NDArray::bool) {
             $value = true;
@@ -470,7 +470,7 @@ class LinearAlgebraCL
         return $X;
     }
 
-    public function zerosLike(NDArray $array,int $flags=null) : NDArray
+    public function zerosLike(NDArray $array,?int $flags=null) : NDArray
     {
         $newArray = $this->alloc($array->shape(),dtype:$array->dtype(),flags:$flags);
         $events = $this->newEventList();
@@ -482,7 +482,7 @@ class LinearAlgebraCL
     public function fill(
         mixed $value,
         NDArray $X,
-        object $events=null, object $waitEvents=null) : NDArray
+        ?object $events=null, ?object $waitEvents=null) : NDArray
     {
         if($this->profiling) {
             $this->profilingStart("fill");
@@ -549,10 +549,10 @@ class LinearAlgebraCL
     public function searchsorted(
         NDArray $A,
         NDArray $X,
-        bool $right=null,
-        int $dtype=null,
-        NDArray $Y=null,
-        object $events=null, object $waitEvents=null) : NDArray
+        ?bool $right=null,
+        ?int $dtype=null,
+        ?NDArray $Y=null,
+        ?object $events=null, ?object $waitEvents=null) : NDArray
     {
         if($this->profiling) {
             $this->profilingStart("searchsorted");
@@ -622,11 +622,11 @@ class LinearAlgebraCL
 
     public function cumsum(
         NDArray $inputs,
-        int $axis=null,
-        bool $exclusive=null,
-        bool $reverse=null,
-        NDArray $outputs=null,
-        object $events=null, object $waitEvents=null
+        ?int $axis=null,
+        ?bool $exclusive=null,
+        ?bool $reverse=null,
+        ?NDArray $outputs=null,
+        ?object $events=null, ?object $waitEvents=null
         ) : NDArray
     {
         if($this->profiling) {
@@ -685,9 +685,9 @@ class LinearAlgebraCL
      */
     public function nan2num(
         NDArray $X,
-        float $alpha=null,
-        object $events=null,
-        object $waitEvents=null
+        ?float $alpha=null,
+        ?object $events=null,
+        ?object $waitEvents=null
         ) : NDArray
     {
         if($this->profiling) {
@@ -722,8 +722,8 @@ class LinearAlgebraCL
      */
     public function isnan(
         NDArray $X,
-        object $events=null,
-        object $waitEvents=null
+        ?object $events=null,
+        ?object $waitEvents=null 
         ) : NDArray
     {
         if($this->profiling) {
@@ -748,7 +748,7 @@ class LinearAlgebraCL
         return $X;
     }
 
-    public function linspace(float $start, float $stop, int $num, int $dtype=null) : NDArray
+    public function linspace(float $start, float $stop, int $num, ?int $dtype=null) : NDArray
     {
         if($num<=0) {
             throw new InvalidArgumentException('num must be greater than or equal zero.');
@@ -765,9 +765,9 @@ class LinearAlgebraCL
 
     public function range(
         int|float $limit,
-        int|float $start=null,
-        int|float $delta=null,
-        int $dtype=null
+        int|float|null $start=null,
+        int|float|null $delta=null,
+        ?int $dtype=null
         ) : NDArray
     {
         $start ??= 0;
@@ -790,7 +790,7 @@ class LinearAlgebraCL
     /**
      * @param array<int> $shape
      */
-    public function allocHost(array $shape,int $dtype=null) : NDArray
+    public function allocHost(array $shape, ?int $dtype=null) : NDArray
     {
         if($dtype===null)
             $dtype = $this->defaultFloatType;
@@ -821,7 +821,7 @@ class LinearAlgebraCL
     #protected function newBuffer(
     #    int $size, int $flags=null,
     #    LinearBuffer $hostBuffer=null, int $hostOffset=null,
-    #    int $dtype=null)
+    #    ?int $dtype=null)
     #{
     #    return $this->service->buffer()->Buffer($this->context,
     #        $size,$flags,$hostBuffer,$hostOffset,$dtype);
@@ -832,8 +832,8 @@ class LinearAlgebraCL
         return $this->service->openCL()->EventList();
     }
 
-    public function astype(NDArray $X, int $dtype, NDArray $Y=null,
-        object $events=null,object $waitEvents=null) : NDArray
+    public function astype(NDArray $X, int $dtype, ?NDArray $Y=null,
+        ?object $events=null, ?object $waitEvents=null) : NDArray
     {
         if($this->profiling) {
             $this->profilingStart("astype");
@@ -868,8 +868,8 @@ class LinearAlgebraCL
     */
     public function copy(
         NDArray $X,
-        NDArray $Y=null,
-        object $events=null, object $waitEvents=null,
+        ?NDArray $Y=null,
+        ?object $events=null, ?object $waitEvents=null,
         ) : NDArray
     {
         if($this->profiling) {
@@ -905,7 +905,7 @@ class LinearAlgebraCL
     public function scal(
         float|object $alpha,
         NDArray $X,
-        object $events=null, object $waitEvents=null,
+        ?object $events=null, ?object $waitEvents=null,
         ) : NDArray
     {
         if($this->profiling) {
@@ -931,8 +931,8 @@ class LinearAlgebraCL
     public function axpy(
         NDArray $X,
         NDArray $Y,
-        float|object $alpha=null,
-        object $events=null, object $waitEvents=null,
+        float|object|null $alpha=null,
+        ?object $events=null, ?object $waitEvents=null,
         ) : NDArray
     {
         if($this->profiling) {
@@ -967,9 +967,9 @@ class LinearAlgebraCL
     public function dot(
         NDArray $X,
         NDArray $Y,
-        bool $conj=null,
-        NDArray $output=null,
-        object $events=null) : float|object
+        ?bool $conj=null,
+        ?NDArray $output=null,
+        ?object $events=null) : float|object
     {
         $R = $output;
         if($this->profiling) {
@@ -1019,8 +1019,8 @@ class LinearAlgebraCL
     */
     public function asum(
         NDArray $X,
-        NDArray $output=null,
-        object $events=null) : float|NDArray
+        ?NDArray $output=null,
+        ?object $events=null) : float|NDArray
     {
         $R = $output;
         if($this->profiling) {
@@ -1057,8 +1057,8 @@ class LinearAlgebraCL
     */
     public function iamax(
         NDArray $X,
-        NDArray $R=null,
-        object $events=null) : int|NDArray
+        ?NDArray $R=null,
+        ?object $events=null) : int|NDArray
     {
         if($this->profiling) {
             $this->profilingStart("iamax");
@@ -1091,8 +1091,8 @@ class LinearAlgebraCL
     */
     public function iamin(
         NDArray $X,
-        NDArray $R=null,
-        object $events=null) : int|NDArray
+        ?NDArray $R=null,
+        ?object $events=null) : int|NDArray
     {
         if($this->profiling) {
             $this->profilingStart("iamin");
@@ -1125,8 +1125,8 @@ class LinearAlgebraCL
     */
     public function amax(
         NDArray $X,
-        NDArray $R=null,
-        object $events=null) : float|NDArray
+        ?NDArray $R=null,
+        ?object $events=null) : float|NDArray
     {
         if($this->profiling) {
             $this->profilingStart("amax");
@@ -1188,8 +1188,8 @@ class LinearAlgebraCL
     */
     public function amin(
         NDArray $X,
-        NDArray $R=null,
-        object $events=null) : float|NDArray
+        ?NDArray $R=null,
+        ?object $events=null) : float|NDArray
     {
         if($this->profiling) {
             $this->profilingStart("amin");
@@ -1251,8 +1251,8 @@ class LinearAlgebraCL
     */
     public function nrm2(
         NDArray $X,
-        NDArray $R=null,
-        object $events=null) : mixed
+        ?NDArray $R=null,
+        ?object $events=null) : mixed
     {
         if($this->profiling) {
             $this->profilingStart("nrm2");
@@ -1289,11 +1289,11 @@ class LinearAlgebraCL
     public function rotg(
         NDArray $X,
         NDArray $Y,
-        NDArray $R=null,
-        NDArray $Z=null,
-        NDArray $C=null,
-        NDArray $S=null,
-        object $events=null) : array
+        ?NDArray $R=null,
+        ?NDArray $Z=null,
+        ?NDArray $C=null,
+        ?NDArray $S=null,
+        ?object $events=null) : array
     {
         if($this->profiling) {
             $this->profilingStart("rotg");
@@ -1344,7 +1344,7 @@ class LinearAlgebraCL
         NDArray $Y,
         NDArray $C,
         NDArray $S,
-        object $events=null) : void
+        ?object $events=null) : void
     {
         if($this->profiling) {
             $this->profilingStart("rot");
@@ -1380,8 +1380,8 @@ class LinearAlgebraCL
      */
     public function rotgxy(
         NDArray $vector,
-        NDArray $g=null,
-        object $events=null) : NDArray
+        ?NDArray $g=null,
+        ?object $events=null) : NDArray
     {
         if($this->profiling) {
             $this->profilingStart("rotgxy");
@@ -1434,7 +1434,7 @@ class LinearAlgebraCL
     public function rotxy(
         NDArray $vectors,
         NDArray $g,
-        object $events=null) : void
+        ?object $events=null) : void
     {
         if($this->profiling) {
             $this->profilingStart("rotxy");
@@ -1481,11 +1481,11 @@ class LinearAlgebraCL
     public function rotmg(
         NDArray $X,
         NDArray $Y,
-        NDArray $D1=null,
-        NDArray $D2=null,
-        NDArray $B1=null,
-        NDArray $P=null,
-        object $events=null) : array
+        ?NDArray $D1=null,
+        ?NDArray $D2=null,
+        ?NDArray $B1=null,
+        ?NDArray $P=null,
+        ?object $events=null) : array
     {
         if($this->profiling) {
             $this->profilingStart("rotmg");
@@ -1546,7 +1546,7 @@ class LinearAlgebraCL
         NDArray $X,
         NDArray $Y,
         NDArray $P,
-        object $events=null) : void
+        ?object $events=null) : void
     {
         if($this->profiling) {
             $this->profilingStart("rotm");
@@ -1582,9 +1582,9 @@ class LinearAlgebraCL
      */
     public function rotmgxy(
         NDArray $vector,
-        NDArray $d=null,
-        NDArray $g=null,
-        object $events=null) : NDArray
+        ?NDArray $d=null,
+        ?NDArray $g=null,
+        ?object $events=null) : NDArray
     {
         if($this->profiling) {
             $this->profilingStart("rotmgxy");
@@ -1645,7 +1645,7 @@ class LinearAlgebraCL
     public function rotmxy(
         NDArray $vectors,
         NDArray $g,
-        object $events=null) : void
+        ?object $events=null) : void
     {
         if($this->profiling) {
             $this->profilingStart("rotmxy");
@@ -1693,7 +1693,7 @@ class LinearAlgebraCL
     public function swap(
         NDArray $X,
         NDArray $Y,
-        object $events=null) : void
+        ?object $events=null) : void
     {
         if($this->profiling) {
             $this->profilingStart("swap");
@@ -1722,12 +1722,12 @@ class LinearAlgebraCL
     public function gemv(
         NDArray $A,
         NDArray $X,
-        float|object $alpha=null,
-        float|object $beta=null,
-        NDArray $Y=null,
-        bool $trans=null,
-        bool $conj=null,
-        object $events=null) : NDArray
+        float|object|null $alpha=null,
+        float|object|null $beta=null,
+        ?NDArray $Y=null,
+        ?bool $trans=null,
+        ?bool $conj=null,
+        ?object $events=null) : NDArray
     {
         if($this->profiling) {
             $this->profilingStart("gemv");
@@ -1800,14 +1800,14 @@ class LinearAlgebraCL
     public function gemm(
         NDArray $A,
         NDArray $B,
-        float|object $alpha=null,
-        float|object $beta=null,
-        NDArray $C=null,
-        bool $transA=null,
-        bool $transB=null,
-        bool $conjA=null,
-        bool $conjB=null,
-        object $events=null,object $waitEvents=null) : NDArray
+        float|object|null $alpha=null,
+        float|object|null $beta=null,
+        ?NDArray $C=null,
+        ?bool $transA=null,
+        ?bool $transB=null,
+        ?bool $conjA=null,
+        ?bool $conjB=null,
+        ?object $events=null, ?object $waitEvents=null) : NDArray
     {
         [$transA,$conjA] = $this->complementTrans($transA,$conjA,$A->dtype());
         [$transB,$conjB] = $this->complementTrans($transB,$conjB,$B->dtype());
@@ -1898,14 +1898,14 @@ class LinearAlgebraCL
     public function matmul(
         NDArray $A,
         NDArray $B,
-        bool $transA=null,
-        bool $transB=null,
-        NDArray $C=null,
-        float|object $alpha=null,
-        float|object $beta=null,
-        bool $conjA=null,
-        bool $conjB=null,
-        object $events=null
+        ?bool $transA=null,
+        ?bool $transB=null,
+        ?NDArray $C=null,
+        float|object|null $alpha=null,
+        float|object|null $beta=null,
+        ?bool $conjA=null,
+        ?bool $conjB=null,
+        ?object $events=null
         ) : NDArray
     {
         [$transA,$conjA] = $this->complementTrans($transA,$conjA,$A->dtype());
@@ -2030,12 +2030,12 @@ class LinearAlgebraCL
     public function symm(
         NDArray $A,
         NDArray $B,
-        float|object $alpha=null,
-        float|object $beta=null,
-        NDArray $C=null,
-        bool $right=null,
-        bool $lower=null,
-        object $events=null
+        float|object|null $alpha=null,
+        float|object|null $beta=null,
+        ?NDArray $C=null,
+        ?bool $right=null,
+        ?bool $lower=null,
+        ?object $events=null
         ) : NDArray
     {
         if($this->profiling) {
@@ -2113,13 +2113,13 @@ class LinearAlgebraCL
     */
     public function syrk(
         NDArray $A,
-        float|object $alpha=null,
-        float|object $beta=null,
-        NDArray $C=null,
-        bool $lower=null,
-        bool $trans=null,
-        bool $conj=null,
-        object $events=null,
+        float|object|null $alpha=null,
+        float|object|null $beta=null,
+        ?NDArray $C=null,
+        ?bool $lower=null,
+        ?bool $trans=null,
+        ?bool $conj=null,
+        ?object $events=null,
         ) : NDArray
     {
         $trans = $trans ?? false;
@@ -2193,13 +2193,13 @@ class LinearAlgebraCL
     public function syr2k(
         NDArray $A,
         NDArray $B,
-        float|object $alpha=null,
-        float|object $beta=null,
-        NDArray $C=null,
-        bool $lower=null,
-        bool $trans=null,
-        bool $conj=null,
-        object $events=null
+        float|object|null $alpha=null,
+        float|object|null $beta=null,
+        ?NDArray $C=null,
+        ?bool $lower=null,
+        ?bool $trans=null,
+        ?bool $conj=null,
+        ?object $events=null
         ) : NDArray
     {
         $trans = $trans ?? false;
@@ -2281,13 +2281,13 @@ class LinearAlgebraCL
     public function trmm(
         NDArray $A,
         NDArray $B,
-        float|object $alpha=null,
-        bool $right=null,
-        bool $lower=null,
-        bool $trans=null,
-        bool $conj=null,
-        bool $unit=null,
-        object $events=null
+        float|object|null $alpha=null,
+        ?bool $right=null,
+        ?bool $lower=null,
+        ?bool $trans=null,
+        ?bool $conj=null,
+        ?bool $unit=null,
+        ?object $events=null
         ) : NDArray
     {
         [$trans,$conj] = $this->complementTrans($trans,$conj,$A->dtype());
@@ -2352,13 +2352,13 @@ class LinearAlgebraCL
     public function trsm(
         NDArray $A,
         NDArray $B,
-        float|object $alpha=null,
-        bool $right=null,
-        bool $lower=null,
-        bool $trans=null,
-        bool $conj=null,
-        bool $unit=null,
-        object $events=null
+        float|object|null $alpha=null,
+        ?bool $right=null,
+        ?bool $lower=null,
+        ?bool $trans=null,
+        ?bool $conj=null,
+        ?bool $unit=null,
+        ?object $events=null
         ) : NDArray
     {
         [$trans,$conj] = $this->complementTrans($trans,$conj,$A->dtype());
@@ -2422,11 +2422,11 @@ class LinearAlgebraCL
      */
     public function omatcopy(
         NDArray $A,
-        bool $trans=null,
-        bool $conj=null,
-        float|object $alpha=null,
-        NDArray $B=null,
-        object $events=null
+        ?bool $trans=null,
+        ?bool $conj=null,
+        float|object|null $alpha=null,
+        ?NDArray $B=null,
+        ?object $events=null
         ) : NDArray
     {
         [$trans,$conj] = $this->complementTrans($trans,$conj,$A->dtype());
@@ -2492,8 +2492,8 @@ class LinearAlgebraCL
     */
     public function sum(
         NDArray $X,
-        NDArray $R=null,
-        object $events=null, object $waitEvents=null,
+        ?NDArray $R=null,
+        ?object $events=null, ?object $waitEvents=null,
         ) : mixed
     {
         if($this->profiling) {
@@ -2534,8 +2534,8 @@ class LinearAlgebraCL
     */
     public function imax(
         NDArray $X,
-        NDArray $R=null,
-        object $events=null) : int|NDArray
+        ?NDArray $R=null,
+        ?object $events=null) : int|NDArray
     {
         if($this->profiling) {
             $this->profilingStart("imax");
@@ -2579,8 +2579,8 @@ class LinearAlgebraCL
     */
     public function imin(
         NDArray $X,
-        NDArray $R=null,
-        object $events=null) : int|NDArray
+        ?NDArray $R=null,
+        ?object $events=null) : int|NDArray
     {
         if($this->profiling) {
             $this->profilingStart("imin");
@@ -2618,8 +2618,8 @@ class LinearAlgebraCL
     */
     public function max(
         NDArray $X,
-        NDArray $R=null,
-        object $events=null) : mixed
+        ?NDArray $R=null,
+        ?object $events=null) : mixed
     {
         if($this->profiling) {
             $this->profilingStart("max");
@@ -2670,8 +2670,8 @@ class LinearAlgebraCL
     */
     public function min(
         NDArray $X,
-        NDArray $R=null,
-        object $events=null) : mixed
+        ?NDArray $R=null,
+        ?object $events=null) : mixed
     {
         if($this->profiling) {
             $this->profilingStart("min");
@@ -2716,10 +2716,10 @@ class LinearAlgebraCL
     */
     public function increment(
         NDArray $X,
-        float $beta=null,
-        float $alpha=null,
-        object $events=null,
-        object $waitEvents=null
+        ?float $beta=null,
+        ?float $alpha=null,
+        ?object $events=null,
+        ?object $waitEvents=null 
         ) : NDArray
     {
         if($this->profiling) {
@@ -2758,10 +2758,10 @@ class LinearAlgebraCL
     */
     public function reciprocal(
         NDArray $X,
-        float $beta=null,
-        float $alpha=null,
-        object $events=null,
-        object $waitEvents=null
+        ?float $beta=null,
+        ?float $alpha=null,
+        ?object $events=null,
+        ?object $waitEvents=null 
         ) : NDArray
     {
         if($this->profiling) {
@@ -2854,8 +2854,8 @@ class LinearAlgebraCL
     public function maximum(
         NDArray $A,
         int|float|NDArray $X,
-        object $events=null,
-        object $waitEvents=null
+        ?object $events=null,
+        ?object $waitEvents=null 
         ) : NDArray
     {
         if($this->profiling) {
@@ -2891,8 +2891,8 @@ class LinearAlgebraCL
     public function minimum(
         NDArray $A,
         int|float|NDArray $X,
-        object $events=null,
-        object $waitEvents=null
+        ?object $events=null,
+        ?object $waitEvents=null 
         ) : NDArray
     {
         if($this->profiling) {
@@ -2928,8 +2928,8 @@ class LinearAlgebraCL
     public function greater(
         NDArray $A,
         int|float|NDArray $X,
-        object $events=null,
-        object $waitEvents=null
+        ?object $events=null,
+        ?object $waitEvents=null 
         ) : NDArray
     {
         if($this->profiling) {
@@ -2966,8 +2966,8 @@ class LinearAlgebraCL
     public function greaterEqual(
         NDArray $A,
         int|float|NDArray $X,
-        object $events=null,
-        object $waitEvents=null
+        ?object $events=null,
+        ?object $waitEvents=null 
         ) : NDArray
     {
         if($this->profiling) {
@@ -3004,8 +3004,8 @@ class LinearAlgebraCL
     public function less(
         NDArray $A,
         int|float|NDArray $X,
-        object $events=null,
-        object $waitEvents=null
+        ?object $events=null,
+        ?object $waitEvents=null 
         ) : NDArray
     {
         if($this->profiling) {
@@ -3042,8 +3042,8 @@ class LinearAlgebraCL
     public function lessEqual(
         NDArray $A,
         int|float|NDArray $X,
-        object $events=null,
-        object $waitEvents=null
+        ?object $events=null,
+        ?object $waitEvents=null 
         ) : NDArray
     {
         if($this->profiling) {
@@ -3079,9 +3079,9 @@ class LinearAlgebraCL
      public function multiply(
         NDArray $X,
         NDArray $A,
-        bool $trans=null,
-        object $events=null,
-        object $waitEvents=null
+        ?bool $trans=null,
+        ?object $events=null,
+        ?object $waitEvents=null 
         ) : NDArray
     {
         if($this->profiling) {
@@ -3139,10 +3139,10 @@ class LinearAlgebraCL
     public function add(
         NDArray $X,
         NDArray $A,
-        float $alpha=null,
-        bool $trans=null,
-        object $events=null,
-        object $waitEvents=null
+        ?float $alpha=null,
+        ?bool $trans=null,
+        ?object $events=null,
+        ?object $waitEvents=null 
         ) : NDArray
     {
         if($this->profiling) {
@@ -3199,8 +3199,8 @@ class LinearAlgebraCL
      */
     public function square(
         NDArray $X,
-        object $events=null,
-        object $waitEvents=null
+        ?object $events=null,
+        ?object $waitEvents=null 
         ) : NDArray
     {
         if($this->profiling) {
@@ -3230,8 +3230,8 @@ class LinearAlgebraCL
      */
     public function sqrt(
         NDArray $X,
-        object $events=null,
-        object $waitEvents=null
+        ?object $events=null,
+        ?object $waitEvents=null 
         ) : NDArray
     {
         if($this->profiling) {
@@ -3261,10 +3261,10 @@ class LinearAlgebraCL
      */
     public function rsqrt(
         NDArray $X,
-        float $beta=null,
-        float $alpha=null,
-        object $events=null,
-        object $waitEvents=null
+        ?float $beta=null,
+        ?float $alpha=null,
+        ?object $events=null,
+        ?object $waitEvents=null 
         ) : NDArray
     {
         if($this->profiling) {
@@ -3304,9 +3304,9 @@ class LinearAlgebraCL
     public function pow(
         NDArray $A,
         float|NDArray $alpha,
-        bool $trans=null,
-        object $events=null,
-        object $waitEvents=null
+        ?bool $trans=null,
+        ?object $events=null,
+        ?object $waitEvents=null 
         ) : NDArray
     {
         if($this->profiling) {
@@ -3374,8 +3374,8 @@ class LinearAlgebraCL
      */
     public function exp(
         NDArray $X,
-        object $events=null,
-        object $waitEvents=null
+        ?object $events=null,
+        ?object $waitEvents=null 
         ) : NDArray
     {
         if($this->profiling) {
@@ -3405,8 +3405,8 @@ class LinearAlgebraCL
      */
     public function log(
         NDArray $X,
-        object $events=null,
-        object $waitEvents=null
+        ?object $events=null,
+        ?object $waitEvents=null 
         ) : NDArray
     {
         if($this->profiling) {
@@ -3436,8 +3436,8 @@ class LinearAlgebraCL
      */
     public function tanh(
         NDArray $X,
-        object $events=null,
-        object $waitEvents=null
+        ?object $events=null,
+        ?object $waitEvents=null 
         ) : NDArray
     {
         if($this->profiling) {
@@ -3467,8 +3467,8 @@ class LinearAlgebraCL
      */
     public function sin(
         NDArray $X,
-        object $events=null,
-        object $waitEvents=null
+        ?object $events=null,
+        ?object $waitEvents=null 
         ) : NDArray
     {
         if($this->profiling) {
@@ -3498,8 +3498,8 @@ class LinearAlgebraCL
      */
     public function cos(
         NDArray $X,
-        object $events=null,
-        object $waitEvents=null
+        ?object $events=null,
+        ?object $waitEvents=null 
         ) : NDArray
     {
         if($this->profiling) {
@@ -3529,8 +3529,8 @@ class LinearAlgebraCL
      */
     public function tan(
         NDArray $X,
-        object $events=null,
-        object $waitEvents=null
+        ?object $events=null,
+        ?object $waitEvents=null 
         ) : NDArray
     {
         if($this->profiling) {
@@ -3562,8 +3562,8 @@ class LinearAlgebraCL
     public function equal(
         NDArray $X,
         NDArray $Y,
-        object $events=null,
-        object $waitEvents=null
+        ?object $events=null,
+        ?object $waitEvents=null 
         ) : NDArray
     {
         if($this->profiling) {
@@ -3603,8 +3603,8 @@ class LinearAlgebraCL
     public function notEqual(
         NDArray $X,
         NDArray $Y,
-        object $events=null,
-        object $waitEvents=null
+        ?object $events=null,
+        ?object $waitEvents=null 
         ) : NDArray
     {
         if($this->profiling) {
@@ -3643,8 +3643,8 @@ class LinearAlgebraCL
      */
     public function not(
         NDArray $X,
-        object $events=null,
-        object $waitEvents=null
+        ?object $events=null,
+        ?object $waitEvents=null 
         ) : NDArray
     {
         if($this->profiling) {
@@ -3677,11 +3677,11 @@ class LinearAlgebraCL
      */
     public function duplicate(
         NDArray $input,
-        int $repeats=null,
-        bool $trans=null,
-        NDArray $output=null,
-        object $events=null,
-        object $waitEvents=null
+        ?int $repeats=null,
+        ?bool $trans=null,
+        ?NDArray $output=null,
+        ?object $events=null,
+        ?object $waitEvents=null 
         ) : NDArray
     {
         if($this->profiling) {
@@ -3748,11 +3748,11 @@ class LinearAlgebraCL
      */
     public function topK(
         NDArray $input,
-        int $k=null,
-        bool $sorted=null,
-        NDArray $values=null,
-        NDArray $indices=null,
-        object $events=null,object $waitEvents=null
+        ?int $k=null,
+        ?bool $sorted=null,
+        ?NDArray $values=null,
+        ?NDArray $indices=null,
+        ?object $events=null, ?object $waitEvents=null
     ) : array
     {
         if($this->profiling) {
@@ -3834,10 +3834,10 @@ class LinearAlgebraCL
         bool $scatterAdd,
         NDArray $A,
         NDArray $X,
-        int $axis=null,
-        NDArray $output=null,
-        int $dtype=null,
-        object $events=null,object $waitEvents=null
+        ?int $axis=null,
+        ?NDArray $output=null,
+        ?int $dtype=null,
+        ?object $events=null, ?object $waitEvents=null
         ) : NDArray
     {
 //echo "shapeX=[".implode(',',$X->shape())."],shapeA=[".implode(',',$A->shape())."]\n";
@@ -3956,10 +3956,10 @@ class LinearAlgebraCL
     public function gather(
         NDArray $A,
         NDArray $X,
-        int $axis=null,
-        NDArray $output=null,
-        int $dtype=null,
-        object $events=null,object $waitEvents=null
+        ?int $axis=null,
+        ?NDArray $output=null,
+        ?int $dtype=null,
+        ?object $events=null, ?object $waitEvents=null
         ) : NDArray
     {
         if($this->profiling) {
@@ -3989,9 +3989,9 @@ class LinearAlgebraCL
         NDArray $X,
         NDArray $A,
         NDArray $output,
-        int $axis=null,
-        int $dtype=null,
-        object $events=null,object $waitEvents=null
+        ?int $axis=null,
+        ?int $dtype=null,
+        ?object $events=null, ?object $waitEvents=null
         ) : NDArray
     {
         if($this->profiling) {
@@ -4021,10 +4021,10 @@ class LinearAlgebraCL
         NDArray $X,
         NDArray $A,
         int $numClass,
-        int $axis=null,
-        NDArray $output=null,
-        int $dtype=null,
-        object $events=null,object $waitEvents=null
+        ?int $axis=null,
+        ?NDArray $output=null,
+        ?int $dtype=null,
+        ?object $events=null, ?object $waitEvents=null
         ) : NDArray
     {
         if($this->profiling) {
@@ -4149,12 +4149,12 @@ class LinearAlgebraCL
         bool $addMode,
         NDArray $A,
         NDarray $X,
-        int $axis=null,
-        int $batchDims=null,
-        int $detailDepth=null,
-        int $indexDepth=null,
-        NDArray $B=null,
-        object $events=null,object $waitEvents=null
+        ?int $axis=null,
+        ?int $batchDims=null,
+        ?int $detailDepth=null,
+        ?int $indexDepth=null,
+        ?NDArray $B=null,
+        ?object $events=null, ?object $waitEvents=null
     ) : NDArray
     {
         $batchDims ??= 0;
@@ -4291,12 +4291,12 @@ class LinearAlgebraCL
     public function gatherb(
         NDArray $params,
         NDarray $indices,
-        int $axis=null,
-        int $batchDims=null,
-        int $detailDepth=null,
-        int $indexDepth=null,
-        NDArray $outputs=null,
-        object $events=null,object $waitEvents=null
+        ?int $axis=null,
+        ?int $batchDims=null,
+        ?int $detailDepth=null,
+        ?int $indexDepth=null,
+        ?NDArray $outputs=null,
+        ?object $events=null, ?object $waitEvents=null
     ) : NDArray
     {
         if($this->profiling) {
@@ -4334,12 +4334,12 @@ class LinearAlgebraCL
         NDarray $indices,
         NDArray $updates,
         array $shape,
-        int $axis=null,
-        int $batchDims=null,
-        int $detailDepth=null,
-        int $indexDepth=null,
-        NDArray $outputs=null,
-        object $events=null,object $waitEvents=null
+        ?int $axis=null,
+        ?int $batchDims=null,
+        ?int $detailDepth=null,
+        ?int $indexDepth=null,
+        ?NDArray $outputs=null,
+        ?object $events=null, ?object $waitEvents=null
     ): NDArray
     {
         if($this->profiling) {
@@ -4383,12 +4383,12 @@ class LinearAlgebraCL
         NDarray $indices,
         NDArray $updates,
         array $shape,
-        int $axis=null,
-        int $batchDims=null,
-        int $detailDepth=null,
-        int $indexDepth=null,
-        NDArray $outputs=null,
-        object $events=null,object $waitEvents=null
+        ?int $axis=null,
+        ?int $batchDims=null,
+        ?int $detailDepth=null,
+        ?int $indexDepth=null,
+        ?NDArray $outputs=null,
+        ?object $events=null, ?object $waitEvents=null
     ): NDArray
     {
         if($this->profiling) {
@@ -4431,9 +4431,9 @@ class LinearAlgebraCL
         bool $addMode,
         NDArray $A, 
         NDarray $X,
-        int $batchDims=null,
-        NDArray $B=null,
-        object $events=null,object $waitEvents=null
+        ?int $batchDims=null,
+        ?NDArray $B=null,
+        ?object $events=null, ?object $waitEvents=null
     ) : NDArray
     {
         $batchDims ??= 0;
@@ -4512,9 +4512,9 @@ class LinearAlgebraCL
     public function gatherND(
         NDArray $params, 
         NDarray $indices,
-        int $batchDims=null,
-        NDArray $outputs=null,
-        object $events=null,object $waitEvents=null
+        ?int $batchDims=null,
+        ?NDArray $outputs=null,
+        ?object $events=null, ?object $waitEvents=null
     ) : NDArray
     {
         if($this->profiling) {
@@ -4551,9 +4551,9 @@ class LinearAlgebraCL
         NDarray $indices,
         NDArray $updates,
         array $shape,
-        int $batchDims=null,
-        NDArray $outputs=null,
-        object $events=null,object $waitEvents=null
+        ?int $batchDims=null,
+        ?NDArray $outputs=null,
+        ?object $events=null, ?object $waitEvents=null
     ) : NDArray
     {
         if($this->profiling) {
@@ -4597,9 +4597,9 @@ class LinearAlgebraCL
         NDarray $indices,
         NDArray $updates,
         array $shape,
-        int $batchDims=null,
-        NDArray $outputs=null,
-        object $events=null,object $waitEvents=null
+        ?int $batchDims=null,
+        ?NDArray $outputs=null,
+        ?object $events=null, ?object $waitEvents=null
     ) : NDArray
     {
         if($this->profiling) {
@@ -4633,9 +4633,9 @@ class LinearAlgebraCL
     public function onehot(
         NDArray $X,
         int $numClass,
-        float $alpha=null,
-        NDArray $output=null,
-        object $events=null,object $waitEvents=null
+        ?float $alpha=null,
+        ?NDArray $output=null,
+        ?object $events=null, ?object $waitEvents=null
         ) : NDArray
     {
         if($this->profiling) {
@@ -4699,7 +4699,7 @@ class LinearAlgebraCL
      */
     public function softmax(
         NDArray $X,
-        object $events=null,object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : NDArray
     {
         if($this->profiling) {
@@ -4734,11 +4734,11 @@ class LinearAlgebraCL
      */
     public function reduceSum(//reduceSumEx
         NDArray $input,
-        int $axis=null,
-        bool $keepdims=null,
-        NDArray $output=null,
-        int $dtype=null,
-        object $events=null,object $waitEvents=null
+        ?int $axis=null,
+        ?bool $keepdims=null,
+        ?NDArray $output=null,
+        ?int $dtype=null,
+        ?object $events=null, ?object $waitEvents=null
         ) : NDArray
     {
         if($this->profiling) {
@@ -4808,11 +4808,11 @@ class LinearAlgebraCL
      */
     public function reduceMax(//reduceMaxEx
         NDArray $input,
-        int $axis=null,
-        bool $keepdims=null,
-        NDArray $output=null,
-        int $dtype=null,
-        object $events=null,object $waitEvents=null
+        ?int $axis=null,
+        ?bool $keepdims=null,
+        ?NDArray $output=null,
+        ?int $dtype=null,
+        ?object $events=null, ?object $waitEvents=null
         ) : NDArray
     {
         if($this->profiling) {
@@ -4882,11 +4882,11 @@ class LinearAlgebraCL
      */
     public function reduceArgMax(//reduceArgMaxEx
         NDArray $input,
-        int $axis=null,
-        bool $keepdims=null,
-        NDArray $output=null,
-        int $dtype=null,
-        object $events=null,object $waitEvents=null
+        ?int $axis=null,
+        ?bool $keepdims=null,
+        ?NDArray $output=null,
+        ?int $dtype=null,
+        ?object $events=null, ?object $waitEvents=null
         ) : NDArray
     {
         if($this->profiling) {
@@ -4956,11 +4956,11 @@ class LinearAlgebraCL
      */
     public function reduceMean(
         NDArray $input,
-        int $axis=null,
-        bool $keepdims=null,
-        NDArray $output=null,
-        int $dtype=null,
-        object $events=null,object $waitEvents=null
+        ?int $axis=null,
+        ?bool $keepdims=null,
+        ?NDArray $output=null,
+        ?int $dtype=null,
+        ?object $events=null, ?object $waitEvents=null
         ) : NDArray
     {
         $waitPrev = $waitEvents;
@@ -5002,14 +5002,14 @@ class LinearAlgebraCL
         bool $reverse,
         int $kernel_mode,
         NDArray $images,
-        array $filterSize=null,
-        array $strides=null,
-        bool|array $padding=null,
-        array $dilation_rate=null,
-        //bool $channels_first=null,
-        //bool $cols_channels_first=null,
-        NDArray $cols=null,
-        object $events=null
+        ?array $filterSize=null,
+        ?array $strides=null,
+        bool|array|null $padding=null,
+        ?array $dilation_rate=null,
+        //?bool $channels_first=null,
+        //?bool $cols_channels_first=null,
+        ?NDArray $cols=null,
+        ?object $events=null
         ) : NDArray
     {
         if($this->openclmath->hasDiv5Bug()) {
@@ -5183,14 +5183,14 @@ class LinearAlgebraCL
      */
     public function im2col(
         NDArray $images,
-        array $filterSize=null,
-        array $strides=null,
-        bool $padding=null,
-        bool $channels_first=null,
-        array $dilation_rate=null,
-        bool $cols_channels_first=null,
-        NDArray $cols=null,
-        object $events=null,object $waitEvents=null
+        ?array $filterSize=null,
+        ?array $strides=null,
+        ?bool $padding=null,
+        ?bool $channels_first=null,
+        ?array $dilation_rate=null,
+        ?bool $cols_channels_first=null,
+        ?NDArray $cols=null,
+        ?object $events=null, ?object $waitEvents=null
         ) : NDArray
     {
         if($this->profiling) {
@@ -5262,13 +5262,13 @@ class LinearAlgebraCL
     public function col2im(
         NDArray $cols,
         NDArray $images,
-        array $filterSize=null,
-        array $strides=null,
-        bool $padding=null,
-        bool $channels_first=null,
-        array $dilation_rate=null,
-        bool $cols_channels_first=null,
-        object $events=null,object $waitEvents=null
+        ?array $filterSize=null,
+        ?array $strides=null,
+        ?bool $padding=null,
+        ?bool $channels_first=null,
+        ?array $dilation_rate=null,
+        ?bool $cols_channels_first=null,
+        ?object $events=null, ?object $waitEvents=null
         ) : NDArray
     {
         if($this->profiling) {
@@ -5331,14 +5331,14 @@ class LinearAlgebraCL
     public function im2col1d(
         bool $reverse,
         NDArray $images,
-        array $filterSize=null,
-        array $strides=null,
-        bool $padding=null,
-        bool $channels_first=null,
-        array $dilation_rate=null,
-        bool $cols_channels_first=null,
-        NDArray $cols=null,
-        object $events=null,object $waitEvents=null
+        ?array $filterSize=null,
+        ?array $strides=null,
+        ?bool $padding=null,
+        ?bool $channels_first=null,
+        ?array $dilation_rate=null,
+        ?bool $cols_channels_first=null,
+        ?NDArray $cols=null,
+        ?object $events=null, ?object $waitEvents=null
         ) : NDArray
     {
         $ndim = $images->ndim();
@@ -5440,14 +5440,14 @@ class LinearAlgebraCL
     public function im2col2d(
         bool $reverse,
         NDArray $images,
-        array $filterSize=null,
-        array $strides=null,
-        bool $padding=null,
-        bool $channels_first=null,
-        array $dilation_rate=null,
-        bool $cols_channels_first=null,
-        NDArray $cols=null,
-        object $events=null,object $waitEvents=null
+        ?array $filterSize=null,
+        ?array $strides=null,
+        ?bool $padding=null,
+        ?bool $channels_first=null,
+        ?array $dilation_rate=null,
+        ?bool $cols_channels_first=null,
+        ?NDArray $cols=null,
+        ?object $events=null, ?object $waitEvents=null
         ) : NDArray
     {
         $ndim = $images->ndim();
@@ -5555,14 +5555,14 @@ class LinearAlgebraCL
     public function im2col3d(
         bool $reverse,
         NDArray $images,
-        array $filterSize=null,
-        array $strides=null,
-        bool $padding=null,
-        bool $channels_first=null,
-        array $dilation_rate=null,
-        bool $cols_channels_first=null,
-        NDArray $cols=null,
-        object $events=null,object $waitEvents=null
+        ?array $filterSize=null,
+        ?array $strides=null,
+        ?bool $padding=null,
+        ?bool $channels_first=null,
+        ?array $dilation_rate=null,
+        ?bool $cols_channels_first=null,
+        ?NDArray $cols=null,
+        ?object $events=null, ?object $waitEvents=null
         ) : NDArray
     {
         $ndim = $images->ndim();
@@ -5676,10 +5676,10 @@ class LinearAlgebraCL
         array $shape,
         int|float $low,
         int|float $high,
-        int $dtype=null,
-        int $seed=null,
-        NDArray $X=null,
-        object $events=null, object $waitEvents=null
+        ?int $dtype=null,
+        ?int $seed=null,
+        ?NDArray $X=null,
+        ?object $events=null, ?object $waitEvents=null
         ) : NDArray
     {
         if($this->profiling) {
@@ -5730,10 +5730,10 @@ class LinearAlgebraCL
         array $shape,
         float $mean,
         float $scale,
-        int $dtype=null,
-        int $seed=null,
-        NDArray $X=null,
-        object $events=null, object $waitEvents=null
+        ?int $dtype=null,
+        ?int $seed=null,
+        ?NDArray $X=null,
+        ?object $events=null, ?object $waitEvents=null
         ) : NDArray
     {
         if($this->profiling) {
@@ -5779,11 +5779,11 @@ class LinearAlgebraCL
 
     public function randomSequence(
         int $base,
-        int $size=null,
-        int $seed=null,
-        int $dtype=null,
-        NDArray $output=null,
-        object $events=null,object $waitEvents=null
+        ?int $size=null,
+        ?int $seed=null,
+        ?int $dtype=null,
+        ?NDArray $output=null,
+        ?object $events=null, ?object $waitEvents=null
         ) : NDArray
     {
         if($this->profiling) {
@@ -5839,8 +5839,8 @@ class LinearAlgebraCL
         NDArray $input,
         array $begin,
         array $size,
-        NDArray $output=null,
-        object $events=null,object $waitEvents=null
+        ?NDArray $output=null,
+        ?object $events=null, ?object $waitEvents=null
         ) : NDArray
     {
         if($this->profiling) {
@@ -5872,7 +5872,7 @@ class LinearAlgebraCL
         NDArray $output,
         array $begin,
         array $size,
-        object $events=null,object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : NDArray
     {
         if($this->profiling) {
@@ -5900,8 +5900,8 @@ class LinearAlgebraCL
      */
     public function stack(
         array $values,
-        int $axis=null,
-        object $events=null,object $waitEvents=null
+        ?int $axis=null,
+        ?object $events=null, ?object $waitEvents=null
     ) : NDArray
     {
         if($this->profiling) {
@@ -6005,8 +6005,8 @@ class LinearAlgebraCL
      */
     public function concat(
         array $values,
-        int $axis=null,
-        object $events=null,object $waitEvents=null
+        ?int $axis=null,
+        ?object $events=null, ?object $waitEvents=null
     ) : NDArray
     {
         if($this->profiling) {
@@ -6073,8 +6073,8 @@ class LinearAlgebraCL
      * @return array<NDArray>
      */
     public function split(
-        NDArray $input, array $sizeSplits, int $axis=null,
-        object $events=null,object $waitEvents=null
+        NDArray $input, array $sizeSplits, ?int $axis=null,
+        ?object $events=null, ?object $waitEvents=null
         ) : array
     {
         if($this->profiling) {
@@ -6132,8 +6132,8 @@ class LinearAlgebraCL
         NDArray $input,
         array $begin,
         array $size,
-        NDArray $output=null,
-        object $events=null,object $waitEvents=null
+        ?NDArray $output=null,
+        ?object $events=null, ?object $waitEvents=null
         ) : NDArray
     {
         if($this->profiling) {
@@ -6279,9 +6279,9 @@ class LinearAlgebraCL
     public function repeat(
         NDArray $A,
         int $repeats,
-        int $axis=null,
-        bool $keepdims=null,
-        object $events=null,object $waitEvents=null
+        ?int $axis=null,
+        ?bool $keepdims=null,
+        ?object $events=null, ?object $waitEvents=null
         ) : NDArray
     {
         if($this->profiling) {
@@ -6348,9 +6348,9 @@ class LinearAlgebraCL
      */
     public function transpose(
         NDArray $A,
-        array|NDArray $perm=null,
-        NDArray $B=null,
-        object $events=null
+        array|NDArray|null $perm=null,
+        ?NDArray $B=null,
+        ?object $events=null
         ) : NDArray
     {
         if($A->ndim()<1) {
@@ -6381,9 +6381,9 @@ class LinearAlgebraCL
      */
     protected function transposeND(
         NDArray $A,
-        array|NDArray $perm=null,
-        NDArray $B=null,
-        object $events=null,object $waitEvents=null
+        array|NDArray|null $perm=null,
+        ?NDArray $B=null,
+        ?object $events=null, ?object $waitEvents=null
         ) : NDArray
     {
         if($this->profiling) {
@@ -6453,8 +6453,8 @@ class LinearAlgebraCL
 
     public function transpose2D(
         NDArray $A,
-        NDArray $B=null,
-        object $events=null
+        ?NDArray $B=null,
+        ?object $events=null
         ) : NDArray
     {
         if($this->profiling) {
@@ -6504,7 +6504,7 @@ class LinearAlgebraCL
         NDArray $A,
         int $lower,
         int $upper,
-        object $events=null,object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
     ) : void
     {
         if($this->profiling) {
@@ -6536,14 +6536,14 @@ class LinearAlgebraCL
 
     public function imagecopy(
         NDArray $A,
-        NDArray $B=null,
-        bool $channels_first=null,
-        int $heightShift=null,
-        int $widthShift=null,
-        bool $verticalFlip=null,
-        bool $horizontalFlip=null,
-        bool $rgbFlip=null,
-        object $events=null,object $waitEvents=null
+        ?NDArray $B=null,
+        ?bool $channels_first=null,
+        ?int $heightShift=null,
+        ?int $widthShift=null,
+        ?bool $verticalFlip=null,
+        ?bool $horizontalFlip=null,
+        ?bool $rgbFlip=null,
+        ?object $events=null, ?object $waitEvents=null
         ) : NDArray
     {
         if($this->profiling) {
@@ -6622,7 +6622,7 @@ class LinearAlgebraCL
     /**
      * @return array<NDArray>
      */
-    public function svd(NDArray $matrix,bool $fullMatrices=null) : array
+    public function svd(NDArray $matrix, ?bool $fullMatrices=null) : array
     {
         if($this->profiling) {
             $this->profilingStart("svd");
@@ -6860,8 +6860,8 @@ class LinearAlgebraCL
         string $equation,
         NDArray $a,
         NDArray $b,
-        object $events=null,
-        object $waitEvents=null
+        ?object $events=null,
+        ?object $waitEvents=null 
     ) : NDArray
     {
         if($this->profiling) {
@@ -6938,9 +6938,9 @@ class LinearAlgebraCL
         string $equation,
         NDArray $a,
         NDArray $b,
-        NDArray $c=null,
-        object $events=null,
-        object $waitEvents=null
+        ?NDArray $c=null,
+        ?object $events=null,
+        ?object $waitEvents=null 
     ) : NDArray
     {
         if($this->profiling) {
@@ -7073,12 +7073,12 @@ class LinearAlgebraCL
     public function masking(
         NDArray $mask,
         NDArray $data,
-        int $batchDims=null,
-        int $axis=null,
-        float $fill=null,
-        int $mode=null,
-        object $events=null,
-        object $waitEvents=null
+        ?int $batchDims=null,
+        ?int $axis=null,
+        ?float $fill=null,
+        ?int $mode=null,
+        ?object $events=null,
+        ?object $waitEvents=null 
         ) : NDArray
     {
         if($this->profiling) {

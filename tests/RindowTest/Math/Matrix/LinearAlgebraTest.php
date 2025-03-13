@@ -54,7 +54,7 @@ class LinearAlgebraTest extends TestCase
         return $mo->la();
     }
 
-    public function newArray(array $shape,$dtype=null)
+    public function newArray(array $shape, ?int $dtype=null)
     {
         if($dtype===null)
             $dtype = NDArray::float32;

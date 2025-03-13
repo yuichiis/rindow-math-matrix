@@ -25,7 +25,7 @@ class PhpBlas
         NDArray::float16,NDArray::float32,NDArray::float64,
     ];
 
-    public function __construct(object $blas=null,bool $forceBlas=null)
+    public function __construct(?object $blas=null,?bool $forceBlas=null)
     {
         //$this->blas = $blas;
         //$this->forceBlas = $forceBlas;

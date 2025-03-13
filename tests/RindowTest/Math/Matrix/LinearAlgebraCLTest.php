@@ -27,7 +27,7 @@ use function Rindow\Math\Matrix\C;
 
 class TestMatrixOperator extends MatrixOperator
 {
-    protected function createLinearAlgebraCL(array $options=null) : object
+    protected function createLinearAlgebraCL(?array $options=null) : object
     {
         $queue = $this->service->createQueue($options);
         $la = new TestLinearAlgebraCL($queue,service:$this->service);
@@ -39,10 +39,10 @@ class TestLinearAlgebraCL extends LinearAlgebraCL
 {
     public function sumTest(
         NDArray $X,
-        NDArray $R=null,
-        object $events=null,
-        object $waitEvents=null,
-        int $mode = null
+        ?NDArray $R=null,
+        ?object $events=null,
+        ?object $waitEvents=null,
+        ?int $mode = null
         )
     {
         if($R==null) {
@@ -183,11 +183,11 @@ class TestLinearAlgebraCL extends LinearAlgebraCL
 */
     public function reduceSumTest( //reducesumex
         NDArray $A,
-        int $axis=null,
-        NDArray $B=null,
-        $dtype=null,
-        $events=null,$waitEvents=null,
-        $mode = null
+        ?int $axis=null,
+        ?NDArray $B=null,
+        ?int $dtype=null,
+        ?object $events=null, ?object $waitEvents=null,
+        ?int $mode = null
         ) : NDArray
     {
         $ndim = $A->ndim();
@@ -380,11 +380,11 @@ class TestLinearAlgebraCL extends LinearAlgebraCL
 */
     public function reduceMaxTest( //reducemaxex
         NDArray $A,
-        int $axis=null,
-        NDArray $B=null,
-        $dtype=null,
-        $events=null,$waitEvents=null,
-        $mode = null
+        ?int $axis=null,
+        ?NDArray $B=null,
+        ?int $dtype=null,
+        ?object $events=null, ?object $waitEvents=null,
+        ?int $mode = null
         ) : NDArray
     {
         $ndim = $A->ndim();
@@ -576,11 +576,11 @@ class TestLinearAlgebraCL extends LinearAlgebraCL
 */
     public function reduceArgMaxTest( //reduceargmaxex
         NDArray $A,
-        int $axis=null,
-        NDArray $B=null,
-        $dtype=null,
-        $events=null,$waitEvents=null,
-        $mode = null
+        ?int $axis=null,
+        ?NDArray $B=null,
+        ?int $dtype=null,
+        ?object $events=null, ?object $waitEvents=null,
+        ?int $mode = null
         ) : NDArray
     {
         $ndim = $A->ndim();
@@ -673,8 +673,8 @@ class TestLinearAlgebraCL extends LinearAlgebraCL
 
     public function softmaxTest(
         NDArray $X,
-        object $events=null, object $waitEvents=null,
-        $mode = null
+        ?object $events=null, ?object $waitEvents=null,
+        ?int $mode = null
         ) : NDArray
     {
         if($X->ndim()!=2) {

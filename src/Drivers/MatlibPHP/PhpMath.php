@@ -24,7 +24,7 @@ class PhpMath
         NDArray::float16,NDArray::float32,NDArray::float64,
     ];
 
-    public function __construct(object $math=null, bool $forceMath=null)
+    public function __construct(?object $math=null, ?bool $forceMath=null)
     {
         //$this->math = $math;
         //$this->forceMath = $forceMath;

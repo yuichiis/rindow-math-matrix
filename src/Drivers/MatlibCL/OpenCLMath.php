@@ -792,9 +792,9 @@ class OpenCLMath
     }
 
     protected function newBuffer(
-        int $size,int $flags=null,
-        HostBufferInterface $hostBuffer=null, int $hostOffset=null,
-        int $dtype=null) : BufferInterface
+        int $size, ?int $flags=null,
+        ?HostBufferInterface $hostBuffer=null, ?int $hostOffset=null,
+        ?int $dtype=null) : BufferInterface
     {
         $hostOffset = $hostOffset ?? 0;
         return $this->service->buffer(Service::LV_ACCELERATED)->Buffer($this->context,
@@ -830,7 +830,7 @@ class OpenCLMath
         int $n,
         BufferInterface $R, int $offsetR,
         BufferInterface $X, int $offsetX, int $incX,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $X->dtype();
@@ -894,7 +894,7 @@ class OpenCLMath
         int $n,
         BufferInterface $R, int $offsetR,
         BufferInterface $X, int $offsetX, int $incX,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $X->dtype();
@@ -953,7 +953,7 @@ class OpenCLMath
         int $n,
         BufferInterface $R, int $offsetR,
         BufferInterface $X, int $offsetX, int $incX,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $X->dtype();
@@ -1023,7 +1023,7 @@ class OpenCLMath
         int $n,
         BufferInterface $R, int $offsetR,
         BufferInterface $X, int $offsetX, int $incX,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $X->dtype();
@@ -1115,7 +1115,7 @@ class OpenCLMath
         int $n,
         BufferInterface $R, int $offsetR,
         BufferInterface $X, int $offsetX, int $incX,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $X->dtype();
@@ -1174,7 +1174,7 @@ class OpenCLMath
         int $n,
         BufferInterface $R, int $offsetR,
         BufferInterface $X, int $offsetX, int $incX,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $X->dtype();
@@ -1236,7 +1236,7 @@ class OpenCLMath
         int $n,
         BufferInterface $R, int $offsetR,
         BufferInterface $X, int $offsetX, int $incX,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $X->dtype();
@@ -1312,7 +1312,7 @@ class OpenCLMath
         float $alpha,
         BufferInterface $X, int $offsetX, int $incX,
         float $beta,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -1353,7 +1353,7 @@ class OpenCLMath
         float $alpha,
         BufferInterface $X, int $offsetX, int $incX,
         float $beta,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -1395,7 +1395,7 @@ class OpenCLMath
         int $n,
         BufferInterface $A, int $offsetA, int $ldA,
         BufferInterface $X, int $offsetX, int $incX,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -1459,7 +1459,7 @@ class OpenCLMath
         int $n,
         BufferInterface $A, int $offsetA, int $ldA,
         BufferInterface $X, int $offsetX, int $incX,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -1523,7 +1523,7 @@ class OpenCLMath
         int $n,
         BufferInterface $A, int $offsetA, int $ldA,
         BufferInterface $X, int $offsetX, int $incX,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -1594,7 +1594,7 @@ class OpenCLMath
         int $n,
         BufferInterface $A, int $offsetA, int $ldA,
         BufferInterface $X, int $offsetX, int $incX,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -1664,7 +1664,7 @@ class OpenCLMath
         int $n,
         BufferInterface $A, int $offsetA, int $ldA,
         BufferInterface $X, int $offsetX, int $incX,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -1728,7 +1728,7 @@ class OpenCLMath
         int $n,
         BufferInterface $A, int $offsetA, int $ldA,
         BufferInterface $X, int $offsetX, int $incX,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -1792,7 +1792,7 @@ class OpenCLMath
         int $n,
         BufferInterface $X, int $offsetX, int $incX,
         BufferInterface $A, int $offsetA, int $ldA,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         if($trans) {
@@ -1855,7 +1855,7 @@ class OpenCLMath
         float $alpha,
         BufferInterface $X, int $offsetX, int $incX,
         BufferInterface $A, int $offsetA, int $ldA,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         if($trans) {
@@ -1917,7 +1917,7 @@ class OpenCLMath
     public function square(
         int $n,
         BufferInterface $X, int $offsetX, int $incX,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -1958,7 +1958,7 @@ class OpenCLMath
     public function sqrt(
         int $n,
         BufferInterface $X, int $offsetX, int $incX,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -1995,7 +1995,7 @@ class OpenCLMath
         float $alpha,
         BufferInterface $X, int $offsetX, int $incX,
         float $beta,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -2037,7 +2037,7 @@ class OpenCLMath
         int $n,
         BufferInterface $A, int $offsetA, int $ldA,
         BufferInterface $X, int $offsetX, int $incX,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         if($trans) {
@@ -2097,7 +2097,7 @@ class OpenCLMath
     public function exp(
         int $n,
         BufferInterface $X, int $offsetX, int $incX,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -2132,7 +2132,7 @@ class OpenCLMath
     public function log(
         int $n,
         BufferInterface $X, int $offsetX, int $incX,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -2167,7 +2167,7 @@ class OpenCLMath
     public function tanh(
         int $n,
         BufferInterface $X, int $offsetX, int $incX,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -2202,7 +2202,7 @@ class OpenCLMath
     public function sin(
         int $n,
         BufferInterface $X, int $offsetX, int $incX,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -2237,7 +2237,7 @@ class OpenCLMath
     public function cos(
         int $n,
         BufferInterface $X, int $offsetX, int $incX,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -2272,7 +2272,7 @@ class OpenCLMath
     public function tan(
         int $n,
         BufferInterface $X, int $offsetX, int $incX,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -2309,7 +2309,7 @@ class OpenCLMath
         int $n,
         BufferInterface $X, int $offsetX, int $incX,
         BufferInterface $Y, int $offsetY, int $incY,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -2363,7 +2363,7 @@ class OpenCLMath
         int $n,
         BufferInterface $X, int $offsetX, int $incX,
         BufferInterface $Y, int $offsetY, int $incY,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -2416,7 +2416,7 @@ class OpenCLMath
     public function not(
         int $n,
         BufferInterface $X, int $offsetX, int $incX,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -2462,7 +2462,7 @@ class OpenCLMath
     public function abs(
         int $n,
         BufferInterface $X, int $offsetX, int $incX,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -2516,7 +2516,7 @@ class OpenCLMath
         int $n,
         BufferInterface $X, int $offsetX, int $incX,
         BufferInterface $A, int $offsetA, int $ldA,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         if($trans) {
@@ -2574,7 +2574,7 @@ class OpenCLMath
         int $dtype,
         BufferInterface $X, int $offsetX, int $incX,
         BufferInterface $Y, int $offsetY, int $incY,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -2788,7 +2788,7 @@ EOT;
         bool $sorted,
         BufferInterface $values, int $offsetValues,
         BufferInterface $indices, int $offsetIndices,
-        object $events=null, object $waitEvents=null,
+        ?object $events=null, ?object $waitEvents=null,
         ) : void
     {
         //$this->assertShapeParameter("m", $m);
@@ -2870,7 +2870,7 @@ EOT;
         BufferInterface $X, int $offsetX,
         BufferInterface $A, int $offsetA,
         BufferInterface $B, int $offsetB,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         if($reverse==true && $addMode==true) {
@@ -2976,7 +2976,7 @@ EOT;
         BufferInterface $X, int $offsetX,
         BufferInterface $A, int $offsetA,
         BufferInterface $B, int $offsetB,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -3117,7 +3117,7 @@ EOT;
         BufferInterface $X, int $offsetX,
         BufferInterface $A, int $offsetA,
         BufferInterface $B, int $offsetB,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         if($X->dtype()!=NDArray::int32 && $X->dtype()!=NDArray::uint32) {
@@ -3232,7 +3232,7 @@ EOT;
         BufferInterface $X, int $offsetX,
         BufferInterface $A, int $offsetA,
         BufferInterface $B, int $offsetB,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
 //echo "mode=0\n";
@@ -3296,7 +3296,7 @@ EOT;
         BufferInterface $X, int $offsetX,
         BufferInterface $A, int $offsetA,
         BufferInterface $B, int $offsetB,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
 //echo "mode=1\n";
@@ -3373,7 +3373,7 @@ EOT;
         BufferInterface $X, int $offsetX,
         BufferInterface $A, int $offsetA,
         BufferInterface $B, int $offsetB,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
 //echo "mode=2\n";
@@ -3455,7 +3455,7 @@ EOT;
         BufferInterface $X, int $offsetX,
         BufferInterface $A, int $offsetA,
         BufferInterface $B, int $offsetB,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
 //echo "mode=3\n";
@@ -3568,7 +3568,7 @@ EOT;
          BufferInterface $X, int $offsetX,
          BufferInterface $A, int $offsetA,
          BufferInterface $B, int $offsetB,
-         object $events=null, object $waitEvents=null
+         ?object $events=null, ?object $waitEvents=null
          ) : void
     {
 //echo "mode=4\n";
@@ -3639,7 +3639,7 @@ EOT;
         BufferInterface $A, int $offsetA,
         BufferInterface $X, int $offsetX,
         BufferInterface $B, int $offsetB,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
     ) : void
     {
         if($reverse&&$addMode&&$n>1) {
@@ -3743,7 +3743,7 @@ EOT;
         BufferInterface $A, int $offsetA,
         BufferInterface $X, int $offsetX,
         BufferInterface $B, int $offsetB,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
     ) : void
     {
         $dtype = $B->dtype();
@@ -3909,7 +3909,7 @@ EOT;
         BufferInterface $A, int $offsetA,
         BufferInterface $X, int $offsetX,
         BufferInterface $B, int $offsetB,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
     ) : void
     {
         if($reverse&&$addMode) {
@@ -4028,7 +4028,7 @@ EOT;
         BufferInterface $A, int $offsetA,
         BufferInterface $X, int $offsetX,
         BufferInterface $B, int $offsetB,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
     ) : void
     {
         $dtype = $B->dtype();
@@ -4228,7 +4228,7 @@ EOT;
          int $repeats,
          BufferInterface $A, int $offsetA,
          BufferInterface $B, int $offsetB,
-         object $events=null, object $waitEvents=null
+         ?object $events=null, ?object $waitEvents=null
          ) : void
     {
 //echo "mode=4\n";
@@ -4283,7 +4283,7 @@ EOT;
         BufferInterface $X, int $offsetX, int $incX,
         BufferInterface $Y, int $offsetY, int $ldY,
         bool $addMode,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         if($X->dtype()!=NDArray::int32 && $X->dtype()!=NDArray::uint32) {
@@ -4362,7 +4362,7 @@ EOT;
         int $k,
         BufferInterface $A, int $offsetA,
         BufferInterface $B, int $offsetB,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -4452,7 +4452,7 @@ EOT;
         int $k,
         BufferInterface $A, int $offsetA,
         BufferInterface $B, int $offsetB,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -4518,7 +4518,7 @@ EOT;
         int $k,
         BufferInterface $A, int $offsetA,
         BufferInterface $B, int $offsetB,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -4586,7 +4586,7 @@ EOT;
         int $k,
         BufferInterface $A, int $offsetA,
         BufferInterface $B, int $offsetB,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -4664,7 +4664,7 @@ EOT;
         int $k,
         BufferInterface $A, int $offsetA,
         BufferInterface $B, int $offsetB,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -4769,7 +4769,7 @@ EOT;
         int $k,
         BufferInterface $A, int $offsetA,
         BufferInterface $B, int $offsetB,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -4859,7 +4859,7 @@ EOT;
         int $k,
         BufferInterface $A, int $offsetA,
         BufferInterface $B, int $offsetB,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -4932,7 +4932,7 @@ EOT;
         int $k,
         BufferInterface $A, int $offsetA,
         BufferInterface $B, int $offsetB,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -5001,7 +5001,7 @@ EOT;
         int $k,
         BufferInterface $A, int $offsetA,
         BufferInterface $B, int $offsetB,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -5080,7 +5080,7 @@ EOT;
         int $k,
         BufferInterface $A, int $offsetA,
         BufferInterface $B, int $offsetB,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -5186,7 +5186,7 @@ EOT;
         int $k,
         BufferInterface $A, int $offsetA,
         BufferInterface $B, int $offsetB,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -5277,7 +5277,7 @@ EOT;
         int $k,
         BufferInterface $A, int $offsetA,
         BufferInterface $B, int $offsetB,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -5350,7 +5350,7 @@ EOT;
         int $k,
         BufferInterface $A, int $offsetA,
         BufferInterface $B, int $offsetB,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -5424,7 +5424,7 @@ EOT;
         int $k,
         BufferInterface $A, int $offsetA,
         BufferInterface $B, int $offsetB,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -5510,7 +5510,7 @@ EOT;
         int $k,
         BufferInterface $A, int $offsetA,
         BufferInterface $B, int $offsetB,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -5625,7 +5625,7 @@ EOT;
         int $m,
         int $n,
         BufferInterface $A, int $offsetA, int $ldA,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -5659,7 +5659,7 @@ EOT;
         int $m,
         int $n,
         BufferInterface $A, int $offsetA, int $ldA,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         //$trans = false;  // disable transpose function yet
@@ -5731,7 +5731,7 @@ EOT;
         int $m,
         int $n,
         BufferInterface $A, int $offsetA, int $ldA,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         //$trans = false;  // disable transpose function yet
@@ -5811,7 +5811,7 @@ EOT;
         int $m,
         int $n,
         BufferInterface $A, int $offsetA, int $ldA,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         //$trans = false;  // disable transpose function yet
@@ -5925,7 +5925,7 @@ EOT;
         int $sizeAxis1,
         int $startAxis2,
         int $sizeAxis2,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         if($A->dtype()!=$Y->dtype()) {
@@ -6028,7 +6028,7 @@ EOT;
         BufferInterface $X, int $offsetX, int $incX, // float
         bool $right,
         BufferInterface $Y, int $offsetY, int $incY, // int
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -6105,7 +6105,7 @@ EOT;
         bool $exclusive,
         bool $reverse,
         BufferInterface $Y, int $offsetY, int $incY, // float
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -6177,7 +6177,7 @@ EOT;
         bool $exclusive,
         bool $reverse,
         BufferInterface $B, int $offsetB, // float
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtypeA = $A->dtype();
@@ -6260,7 +6260,7 @@ EOT;
         int $n,
         BufferInterface $X, int $offsetX, int $incX,
         float $alpha,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -6299,7 +6299,7 @@ EOT;
     public function isnan(
         int $n,
         BufferInterface $X, int $offsetX, int $incX,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtypeX = $X->dtype();
@@ -6347,7 +6347,7 @@ EOT;
         bool $verticalFlip,
         bool $horizontalFlip,
         bool $rgbFlip,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         if($A->dtype()!=$B->dtype()) {
@@ -6475,7 +6475,7 @@ EOT;
         BufferInterface $cols,
         int $cols_offset,
         int $cols_size,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $images->dtype();
@@ -6658,7 +6658,7 @@ EOT;
         BufferInterface $cols,
         int $cols_offset,
         int $cols_size,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $images->dtype();
@@ -6878,7 +6878,7 @@ EOT;
         BufferInterface $cols,
         int $cols_offset,
         int $cols_size,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $images->dtype();
@@ -7104,7 +7104,7 @@ EOT;
         int|float $low,
         int|float $high,
         int $seed,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $X->dtype();
@@ -7195,7 +7195,7 @@ EOT;
         float $mean,
         float $scale,
         int $seed,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $X->dtype();
@@ -7256,7 +7256,7 @@ EOT;
         int $n,
         BufferInterface $X, int $offsetX, int $incX,
         mixed $pattern,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         if(!is_scalar($pattern)) {
@@ -7308,8 +7308,8 @@ EOT;
         BufferInterface $clBuffer,
         int $offset,
         bool $blocking_read=true,
-        object $events=null,
-        object $waitEvents=null) : HostBufferInterface
+        ?object $events=null,
+        ?object $waitEvents=null) : HostBufferInterface
     {
         $dtype = $clBuffer->dtype();
         $bytes = $clBuffer->bytes();
@@ -7326,7 +7326,7 @@ EOT;
         HostBufferInterface|BufferInterface $perm,    // DeviceBuffer or HostBuffer
         BufferInterface $A, int $offsetA,
         BufferInterface $B, int $offsetB, 
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -7546,7 +7546,7 @@ EOT;
         BufferInterface $A, int $offset,
         int $lower,
         int $upper,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $dtype = $A->dtype();
@@ -7599,7 +7599,7 @@ EOT;
         int $mode,  // mode=0:set , mode=1:add
         BufferInterface $X, int $offsetX,
         BufferInterface $A, int $offsetA,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         if($X->dtype()!=NDArray::bool) {
@@ -7681,7 +7681,7 @@ EOT;
         BufferInterface $C,
         int $offsetC,
         int $ndimC,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
     ) : void
     {
         if($offsetA<0) {
@@ -7865,7 +7865,7 @@ EOT;
         int $ldB4,
         BufferInterface $C,
         int $offsetC,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $maxA = $ldA0*($dim0-1)+$ldA1*($dim1-1)+$ldA2*($dim2-1)+$ldA3*($dim3-1)+$ldA4*($dim4-1);

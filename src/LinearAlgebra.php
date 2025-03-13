@@ -47,8 +47,8 @@ class LinearAlgebra
 
     public function __construct(
         Service $service,
-        int $defaultFloatType=null,
-        int $serviceLevel=null)
+        ?int $defaultFloatType=null,
+        ?int $serviceLevel=null)
     {
         $this->service = $service;
         $this->blas = $service->blas($serviceLevel);
@@ -161,7 +161,7 @@ class LinearAlgebra
         return $dtype==NDarray::float32||$dtype==NDarray::float64;
     }
 
-    public function array(mixed $array,int $dtype=null) : NDArray
+    public function array(mixed $array, ?int $dtype=null) : NDArray
     {
         if($array instanceof NDArray) {
             return $array;
@@ -214,7 +214,7 @@ class LinearAlgebra
         return $x->reshape($newShape);
     }
 
-    public function squeeze(NDArray $x, int $axis=null) : NDArray
+    public function squeeze(NDArray $x, ?int $axis=null) : NDArray
     {
         $shape = $x->shape();
         if($axis===null) {
@@ -252,7 +252,7 @@ class LinearAlgebra
     /**
      * @param array<int> $shape
      */
-    public function alloc(array $shape,int $dtype=null) : NDArray
+    public function alloc(array $shape,?int $dtype=null) : NDArray
     {
         if($dtype===null)
             $dtype = $this->defaultFloatType;
@@ -311,7 +311,7 @@ class LinearAlgebra
     */
     public function copy(
         NDArray $X,
-        NDArray $Y=null ) : NDArray
+        ?NDArray $Y=null ) : NDArray
     {
         if($Y===null) {
             $Y = $this->alloc($X->shape(),dtype:$X->dtype());
@@ -350,7 +350,7 @@ class LinearAlgebra
     public function axpy(
         NDArray $X,
         NDArray $Y,
-        float|object $alpha=null) : NDArray
+        float|object|null $alpha=null) : NDArray
     {
         if($X->shape()!=$Y->shape()) {
             $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
@@ -374,7 +374,7 @@ class LinearAlgebra
     public function dot(
         NDArray $X,
         NDArray $Y,
-        bool $conj=null
+        ?bool $conj=null
         ) : float|object
     {
         if($X->shape()!=$Y->shape()) {
@@ -520,10 +520,10 @@ class LinearAlgebra
     public function rotg(
         NDArray $X,
         NDArray $Y,
-        NDArray $R=null,
-        NDArray $Z=null,
-        NDArray $C=null,
-        NDArray $S=null) : array
+        ?NDArray $R=null,
+        ?NDArray $Z=null,
+        ?NDArray $C=null,
+        ?NDArray $S=null) : array
     {
         if($X->shape()!=$Y->shape()) {
             $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
@@ -587,7 +587,7 @@ class LinearAlgebra
      */
     public function rotgxy(
         NDArray $vector,
-        NDArray $g=null,
+        ?NDArray $g=null,
         ) : NDArray
     {
         if($vector->shape()!=[2]) {
@@ -666,10 +666,10 @@ class LinearAlgebra
     public function rotmg(
         NDArray $X,
         NDArray $Y,
-        NDArray $D1=null,
-        NDArray $D2=null,
-        NDArray $B1=null,
-        NDArray $P=null,
+        ?NDArray $D1=null,
+        ?NDArray $D2=null,
+        ?NDArray $B1=null,
+        ?NDArray $P=null,
         ) : array
     {
         if($X->size()!=1||$Y->size()!=1) {
@@ -743,8 +743,8 @@ class LinearAlgebra
      */
     public function rotmgxy(
         NDArray $vector,
-        NDArray $d=null,
-        NDArray $g=null,
+        ?NDArray $d=null,
+        ?NDArray $g=null,
         ) : NDArray
     {
         if($vector->shape()!=[2]) {
@@ -849,11 +849,11 @@ class LinearAlgebra
     public function gemv(
         NDArray $A,
         NDArray $X,
-        float|object $alpha=null,
-        float|object $beta=null,
-        NDArray $Y=null,
-        bool $trans=null,
-        bool $conj=null
+        float|object|null $alpha=null,
+        float|object|null $beta=null,
+        ?NDArray $Y=null,
+        ?bool $trans=null,
+        ?bool $conj=null
         ) : NDArray
     {
         [$trans,$conj] = $this->complementTrans($trans,$conj,$A->dtype());
@@ -913,13 +913,13 @@ class LinearAlgebra
     public function gemm(
         NDArray $A,
         NDArray $B,
-        float|object $alpha=null,
-        float|object $beta=null,
-        NDArray $C=null,
-        bool $transA=null,
-        bool $transB=null,
-        bool $conjA=null,
-        bool $conjB=null,
+        float|object|null $alpha=null,
+        float|object|null $beta=null,
+        ?NDArray $C=null,
+        ?bool $transA=null,
+        ?bool $transB=null,
+        ?bool $conjA=null,
+        ?bool $conjB=null,
         ) : NDArray
     {
         [$transA,$conjA] = $this->complementTrans($transA,$conjA,$A->dtype());
@@ -988,13 +988,13 @@ class LinearAlgebra
     public function matmul(
         NDArray $A,
         NDArray $B,
-        bool $transA=null,
-        bool $transB=null,
-        NDArray $C=null,
-        float|object $alpha=null,
-        float|object $beta=null,
-        bool $conjA=null,
-        bool $conjB=null,
+        ?bool $transA=null,
+        ?bool $transB=null,
+        ?NDArray $C=null,
+        float|object|null $alpha=null,
+        float|object|null $beta=null,
+        ?bool $conjA=null,
+        ?bool $conjB=null,
         ) : NDArray
     {
         [$transA,$conjA] = $this->complementTrans($transA,$conjA,$A->dtype());
@@ -1105,11 +1105,11 @@ class LinearAlgebra
     public function symm(
         NDArray $A,
         NDArray $B,
-        float|object $alpha=null,
-        float|object $beta=null,
-        NDArray $C=null,
-        bool $right=null,
-        bool $lower=null
+        float|object|null $alpha=null,
+        float|object|null $beta=null,
+        ?NDArray $C=null,
+        ?bool $right=null,
+        ?bool $lower=null
         ) : NDArray
     {
         if($A->ndim()!=2 || $B->ndim()!=2) {
@@ -1173,12 +1173,12 @@ class LinearAlgebra
     */
     public function syrk(
         NDArray $A,
-        float|object $alpha=null,
-        float|object $beta=null,
-        NDArray $C=null,
-        bool $lower=null,
-        bool $trans=null,
-        bool $conj=null,
+        float|object|null $alpha=null,
+        float|object|null $beta=null,
+        ?NDArray $C=null,
+        ?bool $lower=null,
+        ?bool $trans=null,
+        ?bool $conj=null,
         ) : NDArray
     {
         $trans = $trans ?? false;
@@ -1237,12 +1237,12 @@ class LinearAlgebra
     public function syr2k(
         NDArray $A,
         NDArray $B,
-        float|object $alpha=null,
-        float|object $beta=null,
-        NDArray $C=null,
-        bool $lower=null,
-        bool $trans=null,
-        bool $conj=null,
+        float|object|null $alpha=null,
+        float|object|null $beta=null,
+        ?NDArray $C=null,
+        ?bool $lower=null,
+        ?bool $trans=null,
+        ?bool $conj=null,
         ) : NDArray
     {
         $trans = $trans ?? false;
@@ -1309,12 +1309,12 @@ class LinearAlgebra
     public function trmm(
         NDArray $A,
         NDArray $B,
-        float|object $alpha=null,
-        bool $right=null,
-        bool $lower=null,
-        bool $trans=null,
-        bool $conj=null,
-        bool $unit=null,
+        float|object|null $alpha=null,
+        ?bool $right=null,
+        ?bool $lower=null,
+        ?bool $trans=null,
+        ?bool $conj=null,
+        ?bool $unit=null,
         ) : NDArray
     {
         [$trans,$conj] = $this->complementTrans($trans,$conj,$A->dtype());
@@ -1372,12 +1372,12 @@ class LinearAlgebra
     public function trsm(
         NDArray $A,
         NDArray $B,
-        float|object $alpha=null,
-        bool $right=null,
-        bool $lower=null,
-        bool $trans=null,
-        bool $conj=null,
-        bool $unit=null
+        float|object|null $alpha=null,
+        ?bool $right=null,
+        ?bool $lower=null,
+        ?bool $trans=null,
+        ?bool $conj=null,
+        ?bool $unit=null
         ) : NDArray
     {
         [$trans,$conj] = $this->complementTrans($trans,$conj,$A->dtype());
@@ -1430,10 +1430,10 @@ class LinearAlgebra
      */
     public function omatcopy(
         NDArray $A,
-        bool $trans=null,
-        bool $conj=null,
-        float|object $alpha=null,
-        NDArray $B=null,
+        ?bool $trans=null,
+        ?bool $conj=null,
+        float|object|null $alpha=null,
+        ?NDArray $B=null,
         ) : NDArray
     {
         [$trans,$conj] = $this->complementTrans($trans,$conj,$A->dtype());
@@ -1546,8 +1546,8 @@ class LinearAlgebra
     */
     public function increment(
         NDArray $X,
-        float $beta=null,
-        float $alpha=null) : NDArray
+        ?float $beta=null,
+        ?float $alpha=null) : NDArray
     {
         $n = $X->size();
         $XX = $X->buffer();
@@ -1574,8 +1574,8 @@ class LinearAlgebra
     */
     public function reciprocal(
         NDArray $X,
-        float $beta=null,
-        float $alpha=null) : NDArray
+        ?float $beta=null,
+        ?float $alpha=null) : NDArray
     {
         $n = $X->size();
         $XX = $X->buffer();
@@ -1804,7 +1804,7 @@ class LinearAlgebra
      public function multiply(
         NDArray $X,
         NDArray $A,
-        bool $trans=null
+        ?bool $trans=null
         ) : NDArray
     {
         if($trans===null) {
@@ -1851,8 +1851,8 @@ class LinearAlgebra
      public function add(
         NDArray $X,
         NDArray $A,
-        float $alpha=null,
-        bool $trans=null
+        ?float $alpha=null,
+        ?bool $trans=null
         ) : NDArray
     {
         if($trans===null)
@@ -1939,8 +1939,8 @@ class LinearAlgebra
      */
     public function rsqrt(
         NDArray $X,
-        float $beta=null,
-        float $alpha=null) : NDArray
+        ?float $beta=null,
+        ?float $alpha=null) : NDArray
     {
         $n = $X->size();
         $XX = $X->buffer();
@@ -1968,7 +1968,7 @@ class LinearAlgebra
     public function pow(
         NDArray $A,
         float|NDArray $alpha,
-        bool $trans=null,
+        ?bool $trans=null,
         ) : NDArray
     {
         if($trans===null) {
@@ -2193,9 +2193,9 @@ class LinearAlgebra
      */
     public function duplicate(
         NDArray $input,
-        int $repeats=null,
-        bool $trans=null,
-        NDArray $output=null) : NDArray
+        ?int $repeats=null,
+        ?bool $trans=null,
+        ?NDArray $output=null) : NDArray
     {
         if($trans===null)
             $trans = false;
@@ -2250,10 +2250,10 @@ class LinearAlgebra
      */
     public function topK(
         NDArray $input,
-        int $k=null,
-        bool $sorted=null,
-        NDArray $values=null,
-        NDArray $indices=null,
+        ?int $k=null,
+        ?bool $sorted=null,
+        ?NDArray $values=null,
+        ?NDArray $indices=null,
     ) : array
     {
         $k ??= 1;
@@ -2325,9 +2325,9 @@ class LinearAlgebra
         bool $scatterAdd,
         NDArray $A,
         NDArray $X,
-        int $axis=null,
-        NDArray $output=null,
-        int $dtype=null) : NDArray
+        ?int $axis=null,
+        ?NDArray $output=null,
+        ?int $dtype=null) : NDArray
     {
 //echo "shapeX=[".implode(',',$X->shape())."],shapeA=[".implode(',',$A->shape())."]\n";
         if($axis===null) {
@@ -2424,9 +2424,9 @@ class LinearAlgebra
     public function gather(
         NDArray $A,
         NDArray $X,
-        int $axis=null,
-        NDArray $output=null,
-        int $dtype=null) : NDArray
+        ?int $axis=null,
+        ?NDArray $output=null,
+        ?int $dtype=null) : NDArray
     {
         return $this->doGather(
             $scatterAdd=false,
@@ -2446,8 +2446,8 @@ class LinearAlgebra
         NDArray $X,
         NDArray $A,
         NDArray $output,
-        int $axis=null,
-        int $dtype=null) : NDArray
+        ?int $axis=null,
+        ?int $dtype=null) : NDArray
     {
         $this->doGather(
             $scatterAdd=true,
@@ -2468,9 +2468,9 @@ class LinearAlgebra
         NDArray $X,
         NDArray $A,
         int $numClass,
-        int $axis=null,
-        NDArray $output=null,
-        int $dtype=null) : NDArray
+        ?int $axis=null,
+        ?NDArray $output=null,
+        ?int $dtype=null) : NDArray
     {
 //echo "shapeX=[".implode(',',$X->shape())."],shapeA=[".implode(',',$A->shape())."]\n";
 //echo "axis=$axis,numClass=$numClass\n";
@@ -2575,11 +2575,11 @@ class LinearAlgebra
         bool $addMode,
         NDArray $A,
         NDarray $X,
-        int $axis=null,
-        int $batchDims=null,
-        int $detailDepth=null,
-        int $indexDepth=null,
-        NDArray $B=null,
+        ?int $axis=null,
+        ?int $batchDims=null,
+        ?int $detailDepth=null,
+        ?int $indexDepth=null,
+        ?NDArray $B=null,
     ) : NDArray
     {
         $batchDims ??= 0;
@@ -2713,11 +2713,11 @@ class LinearAlgebra
     public function gatherb(
         NDArray $params,
         NDarray $indices,
-        int $axis=null,
-        int $batchDims=null,
-        int $detailDepth=null,
-        int $indexDepth=null,
-        NDArray $outputs=null,
+        ?int $axis=null,
+        ?int $batchDims=null,
+        ?int $detailDepth=null,
+        ?int $indexDepth=null,
+        ?NDArray $outputs=null,
     ) : NDArray
     {
         return $this->doGatherb(
@@ -2744,11 +2744,11 @@ class LinearAlgebra
         NDarray $indices,
         NDArray $updates,
         array $shape,
-        int $axis=null,
-        int $batchDims=null,
-        int $detailDepth=null,
-        int $indexDepth=null,
-        NDArray $outputs=null,
+        ?int $axis=null,
+        ?int $batchDims=null,
+        ?int $detailDepth=null,
+        ?int $indexDepth=null,
+        ?NDArray $outputs=null,
     ): NDArray
     {
         if($outputs==null) {
@@ -2779,11 +2779,11 @@ class LinearAlgebra
         NDarray $indices,
         NDArray $updates,
         array $shape,
-        int $axis=null,
-        int $batchDims=null,
-        int $detailDepth=null,
-        int $indexDepth=null,
-        NDArray $outputs=null,
+        ?int $axis=null,
+        ?int $batchDims=null,
+        ?int $detailDepth=null,
+        ?int $indexDepth=null,
+        ?NDArray $outputs=null,
     ): NDArray
     {
         if($outputs==null) {
@@ -2813,8 +2813,8 @@ class LinearAlgebra
         bool $addMode,
         NDArray $A, 
         NDarray $X,
-        int $batchDims=null,
-        NDArray $B=null,
+        ?int $batchDims=null,
+        ?NDArray $B=null,
     ) : NDArray
     {
         $batchDims ??= 0;
@@ -2894,8 +2894,8 @@ class LinearAlgebra
     public function gatherND(
         NDArray $params, 
         NDarray $indices,
-        int $batchDims=null,
-        NDArray $outputs=null,
+        ?int $batchDims=null,
+        ?NDArray $outputs=null,
     ) : NDArray
     {
         return $this->doGatherND(
@@ -2921,8 +2921,8 @@ class LinearAlgebra
         NDarray $indices,
         NDArray $updates,
         array $shape,
-        int $batchDims=null,
-        NDArray $outputs=null,
+        ?int $batchDims=null,
+        ?NDArray $outputs=null,
     ) : NDArray
     {
         if($outputs==null) {
@@ -2953,8 +2953,8 @@ class LinearAlgebra
         NDarray $indices,
         NDArray $updates,
         array $shape,
-        int $batchDims=null,
-        NDArray $outputs=null,
+        ?int $batchDims=null,
+        ?NDArray $outputs=null,
     ) : NDArray
     {
         if($outputs==null) {
@@ -2978,8 +2978,8 @@ class LinearAlgebra
     public function onehot(
         NDArray $X,
         int $numClass,
-        float $alpha=null,
-        NDArray $output=null) : NDArray
+        ?float $alpha=null,
+        ?NDArray $output=null) : NDArray
     {
         if($X->ndim()!=1) {
             throw new InvalidArgumentException('"X" must be 1D-NDArray.');
@@ -3043,10 +3043,10 @@ class LinearAlgebra
      */
     public function reduceSum( // reduceSumEx
         NDArray $input,
-        int $axis=null,
-        bool $keepdims=null,
-        NDArray $output=null,
-        int $dtype=null) : NDArray
+        ?int $axis=null,
+        ?bool $keepdims=null,
+        ?NDArray $output=null,
+        ?int $dtype=null) : NDArray
     {
         $ndim = $input->ndim();
         $origAxis = $axis;
@@ -3102,10 +3102,10 @@ class LinearAlgebra
 
     public function reduceMax( // reduceMaxEx
         NDArray $input,
-        int $axis=null,
-        bool $keepdims=null,
-        NDArray $output=null,
-        int $dtype=null) : NDArray
+        ?int $axis=null,
+        ?bool $keepdims=null,
+        ?NDArray $output=null,
+        ?int $dtype=null) : NDArray
     {
         $ndim = $input->ndim();
         $origAxis = $axis;
@@ -3161,10 +3161,10 @@ class LinearAlgebra
 
     public function reduceArgMax( // reduceMaxArgEx
         NDArray $input,
-        int $axis=null,
-        bool $keepdims=null,
-        NDArray $output=null,
-        int $dtype=null) : NDArray
+        ?int $axis=null,
+        ?bool $keepdims=null,
+        ?NDArray $output=null,
+        ?int $dtype=null) : NDArray
     {
         $ndim = $input->ndim();
         $origAxis = $axis;
@@ -3220,10 +3220,10 @@ class LinearAlgebra
 
     public function reduceMean(
         NDArray $input,
-        int $axis=null,
-        bool $keepdims=null,
-        NDArray $output=null,
-        int $dtype=null) : NDArray
+        ?int $axis=null,
+        ?bool $keepdims=null,
+        ?NDArray $output=null,
+        ?int $dtype=null) : NDArray
     {
         if($axis===null) {
             $axis = 0;
@@ -3251,13 +3251,13 @@ class LinearAlgebra
      */
     public function im2col(
         NDArray $images,
-        array $filterSize=null,
-        array $strides=null,
-        bool $padding=null,
-        bool $channels_first=null,
-        array $dilation_rate=null,
-        bool $cols_channels_first=null,
-        NDArray $cols=null
+        ?array $filterSize=null,
+        ?array $strides=null,
+        ?bool $padding=null,
+        ?bool $channels_first=null,
+        ?array $dilation_rate=null,
+        ?bool $cols_channels_first=null,
+        ?NDArray $cols=null
         ) : NDArray
     {
         $ndim = $images->ndim();
@@ -3320,12 +3320,12 @@ class LinearAlgebra
     public function col2im(
         NDArray $cols,
         NDArray $images,
-        array $filterSize=null,
-        array $strides=null,
-        bool $padding=null,
-        bool $channels_first=null,
-        array $dilation_rate=null,
-        bool $cols_channels_first=null
+        ?array $filterSize=null,
+        ?array $strides=null,
+        ?bool $padding=null,
+        ?bool $channels_first=null,
+        ?array $dilation_rate=null,
+        ?bool $cols_channels_first=null
         ) : NDArray
     {
         $ndim = $images->ndim();
@@ -3379,13 +3379,13 @@ class LinearAlgebra
     public function im2col1d(
         bool $reverse,
         NDArray $images,
-        array $filterSize=null,
-        array $strides=null,
-        bool $padding=null,
-        bool $channels_first=null,
-        array $dilation_rate=null,
-        bool $cols_channels_first=null,
-        NDArray $cols=null
+        ?array $filterSize=null,
+        ?array $strides=null,
+        ?bool $padding=null,
+        ?bool $channels_first=null,
+        ?array $dilation_rate=null,
+        ?bool $cols_channels_first=null,
+        ?NDArray $cols=null
         ) : NDArray
     {
         $ndim = $images->ndim();
@@ -3480,13 +3480,13 @@ class LinearAlgebra
     public function im2col2d(
         bool $reverse,
         NDArray $images,
-        array $filterSize=null,
-        array $strides=null,
-        bool $padding=null,
-        bool $channels_first=null,
-        array $dilation_rate=null,
-        bool $cols_channels_first=null,
-        NDArray $cols=null
+        ?array $filterSize=null,
+        ?array $strides=null,
+        ?bool $padding=null,
+        ?bool $channels_first=null,
+        ?array $dilation_rate=null,
+        ?bool $cols_channels_first=null,
+        ?NDArray $cols=null
         ) : NDArray
     {
         $ndim = $images->ndim();
@@ -3591,13 +3591,13 @@ class LinearAlgebra
     public function im2col3d(
         bool $reverse,
         NDArray $images,
-        array $filterSize=null,
-        array $strides=null,
-        bool $padding=null,
-        bool $channels_first=null,
-        array $dilation_rate=null,
-        bool $cols_channels_first=null,
-        NDArray $cols=null
+        ?array $filterSize=null,
+        ?array $strides=null,
+        ?bool $padding=null,
+        ?bool $channels_first=null,
+        ?array $dilation_rate=null,
+        ?bool $cols_channels_first=null,
+        ?NDArray $cols=null
         ) : NDArray
     {
         $ndim = $images->ndim();
@@ -3706,9 +3706,9 @@ class LinearAlgebra
         array $shape,
         int|float $low,
         int|float $high,
-        int $dtype=null,
-        int $seed=null,
-        NDArray $X=null) : NDArray
+        ?int $dtype=null,
+        ?int $seed=null,
+        ?NDArray $X=null) : NDArray
     {
         if($dtype!==null&&$X!==null) {
             if ($X->dtype()!=$dtype) {
@@ -3747,9 +3747,9 @@ class LinearAlgebra
         array $shape,
         float $mean,
         float $scale,
-        int $dtype=null,
-        int $seed=null,
-        NDArray $X=null) : NDArray
+        ?int $dtype=null,
+        ?int $seed=null,
+        ?NDArray $X=null) : NDArray
     {
         if($dtype!==null&&$X!==null) {
             if ($X->dtype()!=$dtype) {
@@ -3783,10 +3783,10 @@ class LinearAlgebra
 
     public function randomSequence(
         int $base,
-        int $size=null,
-        int $seed=null,
-        int $dtype=null,
-        NDArray $output=null,
+        ?int $size=null,
+        ?int $seed=null,
+        ?int $dtype=null,
+        ?NDArray $output=null,
         ) : NDArray
     {
         $X = $output;
@@ -3828,7 +3828,7 @@ class LinearAlgebra
         NDArray $input,
         array $begin,
         array $size,
-        NDArray $output=null
+        ?NDArray $output=null
         ) : NDArray
     {
         return $this->doSlice(
@@ -3865,7 +3865,7 @@ class LinearAlgebra
      */
     public function stack(
         array $values,
-        int $axis=null
+        ?int $axis=null
     ) : NDArray
     {
         if($axis==null){
@@ -3957,7 +3957,7 @@ class LinearAlgebra
      */
     public function concat(
         array $values,
-        int $axis=null
+        ?int $axis=null
     ) : NDArray
     {
         if($axis===null) {
@@ -4014,7 +4014,7 @@ class LinearAlgebra
      * @return array<NDArray>
      */
     public function split(
-        NDArray $input, array $sizeSplits, int $axis=null
+        NDArray $input, array $sizeSplits, ?int $axis=null
         ) : array
     {
         if($axis===null) {
@@ -4052,7 +4052,7 @@ class LinearAlgebra
         NDArray $input,
         array $begin,
         array $size,
-        NDArray $output=null
+        ?NDArray $output=null
         ) : NDArray
     {
         if(!$reverse){
@@ -4191,8 +4191,8 @@ class LinearAlgebra
     public function repeat(
         NDArray $A,
         int $repeats,
-        int $axis=null,
-        bool $keepdims=null
+        ?int $axis=null,
+        ?bool $keepdims=null
         ) : NDArray
     {
         if($repeats<1) {
@@ -4251,7 +4251,7 @@ class LinearAlgebra
      */
     public function svd(
         NDArray $matrix,
-        bool $fullMatrices=null) : array
+        ?bool $fullMatrices=null) : array
     {
         if($matrix->ndim()!=2) {
             throw new InvalidArgumentException("input array must be 2D array");
@@ -4317,8 +4317,8 @@ class LinearAlgebra
      */
     public function transpose(
         NDArray $A,
-        array|NDArray $perm=null,
-        NDArray $B=null,
+        array|NDArray|null $perm=null,
+        ?NDArray $B=null,
         ) : NDArray
     {
         if($A->ndim()<1) {
@@ -4350,8 +4350,8 @@ class LinearAlgebra
      */
     protected function transposeND(
         NDArray $A,
-        array|NDArray $perm=null,
-        NDArray $B=null,
+        array|NDArray|null $perm=null,
+        ?NDArray $B=null,
         ) : NDArray
     {
         if($perm===null) {
@@ -4399,7 +4399,7 @@ class LinearAlgebra
 
     protected function transpose2D(
         NDArray $A,
-        NDArray $B=null,
+        ?NDArray $B=null,
         ) : NDArray
     {
         $shape = $A->shape();
@@ -4469,13 +4469,13 @@ class LinearAlgebra
 
     public function imagecopy(
         NDArray $A,
-        NDArray $B=null,
-        bool $channels_first=null,
-        int $heightShift=null,
-        int $widthShift=null,
-        bool $verticalFlip=null,
-        bool $horizontalFlip=null,
-        bool $rgbFlip=null
+        ?NDArray $B=null,
+        ?bool $channels_first=null,
+        ?int $heightShift=null,
+        ?int $widthShift=null,
+        ?bool $verticalFlip=null,
+        ?bool $horizontalFlip=null,
+        ?bool $rgbFlip=null
         ) : NDArray
     {
         if($A->ndim()!=3) {
@@ -4580,9 +4580,9 @@ class LinearAlgebra
     public function searchsorted(
         NDArray $A,
         NDArray $X,
-        bool $right=null,
-        int $dtype=null,
-        NDArray $Y=null
+        ?bool $right=null,
+        ?int $dtype=null,
+        ?NDArray $Y=null
         ) : NDArray
     {
         if($A->ndim()==1) {
@@ -4643,10 +4643,10 @@ class LinearAlgebra
 
     public function cumsum(
         NDArray $inputs,
-        int $axis=null,
-        bool $exclusive=null,
-        bool $reverse=null,
-        NDArray $outputs=null
+        ?int $axis=null,
+        ?bool $exclusive=null,
+        ?bool $reverse=null,
+        ?NDArray $outputs=null
         ) : NDArray
     {
         $ndim = $inputs->ndim();
@@ -4696,7 +4696,7 @@ class LinearAlgebra
      */
     public function nan2num(
         NDArray $X,
-        float $alpha=null
+        ?float $alpha=null
         ) : NDArray
     {
         $n = $X->size();
@@ -4736,7 +4736,7 @@ class LinearAlgebra
         float $start,
         float $stop,
         int $num,
-        int $dtype=null
+        ?int $dtype=null
         ) : NDArray
     {
         if($num<=0) {
@@ -4753,9 +4753,9 @@ class LinearAlgebra
 
     public function range(
         int|float $limit,
-        int|float $start=null,
-        int|float $delta=null,
-        int $dtype=null
+        int|float|null $start=null,
+        int|float|null $delta=null,
+        ?int $dtype=null
         ) : NDArray
     {
         $start ??= 0;
@@ -4784,8 +4784,8 @@ class LinearAlgebra
      * @return array<NDArray>
      */
     public function numericalGradient(
-        float $h=null,
-        callable $f=null,
+        ?float $h=null,
+        ?callable $f=null,
         NDArray ...$variables) : array
     {
         if($h===null)
@@ -5085,7 +5085,7 @@ class LinearAlgebra
         string $equation,
         NDArray $a,
         NDArray $b,
-        NDArray $c=null,
+        ?NDArray $c=null,
     ) : NDArray
     {
         $shapeA = $a->shape();
@@ -5205,10 +5205,10 @@ class LinearAlgebra
     public function masking(
         NDArray $mask,
         NDArray $data,
-        int $batchDims=null,
-        int $axis=null,
-        float $fill=null,
-        int $mode=null,
+        ?int $batchDims=null,
+        ?int $axis=null,
+        ?float $fill=null,
+        ?int $mode=null,
         ) : NDArray
     {
 
@@ -5317,7 +5317,7 @@ class LinearAlgebra
         return $data;
     }
 
-    public function isclose(NDArray $a, NDArray $b, float|object $rtol=null, float $atol=null,bool $debug=null) : bool
+    public function isclose(NDArray $a, NDArray $b, float|object|null $rtol=null, ?float $atol=null,?bool $debug=null) : bool
     {
         $isCpx = $this->isComplexDtype($a->dtype());
         if($rtol===null) {
@@ -5378,7 +5378,7 @@ class LinearAlgebra
         return $aug;
     }
 
-    public function solve(NDArray $a, NDArray $b, float $epsilon=null) : NDArray
+    public function solve(NDArray $a, NDArray $b, ?float $epsilon=null) : NDArray
     {
         if($epsilon===null) {
             $epsilon = 1e-7;

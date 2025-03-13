@@ -47,10 +47,10 @@ class NDArrayPhp implements NDArray, Countable, Serializable, IteratorAggregate
      */
     final public function __construct(
         mixed $array = null,
-        int $dtype=null,
-        array $shape = null,
-        int $offset=null,
-        Service $service=null,
+        ?int $dtype=null,
+        ?array $shape = null,
+        ?int $offset=null,
+        ?Service $service=null,
     ) {
         if($service===null) {
             throw new InvalidArgumentException("No service specified.");
@@ -72,7 +72,7 @@ class NDArrayPhp implements NDArray, Countable, Serializable, IteratorAggregate
             $this->_buffer = $this->newBuffer($size, $dtype);
             $this->_offset = 0;
         } elseif($array instanceof BufferInterface) {
-            if($offset===null||!is_int($offset)) {
+            if($offset===null) {
                 throw new InvalidArgumentException("Must specify offset with the buffer");
             }
             if($shape===null) {
@@ -159,7 +159,7 @@ class NDArrayPhp implements NDArray, Countable, Serializable, IteratorAggregate
     //    }
     //}
 
-    protected function isComplex(int $dtype=null) : bool
+    protected function isComplex(?int $dtype=null) : bool
     {
         $dtype = $dtype ?? $this->_dtype;
         return $this->cistype($dtype);

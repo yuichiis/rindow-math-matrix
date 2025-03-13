@@ -25,22 +25,22 @@ trait Utils
         return $blas;
     }
 
-    public function alloc(array $shape,int $dtype=null) : NDArray
+    public function alloc(array $shape, ?int $dtype=null) : NDArray
     {
         return $this->mo->zeros($shape,dtype:$dtype);
     }
 
-    public function zeros(array $shape,int $dtype=null) : NDArray
+    public function zeros(array $shape, ?int $dtype=null) : NDArray
     {
         return $this->mo->zeros($shape,dtype:$dtype);
     }
 
-    public function ones(array $shape, int $dtype=null) : NDArray
+    public function ones(array $shape, ?int $dtype=null) : NDArray
     {
         return $this->mo->ones($shape,dtype:$dtype);
     }
 
-    public function array(mixed $array,int $dtype=null) : NDArray
+    public function array(mixed $array, ?int $dtype=null) : NDArray
     {
         return $this->mo->array($array,dtype:$dtype);
     }
@@ -103,7 +103,7 @@ trait Utils
         return $abs;
     }
 
-    protected function copy(NDArray $x,NDArray $y=null) : NDArray
+    protected function copy(NDArray $x, ?NDArray $y=null) : NDArray
     {
         $blas = $this->getBlas();
 
@@ -114,7 +114,10 @@ trait Utils
         return $y;
     }
 
-    protected function isclose(NDArray $a, NDArray $b, $rtol=null, $atol=null) : bool
+    protected function isclose(
+        NDArray $a, NDArray $b,
+        ?float $rtol=null, ?float $atol=null
+        ) : bool
     {
         $blas = $this->getBlas();
 

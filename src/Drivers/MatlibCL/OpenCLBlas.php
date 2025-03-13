@@ -291,7 +291,7 @@ class OpenCLBlas
         int $n,
         float|object $alpha,
         BufferInterface $X, int $offsetX, int $incX,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $this->assertShapeParameter('n',$n);
@@ -368,7 +368,7 @@ class OpenCLBlas
         float|object $alpha,
         BufferInterface $X, int $offsetX, int $incX,
         BufferInterface $Y, int $offsetY, int $incY,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $this->assertShapeParameter('n',$n);
@@ -469,7 +469,7 @@ class OpenCLBlas
         int $n,
         BufferInterface $X, int $offsetX, int $incX,
         BufferInterface $Y, int $offsetY, int $incY,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         $this->assertShapeParameter('n',$n);
@@ -546,7 +546,7 @@ class OpenCLBlas
         BufferInterface $B, int $offsetB, int $ldB,
         float|object $beta,
         BufferInterface $C, int $offsetC, int $ldC,
-        object $events=null, object $waitEvents=null
+        ?object $events=null, ?object $waitEvents=null
         ) : void
     {
         if($order==BLAS::ColMajor) {
