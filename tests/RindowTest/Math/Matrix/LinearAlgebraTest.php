@@ -2,6 +2,7 @@
 namespace RindowTest\Math\Matrix\LinearAlgebraTest;
 
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Interop\Polite\Math\Matrix\NDArray;
 use Interop\Polite\Math\Matrix\OpenCL;
 use Interop\Polite\Math\Matrix\DeviceBuffer;
@@ -3115,8 +3116,8 @@ class LinearAlgebraTest extends TestCase
     /**
     *    ret := |x_1| + ... + |x_n|
     *
-    * @dataProvider providerSumNormal
     */
+    #[DataProvider('providerSumNormal')]
     public function testSumNormal($dtype)
     {
         $mo = $this->newMatrixOperator();
@@ -8882,9 +8883,7 @@ class LinearAlgebraTest extends TestCase
         ];
     }
 
-    /**
-    * @dataProvider providerIm2col2dNormal
-    */
+    #[DataProvider('providerIm2col2dNormal')]
     public function testIm2col2dNormal($params)
     {
         $mo = $this->newMatrixOperator();
@@ -9595,10 +9594,7 @@ class LinearAlgebraTest extends TestCase
         ];
     }
 
-    /**
-    * @dataProvider providerIm2col1dNormal
-    */
-
+    #[DataProvider('providerIm2col1dNormal')]
     public function testIm2col1dNormal($params)
     {
         $mo = $this->newMatrixOperator();
@@ -10638,9 +10634,7 @@ class LinearAlgebraTest extends TestCase
         ];
     }
 
-    /**
-    * @dataProvider providerIm2col3dNormal
-    */
+    #[DataProvider('providerIm2col3dNormal')]
     public function testIm2col3dNormal($params)
     {
         //return;
