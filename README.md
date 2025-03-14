@@ -30,7 +30,7 @@ You can perform very fast N-dimensional array operations in conjunction
 - [rindow-math-matrix-matlibffi](https://github.com/rindow/rindow-math-matrix-matlibffi): plug-in drivers for OpenBLAS,Rindow-Matlib,OpenCL,CLBlast for FFI
 - Pre-build binaries
   - [Rindow matlib](https://github.com/rindow/rindow-matlib/releases)
-  - [OpenBLAS](https://github.com/xianyi/OpenBLAS/releases)
+  - [OpenBLAS](https://github.com/OpenMathLib/OpenBLAS/releases)
   - [CLBlast](https://github.com/CNugteren/CLBlast/releases)
 
 Please see the [rindow-math-matrix-matlibffi](https://github.com/rindow/rindow-math-matrix-matlibffi) to setup plug-in and pre-build binaries.
