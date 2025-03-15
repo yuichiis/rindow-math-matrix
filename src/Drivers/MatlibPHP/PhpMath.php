@@ -24,7 +24,7 @@ class PhpMath
         NDArray::float16,NDArray::float32,NDArray::float64,
     ];
 
-    public function __construct(object $math=null, bool $forceMath=null)
+    public function __construct(?object $math=null, ?bool $forceMath=null)
     {
         //$this->math = $math;
         //$this->forceMath = $forceMath;
@@ -1201,6 +1201,129 @@ class PhpMath
     }
 
     /**
+     * A: (batchs, m, numClass, k, len)
+     * X: (batchs, n, k)
+     * B: (batchs, m, n, k, len)
+     * B(batchs, m, n, k, len) := A(batchs, m, X(batchs, n, k), k, len)
+     */
+    public function gatherb(
+        bool $reverse,
+        bool $addMode,
+        int $batches, // num_batchs
+        int $m, // outer_shape
+        int $n, // broadcast_shape
+        int $k, // inner_shape
+        int $len, // detail_shape
+        int $numClass, // source axis class
+        Buffer $A,
+        int $offsetA,
+        Buffer $X,
+        int $offsetX,
+        Buffer $B,
+        int $offsetB,
+    ) : void
+    {
+        for($batch=0; $batch<$batches; $batch++) {
+            for($i=0;$i<$m;$i++) {
+                for($j=0; $j<$n; $j++) {
+                    for($h=0; $h<$k; $h++) {
+                        //echo "X(batch:$batch,j:$j,h:$h)\n";
+                        $index = $X[$offsetX+($batch*$n + $j)*$k + $h];
+                        if($index>=$numClass) {
+                            echo "index overflow: index:$index, numClass:$numClass\n";
+                            continue;
+                        }
+                        //echo "A(batch:$batch,i:$i,index:$index,h:$h)\n";
+                        $iA = $offsetA + ((($batch*$m + $i)*$numClass + $index)*$k + $h)*$len;
+                        //echo "B(batch:$batch,i:$i,index:$index,h:$h)\n";
+                        $iB = $offsetB + ((($batch*$m + $i)*$n + $j)*$k + $h)*$len;
+                        if(!$reverse) {
+                            $from = $A;
+                            $fromPos = $iA;
+                            $to = $B;
+                            $toPos = $iB;
+                        } else {
+                            $from = $B;
+                            $fromPos = $iB;
+                            $to = $A;
+                            $toPos = $iA;
+                        }
+                        if(!$addMode) {
+                            $this->math_copy($len, $from, $fromPos, 1, $to, $toPos, 1);
+                        } else {
+                            $this->math_add($len, $from, $fromPos, 1, $to, $toPos, 1);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * This function is unofficial.
+     * It may be removed or changed without notice.
+     * 
+     * A: (m, (paramShape), k)
+     * X: (m, n, index_depth)
+     * B: (m, n, k)
+     * B(m, n, k) := A(m,(X(m,n)),k)
+     */
+    public function gathernd(
+        bool $reverse,
+        bool $addMode,
+        int $m, // num_indices=num_batchs
+        int $n, // outer_shape
+        int $k, // inner_shape
+        int $indexDepth,
+        Buffer $paramShape, // paramShape[indexDepth]
+        Buffer $A, int $offsetA,
+        Buffer $X, int $offsetX,
+        Buffer $B, int $offsetB,
+    ) : void
+    {
+        $paramSize = 1;
+        for($h=0; $h<$indexDepth; ++$h) {
+            $paramSize *= $paramShape[$h];
+        }
+        for($i=0; $i<$m; ++$i) {
+            for($j=0; $j<$n; $j++) {
+                $offset = 0;
+                $error = false;
+                for($h=0; $h<$indexDepth; ++$h) {
+                    $offset *= $paramShape[$h];
+                    $index = $X[$i*$n*$indexDepth + $j*$indexDepth + $h];
+                    if($index>=$paramShape[$h]) {
+                        $error = true;
+                        break;
+                    }
+                    $offset += $index;
+                }
+                if($error) {
+                    continue;
+                }
+                $iA = $offsetA + $i*$paramSize*$k + $offset*$k;
+                $iB = $offsetB + $i*$n*$k + $j*$k;
+                if(!$reverse) {
+                    $from = $A;
+                    $fromPos = $iA;
+                    $to = $B;
+                    $toPos = $iB;
+                } else {
+                    $from = $B;
+                    $fromPos = $iB;
+                    $to = $A;
+                    $toPos = $iA;
+                }
+                if(!$addMode) {
+                    $this->math_copy($k,$from,$fromPos,1,$to,$toPos,1);
+                } else {
+                    $this->math_add($k,$from,$fromPos,1,$to,$toPos,1);
+                }
+            }
+        }
+    }
+    
+    /**
     *  For Parallel Computing Algorithm
     */
     protected function scatterAdd(
@@ -1546,6 +1669,44 @@ class PhpMath
         }
     }
 
+    public function softmaxb(
+        int $m,
+        int $n,
+        int $k,
+        Buffer $A, int $offsetA, int $ldA) : void
+    {
+        if($offsetA+($m-1)*$ldA+($n-1)>=count($A))
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
+
+        $idA = $offsetA;
+        for($i=0;$i<$m;$i++,$idA+=$ldA) {
+            //float t,max_a,sum_exp;
+            $max_a = $this->math_max($n,$A,$idA,1);
+            $sum_exp = 0;
+            for($j=0;$j<$n;$j++) {
+                $t = exp($A[$idA+$j]-$max_a);
+                $sum_exp += $t;
+                $A[$idA+$j] = $t;
+            }
+            if($sum_exp==0.0) {
+                throw new RuntimeException("Zero divide in softmax.");
+            }
+            for($j=0;$j<$n;$j++) {
+                $A[$idA+$j] = $A[$idA+$j] / $sum_exp;
+            }
+        }
+
+        //$idxA = $offsetA;
+        //$idxB = $offsetB;
+        //$ldA = $n*$k;
+        //$ldB = $k;
+        //for($i=0; $i<$m; $i++,$idxA+=$ldA,$idxB+=$ldB) {
+        //    for($j=0; $j<$k; $j++) {
+        //        $B[$idxB+$j] = $this->math_sum($n, $A, $idxA+$j, $k);
+        //    }
+        //}
+    }
+
     public function astype(
         int $n,
         int $dtype,
@@ -1693,6 +1854,54 @@ class PhpMath
                 $Y[$idy] = $value;
                 $idx+=$incX;
                 $idy+=$incY;
+            }
+        }
+    }
+
+    public function cumsumb(
+        int $m,
+        int $n,
+        int $k,
+        Buffer $A, int $offsetA, // float
+        bool $exclusive,
+        bool $reverse,
+        Buffer $B, int $offsetB, // int
+        ) : void
+    {
+        for($i=0; $i<$m; $i++) {
+            if($reverse) {
+                $ida = $offsetA+$i*$n*$k+($n-1)*$k;
+                $ldA = -$k;
+                $idb = $offsetB+$i*$n*$k+($n-1)*$k;
+                $ldB = -$k;
+            } else {
+                $ida = $offsetA+$i*$n*$k;
+                $ldA = $k;
+                $idb = $offsetB+$i*$n*$k;
+                $ldB = $k;
+            }
+            if($exclusive) {
+                for($h=0;$h<$k;$h++) {
+                    $B[$idb+$h] = 0;
+                }
+                for($j=0;$j<$n-1;$j++) {
+                    $idb += $ldB;
+                    for($h=0;$h<$k;$h++) {
+                        $B[$idb+$h] = $B[$idb-$ldB+$h] + $A[$ida+$h];
+                    }
+                    $ida += $ldA;
+                }
+            } else {
+                for($h=0;$h<$k;$h++) {
+                    $B[$idb+$h] = $A[$ida+$h];
+                }
+                for($j=0;$j<$n-1;$j++) {
+                    $idb += $ldB;
+                    $ida += $ldA;
+                    for($h=0;$h<$k;$h++) {
+                        $B[$idb+$h] = $B[$idb-$ldB+$h] + $A[$ida+$h];
+                    }
+                }
             }
         }
     }
@@ -3007,6 +3216,207 @@ class PhpMath
                 for($j=0;$j<$k;$j++) {
                     if(($lower >= 0 && ($i-$j) > $lower) || ($upper >= 0 && ($j-$i) > $upper)) {
                         $A[$offset+$batch*$n*$k+$i*$k+$j] = 0;
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     *    A(m,n,k,len) := A(m,n,k,len) : X(m,k) = True
+     *                    fill_value   : X(m,k) = False
+     */
+    public function masking(
+        int $m,     // outer_shape
+        int $n,     // broadcast_shape
+        int $k,     // inner_shape
+        int $len,   // inner_broadcast_shape
+        float $fill,// fill value
+        int $mode,  // mode=0:set , mode=1:add
+        Buffer $X, int $offsetX,
+        Buffer $A, int $offsetA,
+        ) : void
+    {
+        if($X->dtype()!=NDArray::bool) {
+            throw new InvalidArgumentException('dtype of X must be bool.');
+        }
+
+        if($offsetX+$m*$k > count($X)) {
+            throw new InvalidArgumentException('Matrix specification too large for buffer X.');
+        }
+        if($offsetA+$m*$n*$k*$len > count($A)) {
+            throw new InvalidArgumentException('Matrix specification too large for buffer A.');
+        }
+        $dtype = $A->dtype();
+
+        for($i=0; $i<$m; $i++) {
+            for($j=0; $j<$n; $j++) {
+                for($h=0; $h<$k; $h++) {
+                    if(!$X[$offsetX + $i*$k+$h]) {
+                        for($l=0; $l<$len; $l++) {
+                            $address  = $offsetA + (($i*$n+$j)*$k+$h)*$len+$l;
+                            if($mode==0) {
+                                $A[$address] = $fill;
+                            } else {
+                                if($dtype==NDArray::bool) {
+                                    $A[$address] = $A[$address] || $fill;
+                                } else {
+                                    $A[$address] = $A[$address] + $fill;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * @param array<int> $indices
+     * @param Buffer|array<int> $lds
+     */
+    private function einsum_calc_index(
+        int $depth,
+        array $indices,         // array<int>
+        Buffer|array $lds,
+    ) : int
+    {
+        $index = 0;
+        for($axis=0; $axis<$depth; $axis++) {
+            $index += $indices[$axis]*$lds[$axis];
+        }
+        return $index;
+    }
+
+    /**
+     * @param array<int> $indices
+     */
+    private function einsum_next_indices(
+        int $depth,
+        int $ndim,
+        Buffer $sizeOfIndices,
+        array &$indices,
+    ) : int {
+        $i = $depth - 1;
+        while($i >= 0) {
+            if($indices[$i] < $sizeOfIndices[$i]-1) {
+                break;
+            }
+            $indices[$i] = 0;
+            $i--;
+        }
+        if($i >= 0) {
+            $indices[$i]++;
+        }
+        if($i < $ndim) {
+            // done all
+            return 0;
+        }
+        return 1;
+    }
+    
+    /**
+     * C = sum(A * B)
+     */
+    public function einsum(
+        Buffer $sizeOfIndices,
+        Buffer $A,
+        int $offsetA,
+        Buffer $ldA,
+        Buffer $B,
+        int $offsetB,
+        Buffer $ldB,
+        Buffer $C,
+        int $offsetC,
+        int $ndimC,
+    ) : void
+    {
+        $depth = count($sizeOfIndices);
+
+        $sizeC = 1;
+        for($i=0;$i<$ndimC;$i++) {
+            $sizeC *= $sizeOfIndices[$i];
+        }
+        $indices = array_fill(0, $depth, 0);
+        for($indexC=0; $indexC<$sizeC; $indexC++) {
+            $sumC = 0;
+            while(true) {
+                $indexA = $offsetA+$this->einsum_calc_index($depth,$indices,$ldA);
+                $indexB = $offsetB+$this->einsum_calc_index($depth,$indices,$ldB);
+                $sumC += $A[$indexA]*$B[$indexB];
+    
+                // next indices
+                if(!$this->einsum_next_indices($depth,$ndimC,$sizeOfIndices,$indices)) {
+                    break;
+                }
+            }
+            $C[$offsetC+$indexC] = $sumC;
+        }
+    }
+
+    /**
+     * C = sum(A * B)
+     */
+    public function einsum4p1(
+        int $dim0,
+        int $dim1,
+        int $dim2,
+        int $dim3,
+        int $dim4,
+        Buffer $A,
+        int $offsetA,
+        int $ldA0,
+        int $ldA1,
+        int $ldA2,
+        int $ldA3,
+        int $ldA4,
+        Buffer $B,
+        int $offsetB,
+        int $ldB0,
+        int $ldB1,
+        int $ldB2,
+        int $ldB3,
+        int $ldB4,
+        Buffer $C,
+        int $offsetC,
+    ) : void
+    {
+        $maxA = $ldA0*($dim0-1)+$ldA1*($dim1-1)+$ldA2*($dim2-1)+$ldA3*($dim3-1)+$ldA4*($dim4-1);
+        $maxB = $ldB0*($dim0-1)+$ldB1*($dim1-1)+$ldB2*($dim2-1)+$ldB3*($dim3-1)+$ldB4*($dim4-1);
+        $maxC = $dim0*$dim1*$dim2*$dim3-1;
+
+        if(count($A) <= $offsetA+$maxA) {
+            throw new InvalidArgumentException('Matrix specification too large for buffer A.');
+        }
+        if(count($B) <= $offsetB+$maxB) {
+            throw new InvalidArgumentException('Matrix specification too large for buffer B.');
+        }
+        if(count($C) <= $offsetC+$maxC) {
+            throw new InvalidArgumentException('Matrix specification too large for buffer C.');
+        }
+        $indexC = 0;
+        for($idx0=0; $idx0<$dim0; $idx0++) {
+            for($idx1=0; $idx1<$dim1; $idx1++) {
+                for($idx2=0; $idx2<$dim2; $idx2++) {
+                    for($idx3=0; $idx3<$dim3; $idx3++) {
+                        $indexA =
+                            $offsetA +
+                            $idx0*$ldA0 +
+                            $idx1*$ldA1 +
+                            $idx2*$ldA2 +
+                            $idx3*$ldA3;
+                        $indexB =
+                            $offsetB +
+                            $idx0*$ldB0 +
+                            $idx1*$ldB1 +
+                            $idx2*$ldB2 +
+                            $idx3*$ldB3;
+                        $sum = 0;
+                        for($idx4=0; $idx4<$dim4; $idx4++) {
+                            $sum += $A[$indexA+$idx4*$ldA4] * $B[$indexB+$idx4*$ldB4];
+                        }
+                        $C[$indexC] = $sum;
+                        $indexC++;
                     }
                 }
             }
