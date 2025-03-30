@@ -10,12 +10,12 @@
     },
     "suggest": {
         "rindow/math-plot": "for OpenCL tunning",
-        "rindow/rindow-math-matrix-matlibffi": "~1.0.2"
+        "rindow/rindow-math-matrix-matlibffi": "~1.0.3"
     },
     "autoload": {
         "psr-4": {
             "Rindow\\Math\\Matrix\\": "src/"
         }
     },
-    "bin": [ "bin/rindow-math-matrix.bat", "bin/rindow-math-matrix" ]
+    "bin": [ "bin/rindow-math-matrix" ]
 }
