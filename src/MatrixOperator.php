@@ -985,7 +985,7 @@ class MatrixOperator
         } else {
             $la = $this->la();
             $func = function($N,$XX,$offX,$bufPos,$incX) use ($la) {
-                $pos = $blas->blasIaminCompatible($N,$XX,$offX+$bufPos,$incX);
+                $pos = $la->blasIaminCompatible($N,$XX,$offX+$bufPos,$incX);
                 return $XX[$offX+$bufPos+$pos*$incX];
             };
         }
