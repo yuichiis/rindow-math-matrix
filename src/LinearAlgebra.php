@@ -430,7 +430,7 @@ class LinearAlgebra
         $N = $X->size();
         $XX = $X->buffer();
         $offX = $X->offset();
-        if(method_exists($this->blas,'iamin')) {
+        if($this->blas->hasIamin()) {
             return $this->blas->iamin($N,$XX,$offX,1);
         } else {
             return $this->iaminCompatible($N,$XX,$offX,1);
@@ -1468,16 +1468,121 @@ class LinearAlgebra
         $trans = $this->transToCode($trans,$conj);
         $order = BLAS::RowMajor;
 
-        $this->blas->omatcopy(
-            $order,$trans,
-            $M,$N,
-            $alpha,
-            $AA, $offA, $ldA,
-            $BB, $offB, $ldB,
-        );
+        if($this->blas->hasOmatcopy()) {
+            $this->blas->omatcopy(
+                $order,$trans,
+                $M,$N,
+                $alpha,
+                $AA, $offA, $ldA,
+                $BB, $offB, $ldB,
+            );
+        } else {
+            $this->omatcopyCompatible(
+                $order,$trans,
+                $M,$N,
+                $alpha,
+                $AA, $offA, $ldA,
+                $BB, $offB, $ldB,
+            );
+        }
 
         return $B;
     }
+
+
+    protected function createIdentityMatrix(int $n, int $dtype)
+    {
+        if ($n <= 0) {
+            throw new InvalidArgumentException("Error: Matrix dimension must be positive.");
+        }
+        // Use calloc for zero initialization, which works for complex zero (0.0 + 0.0i)
+        // assuming the underlying representation of 0.0f is all bits zero.
+        $imat = $this->zeros($this->alloc([$n,$n],dtype:$dtype))->buffer();
+
+        // Set diagonal elements to 1.0 + 0.0i
+        // Accessing column-major matrix I(n x n): Element (i, i) is at index i + i * n
+        for($i=0; $i<$n; $i++) {
+            $imat[$i + $i * $n] = $this->buildValByType(1.0,$dtype); // I is the imaginary unit from complex.h
+        }
+        return $imat;
+    }
+    
+    protected function omatcopyCompatible(
+        int $order,
+        int $trans,
+        int $rows,
+        int $cols,
+        float|object $alpha,
+        Buffer $A, int $offsetA, int $ldA,
+        Buffer $B, int $offsetB, int $ldB,
+    ) : void
+    {
+        if ($rows <= 0 || $cols <= 0) {
+            return; // Nothing to do for empty matrices
+        }
+        $dtype = $A->dtype();
+    
+        // Beta parameter for GEMM: C = alpha*op(A)*Id + beta*C
+        // We want B = alpha*op(A), so we use beta = 0.
+        $beta = $this->buildValByType(0.0,$dtype);
+
+        // int m, n, k;           // Dimensions for GEMM C(m x n) = op(A)(m x k) * Identity(k x n)
+        // int ld_identity;       // Leading dimension of the identity matrix
+    
+        // Determine GEMM parameters based on the transpose operation
+        if ($trans == BLAS::NoTrans) {
+            // B(rows x cols) = alpha * A(rows x cols) * I(cols x cols)
+            $m = $rows;          // Rows of B and A
+            $n = $cols;          // Columns of B and A
+            $k = $cols;          // Inner dimension (columns of A, rows of I)
+            $ld_identity = $k;   // Identity is k x k = cols x cols
+    
+            $identity = $this->createIdentityMatrix($k,$dtype);
+    
+            // C = alpha * op(A) * op(B) + beta * C
+            // Here: B_out = alpha * A * I + 0 * B_out
+            $this->blas->gemm($order, BLAS::NoTrans, BLAS::NoTrans, // op(A)=A, op(Id)=Id
+                        $m, $n, $k,
+                        $alpha, $A, $offsetA, $ldA,
+                        $identity, 0, $ld_identity, // Matrix B in GEMM is Identity
+                        $beta, $B, $offsetB, $ldB); // Matrix C in GEMM is output B
+    
+        } else if ($trans == BLAS::Trans) {
+            // B(cols x rows) = alpha * A^T(cols x rows) * I(rows x rows)
+            $m = $cols;          // Rows of B and A^T
+            $n = $rows;          // Columns of B and A^T
+            $k = $rows;          // Inner dimension (columns of A^T, rows of I)
+            $ld_identity = $k;   // Identity is k x k = rows x rows
+            $identity = $this->createIdentityMatrix($k,$dtype);
+    
+            // Here: B_out = alpha * A^T * I + 0 * B_out
+            $this->blas->gemm($order, BLAS::Trans, BLAS::NoTrans, // op(A)=A^T, op(Id)=Id
+                        $m, $n, $k,
+                        $alpha, $A, $offsetA, $ldA,  // A is input, operation is Transpose
+                        $identity, 0, $ld_identity,
+                        $beta, $B, $offsetB, $ldB);
+    
+        } else if ($trans == BLAS::ConjTrans) {
+            // B(cols x rows) = alpha * A^H(cols x rows) * I(rows x rows)
+            $m = $cols;          // Rows of B and A^H
+            $n = $rows;          // Columns of B and A^H
+            $k = $rows;          // Inner dimension (columns of A^H, rows of I)
+            $ld_identity = $k;   // Identity is k x k = rows x rows
+    
+            $identity = $this->createIdentityMatrix($k,$dtype);
+    
+            // Here: B_out = alpha * A^H * I + 0 * B_out
+            $this->blas->gemm($order, BLAS::ConjTrans, BLAS::NoTrans, // op(A)=A^H, op(Id)=Id
+                        $m, $n, $k,
+                        $alpha, $A, $offsetA, $ldA, // A is input, operation is Conjugate Transpose
+                        $identity, 0, $ld_identity,
+                        $beta, $B, $offsetB, $ldB);
+        } else {
+            throw new InvalidArgumentException("Error: Invalid transpose parameter provided.");
+            // No operation performed
+        }
+    }
+
 
     /**
     *    ret := x_1 + ... + x_n
@@ -4324,7 +4429,7 @@ class LinearAlgebra
         if($A->ndim()<1) {
             throw new InvalidArgumentException('input array must be grator than or equal 1D.');
         }
-        if($A->ndim()==2 && $this->isFloat($A) && (PHP_OS!=='Darwin')) {
+        if($A->ndim()==2 && $this->isFloat($A) && $this->blas->hasOmatcopy()) {
             if($perm) {
                 if(count($perm)!=2) {
                     throw new InvalidArgumentException('unmatch sourceshape and perm');
