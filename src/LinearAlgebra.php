@@ -433,14 +433,14 @@ class LinearAlgebra
         if($this->blas->hasIamin()) {
             return $this->blas->iamin($N,$XX,$offX,1);
         } else {
-            return $this->iaminCompatible($N,$XX,$offX,1);
+            return $this->blasIaminCompatible($N,$XX,$offX,1);
         }
     }
 
     /**
     *   legacy opennblas compatible
     */
-    protected function iaminCompatible(
+    public function blasIaminCompatible(
         int $n,
         Buffer $X, int $offsetX, int $incX ) : int
     {
@@ -503,7 +503,7 @@ class LinearAlgebra
         if($this->blas->hasIamin()) {
             $i = $this->blas->iamin($N,$XX,$offX,1);
         } else {
-            $i = $this->iaminCompatible($N,$XX,$offX,1);
+            $i = $this->blasIaminCompatible($N,$XX,$offX,1);
         }
         if($this->isComplex($X->dtype())) {
             return $this->cabs($XX[$offX+$i]);
