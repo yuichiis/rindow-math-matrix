@@ -8371,11 +8371,7 @@ class LinearAlgebraTest extends TestCase
                 $this->assertEquals([0,0,1,2,3],$Y->toArray());
             }
         } else {
-            if((strtolower(php_uname('m')) === 'arm64')) {
-                $this->assertEquals([0,0,1,2,3],$Y->toArray());
-            } else {
-                $this->assertEquals([255,0,1,2,3],$Y->toArray());
-            }
+            $this->assertEquals([255,0,1,2,3],$Y->toArray());
         }
 
         $dtype = NDArray::uint16;
@@ -8387,11 +8383,7 @@ class LinearAlgebraTest extends TestCase
                 $this->assertEquals([0,0,1,2,3],$Y->toArray());
             }
         } else {
-            if((strtolower(php_uname('m')) === 'arm64')) {
-                $this->assertEquals([0,0,1,2,3],$Y->toArray());
-            } else {
-                $this->assertEquals([65535,0,1,2,3],$Y->toArray());
-            }
+            $this->assertEquals([65535,0,1,2,3],$Y->toArray());
         }
 
         // ***** CAUTION ******
