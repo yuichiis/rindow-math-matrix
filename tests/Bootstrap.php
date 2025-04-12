@@ -16,9 +16,8 @@ if(file_exists("$addpack/rindow-math-matrix-matlibffi-$workingbranch/composer.js
     $loader->addPsr4('Rindow\\Matlib\\FFI\\',   "$addpack/rindow-matlib-ffi-$workingbranch/src");
     $loader->addPsr4('Rindow\\OpenBLAS\\FFI\\', "$addpack/rindow-openblas-ffi-$workingbranch/src");
     $loader->addPsr4('Rindow\\OpenCL\\FFI\\',   "$addpack/rindow-opencl-ffi-$workingbranch/src");
-    $loader->addPsr4('Rindow\\CLBlast\\FFI\\',  "$addpack/rindow-clblast-ffi/src');
+    $loader->addPsr4('Rindow\\CLBlast\\FFI\\',  "$addpack/rindow-clblast-ffi/src");
 }
 #if(!class_exists('PHPUnit\Framework\TestCase')) {
 #    include __DIR__.'/travis/patch55.php';
 #}
-"
