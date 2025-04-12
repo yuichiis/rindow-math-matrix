@@ -132,38 +132,70 @@ class LinearAlgebra2Test extends TestCase
     }
 
 
-    public function testSolve()
+    public function testSvdFull2()
     {
+        if($this->service->serviceLevel()<Service::LV_ADVANCED) {
+            $this->markTestSkipped('Unsuppored function without openblas');
+            return;
+        }
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
         $a = $la->array([
-            [1, 1, 1],
-            [2, 4, 6],
-            [2, 0, 4],
+            [ 8.79,  9.93,  9.83,  5.45,  3.16,],
+            [ 6.11,  6.91,  5.04, -0.27,  7.98,],
+            [-9.15, -7.93,  4.86,  4.85,  3.01,],
+            [ 9.57,  1.64,  8.83,  0.74,  5.80,],
+            [-3.49,  4.02,  9.80, 10.00,  4.27,],
+            [ 9.84,  0.15, -8.99, -6.02, -5.31,],
         ]);
-        $b = $la->array(
-             [10, 38, 14]
+        $a = $la->transpose($a);
+        $this->assertEquals([5,6],$a->shape());
+        [$u,$s,$vt] = $la->svd($a);
+        $this->assertEquals([5,5],$u->shape());
+        $this->assertEquals([5],$s->shape());
+        $this->assertEquals([6,6],$vt->shape());
+
+        # echo "---- u ----\n";
+        # foreach($u->toArray() as $array)
+        #     echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$array))."],\n";
+        # echo "---- s ----\n";
+        # echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$s->toArray()))."],\n";
+        # echo "---- vt ----\n";
+        # foreach($vt->toArray() as $array)
+        #     echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$array))."],\n";
+
+        # ---- u ----
+        $correctU = $la->array([
+            [ 0.25, 0.40, 0.69, 0.37, 0.41],
+            [ 0.81, 0.36,-0.25,-0.37,-0.10],
+            [-0.26, 0.70,-0.22, 0.39,-0.49],
+            [ 0.40,-0.45, 0.25, 0.43,-0.62],
+            [-0.22, 0.14, 0.59,-0.63,-0.44],
+        ]);
+        $correctU = $la->transpose($correctU);
+
+        $correctU = $la->square($correctU);
+        $u = $la->square($u);
+        $this->assertLessThan(0.01,abs($la->amax($la->axpy($u,$correctU,-1))));
+        # ---- s ----
+        $correctS = $la->array(
+            [27.47,22.64, 8.56, 5.99, 2.01]
         );
-        $solve = $la->solve($a,$b);
-        //echo $mo->toString($solve,'%f',true);
-        $this->assertEquals([3,5,2],$solve->toArray());
-    }
-
-    public function testIsInt()
-    {
-        $mo = $this->newMatrixOperator();
-        $la = $this->newLA($mo);
-        $this->assertTrue($la->isInt($la->array(1,dtype:NDArray::int8)));
-        $this->assertTrue($la->isInt($la->array(1,dtype:NDArray::uint8)));
-        $this->assertTrue($la->isInt($la->array(1,dtype:NDArray::int32)));
-        $this->assertTrue($la->isInt($la->array(1,dtype:NDArray::uint32)));
-        $this->assertTrue($la->isInt($la->array(1,dtype:NDArray::int64)));
-        $this->assertTrue($la->isInt($la->array(1,dtype:NDArray::uint64)));
-
-        $this->assertFalse($la->isInt($la->array(1,dtype:NDArray::float32)));
-        $this->assertFalse($la->isInt($la->array(1,dtype:NDArray::float64)));
-
-        $this->assertFalse($la->isInt($la->array(1,dtype:NDArray::bool)));
+        $this->assertLessThan(0.01,abs($la->amax($la->axpy($s,$correctS,-1))));
+        # ---- vt ----
+        $correctVT = $la->array([
+            [ 0.59, 0.26, 0.36, 0.31, 0.23, 0.55],
+            [ 0.40, 0.24,-0.22,-0.75,-0.36, 0.18],
+            [ 0.03,-0.60,-0.45, 0.23,-0.31, 0.54],
+            [ 0.43, 0.24,-0.69, 0.33, 0.16,-0.39],
+            [ 0.47,-0.35, 0.39, 0.16,-0.52,-0.46],
+            [-0.29, 0.58,-0.02, 0.38,-0.65, 0.11],
+        ]);
+        $correctVT = $la->transpose($correctVT);
+        $correctVT = $la->square($correctVT);
+        $vt = $la->square($vt);
+        $this->assertLessThan(0.01,abs($la->amax($la->axpy($vt,$correctVT,-1))));
+        $this->assertTrue(true);
     }
 
 }
