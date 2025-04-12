@@ -4324,7 +4324,7 @@ class LinearAlgebra
         if($A->ndim()<1) {
             throw new InvalidArgumentException('input array must be grator than or equal 1D.');
         }
-        if($A->ndim()==2 && $this->isFloat($A)) {
+        if($A->ndim()==2 && $this->isFloat($A) && (PHP_OS!=='Darwin')) {
             if($perm) {
                 if(count($perm)!=2) {
                     throw new InvalidArgumentException('unmatch sourceshape and perm');
