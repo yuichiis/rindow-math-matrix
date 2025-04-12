@@ -10,7 +10,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
         matlib: 1.1.0
-        testlib: 1.1.0
+        testlib: 0.0.24
         matlibrepo: ${{ github.repository_owner }}/rindow-matlib
         workspace: workspace
         owner: ${{ github.repository_owner }}
