@@ -140,4 +140,4 @@ jobs:
           sudo cp -r usr/lib /usr/local/
           WORKING_BRANCH=${{ env.workspace }}; export WORKING_BRANCH
           ADD_PACK=`pwd`; export ADD_PACK
-          vendor/bin/phpunit -c tests --filter LinearAlgebraTest::testTr
+          vendor/bin/phpunit -c tests --filter LinearAlgebraTest::testMatmul
