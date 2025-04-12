@@ -90,6 +90,22 @@ jobs:
           unzip ${{ env.workspace }}.zip
           rm ${{ env.workspace }}.zip
 
+      - name: Checkout math-matrix-matlibffi
+        if: ${{ startsWith(matrix.os, 'macos-') }}
+        run: |
+          curl https://github.com/${{ env.owner }}/rindow-math-matrix-matlibffi/archive/refs/heads/${{ env.workspace }}.zip -O -L
+          unzip ${{ env.workspace }}.zip
+          rm ${{ env.workspace }}.zip
+          curl https://github.com/${{ env.owner }}/rindow-math-buffer-ffi/archive/refs/heads/${{ env.workspace }}.zip -O -L
+          unzip ${{ env.workspace }}.zip
+          rm ${{ env.workspace }}.zip
+          curl https://github.com/${{ env.owner }}/rindow-matlib-ffi/archive/refs/heads/${{ env.workspace }}.zip -O -L
+          unzip ${{ env.workspace }}.zip
+          rm ${{ env.workspace }}.zip
+          curl https://github.com/${{ env.owner }}/rindow-openblas-ffi/archive/refs/heads/${{ env.workspace }}.zip -O -L
+          unzip ${{ env.workspace }}.zip
+          rm ${{ env.workspace }}.zip
+  
       - name: PHP Static Analysys
         run: phpstan
 
@@ -122,18 +138,6 @@ jobs:
         if: ${{ startsWith(matrix.os, 'macos-') }}
         run: |
           brew install libomp
-          curl https://github.com/${{ env.owner }}/rindow-math-matrix-matlibffi/archive/refs/heads/${{ env.workspace }}.zip -O -L
-          unzip ${{ env.workspace }}.zip
-          rm ${{ env.workspace }}.zip
-          curl https://github.com/${{ env.owner }}/rindow-math-buffer-ffi/archive/refs/heads/${{ env.workspace }}.zip -O -L
-          unzip ${{ env.workspace }}.zip
-          rm ${{ env.workspace }}.zip
-          curl https://github.com/${{ env.owner }}/rindow-matlib-ffi/archive/refs/heads/${{ env.workspace }}.zip -O -L
-          unzip ${{ env.workspace }}.zip
-          rm ${{ env.workspace }}.zip
-          curl https://github.com/${{ env.owner }}/rindow-openblas-ffi/archive/refs/heads/${{ env.workspace }}.zip -O -L
-          unzip ${{ env.workspace }}.zip
-          rm ${{ env.workspace }}.zip
           curl https://github.com/${{ env.matlibrepo }}/releases/download/${{ env.testlib }}/rindow-matlib-${{ env.matlib }}-Darwin-arm64.tar.gz -O -L
           tar -xzf rindow-matlib-${{ env.matlib }}-Darwin-arm64.tar.gz
           sudo cp -r usr/include /usr/local/
