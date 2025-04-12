@@ -1490,7 +1490,7 @@ class LinearAlgebra
     }
 
 
-    protected function createIdentityMatrix(int $n, int $dtype)
+    protected function createIdentityMatrix(int $n, int $dtype) : Buffer
     {
         if ($n <= 0) {
             throw new InvalidArgumentException("Error: Matrix dimension must be positive.");
