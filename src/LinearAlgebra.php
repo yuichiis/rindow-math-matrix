@@ -1535,7 +1535,7 @@ class LinearAlgebra
             $m = $rows;          // Rows of B and A
             $n = $cols;          // Columns of B and A
             $k = $cols;          // Inner dimension (columns of A, rows of I)
-            $ld_identity = $k;   // Identity is k x k = cols x cols
+            $ldIdentity = $k;    // Identity is k x k = cols x cols
     
             $identity = $this->createIdentityMatrix($k,$dtype);
     
@@ -1544,7 +1544,7 @@ class LinearAlgebra
             $this->blas->gemm($order, BLAS::NoTrans, BLAS::NoTrans, // op(A)=A, op(Id)=Id
                         $m, $n, $k,
                         $alpha, $A, $offsetA, $ldA,
-                        $identity, 0, $ld_identity, // Matrix B in GEMM is Identity
+                        $identity, 0, $ldIdentity, // Matrix B in GEMM is Identity
                         $beta, $B, $offsetB, $ldB); // Matrix C in GEMM is output B
     
         } else if ($trans == BLAS::Trans) {
@@ -1552,14 +1552,14 @@ class LinearAlgebra
             $m = $cols;          // Rows of B and A^T
             $n = $rows;          // Columns of B and A^T
             $k = $rows;          // Inner dimension (columns of A^T, rows of I)
-            $ld_identity = $k;   // Identity is k x k = rows x rows
+            $ldIdentity = $k;    // Identity is k x k = rows x rows
             $identity = $this->createIdentityMatrix($k,$dtype);
     
             // Here: B_out = alpha * A^T * I + 0 * B_out
             $this->blas->gemm($order, BLAS::Trans, BLAS::NoTrans, // op(A)=A^T, op(Id)=Id
                         $m, $n, $k,
                         $alpha, $A, $offsetA, $ldA,  // A is input, operation is Transpose
-                        $identity, 0, $ld_identity,
+                        $identity, 0, $ldIdentity,
                         $beta, $B, $offsetB, $ldB);
     
         } else if ($trans == BLAS::ConjTrans) {
@@ -1567,7 +1567,7 @@ class LinearAlgebra
             $m = $cols;          // Rows of B and A^H
             $n = $rows;          // Columns of B and A^H
             $k = $rows;          // Inner dimension (columns of A^H, rows of I)
-            $ld_identity = $k;   // Identity is k x k = rows x rows
+            $ldIdentity = $k;    // Identity is k x k = rows x rows
     
             $identity = $this->createIdentityMatrix($k,$dtype);
     
