@@ -451,11 +451,11 @@ class LinearAlgebra
         if($offsetX+($n-1)*$incX>=count($X))
             throw new InvalidArgumentException('Vector X specification too large for buffer.');
         $idxX = $offsetX+$incX;
-        $acc = $this-cabs($X[$offsetX]);
+        $acc = $this->cabs($X[$offsetX]);
         $idx = 0;
         for($i=1; $i<$n; $i++,$idxX+=$incX) {
-            if($acc > $this-cabs($X[$idxX])) {
-                $acc = $this-cabs($X[$idxX]);
+            if($acc > $this->cabs($X[$idxX])) {
+                $acc = $this->cabs($X[$idxX]);
                 $idx = $i;
             }
         }
