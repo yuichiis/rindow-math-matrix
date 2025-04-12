@@ -78,9 +78,13 @@ jobs:
         if: ${{ startsWith(matrix.os, 'ubuntu-') }}
         run: |
           wget https://github.com/${{ env.owner }}/rindow-math-matrix-matlibffi/archive/refs/heads/${{ env.workspace }}.zip
+          unzip ${{ env.workspace }}.zip
           wget https://github.com/${{ env.owner }}/rindow-math-buffer-ffi/archive/refs/heads/${{ env.workspace }}.zip
+          unzip ${{ env.workspace }}.zip
           wget https://github.com/${{ env.owner }}/rindow-matlib-ffi/archive/refs/heads/${{ env.workspace }}.zip
+          unzip ${{ env.workspace }}.zip
           wget https://github.com/${{ env.owner }}/rindow-openblas-ffi/archive/refs/heads/${{ env.workspace }}.zip
+          unzip ${{ env.workspace }}.zip
 
       - name: PHP Static Analysys
         run: phpstan
