@@ -45,6 +45,10 @@ jobs:
             php: '8.4'
             phpunit: '11.5'
             ffi: 'ffi'
+          - name: macos-x86_64
+            os: macos-13
+            php: '8.4'
+            phpunit: '11.5'
 
     steps:
       - name: Setup PHP ${{ matrix.php }}
@@ -135,11 +139,23 @@ jobs:
           vendor/bin/phpunit -c tests
 
       - name: PHPUnit Tests (macOS)
-        if: ${{ startsWith(matrix.os, 'macos-') }}
+        if: ${{ startsWith(matrix.os, 'macos-latest') }}
         run: |
           brew install libomp
           curl https://github.com/${{ env.matlibrepo }}/releases/download/${{ env.testlib }}/rindow-matlib-${{ env.matlib }}-Darwin-arm64.tar.gz -O -L
           tar -xzf rindow-matlib-${{ env.matlib }}-Darwin-arm64.tar.gz
+          sudo cp -r usr/include /usr/local/
+          sudo cp -r usr/lib /usr/local/
+          WORKING_BRANCH=${{ env.workspace }}; export WORKING_BRANCH
+          ADD_PACK=`pwd`; export ADD_PACK
+          vendor/bin/phpunit -c tests
+
+      - name: PHPUnit Tests (macOS)
+        if: ${{ startsWith(matrix.os, 'macos-13') }}
+        run: |
+          brew install libomp
+          curl https://github.com/${{ env.matlibrepo }}/releases/download/${{ env.testlib }}/rindow-matlib-${{ env.matlib }}-Darwin-x86_64.tar.gz -O -L
+          tar -xzf rindow-matlib-${{ env.matlib }}-Darwin-x86_64.tar.gz
           sudo cp -r usr/include /usr/local/
           sudo cp -r usr/lib /usr/local/
           WORKING_BRANCH=${{ env.workspace }}; export WORKING_BRANCH
