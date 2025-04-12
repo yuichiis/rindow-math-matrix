@@ -448,15 +448,27 @@ class LinearAlgebra
             echo "*iamin* not found. probably OpenBLAS is legacy version.";
             $this->iaminwarning = true;
         }
-        if($offsetX+($n-1)*$incX>=count($X))
+        if($offsetX+($n-1)*$incX>=count($X)) {
             throw new InvalidArgumentException('Vector X specification too large for buffer.');
+        }
         $idxX = $offsetX+$incX;
-        $acc = $this->cabs($X[$offsetX]);
-        $idx = 0;
-        for($i=1; $i<$n; $i++,$idxX+=$incX) {
-            if($acc > $this->cabs($X[$idxX])) {
-                $acc = $this->cabs($X[$idxX]);
-                $idx = $i;
+        if($this->isComplex($X->dtype())) {
+            $acc = $this->cabs($X[$offsetX]);
+            $idx = 0;
+            for($i=1; $i<$n; $i++,$idxX+=$incX) {
+                if($acc > $this->cabs($X[$idxX])) {
+                    $acc = $this->cabs($X[$idxX]);
+                    $idx = $i;
+                }
+            }
+        } else {
+            $acc = abs($X[$offsetX]);
+            $idx = 0;
+            for($i=1; $i<$n; $i++,$idxX+=$incX) {
+                if($acc > abs($X[$idxX])) {
+                    $acc = abs($X[$idxX]);
+                    $idx = $i;
+                }
             }
         }
         return $idx;
@@ -488,7 +500,7 @@ class LinearAlgebra
         $N = $X->size();
         $XX = $X->buffer();
         $offX = $X->offset();
-        if(method_exists($this->blas,'iamin')) {
+        if($this->blas->hasIamin()) {
             $i = $this->blas->iamin($N,$XX,$offX,1);
         } else {
             $i = $this->iaminCompatible($N,$XX,$offX,1);
