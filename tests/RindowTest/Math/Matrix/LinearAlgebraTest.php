@@ -8411,7 +8411,7 @@ class LinearAlgebraTest extends TestCase
             $Y = $math->astype($X, $dtype);
             if($mo->service()->serviceLevel()>=Service::LV_ADVANCED) {
                 if((strtolower(php_uname('m')) === 'arm64')) {
-                    $this->assertEquals([0,0,1,2,4294966295],$Y->toArray());
+                    $this->assertEquals([0,0,1,2,4294967295],$Y->toArray());
                 } else {
                     $this->assertEquals([4294966296,0,1,2,0],$Y->toArray());
                 }
