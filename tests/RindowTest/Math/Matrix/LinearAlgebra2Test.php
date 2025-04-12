@@ -132,13 +132,8 @@ class LinearAlgebra2Test extends TestCase
     }
 
 
-
-    public function testSvdSmallVT()
+    public function testSvdSmallU()
     {
-        if($this->service->serviceLevel()<Service::LV_ADVANCED) {
-            $this->markTestSkipped('Unsuppored function without openblas');
-            return;
-        }
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
         $a = $la->array([
@@ -149,29 +144,26 @@ class LinearAlgebra2Test extends TestCase
             [-3.49,  4.02,  9.80, 10.00,  4.27,],
             [ 9.84,  0.15, -8.99, -6.02, -5.31,],
         ]);
-        $a = $la->transpose($a);
         [$u,$s,$vt] = $la->svd($a,$full_matrices=false);
 
         # echo "---- u ----\n";
         # foreach($u->toArray() as $array)
-        #  echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$array))."],\n";
+        #     echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$array))."],\n";
         # echo "---- s ----\n";
         # echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$s->toArray()))."],\n";
         # echo "---- vt ----\n";
         # foreach($vt->toArray() as $array)
-        #  echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$array))."],\n";
+        #     echo '['.implode(',',array_map(function($a){return sprintf('%5.2f',$a);},$array))."],\n";
 
         # ---- u ----
         $correctU = $la->array([
-            [ 0.25, 0.40, 0.69, 0.37, 0.41],
-            [ 0.81, 0.36,-0.25,-0.37,-0.10],
-            [-0.26, 0.70,-0.22, 0.39,-0.49],
-            [ 0.40,-0.45, 0.25, 0.43,-0.62],
-            [-0.22, 0.14, 0.59,-0.63,-0.44],
+            [-0.59, 0.26, 0.36, 0.31, 0.23],
+            [-0.40, 0.24,-0.22,-0.75,-0.36],
+            [-0.03,-0.60,-0.45, 0.23,-0.31],
+            [-0.43, 0.24,-0.69, 0.33, 0.16],
+            [-0.47,-0.35, 0.39, 0.16,-0.52],
+            [ 0.29, 0.58,-0.02, 0.38,-0.65],
         ]);
-        $correctU = $la->transpose($correctU);
-        $correctU = $la->square($correctU);
-        $u = $la->square($u);
         $this->assertLessThan(0.01,abs($la->amax($la->axpy($u,$correctU,-1))));
         # ---- s ----
         $correctS = $la->array(
@@ -180,17 +172,14 @@ class LinearAlgebra2Test extends TestCase
         $this->assertLessThan(0.01,abs($la->amax($la->axpy($s,$correctS,-1))));
         # ---- vt ----
         $correctVT = $la->array([
-            [ 0.59, 0.26, 0.36, 0.31, 0.23,],
-            [ 0.40, 0.24,-0.22,-0.75,-0.36,],
-            [ 0.03,-0.60,-0.45, 0.23,-0.31,],
-            [ 0.43, 0.24,-0.69, 0.33, 0.16,],
-            [ 0.47,-0.35, 0.39, 0.16,-0.52,],
-            [-0.29, 0.58,-0.02, 0.38,-0.65,],
+            [-0.25,-0.40,-0.69,-0.37,-0.41],
+            [ 0.81, 0.36,-0.25,-0.37,-0.10],
+            [-0.26, 0.70,-0.22, 0.39,-0.49],
+            [ 0.40,-0.45, 0.25, 0.43,-0.62],
+            [-0.22, 0.14, 0.59,-0.63,-0.44],
         ]);
-        $correctVT = $la->transpose($correctVT);
-        $correctVT = $la->square($correctVT);
-        $vt = $la->square($vt);
         $this->assertLessThan(0.01,abs($la->amax($la->axpy($vt,$correctVT,-1))));
         $this->assertTrue(true);
     }
+
 }
