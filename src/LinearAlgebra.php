@@ -4376,28 +4376,38 @@ class LinearAlgebra
         if($fullMatrices===null)
             $fullMatrices = true;
         [$m,$n] = $matrix->shape();
+        $k = min($m, $n);
         if($fullMatrices) {
             $jobu  = 'A';
             $jobvt = 'A';
-            $ldA = $n;
-            $ldU = $m;
-            $ldVT = $n;
+            $rowsU = $m; $colsU = $m;    // U is m x m
+            $rowsVT = $n; $colsVT = $n; // VT is n x n
+            ##$ldA = $n;
+            ##$ldU = $m;
+            ##$ldVT = $n;
         } else {
             $jobu  = 'S';
             $jobvt = 'S';
-            $ldA = $n;
-            $ldU = min($m,$n);
-            #$ldVT = min($m,$n);
-            $ldVT = $n; // bug in the lapacke ???
+            $rowsU = $m; $colsU = $k;    // U is m x k
+            //$rowsVT = $k; $colsVT = $n;// VT is k x n
+            $rowsVT = $n; $colsVT = $n;  // bug int the lapacke
+            ##$ldA = $n;
+            ##$ldU = min($m,$n);
+            ###$ldVT = min($m,$n);
+            ##$ldVT = $n; // bug in the lapacke ???
         }
+        $ldA = $n;       // Input A is ROW_MAJOR (m x n), ld = n
+        $ldU = $colsU;   // Output U is ROW_MAJOR (rowsU x colsU), ld = colsU
+        $ldVT = $colsVT; // Output VT is ROW_MAJOR (rowsVT x colsVT), ld = colsVT = n
 
-        $S = $this->alloc([min($m,$n)],dtype:$matrix->dtype());
+        $S = $this->alloc([$k],dtype:$matrix->dtype());
         $this->zeros($S);
-        $U = $this->alloc([$m,$ldU],dtype:$matrix->dtype());
+        // Allocate U and VT with correct ROW_MAJOR dimensions and leading dimensions
+        $U = $this->alloc([$rowsU, $colsU],dtype:$matrix->dtype());
         $this->zeros($U);
-        $VT = $this->alloc([$ldVT,$n],dtype:$matrix->dtype());
+        $VT = $this->alloc([$rowsVT, $colsVT],dtype:$matrix->dtype());
         $this->zeros($VT);
-        $SuperB = $this->alloc([min($m,$n)-1],dtype:$matrix->dtype());
+        $SuperB = $this->alloc([$k-1],dtype:$matrix->dtype()); // Size is min(m,n)-1
         $this->zeros($SuperB);
 
         $AA = $matrix->buffer();
@@ -4411,20 +4421,20 @@ class LinearAlgebra
         $SuperBB = $SuperB->buffer();
         $offsetSuperB = $SuperB->offset();
         $this->lapack->gesvd(
-            self::LAPACK_ROW_MAJOR,
+            self::LAPACK_ROW_MAJOR, // Specify layout
             ord($jobu),
             ord($jobvt),
             $m,
             $n,
-            $AA,  $offsetA,  $ldA,
+            $AA,  $offsetA,  $ldA,  // Pass ROW_MAJOR A and its ld
             $SS,  $offsetS,
-            $UU,  $offsetU,  $ldU,
-            $VVT, $offsetVT, $ldVT,
+            $UU,  $offsetU,  $ldU,  // Pass ROW_MAJOR U buffer and its ld
+            $VVT, $offsetVT, $ldVT, // Pass ROW_MAJOR VT buffer and its ld
             $SuperBB,  $offsetSuperB
         );
         if(!$fullMatrices) {
             // bug in the lapacke ???
-            $VT = $this->copy($VT[R(0,min($m,$n))]);
+            $VT = $this->copy($VT[R(0,$k)]);
         }
         return [$U,$S,$VT];
     }
