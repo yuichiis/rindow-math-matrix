@@ -14,7 +14,7 @@ $addpack = getenv('ADD_PACK');
 $workingbranch = getenv('WORKING_BRANCH');
 echo "addpack:$addpack\n";
 echo "workingbranch:$workingbranch\n";
-echo file_get_contents(__DIR__.'/../vendor/autoload.php');
+var_dump($loader);
 if(file_exists("$addpack/rindow-math-matrix-matlibffi-$workingbranch/composer.json")) {
     echo "addpack!!\n";
     $loader->addPsr4('Rindow\\Math\\Matrix\\Drivers\\MatlibFFI\\', "$addpack/rindow-math-matrix-matlibffi-$workingbranch/src");
