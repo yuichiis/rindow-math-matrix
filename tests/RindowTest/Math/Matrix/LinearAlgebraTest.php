@@ -134,6 +134,7 @@ class LinearAlgebraTest extends TestCase
     public function testArray()
     {
         $mo = $this->newMatrixOperator();
+        $this->assertTrue($mo->isAdvanced());
         $la = $this->newLA($mo);
 
         // arrays
