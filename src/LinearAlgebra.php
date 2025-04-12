@@ -1575,7 +1575,7 @@ class LinearAlgebra
             $this->blas->gemm($order, BLAS::ConjTrans, BLAS::NoTrans, // op(A)=A^H, op(Id)=Id
                         $m, $n, $k,
                         $alpha, $A, $offsetA, $ldA, // A is input, operation is Conjugate Transpose
-                        $identity, 0, $ld_identity,
+                        $identity, 0, $ldIdentity,
                         $beta, $B, $offsetB, $ldB);
         } else {
             throw new InvalidArgumentException("Error: Invalid transpose parameter provided.");
