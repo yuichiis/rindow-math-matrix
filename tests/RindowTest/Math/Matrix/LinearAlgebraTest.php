@@ -13331,10 +13331,6 @@ class LinearAlgebraTest extends TestCase
     public function testSvdSmallU()
     {
         $mo = $this->newMatrixOperator();
-        if((PHP_OS==='Darwin') && $mo->isAdvanced()) {
-            $this->markTestSkipped('macOS avoid hang up');
-            return;
-        }
         $la = $this->newLA($mo);
         $a = $la->array([
             [ 8.79,  9.93,  9.83,  5.45,  3.16,],
