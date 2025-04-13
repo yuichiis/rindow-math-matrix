@@ -103,7 +103,7 @@ jobs:
           curl https://github.com/${{ env.owner }}/rindow-math-buffer-ffi/archive/refs/heads/${{ env.workspace }}.zip -O -L
           unzip ${{ env.workspace }}.zip
           rm ${{ env.workspace }}.zip
-          curl https://github.com/${{ env.owner }}/riDownload Add-packsndow-matlib-ffi/archive/refs/heads/${{ env.workspace }}.zip -O -L
+          curl https://github.com/${{ env.owner }}/rindow-matlib-ffi/archive/refs/heads/${{ env.workspace }}.zip -O -L
           unzip ${{ env.workspace }}.zip
           rm ${{ env.workspace }}.zip
           curl https://github.com/${{ env.owner }}/rindow-openblas-ffi/archive/refs/heads/${{ env.workspace }}.zip -O -L
@@ -122,7 +122,7 @@ jobs:
           Invoke-WebRequest -Uri https://github.com/${{ env.owner }}/rindow-openblas-ffi/archive/refs/heads/${{ env.workspace }}.zip  -OutFile ${{ env.workspace }}4.zip
           Expand-Archive -Path ${{ env.workspace }}4.zip
   
-      - name: PHP Static Analysys
+      - name: PHP Static Analysys 
         run: phpstan
 
       - name: PHPUnit Tests with ${{ matrix.ffi }}.
@@ -147,8 +147,8 @@ jobs:
           $matlibDir = Join-Path -Path $currentDir -ChildPath 'matlib'
           $env:PATH = "$matlibDir/bin;$env:PATH"
           dir $matlibDir/bin
-          $env:WORKING_BRANCH = ${{ env.workspace }}
-          $env:ADD_PACK = $currentDir
+          $env:WORKING_BRANCH = "${{ env.workspace }}"
+          $env:ADD_PACK = "$currentDir"
           vendor/bin/phpunit -c tests
 
       - name: PHPUnit Tests (macOS)
