@@ -77,6 +77,14 @@ jobs:
           Expand-Archive -Path openblas.zip
           Invoke-WebRequest -Uri https://github.com/${{ env.matlibrepo }}/releases/download/${{ env.testlib }}/rindow-matlib-${{ env.matlib }}-win64.zip -OutFile matlib.zip
           Expand-Archive -Path matlib.zip
+          $currentDir = (Get-Location).Path
+          dir $currentDir
+          $OpenBLAS_DIR = Join-Path -Path $currentDir -ChildPath 'openblas'
+          $env:PATH = "$OpenBLAS_DIR/bin;$env:PATH"
+          dir $OpenBLAS_DIR/bin
+          $matlibDir = Join-Path -Path $currentDir -ChildPath 'matlib'
+          $env:PATH = "$matlibDir/bin;$env:PATH"
+          dir $matlibDir/bin
 
       - name: Checkout codes
         uses: "actions/checkout@v4"
