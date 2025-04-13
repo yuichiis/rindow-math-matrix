@@ -70,6 +70,14 @@ jobs:
           wget https://github.com/${{ env.matlibrepo }}/releases/download/${{ env.testlib }}/rindow-matlib_${{ env.matlib }}-`lsb_release -sr`_amd64.deb
           sudo apt install -y ./rindow-matlib_${{ env.matlib }}-`lsb_release -sr`_amd64.deb
 
+      - name: Install Libs (Windows)
+        if: ${{ startsWith(matrix.os, 'windows-') }}
+        run: |
+          Invoke-WebRequest -Uri https://github.com/OpenMathLib/OpenBLAS/releases/download/v0.3.27/OpenBLAS-0.3.27-x64.zip -OutFile openblas.zip
+          Expand-Archive -Path openblas.zip
+          Invoke-WebRequest -Uri https://github.com/${{ env.matlibrepo }}/releases/download/${{ env.testlib }}/rindow-matlib-${{ env.matlib }}-win64.zip -OutFile matlib.zip
+          Expand-Archive -Path matlib.zip
+
       - name: Checkout codes
         uses: "actions/checkout@v4"
 
@@ -78,7 +86,7 @@ jobs:
           composer update
           composer require --dev phpunit/phpunit=^${{ matrix.phpunit }}
 
-      - name: Download Add-packs
+      - name: Download Add-packs (Linux)
         if: ${{ startsWith(matrix.os, 'ubuntu-') }}
         run: |
           wget https://github.com/${{ env.owner }}/rindow-math-matrix-matlibffi/archive/refs/heads/${{ env.workspace }}.zip
@@ -94,7 +102,7 @@ jobs:
           unzip ${{ env.workspace }}.zip
           rm ${{ env.workspace }}.zip
 
-      - name: Download Add-packs
+      - name: Download Add-packs (macOS)
         if: ${{ startsWith(matrix.os, 'macos-') }}
         run: |
           curl https://github.com/${{ env.owner }}/rindow-math-matrix-matlibffi/archive/refs/heads/${{ env.workspace }}.zip -O -L
@@ -110,7 +118,7 @@ jobs:
           unzip ${{ env.workspace }}.zip
           rm ${{ env.workspace }}.zip
   
-      - name: Download Add-packs
+      - name: Download Add-packs (Windows)
         if: ${{ startsWith(matrix.os, 'windows-') }}
         run: |
           Invoke-WebRequest -Uri https://github.com/${{ env.owner }}/rindow-math-matrix-matlibffi/archive/refs/heads/${{ env.workspace }}.zip  -OutFile ${{ env.workspace }}1.zip
@@ -132,25 +140,41 @@ jobs:
           ADD_PACK=`pwd`; export ADD_PACK
           vendor/bin/phpunit -c tests
 
-      - name: PHPUnit Tests
+      #- name: PHPUnit Tests (Windows)
+      #  if: ${{ startsWith(matrix.os, 'windows-') }}
+      #  run: |
+      #    Invoke-WebRequest -Uri https://github.com/OpenMathLib/OpenBLAS/releases/download/v0.3.27/OpenBLAS-0.3.27-x64.zip -OutFile openblas.zip
+      #    Expand-Archive -Path openblas.zip
+      #    $currentDir = (Get-Location).Path
+      #    dir $currentDir
+      #    $OpenBLAS_DIR = Join-Path -Path $currentDir -ChildPath 'openblas'
+      #    $env:PATH = "$OpenBLAS_DIR/bin;$env:PATH"
+      #    dir $OpenBLAS_DIR/bin
+      #    Invoke-WebRequest -Uri https://github.com/${{ env.matlibrepo }}/releases/download/${{ env.testlib }}/rindow-matlib-${{ env.matlib }}-win64.zip -OutFile matlib.zip
+      #    Expand-Archive -Path matlib.zip
+      #    $currentDir = (Get-Location).Path
+      #    $matlibDir = Join-Path -Path $currentDir -ChildPath 'matlib'
+      #    $env:PATH = "$matlibDir/bin;$env:PATH"
+      #    dir $matlibDir/bin
+      #    $env:WORKING_BRANCH = "${{ env.workspace }}"
+      #    $env:ADD_PACK = "$currentDir/${{ env.workspace }}"
+      #    vendor/bin/phpunit -c tests
+
+      - name: PHPUnit Tests (Windows)
         if: ${{ startsWith(matrix.os, 'windows-') }}
         run: |
-          Invoke-WebRequest -Uri https://github.com/OpenMathLib/OpenBLAS/releases/download/v0.3.27/OpenBLAS-0.3.27-x64.zip -OutFile openblas.zip
-          Expand-Archive -Path openblas.zip
           $currentDir = (Get-Location).Path
           dir $currentDir
           $OpenBLAS_DIR = Join-Path -Path $currentDir -ChildPath 'openblas'
           $env:PATH = "$OpenBLAS_DIR/bin;$env:PATH"
           dir $OpenBLAS_DIR/bin
-          Invoke-WebRequest -Uri https://github.com/${{ env.matlibrepo }}/releases/download/${{ env.testlib }}/rindow-matlib-${{ env.matlib }}-win64.zip -OutFile matlib.zip
-          Expand-Archive -Path matlib.zip
-          $currentDir = (Get-Location).Path
           $matlibDir = Join-Path -Path $currentDir -ChildPath 'matlib'
           $env:PATH = "$matlibDir/bin;$env:PATH"
           dir $matlibDir/bin
           $env:WORKING_BRANCH = "${{ env.workspace }}"
           $env:ADD_PACK = "$currentDir/${{ env.workspace }}"
           vendor/bin/phpunit -c tests
+
 
       - name: PHPUnit Tests (macOS)
         if: ${{ startsWith(matrix.os, 'macos-latest') }}
