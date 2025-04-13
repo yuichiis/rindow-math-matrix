@@ -22,40 +22,40 @@ jobs:
         include:
           #- name: PHP8.1
           #  os: ubuntu-latest
+          #  arch: 'amd64'
           #  php: '8.1'
           #  phpunit: '10.5'
           #  ffi: 'ffi'
-          #  arch: 'amd64'
           #- name: PHP8.3
           #  os: ubuntu-latest
+          #  arch: 'amd64'
           #  php: '8.3'
           #  phpunit: '11.5'
           #  ffi: 'ffi'
-          #  arch: 'amd64'
           - name: PHP8.4
             os: ubuntu-latest
+            arch: 'amd64'
             php: '8.4'
             phpunit: '11.5'
             ffi: 'ffi'
-            arch: 'amd64'
           - name: Windows
             os: windows-latest
+            arch: 'x64'
             php: '8.4'
             phpunit: '11.5'
             ffi: 'ffi'
-            arch: 'x64'
           - name: macOS
             os: macos-latest
+            arch: 'arm64'
             php: '8.4'
             phpunit: '11.5'
             ffi: 'ffi'
-            arch: 'arm64'
           - name: macOS-x86_64
             os: macos-13
+            arch: 'x86_64'
             php: '8.4'
             phpunit: '11.5'
             ffi: 'ffi'
-            arch: 'x86_64'
 
     steps:
       - name: Setup PHP ${{ matrix.php }}
