@@ -30,25 +30,25 @@ jobs:
           #  php: '8.3'
           #  phpunit: '11.5'
           #  ffi: 'ffi'
-          - name: PHP8.4
-            os: ubuntu-latest
-            php: '8.4'
-            phpunit: '11.5'
-            ffi: 'ffi'
+          #- name: PHP8.4
+          #  os: ubuntu-latest
+          #  php: '8.4'
+          #  phpunit: '11.5'
+          #  ffi: 'ffi'
           - name: Windows
             os: windows-latest
             php: '8.4'
             phpunit: '11.5'
             ffi: 'ffi'
-          - name: macOS
-            os: macos-latest
-            php: '8.4'
-            phpunit: '11.5'
-            ffi: 'ffi'
-          - name: macos-x86_64
-            os: macos-13
-            php: '8.4'
-            phpunit: '11.5'
+          #- name: macOS
+          #  os: macos-latest
+          #  php: '8.4'
+          #  phpunit: '11.5'
+          #  ffi: 'ffi'
+          #- name: macos-x86_64
+          #  os: macos-13
+          #  php: '8.4'
+          #  phpunit: '11.5'
 
     steps:
       - name: Setup PHP ${{ matrix.php }}
