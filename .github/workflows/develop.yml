@@ -30,16 +30,16 @@ jobs:
           #  php: '8.3'
           #  phpunit: '11.5'
           #  ffi: 'ffi'
-          #- name: PHP8.4
-          #  os: ubuntu-latest
-          #  php: '8.4'
-          #  phpunit: '11.5'
-          #  ffi: 'ffi'
-          #- name: Windows
-          #  os: windows-latest
-          #  php: '8.4'
-          #  phpunit: '11.5'
-          #  ffi: 'ffi'
+          - name: PHP8.4
+            os: ubuntu-latest
+            php: '8.4'
+            phpunit: '11.5'
+            ffi: 'ffi'
+          - name: Windows
+            os: windows-latest
+            php: '8.4'
+            phpunit: '11.5'
+            ffi: 'ffi'
           - name: macOS
             os: macos-latest
             php: '8.4'
@@ -78,7 +78,7 @@ jobs:
           composer update
           composer require --dev phpunit/phpunit=^${{ matrix.phpunit }}
 
-      - name: Checkout math-matrix-matlibffi
+      - name: Download Add-packs
         if: ${{ startsWith(matrix.os, 'ubuntu-') }}
         run: |
           wget https://github.com/${{ env.owner }}/rindow-math-matrix-matlibffi/archive/refs/heads/${{ env.workspace }}.zip
@@ -94,7 +94,7 @@ jobs:
           unzip ${{ env.workspace }}.zip
           rm ${{ env.workspace }}.zip
 
-      - name: Checkout math-matrix-matlibffi
+      - name: Download Add-packs
         if: ${{ startsWith(matrix.os, 'macos-') }}
         run: |
           curl https://github.com/${{ env.owner }}/rindow-math-matrix-matlibffi/archive/refs/heads/${{ env.workspace }}.zip -O -L
@@ -103,12 +103,24 @@ jobs:
           curl https://github.com/${{ env.owner }}/rindow-math-buffer-ffi/archive/refs/heads/${{ env.workspace }}.zip -O -L
           unzip ${{ env.workspace }}.zip
           rm ${{ env.workspace }}.zip
-          curl https://github.com/${{ env.owner }}/rindow-matlib-ffi/archive/refs/heads/${{ env.workspace }}.zip -O -L
+          curl https://github.com/${{ env.owner }}/riDownload Add-packsndow-matlib-ffi/archive/refs/heads/${{ env.workspace }}.zip -O -L
           unzip ${{ env.workspace }}.zip
           rm ${{ env.workspace }}.zip
           curl https://github.com/${{ env.owner }}/rindow-openblas-ffi/archive/refs/heads/${{ env.workspace }}.zip -O -L
           unzip ${{ env.workspace }}.zip
           rm ${{ env.workspace }}.zip
+  
+      - name: Download Add-packs
+        if: ${{ startsWith(matrix.os, 'windows-') }}
+        run: |
+          Invoke-WebRequest -Uri https://github.com/${{ env.owner }}/rindow-math-matrix-matlibffi/archive/refs/heads/${{ env.workspace }}.zip  -OutFile ${{ env.workspace }}1.zip
+          Expand-Archive -Path ${{ env.workspace }}1.zip
+          Invoke-WebRequest -Uri https://github.com/${{ env.owner }}/rindow-math-buffer-ffi/archive/refs/heads/${{ env.workspace }}.zip  -OutFile ${{ env.workspace }}2.zip
+          Expand-Archive -Path ${{ env.workspace }}2.zip
+          Invoke-WebRequest -Uri https://github.com/${{ env.owner }}/rindow-matlib-ffi/archive/refs/heads/${{ env.workspace }}.zip  -OutFile ${{ env.workspace }}3.zip
+          Expand-Archive -Path ${{ env.workspace }}3.zip
+          Invoke-WebRequest -Uri https://github.com/${{ env.owner }}/rindow-openblas-ffi/archive/refs/heads/${{ env.workspace }}.zip  -OutFile ${{ env.workspace }}4.zip
+          Expand-Archive -Path ${{ env.workspace }}4.zip
   
       - name: PHP Static Analysys
         run: phpstan
@@ -135,7 +147,8 @@ jobs:
           $matlibDir = Join-Path -Path $currentDir -ChildPath 'matlib'
           $env:PATH = "$matlibDir/bin;$env:PATH"
           dir $matlibDir/bin
-          git clone  --branch ${{ env.mathmatrix }} https://github.com/${{ env.mathmatrixrepo }} ../rindow-math-matrix
+          $env:WORKING_BRANCH = ${{ env.workspace }}
+          $env:ADD_PACK = $currentDir
           vendor/bin/phpunit -c tests
 
       - name: PHPUnit Tests (macOS)
