@@ -4382,19 +4382,12 @@ class LinearAlgebra
             $jobvt = 'A';
             $rowsU = $m; $colsU = $m;    // U is m x m
             $rowsVT = $n; $colsVT = $n; // VT is n x n
-            ##$ldA = $n;
-            ##$ldU = $m;
-            ##$ldVT = $n;
         } else {
             $jobu  = 'S';
             $jobvt = 'S';
             $rowsU = $m; $colsU = $k;    // U is m x k
             //$rowsVT = $k; $colsVT = $n;// VT is k x n
             $rowsVT = $n; $colsVT = $n;  // bug int the lapacke
-            ##$ldA = $n;
-            ##$ldU = min($m,$n);
-            ###$ldVT = min($m,$n);
-            ##$ldVT = $n; // bug in the lapacke ???
         }
         $ldA = $n;       // Input A is ROW_MAJOR (m x n), ld = n
         $ldU = $colsU;   // Output U is ROW_MAJOR (rowsU x colsU), ld = colsU

@@ -141,7 +141,7 @@ jobs:
       - name: PHPUnit Tests (macOS)
         if: ${{ startsWith(matrix.os, 'macos-latest') }}
         run: |
-          brew install libomp
+          # brew install libomp
           curl https://github.com/${{ env.matlibrepo }}/releases/download/${{ env.testlib }}/rindow-matlib-${{ env.matlib }}-Darwin-arm64.tar.gz -O -L
           tar -xzf rindow-matlib-${{ env.matlib }}-Darwin-arm64.tar.gz
           sudo cp -r usr/include /usr/local/
@@ -153,7 +153,7 @@ jobs:
       - name: PHPUnit Tests (macOS)
         if: ${{ startsWith(matrix.os, 'macos-13') }}
         run: |
-          brew install libomp
+          # brew install libomp
           curl https://github.com/${{ env.matlibrepo }}/releases/download/${{ env.testlib }}/rindow-matlib-${{ env.matlib }}-Darwin-x86_64.tar.gz -O -L
           tar -xzf rindow-matlib-${{ env.matlib }}-Darwin-x86_64.tar.gz
           sudo cp -r usr/include /usr/local/
