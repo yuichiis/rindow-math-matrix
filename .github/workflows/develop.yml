@@ -138,6 +138,7 @@ jobs:
           Invoke-WebRequest -Uri https://github.com/OpenMathLib/OpenBLAS/releases/download/v0.3.27/OpenBLAS-0.3.27-x64.zip -OutFile openblas.zip
           Expand-Archive -Path openblas.zip
           $currentDir = (Get-Location).Path
+          dir $currentDir
           $OpenBLAS_DIR = Join-Path -Path $currentDir -ChildPath 'openblas'
           $env:PATH = "$OpenBLAS_DIR/bin;$env:PATH"
           dir $OpenBLAS_DIR/bin
