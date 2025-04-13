@@ -5,5 +5,8 @@
         <testsuite name="rindowtest">
             <file>./CheckAdvanced.php</file>
         </testsuite>
+        <testsuite name="rindowtest">
+            <directory>./RindowTest</directory>
+        </testsuite>
     </testsuites>
 </phpunit>
