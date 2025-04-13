@@ -32,25 +32,25 @@ jobs:
           #  phpunit: '11.5'
           #  ffi: 'ffi'
           #  arch: 'amd64'
-          #- name: PHP8.4
-          #  os: ubuntu-latest
-          #  php: '8.4'
-          #  phpunit: '11.5'
-          #  ffi: 'ffi'
-          #  arch: 'amd64'
-          #- name: Windows
-          #  os: windows-latest
-          #  php: '8.4'
-          #  phpunit: '11.5'
-          #  ffi: 'ffi'
-          #  arch: 'x64'
+          - name: PHP8.4
+            os: ubuntu-latest
+            php: '8.4'
+            phpunit: '11.5'
+            ffi: 'ffi'
+            arch: 'amd64'
+          - name: Windows
+            os: windows-latest
+            php: '8.4'
+            phpunit: '11.5'
+            ffi: 'ffi'
+            arch: 'x64'
           - name: macOS
             os: macos-latest
             php: '8.4'
             phpunit: '11.5'
             ffi: 'ffi'
             arch: 'arm64'
-          - name: macos-x86_64
+          - name: macOS-x86_64
             os: macos-13
             php: '8.4'
             phpunit: '11.5'
@@ -71,14 +71,23 @@ jobs:
           fail-fast: true
 
       - name: Install Libs (Linux)
-        if: ${{ startsWith(matrix.os, 'ubuntu-')  && matrix.ffi == 'ffi' }}
+        if: ${{ startsWith(matrix.os, 'ubuntu-') && matrix.ffi == 'ffi' }}
         run: |
           sudo apt install -y libopenblas0 liblapacke
           wget https://github.com/${{ env.matlibrepo }}/releases/download/${{ env.testlib }}/rindow-matlib_${{ env.matlib }}-`lsb_release -sr`_amd64.deb
           sudo apt install -y ./rindow-matlib_${{ env.matlib }}-`lsb_release -sr`_amd64.deb
 
+      - name: Install Libs (macOS)
+        if: ${{ startsWith(matrix.os, 'macos-') && matrix.ffi == 'ffi' }}
+        run: |
+          # brew install libomp
+          curl https://github.com/${{ env.matlibrepo }}/releases/download/${{ env.testlib }}/rindow-matlib-${{ env.matlib }}-Darwin-${{ matrix.arch }}.tar.gz -O -L
+          tar -xzf rindow-matlib-${{ env.matlib }}-Darwin-${{ matrix.arch }}.tar.gz
+          sudo cp -r usr/include /usr/local/
+          sudo cp -r usr/lib /usr/local/
+
       #- name: Install Libs (Windows)
-      #  if: ${{ startsWith(matrix.os, 'windows-') }}
+      #  if: ${{ startsWith(matrix.os, 'windows-') && matrix.ffi == 'ffi' }}
       #  run: |
       #    Invoke-WebRequest -Uri https://github.com/OpenMathLib/OpenBLAS/releases/download/v0.3.27/OpenBLAS-0.3.27-x64.zip -OutFile openblas.zip
       #    Expand-Archive -Path openblas.zip
@@ -92,15 +101,6 @@ jobs:
       #    $matlibDir = Join-Path -Path $currentDir -ChildPath 'matlib'
       #    $env:PATH = "$matlibDir/bin;$env:PATH"
       #    dir $matlibDir/bin
-
-      - name: Install Libs (macOS)
-        if: ${{ startsWith(matrix.os, 'macos-') }}
-        run: |
-          # brew install libomp
-          curl https://github.com/${{ env.matlibrepo }}/releases/download/${{ env.testlib }}/rindow-matlib-${{ env.matlib }}-Darwin-${{ matrix.arch }}.tar.gz -O -L
-          tar -xzf rindow-matlib-${{ env.matlib }}-Darwin-${{ matrix.arch }}.tar.gz
-          sudo cp -r usr/include /usr/local/
-          sudo cp -r usr/lib /usr/local/
 
       - name: Checkout codes
         uses: "actions/checkout@v4"
@@ -157,11 +157,12 @@ jobs:
       - name: PHP Static Analysys 
         run: phpstan
 
-      - name: PHPUnit Tests with ${{ matrix.ffi }}.
-        if: ${{ startsWith(matrix.os, 'ubuntu-') }}
+      - name: PHPUnit Tests (${{ matrix.name }}).
+        if: ${{ !startsWith(matrix.os, 'windows-') }}
         run: |
           WORKING_BRANCH=${{ env.workspace }}; export WORKING_BRANCH
           ADD_PACK=`pwd`; export ADD_PACK
+          vendor/bin/phpunit -c tests/checkadvanced.xml
           vendor/bin/phpunit -c tests
 
       - name: PHPUnit Tests (Windows)
@@ -182,24 +183,6 @@ jobs:
           dir $matlibDir/bin
           $env:WORKING_BRANCH = "${{ env.workspace }}"
           $env:ADD_PACK = "$currentDir/${{ env.workspace }}"
+          vendor/bin/phpunit -c tests/checkadvanced.xml
           vendor/bin/phpunit -c tests
 
-      #- name: PHPUnit Tests (macOS)
-      #  if: ${{ startsWith(matrix.os, 'macos-') }}
-      #  run: |
-      #    # brew install libomp
-      #    curl https://github.com/${{ env.matlibrepo }}/releases/download/${{ env.testlib }}/rindow-matlib-${{ env.matlib }}-Darwin-${{ matrix.arch }}.tar.gz -O -L
-      #    tar -xzf rindow-matlib-${{ env.matlib }}-Darwin-${{ matrix.arch }}.tar.gz
-      #    sudo cp -r usr/include /usr/local/
-      #    sudo cp -r usr/lib /usr/local/
-      #    WORKING_BRANCH=${{ env.workspace }}; export WORKING_BRANCH
-      #    ADD_PACK=`pwd`; export ADD_PACK
-      #    vendor/bin/phpunit -c tests
-
-
-      - name: PHPUnit Tests (macOS)
-        if: ${{ startsWith(matrix.os, 'macos-') }}
-        run: |
-          WORKING_BRANCH=${{ env.workspace }}; export WORKING_BRANCH
-          ADD_PACK=`pwd`; export ADD_PACK
-          vendor/bin/phpunit -c tests

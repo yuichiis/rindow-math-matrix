@@ -49,12 +49,6 @@ class TestUtils
 
 class ComplexUtilsTest extends TestCase
 {
-    public function testAdvanced()
-    {
-        $mo = new \Rindow\Math\Matrix\MatrixOperator();
-        $this->assertTrue($mo->isAdvanced());
-    }
-    
     public function testcbuild()
     {
         $utils = new TestUtils();
