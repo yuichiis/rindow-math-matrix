@@ -36,25 +36,25 @@ jobs:
             os: ubuntu-latest
             php: '8.4'
             phpunit: '11.5'
-            ffi: 'ffi'
+            ffi: ''
             arch: 'amd64'
           - name: Windows
             os: windows-latest
             php: '8.4'
             phpunit: '11.5'
-            ffi: 'ffi'
+            ffi: ''
             arch: 'x64'
           - name: macOS
             os: macos-latest
             php: '8.4'
             phpunit: '11.5'
-            ffi: 'ffi'
+            ffi: ''
             arch: 'arm64'
           - name: macOS-x86_64
             os: macos-13
             php: '8.4'
             phpunit: '11.5'
-            ffi: 'ffi'
+            ffi: ''
             arch: 'x86_64'
 
     steps:
