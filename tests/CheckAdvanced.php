@@ -9,6 +9,5 @@ class CheckAdvanced extends TestCase
     {
         $mo = new \Rindow\Math\Matrix\MatrixOperator();
         $this->assertTrue($mo->isAdvanced());
-        $this->assertTrue(false)
     }
 }
