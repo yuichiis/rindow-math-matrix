@@ -114,13 +114,13 @@ jobs:
         if: ${{ startsWith(matrix.os, 'windows-') }}
         run: |
           Invoke-WebRequest -Uri https://github.com/${{ env.owner }}/rindow-math-matrix-matlibffi/archive/refs/heads/${{ env.workspace }}.zip  -OutFile ${{ env.workspace }}1.zip
-          Expand-Archive -Path ${{ env.workspace }}1.zip
+          Expand-Archive -Path ${{ env.workspace }}1.zip -DestinationPath ${{ env.workspace }}
           Invoke-WebRequest -Uri https://github.com/${{ env.owner }}/rindow-math-buffer-ffi/archive/refs/heads/${{ env.workspace }}.zip  -OutFile ${{ env.workspace }}2.zip
-          Expand-Archive -Path ${{ env.workspace }}2.zip
+          Expand-Archive -Path ${{ env.workspace }}2.zip -DestinationPath ${{ env.workspace }}
           Invoke-WebRequest -Uri https://github.com/${{ env.owner }}/rindow-matlib-ffi/archive/refs/heads/${{ env.workspace }}.zip  -OutFile ${{ env.workspace }}3.zip
-          Expand-Archive -Path ${{ env.workspace }}3.zip
+          Expand-Archive -Path ${{ env.workspace }}3.zip -DestinationPath ${{ env.workspace }}
           Invoke-WebRequest -Uri https://github.com/${{ env.owner }}/rindow-openblas-ffi/archive/refs/heads/${{ env.workspace }}.zip  -OutFile ${{ env.workspace }}4.zip
-          Expand-Archive -Path ${{ env.workspace }}4.zip
+          Expand-Archive -Path ${{ env.workspace }}4.zip -DestinationPath ${{ env.workspace }}
   
       - name: PHP Static Analysys 
         run: phpstan
@@ -149,7 +149,7 @@ jobs:
           $env:PATH = "$matlibDir/bin;$env:PATH"
           dir $matlibDir/bin
           $env:WORKING_BRANCH = "${{ env.workspace }}"
-          $env:ADD_PACK = "$currentDir"
+          $env:ADD_PACK = "$currentDir/${{ env.workspace }}"
           vendor/bin/phpunit -c tests
 
       - name: PHPUnit Tests (macOS)
