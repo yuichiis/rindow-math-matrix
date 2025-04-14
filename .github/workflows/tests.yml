@@ -12,7 +12,6 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        #ffi: ['','ffi']
         include:
           - name: PHP8.1
             os: ubuntu-latest
@@ -40,22 +39,12 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          # PHP Extras
           coverage: none
           tools: composer, phpstan
           ini-values: "memory_limit=512M"
-          # extensions: ${{ matrix.ffi }}
+          extensions: mbstring
         env:
           fail-fast: true
-
-      #- name: Install Libs
-      #  run: |
-      #    if [ 'ffi' == '${{ matrix.ffi }}' ] ; then
-      #      sudo apt install -y libopenblas-base liblapacke
-      #      wget https://github.com/rindow/rindow-matlib/releases/download/1.0.0/rindow-matlib_1.0.0_amd64.deb
-      #      sudo apt install -y ./rindow-matlib_1.0.0_amd64.deb
-      #      sudo update-alternatives --set librindowmatlib.so /usr/lib/rindowmatlib-serial/librindowmatlib.so
-      #    fi
 
       - name: Checkout codes
         uses: "actions/checkout@v4"
