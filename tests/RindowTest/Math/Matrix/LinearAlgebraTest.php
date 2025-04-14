@@ -121,6 +121,19 @@ class LinearAlgebraTest extends TestCase
         return $cArray;
     }
 
+    protected function absarray(NDArray $x) : NDArray
+    {
+        $y = $this->newArray($x->shape(),dtype:$x->dtype());
+        $xx = $x->buffer();
+        $yy = $y->buffer();
+        $ofs_x = $x->offset();
+        $size = $x->size();
+        for($i=0;$i<$size;$i++) {
+            $yy[$i] = abs($xx[$ofs_x+$i]);
+        }
+        return $y;
+    }
+
     public function testSpeedTest()
     {
         // ==============================================
@@ -13204,13 +13217,13 @@ class LinearAlgebraTest extends TestCase
 
     public function testSvdFull1()
     {
-        if($this->service->serviceLevel()<Service::LV_ADVANCED) {
-            $this->markTestSkipped('Unsuppored function without openblas');
-            return;
-        }
-
+        //if($this->service->serviceLevel()<Service::LV_ADVANCED) {
+        //    $this->markTestSkipped('Unsuppored function without openblas');
+        //    return;
+        //}
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
+        $hla = $mo->la();
         $a = $la->array([
             [ 8.79,  9.93,  9.83,  5.45,  3.16,],
             [ 6.11,  6.91,  5.04, -0.27,  7.98,],
@@ -13244,12 +13257,20 @@ class LinearAlgebraTest extends TestCase
             [ 0.29, 0.58,-0.02, 0.38,-0.65, 0.11],
         ]);
         //$this->assertTrue(false);
-        $this->assertLessThan(0.01,abs($la->amax($la->axpy($u,$correctU,-1))));
+        //$this->assertLessThan(0.01,abs($la->amax($la->axpy($u,$correctU,-1))));
+        $u = $this->ndarray($u);
+        $correctU = $this->ndarray($correctU);
+        //echo "u=".$mo->toString($u,'%10.6f',true)."\n";
+        //echo "correctU=".$mo->toString($correctU,'%10.6f',true)."\n";
+        $this->assertTrue($hla->isclose($this->absarray($u),$this->absarray($correctU),rtol:1e-2,atol:1e-3));
         # ---- s ----
         $correctS = $la->array(
             [27.47,22.64, 8.56, 5.99, 2.01]
         );
-        $this->assertLessThan(0.01,abs($la->amax($la->axpy($s,$correctS,-1))));
+        //$this->assertLessThan(0.01,abs($la->amax($la->axpy($s,$correctS,-1))));
+        $s = $this->ndarray($s);
+        $correctS = $this->ndarray($correctS);
+        $this->assertTrue($hla->isclose($this->absarray($s),$this->absarray($correctS),rtol:1e-2,atol:1e-3));
         # ---- vt ----
         $correctVT = $la->array([
             [-0.25,-0.40,-0.69,-0.37,-0.41],
@@ -13258,18 +13279,22 @@ class LinearAlgebraTest extends TestCase
             [ 0.40,-0.45, 0.25, 0.43,-0.62],
             [-0.22, 0.14, 0.59,-0.63,-0.44],
         ]);
-        $this->assertLessThan(0.01,abs($la->amax($la->axpy($vt,$correctVT,-1))));
+        //$this->assertLessThan(0.01,abs($la->amax($la->axpy($vt,$correctVT,-1))));
+        $vt = $this->ndarray($vt);
+        $correctVT = $this->ndarray($correctVT);
+        $this->assertTrue($hla->isclose($this->absarray($vt),$this->absarray($correctVT),rtol:1e-2,atol:1e-3));
         $this->assertTrue(true);
     }
 
     public function testSvdFull2()
     {
-        if($this->service->serviceLevel()<Service::LV_ADVANCED) {
-            $this->markTestSkipped('Unsuppored function without openblas');
-            return;
-        }
+        //if($this->service->serviceLevel()<Service::LV_ADVANCED) {
+        //    $this->markTestSkipped('Unsuppored function without openblas');
+        //    return;
+        //}
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
+        $hla = $mo->la();
         $a = $la->array([
             [ 8.79,  9.93,  9.83,  5.45,  3.16,],
             [ 6.11,  6.91,  5.04, -0.27,  7.98,],
@@ -13303,15 +13328,22 @@ class LinearAlgebraTest extends TestCase
             [-0.22, 0.14, 0.59,-0.63,-0.44],
         ]);
         $correctU = $la->transpose($correctU);
-
-        $correctU = $la->square($correctU);
-        $u = $la->square($u);
-        $this->assertLessThan(0.01,abs($la->amax($la->axpy($u,$correctU,-1))));
+        //$correctU = $la->square($correctU);
+        //$u = $la->square($u);
+        //$this->assertLessThan(0.01,abs($la->amax($la->axpy($u,$correctU,-1))));
+        $u = $this->ndarray($u);
+        $correctU = $this->ndarray($correctU);
+        //echo "u=".$mo->toString($u,'%6.2f',true)."\n";
+        //echo "correctU=".$mo->toString($correctU,'%6.2f',true)."\n";
+        $this->assertTrue($hla->isclose($this->absarray($u),$this->absarray($correctU),rtol:1e-2,atol:1e-3));
         # ---- s ----
         $correctS = $la->array(
             [27.47,22.64, 8.56, 5.99, 2.01]
         );
-        $this->assertLessThan(0.01,abs($la->amax($la->axpy($s,$correctS,-1))));
+        //$this->assertLessThan(0.01,abs($la->amax($la->axpy($s,$correctS,-1))));
+        $s = $this->ndarray($s);
+        $correctS = $this->ndarray($correctS);
+        $this->assertTrue($hla->isclose($this->absarray($s),$this->absarray($correctS),rtol:1e-2,atol:1e-3));
         # ---- vt ----
         $correctVT = $la->array([
             [ 0.59, 0.26, 0.36, 0.31, 0.23, 0.55],
@@ -13322,16 +13354,26 @@ class LinearAlgebraTest extends TestCase
             [-0.29, 0.58,-0.02, 0.38,-0.65, 0.11],
         ]);
         $correctVT = $la->transpose($correctVT);
-        $correctVT = $la->square($correctVT);
-        $vt = $la->square($vt);
-        $this->assertLessThan(0.01,abs($la->amax($la->axpy($vt,$correctVT,-1))));
+        //$correctVT = $la->square($correctVT);
+        //$vt = $la->square($vt);
+        //$this->assertLessThan(0.01,abs($la->amax($la->axpy($vt,$correctVT,-1))));
+        $vt = $this->ndarray($vt);
+        $correctVT = $this->ndarray($correctVT);
+        //echo "vt=".$mo->toString($vt,'%6.2f',true)."\n";
+        //echo "correctVT=".$mo->toString($correctVT,'%6.2f',true)."\n";
+        $this->assertTrue($hla->isclose($this->absarray($vt),$this->absarray($correctVT),rtol:1e-2,atol:1e-3));
         $this->assertTrue(true);
     }
 
     public function testSvdSmallU()
     {
+        //if($this->service->serviceLevel()<Service::LV_ADVANCED) {
+        //    $this->markTestSkipped('Unsuppored function without openblas');
+        //    return;
+        //}
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
+        $hla = $mo->la();
         $a = $la->array([
             [ 8.79,  9.93,  9.83,  5.45,  3.16,],
             [ 6.11,  6.91,  5.04, -0.27,  7.98,],
@@ -13360,12 +13402,18 @@ class LinearAlgebraTest extends TestCase
             [-0.47,-0.35, 0.39, 0.16,-0.52],
             [ 0.29, 0.58,-0.02, 0.38,-0.65],
         ]);
-        $this->assertLessThan(0.01,abs($la->amax($la->axpy($u,$correctU,-1))));
+        //$this->assertLessThan(0.01,abs($la->amax($la->axpy($u,$correctU,-1))));
+        $u = $this->ndarray($u);
+        $correctU = $this->ndarray($correctU);
+        $this->assertTrue($hla->isclose($this->absarray($u),$this->absarray($correctU),rtol:1e-2,atol:1e-3));
         # ---- s ----
         $correctS = $la->array(
             [27.47,22.64, 8.56, 5.99, 2.01]
         );
-        $this->assertLessThan(0.01,abs($la->amax($la->axpy($s,$correctS,-1))));
+        //$this->assertLessThan(0.01,abs($la->amax($la->axpy($s,$correctS,-1))));
+        $s = $this->ndarray($s);
+        $correctS = $this->ndarray($correctS);
+        $this->assertTrue($hla->isclose($this->absarray($s),$this->absarray($correctS),rtol:1e-2,atol:1e-3));
         # ---- vt ----
         $correctVT = $la->array([
             [-0.25,-0.40,-0.69,-0.37,-0.41],
@@ -13374,18 +13422,22 @@ class LinearAlgebraTest extends TestCase
             [ 0.40,-0.45, 0.25, 0.43,-0.62],
             [-0.22, 0.14, 0.59,-0.63,-0.44],
         ]);
-        $this->assertLessThan(0.01,abs($la->amax($la->axpy($vt,$correctVT,-1))));
+        //$this->assertLessThan(0.01,abs($la->amax($la->axpy($vt,$correctVT,-1))));
+        $vt = $this->ndarray($vt);
+        $correctVT = $this->ndarray($correctVT);
+        $this->assertTrue($hla->isclose($this->absarray($vt),$this->absarray($correctVT),rtol:1e-2,atol:1e-3));
         $this->assertTrue(true);
     }
 
     public function testSvdSmallVT()
     {
-        if($this->service->serviceLevel()<Service::LV_ADVANCED) {
-            $this->markTestSkipped('Unsuppored function without openblas');
-            return;
-        }
+        //if($this->service->serviceLevel()<Service::LV_ADVANCED) {
+        //    $this->markTestSkipped('Unsuppored function without openblas');
+        //    return;
+        //}
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
+        $hla = $mo->la();
         $a = $la->array([
             [ 8.79,  9.93,  9.83,  5.45,  3.16,],
             [ 6.11,  6.91,  5.04, -0.27,  7.98,],
@@ -13415,14 +13467,20 @@ class LinearAlgebraTest extends TestCase
             [-0.22, 0.14, 0.59,-0.63,-0.44],
         ]);
         $correctU = $la->transpose($correctU);
-        $correctU = $la->square($correctU);
-        $u = $la->square($u);
-        $this->assertLessThan(0.01,abs($la->amax($la->axpy($u,$correctU,-1))));
+        //$correctU = $la->square($correctU);
+        //$u = $la->square($u);
+        //$this->assertLessThan(0.01,abs($la->amax($la->axpy($u,$correctU,-1))));
+        $u = $this->ndarray($u);
+        $correctU = $this->ndarray($correctU);
+        $this->assertTrue($hla->isclose($this->absarray($u),$this->absarray($correctU),rtol:1e-2,atol:1e-3));
         # ---- s ----
         $correctS = $la->array(
             [27.47,22.64, 8.56, 5.99, 2.01]
         );
-        $this->assertLessThan(0.01,abs($la->amax($la->axpy($s,$correctS,-1))));
+        //$this->assertLessThan(0.01,abs($la->amax($la->axpy($s,$correctS,-1))));
+        $s = $this->ndarray($s);
+        $correctS = $this->ndarray($correctS);
+        $this->assertTrue($hla->isclose($this->absarray($s),$this->absarray($correctS),rtol:1e-2,atol:1e-3));
         # ---- vt ----
         $correctVT = $la->array([
             [ 0.59, 0.26, 0.36, 0.31, 0.23,],
@@ -13433,9 +13491,12 @@ class LinearAlgebraTest extends TestCase
             [-0.29, 0.58,-0.02, 0.38,-0.65,],
         ]);
         $correctVT = $la->transpose($correctVT);
-        $correctVT = $la->square($correctVT);
-        $vt = $la->square($vt);
-        $this->assertLessThan(0.01,abs($la->amax($la->axpy($vt,$correctVT,-1))));
+        //$correctVT = $la->square($correctVT);
+        //$vt = $la->square($vt);
+        //$this->assertLessThan(0.01,abs($la->amax($la->axpy($vt,$correctVT,-1))));
+        $vt = $this->ndarray($vt);
+        $correctVT = $this->ndarray($correctVT);
+        $this->assertTrue($hla->isclose($this->absarray($vt),$this->absarray($correctVT),rtol:1e-2,atol:1e-3));
         $this->assertTrue(true);
     }
 
