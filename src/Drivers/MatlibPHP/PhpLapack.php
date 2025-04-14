@@ -416,6 +416,9 @@ class PhpLapack
         return new NDArrayPhp(null,$dtype,$shape,service:$this->service);
     }
 
+    /**
+     * @param array<int> $shape
+     */
     private function assign(?Buffer $buffer, int $dtype, array $shape, ?int $offset) : NDArray
     {
         return new NDArrayPhp($buffer,$dtype,$shape,$offset,service:$this->service);
@@ -497,15 +500,22 @@ class PhpLapack
     protected function printArray(NDArray $x,?string $format=null) : void
     {
         $format ??= '%f';
-        if($x->ndim()==1) {
-            $x = $x->reshape(1,$x->size());
+        $shape = $x->shape();
+        if(count($shape)===1) {
+            $m = 1;
+            $n = $shape[0];
+        } elseif(count($shape)===2) {
+            [$m,$n] = $shape;
+        } else {
+            throw new InvalidArgumentException("Transpose currently only supports 2D matrices.");
         }
-        [$m,$n] = $x->shape();
+        $buffer = $x->buffer();
+        $pos = $x->offset();
         if($m>1) echo "[\n";
         for($i=0;$i<$m;$i++) {
             echo "[";
             for($j=0;$j<$n;$j++) {
-                echo sprintf($format,$x[$i][$j]).",";
+                echo sprintf($format,$buffer[$pos++]).",";
             }
             echo "]\n";
         }
