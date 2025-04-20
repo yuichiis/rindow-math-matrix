@@ -24,6 +24,7 @@ class PhpBlas
     protected $floatTypes= [
         NDArray::float16,NDArray::float32,NDArray::float64,
     ];
+    protected bool $lapackCompatible = true;
 
     public function __construct(?object $blas=null,?bool $forceBlas=null)
     {
@@ -391,7 +392,7 @@ class PhpBlas
         }
         return $Y;
     }
-/*
+
     public function rotg(
         Buffer $A, int $offsetA,
         Buffer $B, int $offsetB,
@@ -399,99 +400,214 @@ class PhpBlas
         Buffer $S, int $offsetS
         ) : void
     {
-        if($this->cistype($A->dtype())) {
-            throw new InvalidArgumentException('Unsuppored data type.');
-        }
         $a = $A[$offsetA];
         $b = $B[$offsetB];
-        // r
-        if(abs($a)>abs($b)) {
-            $r = $this->sign(sqrt($a**2 + $b**2),$a);
-        } else {
-            $r = $this->sign(sqrt($a**2 + $b**2),$b);
-        }
-        // c
-        if($r!=0) {
-            $c = $a/$r;
-        } else {
-            $c = 1;
-        }
-        // s
-        if($r!=0) {
-            $s = $a/$r;
-        } else {
-            $s = 0;
-        }
-        // z
-        if(abs($a)>abs($b)) {
-            $z = $s;
-        } else {
-            if($r!=0) {
-                if($c!=0) {
-                    $z = 1/$c;
+
+        // Check if the data type of buffer A is complex.
+        if(!$this->cistype($A->dtype())) {
+            // Real number calculation block.
+            // ... (実数部分のコードは変更なし) ...
+            $absa = abs($a);
+            $absb = abs($b);
+            // Case where the absolute value of b is zero.
+            if($absb == 0.0) {
+                $c = 1.0;
+                $s = 0.0;
+                $r = $a;
+                $z =  0.0;
+            // Case where the absolute value of a is zero.
+            } elseif($absa == 0.0) {
+                $c = 0.0;
+                $s = 1.0;
+                $r = $b;
+                $z = 1.0;
+            // General case where both absolute values are non-zero.
+            } else {
+                $safmin = 1.0e-37; // Smallest safe floating-point number.
+                $safmax = 1/$safmin; // Largest safe floating-point number.
+                // Scale factor to avoid overflow or underflow.
+                $scale = min( max($safmin,max($absa,$absb)), $safmax);
+                // Determine the sign for r.
+                if ($absa > $absb) {
+                    $sigma = ($a>=0.0)? 1.0:-1.0;
                 } else {
-                    $z = 1;
+                    $sigma = ($b>=0.0)? 1.0:-1.0;
                 }
-            } else {
-                $z = 0;
-            }
-        }
-        $A[$offsetA] = $r;
-        $B[$offsetB] = $z;
-        $C[$offsetC] = $c;
-        $S[$offsetS] = $s;
-    }
-*/
-    public function rotg(
-        Buffer $A, int $offsetA,
-        Buffer $B, int $offsetB,
-        Buffer $C, int $offsetC,
-        Buffer $S, int $offsetS
-        ) : void
-    {
-        if($this->cistype($A->dtype())) {
-            throw new InvalidArgumentException('Unsuppored data type.');
-        }
-        $a = $A[$offsetA];
-        $b = $B[$offsetB];
-        $absa = abs($a);
-        $absb = abs($b);
 
-        if($absb == 0.0) {
-            $c = 1.0;
-            $s = 0.0;
-            $r = $a;
-            $z =  0.0;
-        } elseif($absa == 0.0) {
-            $c = 0.0;
-            $s = 1.0;
-            $r = $b;
-            $z = 1.0;
+                $dascal = $a / $scale;
+                $dbscal = $b / $scale;
+                // Calculate r.
+                $r_abs = ($scale * sqrt($dascal * $dascal + $dbscal * $dbscal));
+                $r = $sigma * $r_abs;
+                // Handle the case where r is zero (should be rare).
+                if($r==0.0) { // Consider using a small tolerance instead of exact zero check
+                    // If r is numerically zero, implies a=0 and b=0, handled above.
+                    // This case might indicate issues if reached.
+                    // Fallback to identity rotation might be safer depending on context.
+                    $c = 1.0;
+                    $s = 0.0;
+                    $z = 0.0;
+                    // $r remains 0.0 in this case
+                } else {
+                    // Calculate c and s.
+                    $c = $a / $r;
+                    $s = $b / $r;
+                    $z = 1.0;
+                    // Update z based on the relative magnitudes of abs(a) and abs(b).
+                    if($absa > $absb) {
+                        $z = $s;
+                    } // Note: LAPACK d_rotg returns z=1/c if |a|<=|b| and c!=0
+                    // Need to check if c=0 case needs explicit handling for z
+                    elseif ($c != 0.0) { // Check if absa <= absb is needed here based on LAPACK doc/code
+                       $z = 1.0 / $c;
+                    } else {
+                       // Case |a| <= |b| and c == 0 (implies a=0)
+                       // Handled by initial elseif(absa == 0.0) case where z=1.0
+                       // If somehow reached here (e.g., due to float precision), z=1.0 might be intended.
+                       $z = 1.0; // Default or based on LAPACK behavior for this edge case
+                    }
+                }
+            }
+
         } else {
-            $safmin = 1.0e-37;
-            $safmax = 1/$safmin;
-            $scale = min( max($safmin,max($absa,$absb)), $safmax);
-            if ($absa > $absb) {
-                $sigma = ($a>=0.0)? 1.0:-1.0;
-            } else {
-                $sigma = ($b>=0.0)? 1.0:-1.0;
-            }
-            $dascal = $a / $scale;
-            $dbscal = $b / $scale;
-            $r = $sigma * ($scale * sqrt($dascal * $dascal + $dbscal * $dbscal));
-            $c = $a / $r;
-            $s = $b / $r;
-            $z = 1.0;
-            if($absa > $absb) {
-                $z = $s;
-            }
-            if(($absa <= $absb) && ($c != 0.0)) {
-                $z = 1.0 / $c;
-            }
-        }
+            // Complex number calculation block.
+            $calc = $this->getCalc($A->dtype());
+            $zero_complex = $calc->build(0.0, 0.0);
+            $one_complex = $calc->build(1.0, 0.0);
+            $one_real = 1.0;
+            $zero_real = 0.0;
 
+            // Initial values (retrieve input a and b).
+            $a_in = $a; // Keep the original a (if needed).
+            $b_in = $b; // Keep the original b.
+            echo "a=$a\n";
+            echo "b=$b\n";
+
+            // Case where a is zero and b is non-zero
+            if ($calc->iszero($a_in)) {
+                 if($calc->iszero($b_in)) {
+                    // a = 0 and b = 0
+                    $c_real = $one_real;
+                    $s = $zero_complex;
+                    $r = $zero_complex;
+                 } else {
+                    // a = 0 and b != 0
+                    $c_real = $zero_real;
+                    $s = $one_complex; // s = 1 + 0i
+                    $r = $b_in;        // r = b
+                 }
+            } else {
+                // Case where a is non-zero (b can be zero or non-zero).
+                $absa = $calc->abs($a_in); // |a| (real number)
+                $absb = $calc->abs($b_in); // |b| (real number)
+                echo "absa=$absa\n";
+                echo "absb=$absb\n";
+
+                // Case 1: |a| > |b|
+                if ($absa > $absb) {
+                    echo "Case 1: |a| > |b| \n";
+                    $scale_real = $absa;
+                    $roe_a = $calc->scale(1.0 / $scale_real, $a_in); // roe_a = a / |a|
+
+                    $b_scaled = $calc->scale(1.0 / $scale_real, $b_in);
+                    $abs_b_scaled = $calc->abs($b_scaled);
+                    $norm_real = $scale_real * sqrt($one_real + $abs_b_scaled * $abs_b_scaled);
+
+                    $c_real = $absa / $norm_real;
+                    $b_div_norm = $calc->scale(1.0 / $norm_real, $b_in);
+                    $s = $calc->mul($calc->conj($roe_a), $b_div_norm);
+                    $r = $calc->scale($norm_real, $roe_a); // r = roe_a * norm
+
+                // Case 2: |b| >= |a| (and a != 0).
+                } else {
+                    echo "Case 2: |b| >= |a| (and a != 0). \n";
+                    // Sub-case: |b| >= |a| > 0, but b is numerically zero.
+                    // This is effectively the same as the b = 0 case (where a != 0).
+                    if ($calc->iszero($b_in)) {
+                        $c_real = $one_real;
+                        $s = $zero_complex;
+                        $r = $a_in; // r = a
+                    } else {
+                        // |b| >= |a| > 0 and b != 0.
+                        echo "|b| >= |a| > 0 and b != 0. \n";
+                        $scale_real = $absb; // スケーリングは b ベースでも良い
+
+                        // ノルム norm = |b| * sqrt(1 + (|a|/|b|)^2) = sqrt(|a|^2 + |b|^2).
+                        $a_scaled = $calc->scale(1.0 / $scale_real, $a_in);
+                        $abs_a_scaled = $calc->abs($a_scaled);
+                        $norm_real = $scale_real * sqrt($one_real + $abs_a_scaled * $abs_a_scaled);
+                        echo "a_scaled=$a_scaled\n";
+                        echo "abs_a_scaled=$abs_a_scaled\n";
+                        echo "norm_real=$norm_real\n";
+
+                        // c = |a| / norm (real number).
+                        if ($norm_real == 0.0) {
+                            echo "norm_real == 0.0\n";
+                            // Should not happen if a!=0
+                            $c_real = $one_real; // Safety fallback
+                            $s = $zero_complex;
+                            $r = $a_in;
+                        } else {
+                            echo "norm_real != 0.0\n";
+                            $c_real = $absa / $norm_real;
+                            echo "c_real=$c_real\n";
+
+                            if(!$this->lapackCompatible) {
+                                // --- LAPACK準拠の計算 ---
+                                // alpha = b / |b|
+                                $alpha = $calc->scale(1.0 / $scale_real, $b_in); // scale_real は |b|
+                                echo "alpha (b/|b|)=$alpha\n";
+
+                                // r = alpha * norm
+                                $r = $calc->scale($norm_real, $alpha);
+                                echo "r (LAPACK)=$r\n";
+
+                                // s = conj(alpha) * (a / norm)
+                                $a_div_norm = $calc->scale(1.0 / $norm_real, $a_in);
+                                echo "a_div_norm=$a_div_norm\n";
+                                $conj_alpha = $calc->conj($alpha);
+                                echo "conj_alpha=$conj_alpha\n";
+                                $s = $calc->mul($conj_alpha, $a_div_norm);
+                                echo "s (LAPACK)=$s\n";
+                                // --- LAPACK準拠の計算ここまで ---
+                            } else {
+                                // --- ここから修正 ---
+                                // roe_a = a / |a| (a の位相を持つ単位ベクトル) を計算
+                                // absa は非ゼロのはず (a!=0 なので)
+                                $roe_a = $calc->scale(1.0 / $absa, $a_in);
+                                echo "roe_a=$roe_a\n";
+
+                                // r = roe_a * norm (a の位相を持つように r を計算)
+                                $r = $calc->scale($norm_real, $roe_a);
+                                echo "r=$r\n";
+
+                                // s = conj(roe_a) * (b / norm) (r と c から s を決定)
+                                $b_div_norm = $calc->scale(1.0 / $norm_real, $b_in);
+                                echo "b_div_norm=$b_div_norm\n";
+                                $conj_roe_a = $calc->conj($roe_a);
+                                echo "conj_roe_a=$conj_roe_a\n";
+                                $s = $calc->mul($conj_roe_a, $b_div_norm);
+                                echo "s=$s\n";
+                                // --- 修正ここまで ---
+
+                            }
+                        }
+                    }
+                }
+            }
+            $z = $zero_complex;          // There is no direct equivalent of z, so store 0.
+            $c = $calc->build($c_real, 0.0); // c is real, but stored in a complex buffer.
+        } // end of complex calculation block
+
+        echo "=========\n";
+        echo "r=$r\n";
+        echo "z=$z\n";
+        echo "c=$c\n";
+        echo "s=$s\n";
+
+        // Store results in buffers
         $A[$offsetA] = $r;
-        $B[$offsetB] = $z;
+        $B[$offsetB] = $z; // Note: for complex, B is not used for 'z'
         $C[$offsetC] = $c;
         $S[$offsetS] = $s;
     }
@@ -663,18 +779,53 @@ class PhpBlas
         Buffer $S, int $offsetS
         ) : void
     {
-        if($this->cistype($X->dtype())) {
-            throw new InvalidArgumentException('Unsuppored data type.');
-        }
-        $cc = $C[$offsetC];
-        $ss = $S[$offsetS];
-        $idX = $offsetX;
-        $idY = $offsetY;
-        for($i=0;$i<$n;$i++,$idX+=$incX,$idY+=$incY) {
-            $xx = $X[$idX];
-            $yy = $Y[$idY];
-            $X[$idX] =  $cc * $xx + $ss * $yy;
-            $Y[$idY] = -$ss * $xx + $cc * $yy;
+        if(!$this->cistype($X->dtype())) {
+            $cc = $C[$offsetC];
+            $ss = $S[$offsetS];
+            $idX = $offsetX;
+            $idY = $offsetY;
+            for($i=0;$i<$n;$i++,$idX+=$incX,$idY+=$incY) {
+                $xx = $X[$idX];
+                $yy = $Y[$idY];
+                $X[$idX] =  $cc * $xx + $ss * $yy;
+                $Y[$idY] = -$ss * $xx + $cc * $yy;
+            }
+        } else {
+            $cc_complex = $C[$offsetC];
+            $ss = $S[$offsetS];
+            $c_real = $cc_complex->real;
+
+            $idX = $offsetX;
+            $idY = $offsetY;
+
+            //$c_complex_for_calc = $calc->build($c_real, 0.0);
+
+            $zero_complex = $calc->build(0.0, 0.0);
+            // $minus_one_complex = $calc->build(-1.0, 0.0);
+
+            for($i=0; $i < $n; $i++, $idX += $incX, $idY += $incY) {
+                $xx = $X[$idX];
+                $yy = $Y[$idY];
+
+                $temp_xx = $xx;
+
+                // X[$idX] = c*xx + s*yy;
+                $term1_x = $calc->scale($c_real, $xx);
+                // s*yy
+                $term2_x = $calc->mul($ss, $yy);
+                $X[$idX] = $calc->add($term1_x, $term2_x);
+
+                // Y[$idY] = -conj(s)*temp_xx + c*yy;
+                // -conj(s)
+                $conj_s = $calc->conj($ss);
+                $neg_conj_s = $calc->sub($zero_complex, $conj_s); // 0 - conj(s)
+                // or   $neg_conj_s = $calc->mul($minus_one_complex, $conj_s);
+
+                // -conj(s)*temp_xx
+                $term1_y = $calc->mul($neg_conj_s, $temp_xx);
+                $term2_y = $calc->scale($c_real, $yy);
+                $Y[$idY] = $calc->add($term1_y, $term2_y);
+            }
         }
     }
 
@@ -842,6 +993,191 @@ class PhpBlas
             }
         }
     }
+
+    private function A_ACCESS(Buffer $A, int $offset, int $row, int $col, int $lda, int $order) : mixed
+    {
+        if($order == BLAS::RowMajor) {
+            return $A[$offset + $row*$lda + $col];
+        } else {
+            return $A[$offset + $row + $col*$lda];
+        }
+    }
+
+    private function X_GET(Buffer $X, int $baseOffset, int $ix) : mixed
+    {
+        return $X[$baseOffset + $ix];
+    }
+
+    private function X_SET(Buffer $X, int $baseOffset, int $ix, mixed $value) : void
+    {
+        // Bufferの実装に合わせて調整が必要な場合があります
+        $X[$baseOffset + $ix] = $value;
+    }
+
+    private function getCalc(int $dtype)
+    {
+        if($this->cistype($dtype)) {
+            return new PhpCalcComplex();
+        } else {
+            return new PhpCalcFloat();
+        }
+    }
+
+    public function trsv(
+        int $order,
+        int $uplo,
+        int $trans_code,
+        int $diag,
+        int $n,
+        Buffer $A, int $offsetA, int $ldA,
+        Buffer $X, int $offsetX, int $incX
+    ) {
+        if ($n <= 0) {
+            return; // 何もしない
+        }
+
+        [$trans, $conj] = $this->codeToTrans($trans_code);
+        $dtype = $A->dtype();
+        // echo "trans=";var_dump($trans);
+        // echo "conj=";var_dump($conj);
+
+        $notrans = !$trans;
+        $nounit = ($diag == BLAS::NonUnit);
+        $upper =  ($uplo == BLAS::Upper);
+        $calc = $this->getCalc($dtype);
+        $use_conj = $calc->iscomplex($dtype) && $conj;
+        // echo "use_conj=";var_dump($use_conj);
+
+        $kx = ($incX > 0) ? 0 : (1 - $n) * $incX;
+        $forward_i_loop = ($notrans xor $upper);
+
+        if ($forward_i_loop) {
+            $start_i = 0; $end_i = $n; $inc_i = 1;
+            $ix_start = $kx; $ix_inc = $incX;
+        } else {
+            $start_i = $n - 1; $end_i = -1; $inc_i = -1;
+            $ix_start = $kx + ($n - 1) * $incX; $ix_inc = -$incX;
+        }
+
+        $ix = $ix_start;
+        for ($i = $start_i; $i != $end_i; $i += $inc_i) {
+            // A[i,i] を取得 (共役は取らない)
+            $Aii = $this->A_ACCESS($A, $offsetA, $i, $i, $ldA, $order);
+            // 現在の X[i] (初期値は b[i]) を取得
+            $temp = $this->X_GET($X, $offsetX, $ix);
+            // echo "A[$i,$i]=Aii=$Aii,X[$ix]=temp=$temp\n";
+
+            // --- ループ冒頭の Aii の共役処理を削除 ---
+
+            if ($notrans) { // NoTrans (A*x=b) または ConjNoTrans (conj(A)*x=b)
+                //echo "notrans (or conjNoTrans)\n";
+                $sum_val = $calc->build(0.0);
+                if ($forward_i_loop) { // Lower (j < i)
+                    //echo "forward_i_loop=true\n";
+                    $jx = $kx;
+                    for ($j = 0; $j < $i; $j++) {
+                        $Aij = $this->A_ACCESS($A, $offsetA, $i, $j, $ldA, $order); // A[i,j]
+                        if ($use_conj) { // ConjNoTrans: conj(A[i,j]) を使う
+                            $Aij = $calc->conj($Aij);
+                        }
+                        $xj = $this->X_GET($X, $offsetX, $jx); // 計算済みの x[j]
+                        //echo "Use Aij(maybe conj)=$Aij, xj=$xj\n";
+                        $sum_val = $calc->add($sum_val, $calc->mul($Aij, $xj));
+                        $jx += $incX;
+                    }
+                } else { // Upper (j > i)
+                    // echo "forward_i_loop=false\n";
+                    $jx = $kx + ($i + 1) * $incX;
+                    for ($j = $i + 1; $j < $n; $j++) {
+                        $Aij = $this->A_ACCESS($A, $offsetA, $i, $j, $ldA, $order); // A[i,j]
+                        if ($use_conj) { // ConjNoTrans: conj(A[i,j]) を使う
+                             $Aij = $calc->conj($Aij);
+                        }
+                        $xj = $this->X_GET($X, $offsetX, $jx); // 計算済みの x[j]
+                        // echo "Use Aij(maybe conj)=$Aij, xj=$xj\n";
+                        $sum_val = $calc->add($sum_val, $calc->mul($Aij, $xj));
+                        $jx += $incX;
+                    }
+                }
+                //echo "sum_val=$sum_val\n";
+                $temp = $calc->sub($temp, $sum_val); // temp = b[i] - sum
+                //echo "temp = b[i] - sum = $temp\n";
+
+                if ($nounit) {
+                    //echo "nounit\n";
+                    $diag_val = $Aii; // オリジナルの A[i,i]
+                    if ($use_conj) { // ConjNoTrans: conj(A[i,i]) で割る
+                        $diag_val = $calc->conj($diag_val);
+                    }
+                    //echo "Use diag_val(maybe conj)=$diag_val\n";
+                    if ($calc->iszero($diag_val)) {
+                        // trigger_error("Matrix is singular at index $i", E_USER_WARNING);
+                        $temp = NAN; // またはエラー処理
+                    } else {
+                         $temp = $calc->div($temp, $diag_val); // x[i] = temp / diag_val
+                    }
+                    //echo "x[i] = temp / diag_val = $temp\n";
+                }
+                //echo "SET X[$ix]=$temp\n";
+                $this->X_SET($X, $offsetX, $ix, $temp); // x[i] を格納
+
+            } else { // Trans (A^T*x=b) または ConjTrans (A^H*x=b)
+                // echo "trans (or conjTrans)\n";
+                $sum_val = $calc->build(0.0);
+                if ($forward_i_loop) { // Upper (j < i)
+                    // echo "forward_i_loop=true\n";
+                    $jx = $kx;
+                    for ($j = 0; $j < $i; $j++) {
+                        $Aji = $this->A_ACCESS($A, $offsetA, $j, $i, $ldA, $order); // A[j,i]
+                        if ($use_conj) { // ConjTrans: conj(A[j,i]) を使う
+                            $Aji = $calc->conj($Aji);
+                        }
+                        $xj = $this->X_GET($X, $offsetX, $jx); // 計算済みの x[j]
+                        // echo "Use Aji(maybe conj)=$Aji, xj=$xj\n";
+                        $sum_val = $calc->add($sum_val, $calc->mul($Aji, $xj));
+                        $jx += $incX;
+                    }
+                } else { // Lower (j > i)
+                    // echo "forward_i_loop=false\n";
+                    $jx = $kx + ($i + 1) * $incX;
+                    for ($j = $i + 1; $j < $n; $j++) {
+                        $Aji = $this->A_ACCESS($A, $offsetA, $j, $i, $ldA, $order); // A[j,i]
+                        if ($use_conj) { // ConjTrans: conj(A[j,i]) を使う
+                             $Aji = $calc->conj($Aji);
+                        }
+                        $xj = $this->X_GET($X, $offsetX, $jx); // 計算済みの x[j]
+                        // echo "Use Aji(maybe conj)=$Aji, xj=$xj\n";
+                        $sum_val = $calc->add($sum_val, $calc->mul($Aji, $xj));
+                        $jx += $incX;
+                    }
+                }
+                // echo "sum_val=$sum_val\n";
+                $temp = $calc->sub($temp, $sum_val); // temp = b[i] - sum
+                // echo "temp = b[i] - sum = $temp\n";
+
+                if ($nounit) {
+                    // echo "nounit\n";
+                    $diag_val = $Aii; // オリジナルの A[i,i]
+                    if ($use_conj) { // ConjTrans: conj(A[i,i]) で割る
+                        $diag_val = $calc->conj($diag_val);
+                    }
+                    // echo "Use diag_val(maybe conj)=$diag_val\n";
+                    if ($calc->iszero($diag_val)) {
+                        // trigger_error("Matrix is singular at index $i", E_USER_WARNING);
+                        $temp = NAN; // またはエラー処理
+                    } else {
+                        $temp = $calc->div($temp, $diag_val); // x[i] = temp / diag_val
+                    }
+                    // echo "x[i] = temp / diag_val = $temp\n";
+                }
+                // echo "SET X[$ix]=$temp\n";
+                $this->X_SET($X, $offsetX, $ix, $temp); // x[i] を格納
+            }
+
+            $ix += $ix_inc; // 次の要素へ
+        }
+    }
+
 
     /**
      * C(m,k) = A(m,n)*B(n,k)
