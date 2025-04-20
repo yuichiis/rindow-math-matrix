@@ -729,8 +729,11 @@ class LinearAlgebraTest extends TestCase
         $b = $la->array([C(2.0,-1.0)],dtype:$dtype);
 
         [$r,$z,$c,$s] = $la->rotg($a,$b);
+        // r = 1.8708287477493+INFi
+        // c = 0.5345224738121+0i
+        // s = 0.26726123690605+0.80178374052048i        
         echo "r = ".$r[0]."\n";
-        // echo "z = ".$z[0]."\n";
+        echo "z = ".$z[0]."\n";
         echo "c = ".$c[0]."\n";
         echo "s = ".$s[0]."\n";
         $trueR = $calc->scale(sqrt(7/2),C(1,i:1));

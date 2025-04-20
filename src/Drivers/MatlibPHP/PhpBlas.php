@@ -552,7 +552,7 @@ class PhpBlas
                             $c_real = $absa / $norm_real;
                             echo "c_real=$c_real\n";
 
-                            if(!$this->lapackCompatible) {
+                            if($this->lapackCompatible) {
                                 // --- LAPACK準拠の計算 ---
                                 // alpha = b / |b|
                                 $alpha = $calc->scale(1.0 / $scale_real, $b_in); // scale_real は |b|
