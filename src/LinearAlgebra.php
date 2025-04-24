@@ -5,6 +5,7 @@ use Interop\Polite\Math\Matrix\BLAS;
 use Interop\Polite\Math\Matrix\NDArray;
 use Interop\Polite\Math\Matrix\Buffer;
 use InvalidArgumentException;
+use RuntimeException;
 use LogicException;
 use Rindow\Math\Matrix\Drivers\Service;
 use function Rindow\Math\Matrix\R;
@@ -917,6 +918,54 @@ class LinearAlgebra
             $YY,$offY,1);
 
         return $Y;
+    }
+
+    /**
+    *    Ax = b (triangle solve)
+    */
+    public function trsv(
+        NDArray $A,
+        NDArray $X,
+        ?bool $lower=null,
+        ?bool $trans=null,
+        ?bool $conj=null,
+        ?bool $unit=null,
+        ) : NDArray
+    {
+        [$trans,$conj] = $this->complementTrans($trans,$conj,$A->dtype());
+
+        if($A->ndim()!=2 || $X->ndim()!=1) {
+            throw new InvalidArgumentException('"A" must be 2D-NDArray and "X" must 1D-NDArray.');
+        }
+        $shapeA = $A->shape();
+        $shapeX = $X->shape();
+        if($shapeA[0]!=$shapeA[1]) {
+            throw new InvalidArgumentException('Matrix A must be square.: '.
+                '['.implode(',',$shapeA).']');
+        }
+        if($shapeA[0]!=$shapeX[0]) {
+            throw new InvalidArgumentException('The number of columns in "A" and The number of item in "X" must be the same');
+        }
+        $AA = $A->buffer();
+        $XX = $X->buffer();
+        $offA = $A->offset();
+        $offX = $X->offset();
+        $n = $shapeA[0];
+        $trans = $this->transToCode($trans,$conj);
+        $uplo  = ($lower) ? BLAS::Lower : BLAS::Upper;
+        $diag  = ($unit)  ? BLAS::Unit  : BLAS::NonUnit;
+
+        $this->blas->trsv(
+            BLAS::RowMajor,
+            $uplo,
+            $trans,
+            $diag,
+            $n,
+            $AA,$offA,$n,
+            $XX,$offX,1,
+        );
+
+        return $X;
     }
 
     /**
@@ -5536,5 +5585,87 @@ class LinearAlgebra
         $SS = $solve->buffer();
         $this->blas->copy($n,$aug->buffer(),$aug->offset()+$n,$n+1,$SS,0,1);
         return $solve;
+    }
+
+    public function solveg(NDArray $a, NDArray $b, ?float $epsilon=null) : NDArray
+    {
+        if($epsilon===null) {
+            $epsilon = 1e-7;
+        }
+        if($a->ndim()!=2) {
+            throw new InvalidArgumentException('matrix a must be 2d');
+        }
+        if($b->ndim()!=1) {
+            throw new InvalidArgumentException('matrix a must be 1d');
+        }
+        $shapeA = $a->shape();
+        $shapeB = $b->shape();
+        if($shapeA[0]!=$shapeB[0]) {
+            throw new InvalidArgumentException('Unmatch shape A rows and B: '.$shapeA[0].'!='.$shapeB[0]);
+        }
+        if($a->dtype()!=$b->dtype()) {
+            throw new InvalidArgumentException('A and B must be same data type');
+        }
+        $iscomplex = $this->cistype($a->dtype());
+        $m = $shapeA[0];
+        $n = $shapeA[1];
+        for($j = 0; $j < $n; ++$j) {
+            for($i = $j+1; $i < $m; ++$i) {
+                $pa = $a[$j][[$j,$j+1]];
+                $pb = $a[$i][[$j,$j+1]];
+                if($iscomplex) {
+                    $abs = $this->cabs($pb[0]);
+                } else {
+                    $abs = abs($pb[0]);
+                }
+                if($abs < $epsilon) {
+                    continue;
+                }
+                [$r,$z,$c,$s] = $this->rotg($pa,$pb);
+
+                $num_elements_A = $n - $j;
+                $rowA_j_start = $a[$j][[$j,$j+$num_elements_A]]; // j行目のj列目から
+                $rowA_i_start = $a[$i][[$j,$j+$num_elements_A]]; // i行目のj列目から
+                $this->rot($rowA_j_start, $rowA_i_start, $c, $s);
+                $this->rot($b[[$j,$j+1]], $b[[$i,$i+1]], $c, $s);
+            }
+        }
+
+        $x = $this->alloc([$n],$a->dtype());
+
+        //for ($i=$n-1; $i>=0; --$i) {
+        //    if (abs($a[$i][$i]) < $epsilon) {
+        //        throw new InvalidArgumentException("Matrix is singular or near-singular (zero pivot encountered at R[$i][$i]).");
+        //    }
+        //    $sum = 0;
+        //    for ($k = $i+1; $k<$n; ++$k) {
+        //        $sum += $a[$i][$k] * $x[$k];
+        //    }
+        //
+        //    // x[i] = (b'[i] - sum) / R[i][i]
+        //    $x[$i] = ($b[$i] - $sum) / $a[$i][$i];
+        //}
+
+        if($this->blas->hasIamin()) {
+            $min_idx = $this->blas->iamin($n, $a->buffer(), $a->offset(), $n+1);
+        } else {
+            $min_idx = $this->blasIaminCompatible($n,$a->buffer(), $a->offset(), $n+1);
+        }
+        $min_diag = $a[$min_idx][$min_idx];
+        if($iscomplex) {
+            $min_diag_abs_value = $this->cabs($min_diag);
+        } else {
+            $min_diag_abs_value = abs($min_diag);
+        }
+        if ($min_diag_abs_value < $epsilon) {
+            throw new RuntimeException("Matrix is singular or near-singular (minimum absolute diagonal $min_diag_abs_value at A[$min_idx][$min_idx] is below threshold).");
+        }
+        $this->copy($b[[0,$n]],$x);
+        $this->trsv(
+            $a,
+            $x,
+        );
+
+        return $x;
     }
 }

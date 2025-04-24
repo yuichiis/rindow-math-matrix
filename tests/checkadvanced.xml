@@ -2,7 +2,7 @@
 
 <phpunit bootstrap="Bootstrap.php">
     <testsuites>
-        <testsuite name="rindowtest">
+        <testsuite name="checkAdvanced">
             <file>./CheckAdvanced.php</file>
         </testsuite>
         <testsuite name="rindowtest">
