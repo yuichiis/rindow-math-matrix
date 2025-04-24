@@ -1795,6 +1795,64 @@ class LinearAlgebraCL
     }
 
     /**
+    *    Ax = b (triangle solve)
+    */
+    public function trsv(
+        NDArray $A,
+        NDArray $X,
+        ?bool $lower=null,
+        ?bool $trans=null,
+        ?bool $conj=null,
+        ?bool $unit=null,
+        ?object $events=null) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("gemv");
+        }
+        [$trans,$conj] = $this->complementTrans($trans,$conj,$A->dtype());
+
+        if($A->ndim()!=2 || $X->ndim()!=1) {
+            throw new InvalidArgumentException('"A" must be 2D-NDArray and "X" must 1D-NDArray.');
+        }
+        $shapeA = $A->shape();
+        $shapeX = $X->shape();
+        if($shapeA[0]!=$shapeA[1]) {
+            throw new InvalidArgumentException('Matrix A must be square.: '.
+                '['.implode(',',$shapeA).']');
+        }
+        if($shapeA[0]!=$shapeX[0]) {
+            throw new InvalidArgumentException('The number of columns in "A" and The number of item in "X" must be the same');
+        }
+        $AA = $A->buffer();
+        $XX = $X->buffer();
+        $offA = $A->offset();
+        $offX = $X->offset();
+        $n = $shapeA[0];
+        $trans = $this->transToCode($trans,$conj);
+        $uplo  = ($lower) ? BLAS::Lower : BLAS::Upper;
+        $diag  = ($unit)  ? BLAS::Unit  : BLAS::NonUnit;
+
+        $this->blas->trsv(
+            BLAS::RowMajor,
+            $uplo,
+            $trans,
+            $diag,
+            $n,
+            $AA,$offA,$n,
+            $XX,$offX,1,
+            $this->queue,$events,
+        );
+
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("trsv");
+        }
+        return $X;
+    }
+
+    /**
     *    C := alpha * AB + beta * C
     */
     public function gemm(
@@ -7197,4 +7255,59 @@ class LinearAlgebraCL
         return $data;
     }
 
+    public function solveg(NDArray $a, NDArray $b, ?float $epsilon=null) : NDArray
+    {
+        if($epsilon===null) {
+            $epsilon = 1e-7;
+        }
+        if($a->ndim()!=2) {
+            throw new InvalidArgumentException('matrix a must be 2d');
+        }
+        if($b->ndim()!=1) {
+            throw new InvalidArgumentException('matrix a must be 1d');
+        }
+        $shapeA = $a->shape();
+        $shapeB = $b->shape();
+        if($shapeA[0]!=$shapeB[0]) {
+            throw new InvalidArgumentException('Unmatch shape A rows and B: '.$shapeA[0].'!='.$shapeB[0]);
+        }
+        if($a->dtype()!=$b->dtype()) {
+            throw new InvalidArgumentException('A and B must be same data type');
+        }
+        $m = $shapeA[0];
+        $n = $shapeA[1];
+        for($j = 0; $j < $n; ++$j) {
+            for($i = $j+1; $i < $m; ++$i) {
+                $pa = $a[$j][[$j,$j+1]];
+                $pb = $a[$i][[$j,$j+1]];
+                if(abs($pb->toArray()[0]) < $epsilon) {
+                    continue;
+                }
+                [$r,$z,$c,$s] = $this->rotg($pa,$pb);
+
+                $num_elements_A = $n - $j;
+                $rowA_j_start = $a[$j][[$j,$j+$num_elements_A]]; // j行目のj列目から
+                $rowA_i_start = $a[$i][[$j,$j+$num_elements_A]]; // i行目のj列目から
+                $this->rot($rowA_j_start, $rowA_i_start, $c, $s);
+                $this->rot($b[[$j,$j+1]], $b[[$i,$i+1]], $c, $s);
+            }
+        }
+
+        $x = $this->alloc([$n],$a->dtype());
+
+        for ($i=$n-1; $i>=0; --$i) {
+            if (abs($a[$i][[$i,$i+1]]->toArray()[0]) < $epsilon) {
+                throw new InvalidArgumentException("Matrix is singular or near-singular (zero pivot encountered at R[$i][$i]).");
+            }
+            $sum = 0;
+            for ($k = $i+1; $k<$n; ++$k) {
+                $sum += $a[$i][$k] * $x[$k];
+            }
+    
+            // x[i] = (b'[i] - sum) / R[i][i]
+            $x[$i] = ($b[$i] - $sum) / $a[$i][$i];
+        }
+
+        return $x;
+    }
 }
