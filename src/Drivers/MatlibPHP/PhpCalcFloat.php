@@ -32,7 +32,7 @@ class PhpCalcFloat
         return abs($value);
     }
 
-    public function conj(float $value) : object
+    public function conj(float $value) : float
     {
         return $value;
     }
@@ -60,12 +60,12 @@ class PhpCalcFloat
         return $x/$y;
     }
 
-    public function scale(float $a, float $x) : object
+    public function scale(float $a, float $x) : float
     {
         return $a*$x;
     }
 
-    public function sqrt(object $x) : object
+    public function sqrt(float $x) : float
     {
         return sqrt($x);
     }

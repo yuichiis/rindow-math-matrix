@@ -406,7 +406,6 @@ class PhpBlas
         // Check if the data type of buffer A is complex.
         if(!$this->cistype($A->dtype())) {
             // Real number calculation block.
-            // ... (実数部分のコードは変更なし) ...
             $absa = abs($a);
             $absb = abs($b);
             // Case where the absolute value of b is zero.
@@ -480,8 +479,6 @@ class PhpBlas
             // Initial values (retrieve input a and b).
             $a_in = $a; // Keep the original a (if needed).
             $b_in = $b; // Keep the original b.
-            echo "a=$a\n";
-            echo "b=$b\n";
 
             // Case where a is zero and b is non-zero
             if ($calc->iszero($a_in)) {
@@ -500,12 +497,9 @@ class PhpBlas
                 // Case where a is non-zero (b can be zero or non-zero).
                 $absa = $calc->abs($a_in); // |a| (real number)
                 $absb = $calc->abs($b_in); // |b| (real number)
-                echo "absa=$absa\n";
-                echo "absb=$absb\n";
 
                 // Case 1: |a| > |b|
                 if ($absa > $absb) {
-                    echo "Case 1: |a| > |b| \n";
                     $scale_real = $absa;
                     $roe_a = $calc->scale(1.0 / $scale_real, $a_in); // roe_a = a / |a|
 
@@ -520,7 +514,6 @@ class PhpBlas
 
                 // Case 2: |b| >= |a| (and a != 0).
                 } else {
-                    echo "Case 2: |b| >= |a| (and a != 0). \n";
                     // Sub-case: |b| >= |a| > 0, but b is numerically zero.
                     // This is effectively the same as the b = 0 case (where a != 0).
                     if ($calc->iszero($b_in)) {
@@ -529,85 +522,49 @@ class PhpBlas
                         $r = $a_in; // r = a
                     } else {
                         // |b| >= |a| > 0 and b != 0.
-                        echo "|b| >= |a| > 0 and b != 0. \n";
-                        $scale_real = $absb; // スケーリングは b ベースでも良い
+                        $scale_real = $absb; // scaling also can be based b
 
-                        // ノルム norm = |b| * sqrt(1 + (|a|/|b|)^2) = sqrt(|a|^2 + |b|^2).
+                        // norm = |b| * sqrt(1 + (|a|/|b|)^2) = sqrt(|a|^2 + |b|^2).
                         $a_scaled = $calc->scale(1.0 / $scale_real, $a_in);
                         $abs_a_scaled = $calc->abs($a_scaled);
                         $norm_real = $scale_real * sqrt($one_real + $abs_a_scaled * $abs_a_scaled);
-                        echo "a_scaled=$a_scaled\n";
-                        echo "abs_a_scaled=$abs_a_scaled\n";
-                        echo "norm_real=$norm_real\n";
 
                         // c = |a| / norm (real number).
                         if ($norm_real == 0.0) {
-                            echo "norm_real == 0.0\n";
                             // Should not happen if a!=0
                             $c_real = $one_real; // Safety fallback
                             $s = $zero_complex;
                             $r = $a_in;
                         } else {
-                            echo "norm_real != 0.0\n";
                             $c_real = $absa / $norm_real;
-                            echo "c_real=$c_real\n";
 
-                            if($this->lapackCompatible) {
-                                // --- LAPACK準拠の計算 ---
-                                // alpha = b / |b|
-                                $alpha = $calc->scale(1.0 / $scale_real, $b_in); // scale_real は |b|
-                                echo "alpha (b/|b|)=$alpha\n";
+                            // roe_a = a / |a| (unit vector with phase a)
+                            // absa must be not zero. (because a!=0)
+                            $roe_a = $calc->scale(1.0 / $absa, $a_in);
 
-                                // r = alpha * norm
-                                $r = $calc->scale($norm_real, $alpha);
-                                echo "r (LAPACK)=$r\n";
+                            // r = roe_a * norm (Calculate r so that it has the topology of a)
+                            $r = $calc->scale($norm_real, $roe_a);
 
-                                // s = conj(alpha) * (a / norm)
-                                $a_div_norm = $calc->scale(1.0 / $norm_real, $a_in);
-                                echo "a_div_norm=$a_div_norm\n";
-                                $conj_alpha = $calc->conj($alpha);
-                                echo "conj_alpha=$conj_alpha\n";
-                                $s = $calc->mul($conj_alpha, $a_div_norm);
-                                echo "s (LAPACK)=$s\n";
-                                // --- LAPACK準拠の計算ここまで ---
-                            } else {
-                                // --- ここから修正 ---
-                                // roe_a = a / |a| (a の位相を持つ単位ベクトル) を計算
-                                // absa は非ゼロのはず (a!=0 なので)
-                                $roe_a = $calc->scale(1.0 / $absa, $a_in);
-                                echo "roe_a=$roe_a\n";
+                            // s = (a / |a|) * conj(b / norm) 
+                            $b_div_norm = $calc->scale(1.0 / $norm_real, $b_in); // b / norm
 
-                                // r = roe_a * norm (a の位相を持つように r を計算)
-                                $r = $calc->scale($norm_real, $roe_a);
-                                echo "r=$r\n";
+                            $conj_b_div_norm = $calc->conj($b_div_norm);     // conj(b / norm)
 
-                                // s = conj(roe_a) * (b / norm) (r と c から s を決定)
-                                $b_div_norm = $calc->scale(1.0 / $norm_real, $b_in);
-                                echo "b_div_norm=$b_div_norm\n";
-                                $conj_roe_a = $calc->conj($roe_a);
-                                echo "conj_roe_a=$conj_roe_a\n";
-                                $s = $calc->mul($conj_roe_a, $b_div_norm);
-                                echo "s=$s\n";
-                                // --- 修正ここまで ---
+                            // roe_a has already been calculated (a / |a|)
+                            $s = $calc->mul($roe_a, $conj_b_div_norm);         // s = (a / |a|) * conj(b / norm)
 
-                            }
                         }
                     }
                 }
             }
-            $z = $zero_complex;          // There is no direct equivalent of z, so store 0.
             $c = $calc->build($c_real, 0.0); // c is real, but stored in a complex buffer.
         } // end of complex calculation block
 
-        echo "=========\n";
-        echo "r=$r\n";
-        echo "z=$z\n";
-        echo "c=$c\n";
-        echo "s=$s\n";
-
         // Store results in buffers
         $A[$offsetA] = $r;
-        $B[$offsetB] = $z; // Note: for complex, B is not used for 'z'
+        if(!$this->cistype($A->dtype())) {
+            $B[$offsetB] = $z; // Note: for complex, B is not used for 'z'
+        }
         $C[$offsetC] = $c;
         $S[$offsetS] = $s;
     }
@@ -791,6 +748,7 @@ class PhpBlas
                 $Y[$idY] = -$ss * $xx + $cc * $yy;
             }
         } else {
+            $calc = $this->getCalc($X->dtype());
             $cc_complex = $C[$offsetC];
             $ss = $S[$offsetS];
             $c_real = $cc_complex->real;
@@ -994,7 +952,7 @@ class PhpBlas
         }
     }
 
-    private function A_ACCESS(Buffer $A, int $offset, int $row, int $col, int $lda, int $order) : mixed
+    private function accessArray(Buffer $A, int $offset, int $row, int $col, int $lda, int $order) : mixed
     {
         if($order == BLAS::RowMajor) {
             return $A[$offset + $row*$lda + $col];
@@ -1003,18 +961,17 @@ class PhpBlas
         }
     }
 
-    private function X_GET(Buffer $X, int $baseOffset, int $ix) : mixed
+    private function accessVector(Buffer $X, int $baseOffset, int $ix) : mixed
     {
         return $X[$baseOffset + $ix];
     }
 
-    private function X_SET(Buffer $X, int $baseOffset, int $ix, mixed $value) : void
+    private function storeVector(Buffer $X, int $baseOffset, int $ix, mixed $value) : void
     {
-        // Bufferの実装に合わせて調整が必要な場合があります
         $X[$baseOffset + $ix] = $value;
     }
 
-    private function getCalc(int $dtype)
+    private function getCalc(int $dtype) : object
     {
         if($this->cistype($dtype)) {
             return new PhpCalcComplex();
@@ -1031,7 +988,8 @@ class PhpBlas
         int $n,
         Buffer $A, int $offsetA, int $ldA,
         Buffer $X, int $offsetX, int $incX
-    ) {
+    ) : void
+    {
         if ($n <= 0) {
             return; // 何もしない
         }
@@ -1062,12 +1020,10 @@ class PhpBlas
         $ix = $ix_start;
         for ($i = $start_i; $i != $end_i; $i += $inc_i) {
             // A[i,i] を取得 (共役は取らない)
-            $Aii = $this->A_ACCESS($A, $offsetA, $i, $i, $ldA, $order);
+            $Aii = $this->accessArray($A, $offsetA, $i, $i, $ldA, $order);
             // 現在の X[i] (初期値は b[i]) を取得
-            $temp = $this->X_GET($X, $offsetX, $ix);
+            $temp = $this->accessVector($X, $offsetX, $ix);
             // echo "A[$i,$i]=Aii=$Aii,X[$ix]=temp=$temp\n";
-
-            // --- ループ冒頭の Aii の共役処理を削除 ---
 
             if ($notrans) { // NoTrans (A*x=b) または ConjNoTrans (conj(A)*x=b)
                 //echo "notrans (or conjNoTrans)\n";
@@ -1076,11 +1032,11 @@ class PhpBlas
                     //echo "forward_i_loop=true\n";
                     $jx = $kx;
                     for ($j = 0; $j < $i; $j++) {
-                        $Aij = $this->A_ACCESS($A, $offsetA, $i, $j, $ldA, $order); // A[i,j]
+                        $Aij = $this->accessArray($A, $offsetA, $i, $j, $ldA, $order); // A[i,j]
                         if ($use_conj) { // ConjNoTrans: conj(A[i,j]) を使う
                             $Aij = $calc->conj($Aij);
                         }
-                        $xj = $this->X_GET($X, $offsetX, $jx); // 計算済みの x[j]
+                        $xj = $this->accessVector($X, $offsetX, $jx); // 計算済みの x[j]
                         //echo "Use Aij(maybe conj)=$Aij, xj=$xj\n";
                         $sum_val = $calc->add($sum_val, $calc->mul($Aij, $xj));
                         $jx += $incX;
@@ -1089,11 +1045,11 @@ class PhpBlas
                     // echo "forward_i_loop=false\n";
                     $jx = $kx + ($i + 1) * $incX;
                     for ($j = $i + 1; $j < $n; $j++) {
-                        $Aij = $this->A_ACCESS($A, $offsetA, $i, $j, $ldA, $order); // A[i,j]
+                        $Aij = $this->accessArray($A, $offsetA, $i, $j, $ldA, $order); // A[i,j]
                         if ($use_conj) { // ConjNoTrans: conj(A[i,j]) を使う
                              $Aij = $calc->conj($Aij);
                         }
-                        $xj = $this->X_GET($X, $offsetX, $jx); // 計算済みの x[j]
+                        $xj = $this->accessVector($X, $offsetX, $jx); // 計算済みの x[j]
                         // echo "Use Aij(maybe conj)=$Aij, xj=$xj\n";
                         $sum_val = $calc->add($sum_val, $calc->mul($Aij, $xj));
                         $jx += $incX;
@@ -1119,7 +1075,7 @@ class PhpBlas
                     //echo "x[i] = temp / diag_val = $temp\n";
                 }
                 //echo "SET X[$ix]=$temp\n";
-                $this->X_SET($X, $offsetX, $ix, $temp); // x[i] を格納
+                $this->storeVector($X, $offsetX, $ix, $temp); // x[i] を格納
 
             } else { // Trans (A^T*x=b) または ConjTrans (A^H*x=b)
                 // echo "trans (or conjTrans)\n";
@@ -1128,11 +1084,11 @@ class PhpBlas
                     // echo "forward_i_loop=true\n";
                     $jx = $kx;
                     for ($j = 0; $j < $i; $j++) {
-                        $Aji = $this->A_ACCESS($A, $offsetA, $j, $i, $ldA, $order); // A[j,i]
+                        $Aji = $this->accessArray($A, $offsetA, $j, $i, $ldA, $order); // A[j,i]
                         if ($use_conj) { // ConjTrans: conj(A[j,i]) を使う
                             $Aji = $calc->conj($Aji);
                         }
-                        $xj = $this->X_GET($X, $offsetX, $jx); // 計算済みの x[j]
+                        $xj = $this->accessVector($X, $offsetX, $jx); // 計算済みの x[j]
                         // echo "Use Aji(maybe conj)=$Aji, xj=$xj\n";
                         $sum_val = $calc->add($sum_val, $calc->mul($Aji, $xj));
                         $jx += $incX;
@@ -1141,11 +1097,11 @@ class PhpBlas
                     // echo "forward_i_loop=false\n";
                     $jx = $kx + ($i + 1) * $incX;
                     for ($j = $i + 1; $j < $n; $j++) {
-                        $Aji = $this->A_ACCESS($A, $offsetA, $j, $i, $ldA, $order); // A[j,i]
+                        $Aji = $this->accessArray($A, $offsetA, $j, $i, $ldA, $order); // A[j,i]
                         if ($use_conj) { // ConjTrans: conj(A[j,i]) を使う
                              $Aji = $calc->conj($Aji);
                         }
-                        $xj = $this->X_GET($X, $offsetX, $jx); // 計算済みの x[j]
+                        $xj = $this->accessVector($X, $offsetX, $jx); // 計算済みの x[j]
                         // echo "Use Aji(maybe conj)=$Aji, xj=$xj\n";
                         $sum_val = $calc->add($sum_val, $calc->mul($Aji, $xj));
                         $jx += $incX;
@@ -1171,7 +1127,7 @@ class PhpBlas
                     // echo "x[i] = temp / diag_val = $temp\n";
                 }
                 // echo "SET X[$ix]=$temp\n";
-                $this->X_SET($X, $offsetX, $ix, $temp); // x[i] を格納
+                $this->storeVector($X, $offsetX, $ix, $temp); // x[i] を格納
             }
 
             $ix += $ix_inc; // 次の要素へ

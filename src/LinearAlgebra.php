@@ -5,6 +5,7 @@ use Interop\Polite\Math\Matrix\BLAS;
 use Interop\Polite\Math\Matrix\NDArray;
 use Interop\Polite\Math\Matrix\Buffer;
 use InvalidArgumentException;
+use RuntimeException;
 use LogicException;
 use Rindow\Math\Matrix\Drivers\Service;
 use function Rindow\Math\Matrix\R;
@@ -5657,7 +5658,7 @@ class LinearAlgebra
             $min_diag_abs_value = abs($min_diag);
         }
         if ($min_diag_abs_value < $epsilon) {
-            throw new RuntimeExecption("Matrix is singular or near-singular (minimum absolute diagonal $min_diag_abs_value at A[$min_idx][$min_idx] is below threshold).");
+            throw new RuntimeException("Matrix is singular or near-singular (minimum absolute diagonal $min_diag_abs_value at A[$min_idx][$min_idx] is below threshold).");
         }
         $this->copy($b[[0,$n]],$x);
         $this->trsv(
