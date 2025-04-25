@@ -5488,6 +5488,9 @@ class LinearAlgebra
 
     public function isclose(NDArray $a, NDArray $b, float|object|null $rtol=null, ?float $atol=null,?bool $debug=null) : bool
     {
+        if($a->dtype()!=$b->dtype()) {
+            return false;
+        }
         $isCpx = $this->isComplexDtype($a->dtype());
         if($rtol===null) {
             $rtol = $isCpx?C(1e-04):1e-04;
