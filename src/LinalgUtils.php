@@ -2,6 +2,7 @@
 namespace Rindow\Math\Matrix;
 
 use Interop\Polite\Math\Matrix\NDArray;
+use Interop\Polite\Math\Matrix\BLAS;
 
 trait LinalgUtils
 {
