@@ -52,17 +52,6 @@ class MatrixOperator
     ];
     protected int $defaultIntType = NDArray::int32;
     protected int $defaultFloatType = NDArray::float32;
-    /** @var array<int,string> $dtypeToString */
-    protected array $dtypeToString = [
-        NDArray::bool=>'bool',
-        NDArray::int8=>'int8',   NDArray::uint8=>'uint8',
-        NDArray::int16=>'int16', NDArray::uint16=>'uint16',
-        NDArray::int32=>'int32', NDArray::uint32=>'uint32',
-        NDArray::int64=>'int64', NDArray::uint64=>'uint64',
-        NDArray::float16=>'float16',
-        NDArray::float32=>'float32', NDArray::float64=>'float64',
-        NDArray::complex64=>'complex64', NDArray::complex128=>'complex128',
-    ];
     
     /** @var array<int,int> $dtypePrecision */
     protected array $dtypePrecision = [
@@ -1432,10 +1421,7 @@ class MatrixOperator
 
     public function dtypeToString(int $dtype) : string
     {
-        if(!isset($this->dtypeToString[$dtype])) {
-            return 'Unknown';
-        }
-        return $this->dtypeToString[$dtype];
+        return $this->la()->dtypeToString($dtype);
     }
 
     /**

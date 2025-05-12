@@ -17,6 +17,7 @@ use function Rindow\Math\Matrix\R;
 class LinearAlgebraCL
 {
     use ComplexUtils;
+    use LinalgUtils;
 
     const LAPACK_ROW_MAJOR = 101;
     const LAPACK_COL_MAJOR = 102;
@@ -47,30 +48,6 @@ class LinearAlgebraCL
     protected array $profilingTotalTime = [];
     protected string $clVersion;
     protected bool $isOpenCL110;
-
-    /** @var array<int,bool> $intTypes */
-    protected $intTypes= [
-        NDArray::int8   => true,
-        NDArray::int16  => true,
-        NDArray::int32  => true,
-        NDArray::int64  => true,
-        NDArray::uint8  => true,
-        NDArray::uint16 => true,
-        NDArray::uint32 => true,
-        NDArray::uint64 => true,
-    ];
-
-    /** @var array<int,string> $dtypeToString */
-    protected $dtypeToString = [
-        NDArray::bool=>'bool',
-        NDArray::int8=>'int8',   NDArray::uint8=>'uint8',
-        NDArray::int16=>'int16', NDArray::uint16=>'uint16',
-        NDArray::int32=>'int32', NDArray::uint32=>'uint32',
-        NDArray::int64=>'int64', NDArray::uint64=>'uint64',
-        NDArray::float16=>'float16',
-        NDArray::float32=>'float32', NDArray::float64=>'float64',
-        NDArray::complex64=>'complex64', NDArray::complex128=>'complex128',
-    ];
 
     public function __construct(
         object $queue, Service $service, ?int $defaultFloatType=null)
@@ -249,33 +226,6 @@ class LinearAlgebraCL
         $this->queue->finish();
     }
 
-    protected function printableShapes(mixed $values) : string
-    {
-        if(!is_array($values)) {
-            if($values instanceof NDArray)
-                return '('.implode(',',$values->shape()).')';
-            if(is_object($values))
-                return '"'.get_class($values).'"';
-            if(is_numeric($values) || is_string($values))
-                return strval($values);
-            return gettype($values);
-        }
-        $string = '[';
-        foreach($values as $value) {
-            if($string!='[') {
-                $string .= ',';
-            }
-            $string .= $this->printableShapes($value);
-        }
-        $string .= ']';
-        return $string;
-    }
-
-    protected function isComplex(int $dtype) : bool
-    {
-        return $this->cistype($dtype);
-    }
-
     /**
      * @return array<bool>
      */
@@ -288,34 +238,6 @@ class LinearAlgebraCL
             $conj = $conj ?? false;
         }
         return [$trans,$conj];
-    }
-
-    protected function transToCode(bool $trans,bool $conj) : int
-    {
-        if($trans) {
-            return $conj ? BLAS::ConjTrans : BLAS::Trans;
-        } else {
-            return $conj ? BLAS::ConjNoTrans : BLAS::NoTrans;
-        }
-    }
-
-    protected function buildValByType(float|int $value, int $dtype) : float|int|object
-    {
-        if($this->cistype($dtype)) {
-            $value = $this->cbuild($value);
-        }
-        return $value;
-    }
-
-    public function isInt(NDArray $value) : bool
-    {
-        return array_key_exists($value->dtype(),$this->intTypes);
-    }
-
-    public function isFloat(NDArray $value) : bool
-    {
-        $dtype = $value->dtype();
-        return $dtype==NDarray::float32||$dtype==NDarray::float64;
     }
 
     public function array(mixed $array, ?int $dtype=null, ?int $flags=null) : NDArray

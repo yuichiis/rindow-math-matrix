@@ -15031,4 +15031,23 @@ class LinearAlgebraTest extends TestCase
         ,$A->toArray());
     }
 
+    public function testDtypeToString()
+    {
+        $mo = $this->newMatrixOperator();
+
+        $this->assertEquals('bool',$mo->dtypeToString(NDArray::bool));
+        $this->assertEquals('int8',$mo->dtypeToString(NDArray::int8));
+        $this->assertEquals('uint8',$mo->dtypeToString(NDArray::uint8));
+        $this->assertEquals('int16',$mo->dtypeToString(NDArray::int16));
+        $this->assertEquals('uint16',$mo->dtypeToString(NDArray::uint16));
+        $this->assertEquals('int32',$mo->dtypeToString(NDArray::int32));
+        $this->assertEquals('uint32',$mo->dtypeToString(NDArray::uint32));
+        $this->assertEquals('int64',$mo->dtypeToString(NDArray::int64));
+        $this->assertEquals('uint64',$mo->dtypeToString(NDArray::uint64));
+        $this->assertEquals('float16',$mo->dtypeToString(NDArray::float16));
+        $this->assertEquals('float32',$mo->dtypeToString(NDArray::float32));
+        $this->assertEquals('float64',$mo->dtypeToString(NDArray::float64));
+        $this->assertEquals('complex64',$mo->dtypeToString(NDArray::complex64));
+        $this->assertEquals('complex128',$mo->dtypeToString(NDArray::complex128));
+    }
 }

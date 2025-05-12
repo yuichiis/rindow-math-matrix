@@ -113,7 +113,7 @@ class PhpMath
 
     protected function math_imax(
         int $n,
-        Buffer $X, int $offsetX, int $incX ) : float
+        Buffer $X, int $offsetX, int $incX ) : int
     {
         $idxX = $offsetX;
         $max = $X[$idxX];
