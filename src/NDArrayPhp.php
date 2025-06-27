@@ -352,10 +352,17 @@ class NDArrayPhp implements NDArray, Countable, Serializable, IteratorAggregate
                 !array_key_exists(0, $offset) || !array_key_exists(1, $offset) ||
                 $offset[0]>$offset[1]) {
                 $det = '';
-                if(is_numeric($offset[0])&&is_numeric($offset[1])) {
-                    $det = ':['. implode(',', $offset).']';
+                foreach($offset as $i=>$v) {
+                    if($det!=='') {
+                        $det .= ',';
+                    }
+                    if(is_scalar($v)) {
+                        $det .= $v;
+                    } else {
+                        $det .= gettype($v);
+                    }
                 }
-                throw new OutOfRangeException("Illegal range specification.".$det);
+                throw new OutOfRangeException("Illegal range specification. ($det) given.");
             }
             $start = $offset[0];
             $limit = $offset[1];

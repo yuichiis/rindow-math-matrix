@@ -43,6 +43,11 @@ trait LinalgUtils
         return $this->dtypeToString[$dtype];
     }
 
+    public function shapeToString(array $shape) : string
+    {
+        return '('.implode(',',$shape).')';
+    }
+
     protected function printableShapes(mixed $values) : string
     {
         if(!is_array($values)) {

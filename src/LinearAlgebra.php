@@ -246,7 +246,7 @@ class LinearAlgebra
             $Y = $this->alloc($X->shape(),dtype:$X->dtype());
         } else {
             if($X->shape()!=$Y->shape()) {
-                $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
+                $shapeError = $this->shapeToString($X->shape()).','.$this->shapeToString($Y->shape());
                 throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
             }
         }
@@ -282,7 +282,7 @@ class LinearAlgebra
         float|object|null $alpha=null) : NDArray
     {
         if($X->shape()!=$Y->shape()) {
-            $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
+            $shapeError = $this->shapeToString($X->shape()).','.$this->shapeToString($Y->shape());
             throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
         }
         $N = $X->size();
@@ -307,7 +307,7 @@ class LinearAlgebra
         ) : float|object
     {
         if($X->shape()!=$Y->shape()) {
-            $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
+            $shapeError = $this->shapeToString($X->shape()).','.$this->shapeToString($Y->shape());
             throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
         }
         $N = $X->size();
@@ -467,7 +467,7 @@ class LinearAlgebra
         ?NDArray $S=null) : array
     {
         if($X->shape()!=$Y->shape()) {
-            $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
+            $shapeError = $this->shapeToString($X->shape()).','.$this->shapeToString($Y->shape());
             throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
         }
         $R = $this->copy($X,$R);
@@ -505,7 +505,7 @@ class LinearAlgebra
         NDArray $S) : void
     {
         if($X->shape()!=$Y->shape()) {
-            $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
+            $shapeError = $this->shapeToString($X->shape()).','.$this->shapeToString($Y->shape());
             throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
         }
         $N = $X->size();
@@ -532,13 +532,13 @@ class LinearAlgebra
         ) : NDArray
     {
         if($vector->shape()!=[2]) {
-            throw new InvalidArgumentException("Shape of vector must be [2]: [".implode(',',$vector->shape())."]");
+            throw new InvalidArgumentException("Shape of vector must be (2): ".$this->shapeToString($vector->shape())." given.");
         }
         if($g==null) {
             $g = $this->alloc([4],dtype:$vector->dtype());
         } else {
             if($g->shape()!=[4]) {
-                throw new InvalidArgumentException("Shape of g must be [4]: [".implode(',',$g->shape())."]");
+                throw new InvalidArgumentException("Shape of g must be (4): ".$this->shapeToString($g->shape())." given.");
             }
         }
         $this->copy($vector[R(0,1)],$g[R(0,1)]);
@@ -572,16 +572,16 @@ class LinearAlgebra
         ) : void
     {
         if($vectors->ndim()!=2) {
-            $shapeError = '['.implode(',',$vectors->shape()).']';
+            $shapeError = $this->shapeToString($vectors->shape());
             throw new InvalidArgumentException("vectors must be 2D-NDArray: ".$shapeError." given.");
         }
         $shape = $vectors->shape()[1];
         if($shape!=2) {
-            $shapeError = '['.implode(',',$vectors->shape()).']';
+            $shapeError = $this->shapeToString($vectors->shape());
             throw new InvalidArgumentException("Vectors must be Vectors-NDArray: ".$shapeError." given.");
         }
         if($g->shape()!=[4]) {
-            $shapeError = '['.implode(',',$g->shape()).']';
+            $shapeError = $this->shapeToString($g->shape());
             throw new InvalidArgumentException("shape of g must be [4]: ".$shapeError." given.");
         }
         
@@ -614,7 +614,7 @@ class LinearAlgebra
         ) : array
     {
         if($X->size()!=1||$Y->size()!=1) {
-            $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
+            $shapeError = $this->shapeToString($X->shape()).','.$this->shapeToString($Y->shape());
             throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
         }
         if($D1==null) {
@@ -661,7 +661,7 @@ class LinearAlgebra
         ) : void
     {
         if($X->shape()!=$Y->shape()) {
-            $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
+            $shapeError = $this->shapeToString($X->shape()).','.$this->shapeToString($Y->shape());
             throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
         }
         $N = $X->size();
@@ -689,20 +689,20 @@ class LinearAlgebra
         ) : NDArray
     {
         if($vector->shape()!=[2]) {
-            throw new InvalidArgumentException("Shape of vector must be [2]: [".implode(',',$vector->shape())."]");
+            throw new InvalidArgumentException("Shape of vector must be (2): ".$this->shapeToString($vector->shape())." given.");
         }
         if($d==null) {
             $d = $this->ones($this->alloc([2],dtype:$vector->dtype()));
         } else {
             if($d->shape()!=[2]) {
-                throw new InvalidArgumentException("Shape of d must be [2]: [".implode(',',$d->shape())."]");
+                throw new InvalidArgumentException("Shape of d must be (2): ".$this->shapeToString($d->shape())." given.");
             }
         }
         if($g==null) {
             $g = $this->zeros($this->alloc([6],dtype:$vector->dtype()));
         } else {
             if($g->shape()!=[6]) {
-                throw new InvalidArgumentException("Shape of g must be [6]: [".implode(',',$g->shape())."]");
+                throw new InvalidArgumentException("Shape of g must be [6]: ".$this->shapeToString($g->shape())." given.");
             }
         }
         $this->copy($vector[R(0,1)],$g[R(0,1)]);
@@ -736,16 +736,16 @@ class LinearAlgebra
         ) : void
     {
         if($vectors->ndim()!=2) {
-            $shapeError = '['.implode(',',$vectors->shape()).']';
+            $shapeError = $this->shapeToString($vectors->shape());
             throw new InvalidArgumentException("vectors must be 2D-NDArray: ".$shapeError." given.");
         }
         $shape = $vectors->shape()[1];
         if($shape!=2) {
-            $shapeError = '['.implode(',',$vectors->shape()).']';
+            $shapeError = $this->shapeToString($vectors->shape());
             throw new InvalidArgumentException("Vectors must be Vectors-NDArray: ".$shapeError." given.");
         }
         if($g->shape()!=[6]) {
-            $shapeError = '['.implode(',',$g->shape()).']';
+            $shapeError = $this->shapeToString($g->shape());
             throw new InvalidArgumentException("shape of g must be [6]: ".$shapeError." given.");
         }
 
@@ -773,7 +773,7 @@ class LinearAlgebra
         NDArray $Y) : void
     {
         if($X->shape()!=$Y->shape()) {
-            $shapeError = '('.implode(',',$X->shape()).'),('.implode(',',$Y->shape()).')';
+            $shapeError = $this->shapeToString($X->shape()).','.$this->shapeToString($Y->shape());
             throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
         }
         $N = $X->size();
@@ -868,11 +868,10 @@ class LinearAlgebra
         $shapeA = $A->shape();
         $shapeX = $X->shape();
         if($shapeA[0]!=$shapeA[1]) {
-            throw new InvalidArgumentException('Matrix A must be square.: '.
-                '['.implode(',',$shapeA).']');
+            throw new InvalidArgumentException('Matrix A must be square.: '.$this->shapeToString($shapeA).' given.');
         }
         if($shapeA[0]!=$shapeX[0]) {
-            throw new InvalidArgumentException('The number of columns in "A" and The number of item in "X" must be the same');
+            throw new InvalidArgumentException('The number of columns in "A" and The number of item in "X" must be the same.');
         }
         $AA = $A->buffer();
         $XX = $X->buffer();
@@ -5310,7 +5309,7 @@ class LinearAlgebra
     {
 
         if($mask->dtype()!=NDArray::bool) {
-            $types = $this->dtypeToString[$mask->dtype()];
+            $types = $this->dtypeToString($mask->dtype());
             throw new InvalidArgumentException('dtype of mask must be bool.: '.$types);
         }
         $batchDims ??= 0;
@@ -5370,11 +5369,11 @@ class LinearAlgebra
 
         if($outerShape!=$outerShapeX) {
             throw new InvalidArgumentException('Unmatch dimension outer shape.: '.
-                'mask('.implode(',',$mask->shape()).') => data('.implode(',',$data->shape()).')');
+                'mask'.$this->shapeToString($mask->shape()).' => data'.$this->shapeToString($data->shape()));
         }
         if($innerShape!=$innerShapeX) {
             throw new InvalidArgumentException('Unmatch dimension inner shape.: '.
-                'mask('.implode(',',$mask->shape()).') => data('.implode(',',$data->shape()).')');
+                'mask'.$this->shapeToString($mask->shape()).' => data'.$this->shapeToString($data->shape()));
         }
         $m = (int)array_product($outerShape);
         $n = (int)array_product($brodacastShape);
