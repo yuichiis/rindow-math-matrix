@@ -1437,66 +1437,7 @@ class MatrixOperator
         ?string $format=null,
         bool|int|null $indent=null) : string
     {
-        $shape = $array->shape();
-        if(count($shape)==0) {
-            $value = $array->toArray();
-            if($format) {
-                return sprintf($format,$value);
-            } else {
-                return strval($value);
-            }
-        }
-        $n = array_shift($shape);
-        if(!is_numeric($indent) && $indent===true) {
-            $indent=1;
-        }
-        if(count($shape)==0) {
-            if($array->dtype()==NDArray::bool) {
-                $str = '';
-                foreach($array->toArray() as $value) {
-                    $str .= ($str==='') ? '[' : ',';
-                    $str .= $value ? 'true' : 'false';
-                }
-                $str .= ']';
-                return $str;
-            } else {
-                if($format) {
-                    return '['.implode(',',array_map(function($x) use ($format,$array) {
-                            if($array->dtype()==NDArray::complex64||$array->dtype()==NDArray::complex128) {
-                                return sprintf($format,$x->real,$x->imag);
-                            } else {
-                                return sprintf($format,$x);
-                            }
-                        },$array->toArray())).']';
-                } else {
-                    return '['.implode(',',$array->toArray()).']';
-                }
-            }
-        }
-        $string = '[';
-        if($indent) {
-            $string .= "\n";
-        }
-        for($i=0;$i<$n;$i++) {
-            if($i!=0) {
-                $string .= ',';
-                if($indent) {
-                    $string .= "\n";
-                }
-            }
-            if($indent) {
-                $string .= str_repeat(' ',$indent);
-                $string .= $this->toString($array[$i],$format,$indent+1);
-            } else {
-                $string .= $this->toString($array[$i],$format,$indent);
-            }
-        }
-        if($indent) {
-            $string .= "\n";
-            $string .= str_repeat(' ',$indent-1);
-        }
-        $string .= ']';
-        return $string;
+        return $this->la()->toString($array,format:$format,indent:$indent);
     }
 
     public function random() : object
