@@ -674,10 +674,14 @@ class LinearAlgebraTest extends TestCase
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
         $x = $la->array([[1,2],[3,4]],dtype:NDArray::float32);
+        $orgX = $la->copy($x);
         $nrm2 = sqrt(1+2**2+3**2+4**2);
         $this->assertLessThan(0.00001,abs($nrm2-
             $la->nrm2($x)
         ));
+        $x = $la->toNDArray($x);
+        $orgX = $la->toNDArray($orgX);
+        $this->assertTrue($mo->la()->isclose($x,$orgX));
 
         $x = $la->array([[C(1),C(2)],[C(3),C(4)]],dtype:NDArray::complex64);
         $nrm2 = sqrt(1+2**2+3**2+4**2);
