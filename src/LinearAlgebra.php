@@ -3914,6 +3914,61 @@ class LinearAlgebra
     }
 
     /**
+     * $probs : (batches,numSamples) dtype:float32.
+     * $randints: (batches) dtype:int32
+     * 
+     * sum of probs must be 1.0 each row.
+     */
+    public function randomCategorical(
+        NDArray $probs,
+        ?int $numSamples=null,
+        ?int $dtype=null,
+        ?int $seed=null,
+    ) : NDArray
+    {
+        $la = $this;
+        if(!$la->isFloat($probs)) {
+            throw new InvalidArgumentException('probs must be float dtype.');
+        }
+        if($numSamples!=null&&$numSamples<0) {
+            throw new InvalidArgumentException('numSamples must be positive.');
+        }
+        if($dtype===null) {
+            $dtype = NDArray::int32;
+        }
+        if($numSamples===null) {
+            if($probs->ndim()!=2) {
+                throw new InvalidArgumentException('probs must be 2D NDArray without numSamples.');
+            }
+            [$batches,$numActions] = $probs->shape();
+            $rand = $la->randomUniform([$batches],dtype:$probs->dtype(),low:0.0,high:1.0,seed:$seed);// (batches)
+            $thresholds = $la->cumsum($probs,axis:-1);      // (batches,numActions)
+            $randints = $la->searchsorted(                  // (batches)
+                $thresholds,    // (batches,numActions) :  individual mode
+                $rand,          // (batches)
+                right:true,
+                dtype:$dtype
+            );
+        } else {
+            if($probs->ndim()!=1) {
+                throw new InvalidArgumentException('probs must be 1D NDArray with numSamples.');
+            }
+            $numActions = $probs->shape()[0];
+            $batches = $numSamples;
+            $rand = $la->randomUniform([$batches],dtype:$probs->dtype(),low:0.0,high:1.0,seed:$seed);// (batches)
+            $thresholds = $la->cumsum($probs);      // (numActions)
+            $randints = $la->searchsorted(          // (batches)
+                $thresholds,    // (numActions) :  NON individual mode
+                $rand,          // (batches)
+                right:true,
+                dtype:$dtype
+            );
+            
+        }
+        return $randints;
+    }
+
+    /**
      * @param array<int> $begin
      * @param array<int> $size
      */

@@ -591,6 +591,7 @@ class LinearAlgebraCL
             $exclusive,
             $reverse,
             $BB,$offB,
+            $events,$waitEvents,
         );
 
         if($this->blocking) {
@@ -5808,6 +5809,61 @@ class LinearAlgebraCL
             $this->profilingEnd("randomSequence");
         }
         return $output;
+    }
+
+    /**
+     * $probs : (batches,numSamples) dtype:float32.
+     * $randints: (batches) dtype:int32
+     * 
+     * sum of probs must be 1.0 each row.
+     */
+    public function randomCategorical(
+        NDArray $probs,
+        ?int $dtype=null,
+        ?int $seed=null,
+        ?object $events=null, ?object $waitEvents=null
+    ) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("randomCategorical");
+        }
+        $la = $this;
+        if(!$la->isFloat($probs)) {
+            throw new InvalidArgumentException('probs must be float dtype.');
+        }
+        if($probs->ndim()!=2) {
+            throw new InvalidArgumentException('probs must be 2D NDArray without numSamples.');
+        }
+        [$batches,$numActions] = $probs->shape();
+        if($dtype===null) {
+            $dtype = NDArray::int32;
+        }
+        $waitPrev0 = $waitEvents;
+        $waitEvents = $this->newEventList();
+        $rand = $la->randomUniform(
+            [$batches],dtype:$probs->dtype(),low:0.0,high:1.0,
+            events:$waitEvents,waitEvents:$waitPrev0
+        );// (batches)
+        $waitPrev1 = $waitEvents;
+        $waitEvents = $this->newEventList();
+        $thresholds = $la->cumsum(
+            $probs,axis:-1,
+            events:$waitEvents,waitEvents:$waitPrev1
+        );      // (batches,numActions)
+        $waitPrev2 = $waitEvents;
+        $waitEvents = $this->newEventList();
+        $randints = $la->searchsorted(                          // (batches)
+            $thresholds,$rand,
+            right:true,dtype:$dtype,
+            events:$events,waitEvents:$waitPrev2
+        );
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("randomCategorical");
+        }
+        return $randints;
     }
 
     /**
