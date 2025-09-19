@@ -14161,6 +14161,68 @@ class LinearAlgebraTest extends TestCase
         $this->assertFalse($la->isFloat($la->array(1,dtype:NDArray::bool)));
     }
 
+    public function testWhereNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // general
+        $x = $la->array([-1,-2,-3,-4,-5]);
+        $y = $la->array([ 1, 2, 3, 4, 5]);
+        $condition = $la->array([1,0,1,0,1]);
+        $z = $la->where($condition,$x,$y);
+        $z = $la->toNDArray($z);
+        $this->assertTrue($mo->la()->isclose(
+            $mo->array([-1,2,-3,4,-5]),
+            $z
+        ));
+
+        // with condition function
+        $x = $la->array([ 1, 2, 3, 4, 5]);
+        $z = $la->where(
+            $la->less($la->copy($x),3),
+            $la->zerosLike($x),
+            $x
+        );
+        $z = $la->toNDArray($z);
+        $this->assertTrue($mo->la()->isclose(
+            $mo->array([0, 0, 3, 4, 5]),
+            $z
+        ));
+
+        // with normalized condition
+        $x = $la->array([ 1, 2, 3, 4, 5]);
+        $z = $la->where(
+            $la->less($la->copy($x),3),
+            $la->zerosLike($x),
+            $x,
+            normalize:false,
+        );
+        $z = $la->toNDArray($z);
+        $this->assertTrue($mo->la()->isclose(
+            $mo->array([0, 0, 3, 4, 5]),
+            $z
+        ));
+
+    }
+
+    public function testAbsNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $x = $la->array([-1, 2,-3, 4,-5]);
+        $z = $la->abs($x);
+        $z = $la->toNDArray($z);
+        $this->assertTrue($mo->la()->isclose(
+            $mo->array([ 1, 2, 3, 4, 5]),
+            $z
+        ));
+
+        $z = $la->abs(-5);
+        $this->assertEquals(5,$z);
+    }
+
     public function testEinsumSimpleNormal()
     {
         $mo = $this->newMatrixOperator();

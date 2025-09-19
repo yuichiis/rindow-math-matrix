@@ -5713,32 +5713,32 @@ class LinearAlgebraCL
         float $scale,
         ?int $dtype=null,
         ?int $seed=null,
-        ?NDArray $X=null,
+        ?NDArray $output=null,
         ?object $events=null, ?object $waitEvents=null
         ) : NDArray
     {
         if($this->profiling) {
             $this->profilingStart("randomNormal");
         }
-        if($dtype!==null&&$X!==null) {
-            if ($X->dtype()!=$dtype) {
-                throw new InvalidArgumentException('Unmatch dtype and dtype of X');
+        if($dtype!==null&&$output!==null) {
+            if ($output->dtype()!=$dtype) {
+                throw new InvalidArgumentException('Unmatch dtype and dtype of output');
             }
         }
-        if($X===null) {
-            $X = $this->alloc($shape,dtype:$dtype);
+        if($output===null) {
+            $output = $this->alloc($shape,dtype:$dtype);
         } else {
             if ($X->shape()!=$shape) {
-                throw new InvalidArgumentException('Unmatch shape and shape of X');
+                throw new InvalidArgumentException('Unmatch shape and shape of output');
             }
         }
         if($seed===null) {
             $seed = random_int(~PHP_INT_MAX,PHP_INT_MAX);
         }
 
-        $n = $X->size();
-        $XX = $X->buffer();
-        $offX = $X->offset();
+        $n = $output->size();
+        $XX = $output->buffer();
+        $offX = $output->offset();
 
         $this->openclmath->randomNormal(
             $n,
@@ -5755,7 +5755,7 @@ class LinearAlgebraCL
         if($this->profiling) {
             $this->profilingEnd("randomNormal");
         }
-        return $X;
+        return $output;
     }
 
     public function randomSequence(
@@ -5819,6 +5819,7 @@ class LinearAlgebraCL
      */
     public function randomCategorical(
         NDArray $probs,
+        ?int $numSamples=null,
         ?int $dtype=null,
         ?int $seed=null,
         ?object $events=null, ?object $waitEvents=null
@@ -5831,32 +5832,68 @@ class LinearAlgebraCL
         if(!$la->isFloat($probs)) {
             throw new InvalidArgumentException('probs must be float dtype.');
         }
-        if($probs->ndim()!=2) {
-            throw new InvalidArgumentException('probs must be 2D NDArray without numSamples.');
+        if($numSamples!=null&&$numSamples<0) {
+            throw new InvalidArgumentException('numSamples must be positive.');
         }
-        [$batches,$numActions] = $probs->shape();
         if($dtype===null) {
             $dtype = NDArray::int32;
         }
-        $waitPrev0 = $waitEvents;
-        $waitEvents = $this->newEventList();
-        $rand = $la->randomUniform(
-            [$batches],dtype:$probs->dtype(),low:0.0,high:1.0,
-            events:$waitEvents,waitEvents:$waitPrev0
-        );// (batches)
-        $waitPrev1 = $waitEvents;
-        $waitEvents = $this->newEventList();
-        $thresholds = $la->cumsum(
-            $probs,axis:-1,
-            events:$waitEvents,waitEvents:$waitPrev1
-        );      // (batches,numActions)
-        $waitPrev2 = $waitEvents;
-        $waitEvents = $this->newEventList();
-        $randints = $la->searchsorted(                          // (batches)
-            $thresholds,$rand,
-            right:true,dtype:$dtype,
-            events:$events,waitEvents:$waitPrev2
-        );
+        if($numSamples===null) {
+            if($probs->ndim()!=2) {
+                throw new InvalidArgumentException('probs must be 2D NDArray without numSamples.');
+            }
+            [$batches,$numActions] = $probs->shape();
+            if($dtype===null) {
+                $dtype = NDArray::int32;
+            }
+            $waitPrev = $waitEvents;
+            $waitEvents = $this->newEventList();
+            $rand = $la->randomUniform(
+                [$batches],dtype:$probs->dtype(),low:0.0,high:1.0,seed:$seed,
+                events:$waitEvents,waitEvents:$waitPrev
+            );// (batches)
+            $waitPrev = $waitEvents;
+            $waitEvents = $this->newEventList();
+            $thresholds = $la->cumsum(
+                $probs,axis:-1,
+                events:$waitEvents,waitEvents:$waitPrev
+            );      // (batches,numActions)
+            $waitPrev = $waitEvents;
+            $waitEvents = $this->newEventList();
+            $randints = $la->searchsorted(                          // (batches)
+                $thresholds,$rand,
+                right:true,dtype:$dtype,
+                events:$events,waitEvents:$waitPrev
+            );
+        } else {
+            if($probs->ndim()!=1) {
+                throw new InvalidArgumentException('probs must be 1D NDArray with numSamples.');
+            }
+            $numActions = $probs->shape()[0];
+            $batches = $numSamples;
+            $waitPrev = $waitEvents;
+            $waitEvents = $this->newEventList();
+            $rand = $la->randomUniform(
+                [$batches],dtype:$probs->dtype(),low:0.0,high:1.0,seed:$seed,
+                events:$waitEvents,waitEvents:$waitPrev
+            );// (batches)
+            $waitPrev = $waitEvents;
+            $waitEvents = $this->newEventList();
+            $thresholds = $la->cumsum(
+                $probs,
+                events:$waitEvents,waitEvents:$waitPrev
+            );      // (numActions)
+            $waitPrev = $waitEvents;
+            $waitEvents = $this->newEventList();
+            $randints = $la->searchsorted(          // (batches)
+                $thresholds,    // (numActions) :  NON individual mode
+                $rand,          // (batches)
+                right:true,
+                dtype:$dtype,
+                events:$events,waitEvents:$waitPrev
+            );
+            
+        }
         if($this->blocking) {
             $this->finish();
         }
@@ -6733,6 +6770,127 @@ class LinearAlgebraCL
             $this->profilingEnd("svd");
         }
         return [$U,$S,$VT];
+    }
+
+    public function abs(
+        float|int|object $value,
+        ?object $events=null, ?object $waitEvents=null
+        ) : float|NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("abs");
+        }
+        if($value instanceof NDArray) {
+            $abs = $this->absNDArray($value,$events,$waitEvents);
+        } elseif(is_numeric($value)) {
+            if($waitEvents) {
+                $waitEvents->wait();
+            }
+            $abs = abs($value);
+            if($events) {
+                $events->move($this->newEventList());
+            }
+
+        } elseif($this->isComplexObject($value)) {
+            if($waitEvents) {
+                $waitEvents->wait();
+            }
+            $abs = $this->cabs($value);
+            if($events) {
+                $events->move($this->newEventList());
+            }
+        } else {
+            throw new InvalidArgumentException("invalid data type: ".$this->dataTypeString($value));
+        }
+        if($this->profiling) {
+            $this->profilingEnd("abs");
+        }
+        return $abs;
+    }
+
+    protected function absNDArray(
+        NDArray $value,
+        ?object $events=null, ?object $waitEvents=null
+        ) : NDArray
+    {
+        if($this->isFloat($value)) {
+            if($this->profiling) {
+                $this->profilingStart("svd");
+            }
+            $waitPrev = $waitEvents;
+            $waitEvents = $this->newEventList();
+            $conditionValue = $this->copy($value,events:$waitEvents,waitEvents:$waitPrev);
+            $waitPrev = $waitEvents;
+            $waitEvents = $this->newEventList();
+            $this->greaterEqual($conditionValue,0,events:$waitEvents,waitEvents:$waitPrev);
+            $waitPrev = $waitEvents;
+            $waitEvents = $this->newEventList();
+            $this->scal(2,$conditionValue,events:$waitEvents,waitEvents:$waitPrev);
+            $waitPrev = $waitEvents;
+            $waitEvents = $this->newEventList();
+            $this->increment($conditionValue,beta:-1,events:$waitEvents,waitEvents:$waitPrev);
+            $waitPrev = $waitEvents;
+            $this->multiply($conditionValue,$value,events:$events,waitEvents:$waitPrev);
+            if($this->blocking) {
+                $this->finish();
+            }
+            if($this->profiling) {
+                $this->profilingEnd("absNDArray");
+            }
+            return $value;
+        } else {
+            $dtypeString = $this->dtypeToString($value->dtype());
+            throw new Exception("Unsupported dtype: $dtypeString");
+        }
+    }
+
+    public function where(
+        NDArray $condition,
+        NDArray $x,
+        NDArray $y,
+        ?bool $normalize=null,
+        ?object $events=null, ?object $waitEvents=null
+        ) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("where");
+        }
+        $normalize ??= true;
+        $origShape = $x->shape();
+        $condition = $condition->reshape([$condition->size()]); // (size)
+        $x = $x->reshape([$x->size()]); // (size)
+        $y = $y->reshape([$y->size()]); // (size)
+
+        $waitPrev = $waitEvents;
+        $waitEvents = $this->newEventList();
+        $xy = $this->stack([$y,$x],events:$waitEvents,waitEvents:$waitPrev);        // (2,size)
+
+        if($normalize) {
+            if($condition->dtype()!==NDArray::bool) {
+                $waitPrev = $waitEvents;
+                $waitEvents = $this->newEventList();
+                $condition = $this->astype($condition,dtype:NDArray::bool,events:$waitEvents,waitEvents:$waitPrev);
+            }
+        }
+
+        if($condition->dtype()!=NDArray::int32) {
+            $waitPrev = $waitEvents;
+            $waitEvents = $this->newEventList();
+            $condition = $this->astype($condition,dtype:NDArray::int32,events:$waitEvents,waitEvents:$waitPrev);
+        }
+
+        $waitPrev = $waitEvents;
+        $waitEvents = $this->newEventList();
+        $result = $this->gatherb($xy,$condition,detailDepth:2,indexDepth:0,events:$waitEvents,waitEvents:$waitPrev); // (size)
+
+        $result = $result->reshape($origShape);
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("where");
+        }
+        return $result;
     }
 
     /**

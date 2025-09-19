@@ -3842,27 +3842,27 @@ class LinearAlgebra
         float $scale,
         ?int $dtype=null,
         ?int $seed=null,
-        ?NDArray $X=null) : NDArray
+        ?NDArray $output=null) : NDArray
     {
         if($dtype!==null&&$X!==null) {
             if ($X->dtype()!=$dtype) {
-                throw new InvalidArgumentException('Unmatch dtype and dtype of X');
+                throw new InvalidArgumentException('Unmatch dtype and dtype of output');
             }
         }
-        if($X===null) {
-            $X = $this->alloc($shape,dtype:$dtype);
+        if($output===null) {
+            $output = $this->alloc($shape,dtype:$dtype);
         } else {
-            if ($X->shape()!=$shape) {
-                throw new InvalidArgumentException('Unmatch shape and shape of X');
+            if ($output->shape()!=$shape) {
+                throw new InvalidArgumentException('Unmatch shape and shape of output');
             }
         }
         if($seed===null) {
             $seed = random_int(~PHP_INT_MAX,PHP_INT_MAX);
         }
 
-        $n = $X->size();
-        $XX = $X->buffer();
-        $offX = $X->offset();
+        $n = $output->size();
+        $XX = $output->buffer();
+        $offX = $output->offset();
 
         $this->math->randomNormal(
             $n,
@@ -3871,7 +3871,7 @@ class LinearAlgebra
             $scale,
             $seed);
 
-        return $X;
+        return $output;
     }
 
     public function randomSequence(
@@ -4998,16 +4998,59 @@ class LinearAlgebra
         return $this->cobjecttype($value);
     }
 
-    public function abs(float|int|object $value) : float
+    public function abs(float|int|object $value) : float|NDArray
     {
-        if(is_numeric($value)) {
-            return abs($value);
+        if($value instanceof NDArray) {
+            $abs = $this->absNDArray($value);
+        } elseif(is_numeric($value)) {
+            $abs = abs($value);
         } elseif($this->isComplexObject($value)) {
             $abs = $this->cabs($value);
         } else {
             throw new InvalidArgumentException("invalid data type: ".$this->dataTypeString($value));
         }
         return $abs;
+    }
+
+    protected function absNDArray(NDArray $value) : NDArray
+    {
+        if($this->isFloat($value)) {
+            $conditionValue = $this->copy($value);
+            $this->greaterEqual($conditionValue,0);
+            $this->scal(2,$conditionValue);
+            $this->increment($conditionValue,beta:-1);
+            $this->multiply($conditionValue,$value);
+            return $value;
+        } else {
+            $dtypeString = $this->dtypeToString($value->dtype());
+            throw new Exception("Unsupported dtype: $dtypeString");
+        }
+    }
+
+    public function where(
+        NDArray $condition,
+        NDArray $x,
+        NDArray $y,
+        ?bool $normalize=null,
+        ) : NDArray
+    {
+        $normalize ??= true;
+        $origShape = $x->shape();
+        $condition = $condition->reshape([$condition->size()]); // (size)
+        $x = $x->reshape([$x->size()]); // (size)
+        $y = $y->reshape([$y->size()]); // (size)
+        $xy = $this->stack([$y,$x]);        // (2,size)
+        if($normalize) {
+            if($condition->dtype()!=NDArray::bool) {
+                $condition = $this->astype($condition,dtype:NDArray::bool);
+            }
+        }
+        if($condition->dtype()!=NDArray::int32) {
+            $condition = $this->astype($condition,dtype:NDArray::int32);
+        }
+        $result = $this->gatherb($xy,$condition,detailDepth:2,indexDepth:0); // (size)
+        $result = $result->reshape($origShape);
+        return $result;
     }
 
     /**
