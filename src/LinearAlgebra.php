@@ -3844,7 +3844,7 @@ class LinearAlgebra
         ?int $seed=null,
         ?NDArray $output=null) : NDArray
     {
-        if($dtype!==null&&$X!==null) {
+        if($dtype!==null&&$output!==null) {
             if ($X->dtype()!=$dtype) {
                 throw new InvalidArgumentException('Unmatch dtype and dtype of output');
             }
