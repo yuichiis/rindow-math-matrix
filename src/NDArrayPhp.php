@@ -482,7 +482,15 @@ class NDArrayPhp implements NDArray, Countable, Serializable, IteratorAggregate
         }
 
         if(!($value instanceof self)||$value->shape()!=$shape) {
-            throw new InvalidArgumentException("Unmatch shape numbers");
+            $strArrayShape = '('.implode(',',$shape).')';
+            if($value instanceof self) {
+                $strValueShape = '('.implode(',',$value->shape()).')';
+            } elseif(is_object($value)) {
+                $strValueShape = get_class($value);
+            } else {
+                $strValueShape = gettype($value);
+            }
+            throw new InvalidArgumentException("Unmatch shape numbers: $strArrayShape <- $strValueShape");
         }
         $copy = $value->buffer();
         $size = (int)array_product($shape);

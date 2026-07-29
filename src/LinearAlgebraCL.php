@@ -5679,7 +5679,7 @@ class LinearAlgebraCL
             }
         }
         if($seed===null) {
-            $seed = random_int(~PHP_INT_MAX,PHP_INT_MAX);
+            $seed = $this->randInt();
         }
 
         $n = $X->size();
@@ -5733,7 +5733,7 @@ class LinearAlgebraCL
             }
         }
         if($seed===null) {
-            $seed = random_int(~PHP_INT_MAX,PHP_INT_MAX);
+            $seed = $this->randInt();
         }
 
         $n = $output->size();
@@ -5784,7 +5784,7 @@ class LinearAlgebraCL
             $hostX = $this->allocHost([$base],$dtype);
         }
         if($seed===null) {
-            $seed = random_int(~PHP_INT_MAX,PHP_INT_MAX);
+            $seed = $this->randInt();
         }
 
         $n = $base;

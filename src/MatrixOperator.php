@@ -1459,6 +1459,16 @@ class MatrixOperator
         return $this->la;
     }
 
+    public function randInt(?int $min=null, ?int $max=null) : int
+    {
+        return $this->la()->randInt(min:$min, max:$max);
+    }
+
+    public function setSeed(int $seed) : void
+    {
+        $this->la()->setSeed($seed);
+    }
+
     protected function laPhpMode() : object
     {
         if($this->laPhp!==null) {

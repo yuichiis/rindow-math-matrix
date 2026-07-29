@@ -38,8 +38,9 @@ class LinearAlgebra
         $this->blas = $service->blas($serviceLevel);
         $this->lapack = $service->lapack($serviceLevel);
         $this->math = $service->math($serviceLevel);
-        if($defaultFloatType!==null)
+        if($defaultFloatType!==null) {
             $this->defaultFloatType = $defaultFloatType;
+        }
     }
 
     public function service() : Service
@@ -3816,7 +3817,7 @@ class LinearAlgebra
             }
         }
         if($seed===null) {
-            $seed = random_int(~PHP_INT_MAX,PHP_INT_MAX);
+            $seed = $this->randInt();
         }
 
         $n = $X->size();
@@ -3845,7 +3846,7 @@ class LinearAlgebra
         ?NDArray $output=null) : NDArray
     {
         if($dtype!==null&&$output!==null) {
-            if ($X->dtype()!=$dtype) {
+            if ($output->dtype()!=$dtype) {
                 throw new InvalidArgumentException('Unmatch dtype and dtype of output');
             }
         }
@@ -3857,7 +3858,7 @@ class LinearAlgebra
             }
         }
         if($seed===null) {
-            $seed = random_int(~PHP_INT_MAX,PHP_INT_MAX);
+            $seed = $this->randInt();
         }
 
         $n = $output->size();
@@ -3897,7 +3898,7 @@ class LinearAlgebra
         }
 
         if($seed===null) {
-            $seed = random_int(~PHP_INT_MAX,PHP_INT_MAX);
+            $seed = $this->randInt();
         }
 
         $n = $base;
