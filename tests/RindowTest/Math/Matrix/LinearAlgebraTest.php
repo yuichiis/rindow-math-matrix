@@ -3918,6 +3918,43 @@ class LinearAlgebraTest extends TestCase
         ,$X->toArray());
     }
 
+    public function testMaximumBroadcast()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // X := maximum(A,X)
+        $a = $la->array([[-1,0,1],[2,3,4]]);
+        $x = $la->array([1,2,3]);
+        $la->maximum($a,$x);
+        $this->assertEquals(
+            [[1,2,3],[2,3,4]]
+        ,$a->toArray());
+
+
+        // X := maximum(X,1)
+        $a = $la->array([-1,0,1,2,3,4]);
+        $x = $la->array(1);
+        $la->maximum($a,$x);
+        $this->assertEquals(
+            [1,1,1,2,3,4]
+        ,$a->toArray());
+    }
+
+    public function testMaximumScalar()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // X := maximum(2,1)
+        $a = $la->array(2);
+        $x = $la->array(1);
+        $la->maximum($a,$x);
+        $this->assertEquals(
+            2
+        ,$a->toArray());
+    }
+
     public function testMinimumFloat()
     {
         $mo = $this->newMatrixOperator();
