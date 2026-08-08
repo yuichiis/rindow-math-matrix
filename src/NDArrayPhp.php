@@ -468,13 +468,23 @@ class NDArrayPhp implements NDArray, Countable, Serializable, IteratorAggregate
         $shape = $this->_shape;
         $max = array_shift($shape);
         if(!count($shape)) {
-            if($this->isComplex()) {
-                if(!($value instanceof Complex)) {
-                    throw new InvalidArgumentException("Must be complex type");
-                }
-            } else {
-                if(!is_scalar($value)) {
+            if($value instanceof self) {
+                if($value->ndim()!=0) {
                     throw new InvalidArgumentException("Must be scalar type");
+                }
+                if($value->dtype()!=$this->_dtype) {
+                    throw new InvalidArgumentException("Must be same dtype");
+                }
+                $value = $value->buffer()[$value->offset()];
+            } else {
+                if($this->isComplex()) {
+                    if(!($value instanceof Complex)) {
+                        throw new InvalidArgumentException("Must be complex type");
+                    }
+                } else {
+                    if(!is_scalar($value)) {
+                        throw new InvalidArgumentException("Must be scalar type");
+                    }
                 }
             }
             $this->_buffer[$this->_offset+$offset] = $value;
