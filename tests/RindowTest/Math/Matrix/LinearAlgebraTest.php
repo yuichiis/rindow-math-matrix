@@ -4040,6 +4040,15 @@ class LinearAlgebraTest extends TestCase
         $this->assertEquals(0.0, $X[1]);
         $this->assertEquals(0.0, $X[2]);
         $this->assertEquals(0.0, $X[3]);
+
+        $X = $la->array([INF,0,-INF,NAN]);
+        $la->greater($X,INF);
+        $X = $la->toNDArray($X);
+        $this->assertEquals(0.0, $X[0]);  // INF is not greater than INF
+        $this->assertEquals(0.0, $X[1]);
+        $this->assertEquals(0.0, $X[2]);
+        $this->assertEquals(0.0, $X[3]);
+
     }
 
     public function testGreaterCompDim()
@@ -4178,6 +4187,14 @@ class LinearAlgebraTest extends TestCase
         $this->assertEquals(0.0, $X[0]);
         $this->assertEquals(0.0, $X[1]);
         $this->assertEquals(0.0, $X[2]);
+        $this->assertEquals(0.0, $X[3]);
+
+        $X = $la->array([INF,0,-INF,NAN]);
+        $la->less($X,-INF);
+        $X = $la->toNDArray($X);
+        $this->assertEquals(0.0, $X[0]);
+        $this->assertEquals(0.0, $X[1]);
+        $this->assertEquals(0.0, $X[2]); // -INF is not less than -INF
         $this->assertEquals(0.0, $X[3]);
     }
 
