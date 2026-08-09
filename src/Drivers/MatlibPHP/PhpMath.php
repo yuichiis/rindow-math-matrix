@@ -2890,6 +2890,54 @@ class PhpMath
         }
     }
 
+    public function isfinite(
+        int $n,
+        Buffer $X, int $offsetX, int $incX
+        ) : void
+    {
+        //if($this->useMath($X)) {
+        //    $this->math->isfinite($n,$X,$offsetX,$incX);
+        //    return;
+        //}
+
+        if($offsetX+($n-1)*$incX>=count($X))
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
+
+        $idx = $offsetX;
+         for ($i=0; $i<$n; $i++,$idx+=$incX) {
+            $t = $X[$idx];
+            if(is_finite($t)) {
+                $X[$idx] = 1.0;
+            } else {
+                $X[$idx] = 0.0;
+            }
+        }
+    }
+
+    public function isinf(
+        int $n,
+        Buffer $X, int $offsetX, int $incX
+        ) : void
+    {
+        //if($this->useMath($X)) {
+        //    $this->math->isfinite($n,$X,$offsetX,$incX);
+        //    return;
+        //}
+
+        if($offsetX+($n-1)*$incX>=count($X))
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
+
+        $idx = $offsetX;
+         for ($i=0; $i<$n; $i++,$idx+=$incX) {
+            $t = $X[$idx];
+            if(is_infinite($t)) {
+                $X[$idx] = 1.0;
+            } else {
+                $X[$idx] = 0.0;
+            }
+        }
+    }
+
     public function imagecopy(
         int $height,
         int $width,

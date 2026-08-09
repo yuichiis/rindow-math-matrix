@@ -6333,6 +6333,84 @@ EOT;
     }
 
     /**
+     *     X := isfinite(X)
+     */
+    public function isfinite(
+        int $n,
+        BufferInterface $X, int $offsetX, int $incX,
+        ?object $events=null, ?object $waitEvents=null
+        ) : void
+    {
+        $dtypeX = $X->dtype();
+        if($dtypeX==NDArray::float64) {
+            $this->assertFP64();
+        }
+        $type = $this->dtypeToOpenCLType[$dtypeX];
+        $kernel_name = "isfinite_{$type}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+                "__kernel void {$kernel_name}(\n".
+                "        __global {$type} * x,\n".
+                "    const        int offset_x,\n".
+                "    const        int incx)\n".
+                "{\n".
+                "    int idx = get_global_id(0)*incx+offset_x;\n".
+                "    if(isfinite(x[idx])) {\n".
+                "        x[idx] = 1.0;\n".
+                "    } else {\n".
+                "        x[idx] = 0.0;\n".
+                "    }\n".
+                "}\n";
+        }
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$X);
+        $kernel->setArg(1,$offsetX,NDArray::int32);
+        $kernel->setArg(2,$incX,NDArray::int32);
+        $global_work_size = [$n];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
+            $events,$waitEvents);
+    }
+
+    /**
+     *     X := isinf(X)
+     */
+    public function isinf(
+        int $n,
+        BufferInterface $X, int $offsetX, int $incX,
+        ?object $events=null, ?object $waitEvents=null
+        ) : void
+    {
+        $dtypeX = $X->dtype();
+        if($dtypeX==NDArray::float64) {
+            $this->assertFP64();
+        }
+        $type = $this->dtypeToOpenCLType[$dtypeX];
+        $kernel_name = "isinf_{$type}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+                "__kernel void {$kernel_name}(\n".
+                "        __global {$type} * x,\n".
+                "    const        int offset_x,\n".
+                "    const        int incx)\n".
+                "{\n".
+                "    int idx = get_global_id(0)*incx+offset_x;\n".
+                "    if(isinf(x[idx])) {\n".
+                "        x[idx] = 1.0;\n".
+                "    } else {\n".
+                "        x[idx] = 0.0;\n".
+                "    }\n".
+                "}\n";
+        }
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$X);
+        $kernel->setArg(1,$offsetX,NDArray::int32);
+        $kernel->setArg(2,$incX,NDArray::int32);
+        $global_work_size = [$n];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
+            $events,$waitEvents);
+    }
+
+    /**
     * imagecopy
     */
     public function imagecopy(

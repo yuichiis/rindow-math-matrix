@@ -13840,6 +13840,36 @@ class LinearAlgebraTest extends TestCase
         );
     }
 
+    public function testIsfinite()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // X := isfinite(X)
+        $X = $mo->array([[INF,2,NAN],[4,-INF,6]]);
+        $X = $la->array($X);
+        $la->isfinite($X);
+        $this->assertEquals(
+            [[0,1,0],[1,0,1]],
+            $X->toArray()
+        );
+    }
+
+    public function testIsinf()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // X := isinf(X)
+        $X = $mo->array([[INF,2,NAN],[4,-INF,6]]);
+        $X = $la->array($X);
+        $la->isinf($X);
+        $this->assertEquals(
+            [[1,0,0],[0,1,0]],
+            $X->toArray()
+        );
+    }
+
     public function testLinspace()
     {
         $mo = $this->newMatrixOperator();

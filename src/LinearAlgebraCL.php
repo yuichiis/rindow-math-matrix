@@ -671,6 +671,68 @@ class LinearAlgebraCL
         return $X;
     }
 
+    /**
+     *     X := isfinite(X)
+     */
+    public function isfinite(
+        NDArray $X,
+        ?object $events=null,
+        ?object $waitEvents=null 
+        ) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("isfinite");
+        }
+        $n = $X->size();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+
+        $this->openclmath->isfinite(
+            $n,
+            $XX,$offX,1,
+            $events,$waitEvents
+        );
+
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("isfinite");
+        }
+        return $X;
+    }
+
+    /**
+     *     X := isinf(X)
+     */
+    public function isinf(
+        NDArray $X,
+        ?object $events=null,
+        ?object $waitEvents=null 
+        ) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("isinf");
+        }
+        $n = $X->size();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+
+        $this->openclmath->isinf(
+            $n,
+            $XX,$offX,1,
+            $events,$waitEvents
+        );
+
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("isinf");
+        }
+        return $X;
+    }
+
     public function linspace(float $start, float $stop, int $num, ?int $dtype=null) : NDArray
     {
         if($num<=0) {

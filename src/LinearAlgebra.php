@@ -4884,6 +4884,56 @@ class LinearAlgebra
         return $X;
     }
 
+    /**
+     *     X := isfinite(X)
+     */
+    public function isfinite(
+        NDArray $X
+        ) : NDArray
+    {
+        $n = $X->size();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+
+        if($this->math instanceof \Rindow\Math\Matrix\Drivers\MatlibPHP\PhpMath) {
+            $this->math->isfinite(
+                $n,
+                $XX,$offX,1
+            );
+        } else {
+            $greater = $this->greater($this->copy($X),-INF);
+            $this->less($X,INF);
+            $this->multiply($greater,$X);
+        }
+
+        return $X;
+    }
+
+    /**
+     *     X := isfinite(X)
+     */
+    public function isinf(
+        NDArray $X
+        ) : NDArray
+    {
+        $n = $X->size();
+        $XX = $X->buffer();
+        $offX = $X->offset();
+
+        if($this->math instanceof \Rindow\Math\Matrix\Drivers\MatlibPHP\PhpMath) {
+            $this->math->isinf(
+                $n,
+                $XX,$offX,1
+            );
+        } else {
+            $greater = $this->greaterEqual($this->copy($X),INF);
+            $this->lessEqual($X,-INF);
+            $this->axpy($greater,$X);
+        }
+
+        return $X;
+    }
+
     public function linspace(
         float $start,
         float $stop,
