@@ -1138,13 +1138,13 @@ class LinearAlgebraCL
         if($this->scalarNumeric) {
             $this->blas->copy(1,$XX,$offX+$idx,1,$RR,$offR,1,$this->queue,$events);
         } else {
-            $copyEvents = $this->newEventList();
+            //$copyEvents = $this->newEventList();
             //$this->blas->copy(1,$XX,$offX+$idx,1,$RR,$offR,1,$this->queue,$copyEvents);
             $RR->copy($this->queue,
                 $XX, $valueSize, ($offX+$idx)*$valueSize, $offR*$valueSize,
-                $copyEvents,$imaxEvents
+                /*$copyEvents,$imaxEvents*/
             );
-            $this->openclmath->abs(1,$RR,$offR,1,$events,$copyEvents);
+            $this->openclmath->abs(1,$RR,$offR,1,$events,/*$copyEvents*/);
         }
         //$RR = $R->buffer();
         //$offR = $R->offset();
@@ -1201,13 +1201,13 @@ class LinearAlgebraCL
         if($this->scalarNumeric) {
             $this->blas->copy(1,$XX,$offX+$idx,1,$RR,$offR,1,$this->queue,$events);
         } else {
-            $copyEvents = $this->newEventList();
+            //$copyEvents = $this->newEventList();
             //$this->blas->copy(1,$XX,$offX+$idx,1,$RR,$offR,1,$this->queue,$copyEvents);
             $RR->copy($this->queue,
                 $XX, $valueSize, ($offX+$idx)*$valueSize, $offR*$valueSize,
-                $copyEvents,$imaxEvents
+                /*$copyEvents, $imaxEvents*/
             );
-            $this->openclmath->abs(1,$RR,$offR,1,$events,$copyEvents);
+            $this->openclmath->abs(1,$RR,$offR,1,$events,/*$copyEvents*/);
         }
         //$RR = $R->buffer();
         //$offR = $R->offset();
