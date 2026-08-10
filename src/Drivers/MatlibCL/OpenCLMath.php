@@ -1745,7 +1745,7 @@ class OpenCLMath
             throw new InvalidArgumentException("Buffer X is too small");
         }
         $type = $this->dtypeToOpenCLType[$dtypeX];
-        $kernel_name = "less_{$type}";
+        $kernel_name = "less_equal_{$type}";
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".

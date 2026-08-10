@@ -4280,6 +4280,23 @@ class LinearAlgebraTest extends TestCase
         ,$X->toArray());
     }
 
+    public function testLessAndLessEqualDoNotShareKernelCache() : void
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        $Y = $la->array([1,1,1]);
+
+        // Compile/cache the strict comparison first.
+        $less = $la->array([0,1,2]);
+        $la->less($less,$Y);
+        $this->assertEquals([1,0,0],$less->toArray());
+
+        // Equality must still be accepted by a separately cached kernel.
+        $lessEqual = $la->array([0,1,2]);
+        $la->lessEqual($lessEqual,$Y);
+        $this->assertEquals([1,1,0],$lessEqual->toArray());
+    }
+
     public function testMultiplyNormal()
     {
         $mo = $this->newMatrixOperator();
