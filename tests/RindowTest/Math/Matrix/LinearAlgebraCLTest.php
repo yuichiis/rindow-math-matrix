@@ -22,6 +22,7 @@ use Rindow\Math\Matrix\OpenCLMathTunner;
 use Rindow\Math\Matrix\Drivers\Selector;
 use Rindow\Math\Matrix\Drivers\Service;
 use Rindow\Math\Matrix\Drivers\CLBlast;
+use Rindow\Math\Matrix\Drivers\MatlibPHP\PhpPcg32;
 use function Rindow\Math\Matrix\R;
 use function Rindow\Math\Matrix\C;
 
@@ -756,6 +757,46 @@ class LinearAlgebraCLTest extends ORGTest
             $x = $x->toNDArray();
         }
         return $x;
+    }
+
+    public function testRandomUniformPcg32Streams()
+    {
+        $la = $this->newLA($this->newMatrixOperator());
+        $seed = 123456789;
+        $size = 64;
+
+        $x = $la->randomUniform([$size],0.0,1.0,NDArray::float32,$seed);
+        $y = $la->randomUniform([$size],0.0,1.0,NDArray::float32,$seed);
+        $values = $this->ndarray($x)->toArray();
+
+        $this->assertSame($values,$this->ndarray($y)->toArray());
+        foreach($values as $gid => $actual) {
+            // OpenCLMath assigns one independent PCG32 stream to each gid.
+            $pcg = new PhpPcg32($seed,$gid+1);
+            $this->assertEqualsWithDelta($pcg->nextFloat(),$actual,1.0e-7);
+        }
+    }
+
+    public function testRandomNormalPcg32ReproducibilityAndMoments()
+    {
+        $la = $this->newLA($this->newMatrixOperator());
+        $seed = 123456789;
+        $size = 4096;
+
+        $x = $la->randomNormal([$size],0.0,1.0,NDArray::float32,$seed);
+        $y = $la->randomNormal([$size],0.0,1.0,NDArray::float32,$seed);
+        $values = $this->ndarray($x)->toArray();
+
+        $this->assertSame($values,$this->ndarray($y)->toArray());
+        $mean = array_sum($values)/$size;
+        $variance = 0.0;
+        foreach($values as $value) {
+            $this->assertTrue(is_finite($value));
+            $variance += ($value-$mean)**2;
+        }
+        $variance /= $size;
+        $this->assertEqualsWithDelta(0.0,$mean,0.08);
+        $this->assertEqualsWithDelta(1.0,$variance,0.12);
     }
 
     public static function modeProviderNoZero()

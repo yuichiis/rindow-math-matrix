@@ -7176,6 +7176,28 @@ EOT;
     /**
     * randomUniform
     */
+    protected function pcg32KernelSource() : string
+    {
+        return
+            "ulong pcg32_step(ulong state, ulong increment)\n".
+            "{\n".
+            "    return state * 0x5851f42d4c957f2dUL + increment;\n".
+            "}\n".
+            "uint pcg32_output(ulong state)\n".
+            "{\n".
+            "    uint xorshifted = (uint)(((state >> 18u) ^ state) >> 27u);\n".
+            "    uint rotation = (uint)(state >> 59u);\n".
+            "    return rotate(xorshifted, (uint)(0u - rotation));\n".
+            "}\n".
+            "ulong pcg32_seed(uint seed, ulong sequence)\n".
+            "{\n".
+            "    ulong increment = (sequence << 1u) | 1u;\n".
+            "    ulong state = pcg32_step(0u, increment);\n".
+            "    state += (ulong)seed;\n".
+            "    return pcg32_step(state, increment);\n".
+            "}\n";
+    }
+
     public function randomUniform(
         int $n,
         BufferInterface $X, int $offsetX, int $incX,
@@ -7196,15 +7218,7 @@ EOT;
         if(!isset($this->sources[$kernel_name])) {
             if($isInt) {
                 $this->sources[$kernel_name] =
-                "uint wang_hash(uint seed)\n".
-                "{\n".
-                "    seed = (seed ^ 61) ^ (seed >> 16);\n".
-                "    seed *= 9;\n".
-                "    seed = seed ^ (seed >> 4);\n".
-                "    seed *= 0x27d4eb2d;\n".
-                "    seed = seed ^ (seed >> 15);\n".
-                "    return seed;\n".
-                "}\n".
+                $this->pcg32KernelSource().
                 "__kernel void {$kernel_name}(const uint seed,\n".
                 "                      const {$type} low,\n".
                 "                      const {$type} high,\n".
@@ -7213,9 +7227,10 @@ EOT;
                 "                      const int incX)\n".
                 "{\n".
                 "   int gid = get_global_id(0);\n".
+                "   ulong state = pcg32_seed(seed, (ulong)gid + 1u);\n".
                 "   uint randmax = 0;\n".
                 "   randmax--;\n".
-                "   {$type} randx = ({$type})floor((float)wang_hash(gid+seed)*\n".
+                "   {$type} randx = ({$type})floor((float)pcg32_output(state)*\n".
                 "                         ((float)(high+1-low)/(float)randmax)+(float)low);\n".
                 "   if(randx>=high) {\n".
                 "       randx = high;\n".
@@ -7224,15 +7239,7 @@ EOT;
                 "}\n";
             } else {
                 $this->sources[$kernel_name] =
-                "uint wang_hash(uint seed)\n".
-                "{\n".
-                "    seed = (seed ^ 61) ^ (seed >> 16);\n".
-                "    seed *= 9;\n".
-                "    seed = seed ^ (seed >> 4);\n".
-                "    seed *= 0x27d4eb2d;\n".
-                "    seed = seed ^ (seed >> 15);\n".
-                "    return seed;\n".
-                "}\n".
+                $this->pcg32KernelSource().
                 "__kernel void {$kernel_name}(const uint seed,\n".
                 "                      const {$type} low,\n".
                 "                      const {$type} high,\n".
@@ -7241,10 +7248,9 @@ EOT;
                 "                      const int incX)\n".
                 "{\n".
                 "   int gid = get_global_id(0);\n".
-                "   uint randmax = 0;\n".
-                "   randmax--;\n".
-                "   {$type} randx = ({$type})(({$type})wang_hash(gid+seed)*\n".
-                "                         ((high-low)/({$type})randmax)+low);\n".
+                "   ulong state = pcg32_seed(seed, (ulong)gid + 1u);\n".
+                "   {$type} randx = ({$type})(({$type})pcg32_output(state)*\n".
+                "                         ((high-low)/({$type})4294967296.0)+low);\n".
                 "   x[offsetX+gid*incX] = randx;\n".
                 "}\n";
             }
@@ -7289,15 +7295,7 @@ EOT;
         if(!isset($this->sources[$kernel_name])) {
             $PI = ($dtype==NDArray::float32) ? 'M_PI_F' : 'M_PI';
             $this->sources[$kernel_name] =
-            "uint wang_hash(uint seed)\n".
-            "{\n".
-            "    seed = (seed ^ 61) ^ (seed >> 16);\n".
-            "    seed *= 9;\n".
-            "    seed = seed ^ (seed >> 4);\n".
-            "    seed *= 0x27d4eb2d;\n".
-            "    seed = seed ^ (seed >> 15);\n".
-            "    return seed;\n".
-            "}\n".
+            $this->pcg32KernelSource().
             "__kernel void {$kernel_name}(const uint seed,\n".
             "                      const {$type} mean,\n".
             "                      const {$type} scale,\n".
@@ -7306,12 +7304,15 @@ EOT;
             "                      const int incX)\n".
             "{\n".
             "   int gid = get_global_id(0);\n".
-            "   uint randmax = 0;\n".
-            "   randmax--;\n".
-            "   uint seed1 = wang_hash(gid+seed);\n".
-            "   uint seed2 = wang_hash(gid+seed1);\n".
-            "   {$type} randx = ({$type})seed1/({$type})randmax;\n".
-            "   {$type} randy = ({$type})seed2/({$type})randmax;\n".
+            "   ulong sequence = (ulong)gid + 1u;\n".
+            "   ulong increment = (sequence << 1u) | 1u;\n".
+            "   ulong state = pcg32_seed(seed, sequence);\n".
+            "   uint bits1 = pcg32_output(state);\n".
+            "   state = pcg32_step(state, increment);\n".
+            "   uint bits2 = pcg32_output(state);\n".
+            // Open intervals avoid log(0) and reduce endpoint artefacts.
+            "   {$type} randx = (({$type})bits1+({$type})1)/({$type})4294967297.0;\n".
+            "   {$type} randy = (({$type})bits2+({$type})1)/({$type})4294967297.0;\n".
             "   x[offsetX+gid*incX] = sqrt(-2*log(randx))*cos(2*{$PI}*randy)*scale+mean;\n".
             "}\n";
         }

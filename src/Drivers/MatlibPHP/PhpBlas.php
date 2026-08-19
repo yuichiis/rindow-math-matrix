@@ -249,7 +249,7 @@ class PhpBlas
         Buffer $Y, int $offsetY, int $incY ) : float|object
     {
         if(!$this->cistype($X->dtype())) {
-            throw new InvalidArgumentException('Unsuppored data type.');
+            throw new InvalidArgumentException('Unsuppored data type:'.intval($X->dtype()));
         }
         $this->assertShapeParameter('n',$n);
         $this->assertVectorBufferSpec('X', $X, $n, $offsetX, $incX);
