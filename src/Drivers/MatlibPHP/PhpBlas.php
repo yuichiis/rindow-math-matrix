@@ -402,6 +402,7 @@ class PhpBlas
     {
         $a = $A[$offsetA];
         $b = $B[$offsetB];
+        $c = $s = $r = $z = 0.0;
 
         // Check if the data type of buffer A is complex.
         if(!$this->cistype($A->dtype())) {

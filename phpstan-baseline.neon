@@ -127,7 +127,7 @@ parameters:
 			path: src/NDArrayCL.php
 
 		-
-			message: '#^Call to function is_numeric\(\) with int will always evaluate to true\.$#'
+			message: '#^Call to function is_scalar\(\) with int will always evaluate to true\.$#'
 			identifier: function.alreadyNarrowedType
-			count: 2
+			count: 1
 			path: src/NDArrayPhp.php

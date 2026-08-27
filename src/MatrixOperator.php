@@ -727,17 +727,17 @@ class MatrixOperator
     {
         return new class($shape,$skipDims) implements Iterator
         {
-            /** @var array<int> $shape */
+            /** @var array<int,int> $shape */
             protected array $shape;
-            /** @var array<int> $skipDims */
+            /** @var array<int,int> $skipDims */
             protected array $skipDims;
-            /** @var array<int> $current */
+            /** @var array<int,int> $current */
             protected array $current;
             protected bool $endOfItem = false;
         
             /**
-             * @param array<int> $shape
-             * @param array<int> $skipDims
+             * @param array<int,int> $shape
+             * @param array<int,int> $skipDims
              */
             public function __construct(array $shape, array $skipDims)
             {
@@ -747,7 +747,7 @@ class MatrixOperator
             }
 
             /**
-             * @return array<int>
+             * @return array<int,int>
              */
             public function getCurrentIndex() : array
             {

@@ -53,9 +53,27 @@ trait LinalgUtils
         return $this->dtypeToString[$dtype];
     }
 
+    protected function dataTypeString(mixed $value) : string
+    {
+        return $this->cobjecttype($value);
+    }
+
+    /**
+     * @param array<int,string> $shape
+     */
     public function shapeToString(array $shape) : string
     {
         return '('.implode(',',$shape).')';
+    }
+
+    public function isComplexDtype(int $dtype) : bool
+    {
+        return $this->cistype($dtype);
+    }
+
+    public function isComplexObject(mixed $value) : bool
+    {
+        return $this->cisobject($value);
     }
 
     protected function printableShapes(mixed $values) : string

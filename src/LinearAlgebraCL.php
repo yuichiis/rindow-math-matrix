@@ -4191,7 +4191,7 @@ class LinearAlgebraCL
         bool $reverse,
         bool $addMode,
         NDArray $A,
-        NDarray $X,
+        NDArray $X,
         ?int $axis=null,
         ?int $batchDims=null,
         ?int $detailDepth=null,
@@ -4333,7 +4333,7 @@ class LinearAlgebraCL
      */
     public function gatherb(
         NDArray $params,
-        NDarray $indices,
+        NDArray $indices,
         ?int $axis=null,
         ?int $batchDims=null,
         ?int $detailDepth=null,
@@ -4374,7 +4374,7 @@ class LinearAlgebraCL
      * @param array<int> $shape
     */
     public function scatterb(
-        NDarray $indices,
+        NDArray $indices,
         NDArray $updates,
         array $shape,
         ?int $axis=null,
@@ -4423,7 +4423,7 @@ class LinearAlgebraCL
      * @param array<int> $shape
     */
     public function scatterbAdd(
-        NDarray $indices,
+        NDArray $indices,
         NDArray $updates,
         array $shape,
         ?int $axis=null,
@@ -4473,7 +4473,7 @@ class LinearAlgebraCL
         bool $reverse,
         bool $addMode,
         NDArray $A, 
-        NDarray $X,
+        NDArray $X,
         ?int $batchDims=null,
         ?NDArray $B=null,
         ?object $events=null, ?object $waitEvents=null
@@ -4554,7 +4554,7 @@ class LinearAlgebraCL
      */
     public function gatherND(
         NDArray $params, 
-        NDarray $indices,
+        NDArray $indices,
         ?int $batchDims=null,
         ?NDArray $outputs=null,
         ?object $events=null, ?object $waitEvents=null
@@ -4591,7 +4591,7 @@ class LinearAlgebraCL
      * @param array<int> $shape
      */
     public function scatterND(
-        NDarray $indices,
+        NDArray $indices,
         NDArray $updates,
         array $shape,
         ?int $batchDims=null,
@@ -4637,7 +4637,7 @@ class LinearAlgebraCL
      * @param array<int> $shape
      */
     public function scatterNDAdd(
-        NDarray $indices,
+        NDArray $indices,
         NDArray $updates,
         array $shape,
         ?int $batchDims=null,
@@ -5791,7 +5791,7 @@ class LinearAlgebraCL
         if($output===null) {
             $output = $this->alloc($shape,dtype:$dtype);
         } else {
-            if ($X->shape()!=$shape) {
+            if ($output->shape()!=$shape) {
                 throw new InvalidArgumentException('Unmatch shape and shape of output');
             }
         }
@@ -5906,9 +5906,6 @@ class LinearAlgebraCL
                 throw new InvalidArgumentException('probs must be 2D NDArray without numSamples.');
             }
             [$batches,$numActions] = $probs->shape();
-            if($dtype===null) {
-                $dtype = NDArray::int32;
-            }
             $waitPrev = $waitEvents;
             $waitEvents = $this->newEventList();
             $rand = $la->randomUniform(
@@ -6903,7 +6900,7 @@ class LinearAlgebraCL
             return $value;
         } else {
             $dtypeString = $this->dtypeToString($value->dtype());
-            throw new Exception("Unsupported dtype: $dtypeString");
+            throw new InvalidArgumentException("Unsupported dtype: $dtypeString");
         }
     }
 

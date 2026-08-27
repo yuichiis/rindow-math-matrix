@@ -3116,7 +3116,7 @@ class LinearAlgebra
         bool $reverse,
         bool $addMode,
         NDArray $A,
-        NDarray $X,
+        NDArray $X,
         ?int $axis=null,
         ?int $batchDims=null,
         ?int $detailDepth=null,
@@ -3254,7 +3254,7 @@ class LinearAlgebra
      */
     public function gatherb(
         NDArray $params,
-        NDarray $indices,
+        NDArray $indices,
         ?int $axis=null,
         ?int $batchDims=null,
         ?int $detailDepth=null,
@@ -3290,7 +3290,7 @@ class LinearAlgebra
      * @param array<int> $shape
     */
     public function scatterb(
-        NDarray $indices,
+        NDArray $indices,
         NDArray $updates,
         array $shape,
         ?int $axis=null,
@@ -3331,7 +3331,7 @@ class LinearAlgebra
      * @param array<int> $shape
     */
     public function scatterbAdd(
-        NDarray $indices,
+        NDArray $indices,
         NDArray $updates,
         array $shape,
         ?int $axis=null,
@@ -3373,7 +3373,7 @@ class LinearAlgebra
         bool $reverse,
         bool $addMode,
         NDArray $A, 
-        NDarray $X,
+        NDArray $X,
         ?int $batchDims=null,
         ?NDArray $B=null,
     ) : NDArray
@@ -3454,7 +3454,7 @@ class LinearAlgebra
      */
     public function gatherND(
         NDArray $params, 
-        NDarray $indices,
+        NDArray $indices,
         ?int $batchDims=null,
         ?NDArray $outputs=null,
     ) : NDArray
@@ -3486,7 +3486,7 @@ class LinearAlgebra
      * @param array<int> $shape
      */
     public function scatterND(
-        NDarray $indices,
+        NDArray $indices,
         NDArray $updates,
         array $shape,
         ?int $batchDims=null,
@@ -3524,7 +3524,7 @@ class LinearAlgebra
      * @param array<int> $shape
      */
     public function scatterNDAdd(
-        NDarray $indices,
+        NDArray $indices,
         NDArray $updates,
         array $shape,
         ?int $batchDims=null,
@@ -5707,21 +5707,6 @@ class LinearAlgebra
         return $grads;
     }
 
-    public function isComplexDtype(int $dtype) : bool
-    {
-        return $this->cistype($dtype);
-    }
-
-    public function isComplexObject(mixed $value) : bool
-    {
-        return $this->cisobject($value);
-    }
-
-    protected function dataTypeString(mixed $value) : string
-    {
-        return $this->cobjecttype($value);
-    }
-
     public function abs(float|int|object $value) : float|NDArray
     {
         if($this->profiling) {
@@ -5753,7 +5738,7 @@ class LinearAlgebra
             return $value;
         } else {
             $dtypeString = $this->dtypeToString($value->dtype());
-            throw new Exception("Unsupported dtype: $dtypeString");
+            throw new InvalidArgumentException("Unsupported dtype: $dtypeString");
         }
     }
 

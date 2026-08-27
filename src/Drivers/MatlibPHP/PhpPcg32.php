@@ -1,38 +1,48 @@
 <?php
 /**
- * PCG32 - 拡張非依存の純PHP版
+ * PCG32 - Extension-independent pure-PHP version
  *
- * GMP等のPHP拡張を一切使わず、64bit整数を「16bitの limb を4つ並べた配列」
- * (リトルエンディアン: $limbs[0] が下位16bit, $limbs[3] が上位16bit)として
- * 表現し、加算・乗算・シフトを自前の桁上げ処理で実装しています。
+ * This implementation does not rely on any PHP extensions (such as GMP).
+ * Instead, it represents 64-bit integers as an array of four 16-bit 
+ * "limbs" (in little-endian order, where `$limbs[0]` holds the least
+ * significant 16 bits and `$limbs[3]` the most significant) and 
+ * implements addition, multiplication, and bit-shifting using custom
+ * carry-handling logic. 
  *
- * Pcg32.php（GMP版）およびpcg32.c（Cネイティブ版）と同一アルゴリズム・
- * 同一シードで完全に同じ乱数列を生成します。実行速度はネイティブ版・GMP版
- * より大幅に遅いため、拡張が使えない環境でのフォールバック用途を想定しています。
+ * It generates an identical sequence of random numbers to `Pcg32.php`
+ * (the GMP version) and `pcg32.c` (the native C version) when using
+ * the same algorithm and seed. As its execution speed is significantly
+ * slower than the native and GMP versions, it is intended for use as
+ * a fallback in environments where those extensions are unavailable.
+ * 
  */
 namespace Rindow\Math\Matrix\Drivers\MatlibPHP;
 
 class PhpPcg32
 {
-    /** 6364136223846793005 = 0x5851F42D4C957F2D を16bit limb 4つに分解 */
+    /** Decompose 6364136223846793005 = 0x5851F42D4C957F2D into four 16-bit limbs. */
     private const MULT = [0x7F2D, 0x4C95, 0xF42D, 0x5851];
 
-    /** @var int[] 4要素、各0-65535（下位から上位へ） */
+    /** @var int[] 4 elements, each 0-65535 (lower to higher) */
     private array $state;
 
-    /** @var int[] 4要素、各0-65535 */
+    /** @var int[] 4 elements, each 0-65535 */
     private array $inc;
 
     public function __construct(int $seed = 0, int $sequence = 1)
     {
-        // inc = (sequence << 1) | 1 （必ず奇数にする）
+        // inc = (sequence << 1) | 1 (always odd)
         $this->inc = self::fromInt(($sequence << 1) | 1);
 
         $this->setSeed($seed);
     }
 
-    // ---- 64bit演算ヘルパー（すべてlimb配列を返す） ----
-
+    /** 
+     * 64bit arithmetic helpers (all return limb arrays)
+     * 
+     * @param int $v 
+     * @return array<int,int>
+     * */
     private static function fromInt(int $v): array
     {
         return [
@@ -43,7 +53,13 @@ class PhpPcg32
         ];
     }
 
-    /** mod 2^64 の加算 */
+    /** 
+     * mod 2^64 addition
+     * 
+     * @param array<int,int> $a 
+     * @param array<int,int> $b 
+     * @return array<int,int>
+     * */
     private static function add64(array $a, array $b): array
     {
         $carry = 0;
@@ -53,10 +69,16 @@ class PhpPcg32
             $r[$i] = $sum & 0xFFFF;
             $carry = $sum >> 16;
         }
-        return $r; // 最終桁上げは mod 2^64 なので捨てる
+        return $r; // Final carry is discarded by mod 2^64
     }
 
-    /** mod 2^64 の乗算（16bit limb同士の筆算） */
+    /** 
+     * mod 2^64 multiplication (manual long multiplication with 16bit limbs)
+     * 
+     * @param array<int,int> $a 
+     * @param array<int,int> $b 
+     * @return array<int,int>
+     * */
     private static function mul64(array $a, array $b): array
     {
         $tmp = [0, 0, 0, 0, 0, 0, 0, 0];
@@ -79,16 +101,27 @@ class PhpPcg32
                 $k++;
             }
         }
-        return [$tmp[0], $tmp[1], $tmp[2], $tmp[3]]; // 上位4 limb は mod 2^64 で切り捨て
+        return [$tmp[0], $tmp[1], $tmp[2], $tmp[3]]; // Higher 4 limbs are truncated by mod 2^64
     }
 
-    /** 各limbのXOR */
+    /** 
+     * XOR of each limb
+     * 
+     * @param array<int,int> $a 
+     * @param array<int,int> $b 
+     * @return array<int,int>
+     * */
     private static function xor64(array $a, array $b): array
     {
         return [$a[0] ^ $b[0], $a[1] ^ $b[1], $a[2] ^ $b[2], $a[3] ^ $b[3]];
     }
 
-    /** 論理右シフト（符号なし扱い、$n は0〜63） */
+    /** 
+     * Logical right shift (unsigned, $n is 0-63)
+     * 
+     * @param array<int,int> $a 
+     * @return array<int,int>
+     * */
     private static function shr64(array $a, int $n): array
     {
         if ($n <= 0) {
@@ -113,7 +146,12 @@ class PhpPcg32
         return $r;
     }
 
-    /** limb配列の下位32bitをPHPのintとして取り出す */
+    /** 
+     * Extract lower 32 bits of a limb array as a PHP integer 
+     * 
+     * @param array<int,int> $a 
+     * @return int
+     * */
     private static function toUint32(array $a): int
     {
         return $a[0] | ($a[1] << 16);
@@ -124,7 +162,7 @@ class PhpPcg32
         $this->state = self::add64(self::mul64($this->state, self::MULT), $this->inc);
     }
 
-    // ---- 公開API（Pcg32.php / pcg32.c と同じインターフェース） ----
+    // ---- Public API (same interface as Pcg32.php / pcg32.c) ----
 
     public function setSeed(int $seed): void
     {
@@ -151,9 +189,8 @@ class PhpPcg32
     }
 
     /**
-     * Uint32(0 〜 4294967295)をInt32(-2147483648 〜 2147483647)へ変換する。
-     * ビットパターンはそのまま、最上位ビット(bit31)を符号ビットとして
-     * 再解釈する（2の補数表現）。
+     * Convert Uint32(0 to 4294967295) to Int32(-2147483648 to 2147483647).
+     * The bit pattern is preserved, with bit 31 reinterpreted as the sign bit (two's complement).
      */
     public static function uint32ToInt32(int $u): int
     {
@@ -162,11 +199,11 @@ class PhpPcg32
     }
  
     /**
-     * 次の乱数を符号あり32bit整数（-2147483648 〜 2147483647）として返す。
+     * Return the next random number as a signed 32-bit integer (-2147483648 to 2147483647).
      */
     public function nextInt32(): int
     {
-        return self::uint32ToInt32($this->nextUint32());
+        return self::uint32ToInt32($this->randUint32());
     }
 
     public function nextFloat(): float
