@@ -86,9 +86,6 @@ class PhpPcg32
             $carry = 0;
             for ($j = 0; $j < 4; $j++) {
                 $pos = $i + $j;
-                if ($pos > 7) {
-                    continue;
-                }
                 $prod = $a[$i] * $b[$j] + $tmp[$pos] + $carry;
                 $tmp[$pos] = $prod & 0xFFFF;
                 $carry = intdiv($prod, 0x10000);
