@@ -15299,7 +15299,7 @@ class LinearAlgebraTest extends TestCase
         $this->assertEquals("[1,2,3]",$la->toString($a,format:"%d"));
 
         $a = $la->array([1.0,2.5,3.5],dtype:NDArray::float32);
-        $this->assertEquals("[1.00,2.50,3.50]",$la->toString($a,format:"%6.2f"));
+        $this->assertEquals("[  1.00,  2.50,  3.50]",$la->toString($a,format:"%6.2f"));
     }
 
     public function testSetSeed()
