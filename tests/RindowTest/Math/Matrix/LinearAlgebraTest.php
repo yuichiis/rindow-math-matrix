@@ -15261,20 +15261,61 @@ class LinearAlgebraTest extends TestCase
     public function testDtypeToString()
     {
         $mo = $this->newMatrixOperator();
+        $la = $mo->la();
 
-        $this->assertEquals('bool',$mo->dtypeToString(NDArray::bool));
-        $this->assertEquals('int8',$mo->dtypeToString(NDArray::int8));
-        $this->assertEquals('uint8',$mo->dtypeToString(NDArray::uint8));
-        $this->assertEquals('int16',$mo->dtypeToString(NDArray::int16));
-        $this->assertEquals('uint16',$mo->dtypeToString(NDArray::uint16));
-        $this->assertEquals('int32',$mo->dtypeToString(NDArray::int32));
-        $this->assertEquals('uint32',$mo->dtypeToString(NDArray::uint32));
-        $this->assertEquals('int64',$mo->dtypeToString(NDArray::int64));
-        $this->assertEquals('uint64',$mo->dtypeToString(NDArray::uint64));
-        $this->assertEquals('float16',$mo->dtypeToString(NDArray::float16));
-        $this->assertEquals('float32',$mo->dtypeToString(NDArray::float32));
-        $this->assertEquals('float64',$mo->dtypeToString(NDArray::float64));
-        $this->assertEquals('complex64',$mo->dtypeToString(NDArray::complex64));
-        $this->assertEquals('complex128',$mo->dtypeToString(NDArray::complex128));
+        $this->assertEquals('bool',$la->dtypeToString(NDArray::bool));
+        $this->assertEquals('int8',$la->dtypeToString(NDArray::int8));
+        $this->assertEquals('uint8',$la->dtypeToString(NDArray::uint8));
+        $this->assertEquals('int16',$la->dtypeToString(NDArray::int16));
+        $this->assertEquals('uint16',$la->dtypeToString(NDArray::uint16));
+        $this->assertEquals('int32',$la->dtypeToString(NDArray::int32));
+        $this->assertEquals('uint32',$la->dtypeToString(NDArray::uint32));
+        $this->assertEquals('int64',$la->dtypeToString(NDArray::int64));
+        $this->assertEquals('uint64',$la->dtypeToString(NDArray::uint64));
+        $this->assertEquals('float16',$la->dtypeToString(NDArray::float16));
+        $this->assertEquals('float32',$la->dtypeToString(NDArray::float32));
+        $this->assertEquals('float64',$la->dtypeToString(NDArray::float64));
+        $this->assertEquals('complex64',$la->dtypeToString(NDArray::complex64));
+        $this->assertEquals('complex128',$la->dtypeToString(NDArray::complex128));
+    }
+
+    public function testShapeToString()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $mo->la();
+
+        $this->assertEquals('()',$la->shapeToString([]));
+        $this->assertEquals('(1)',$la->shapeToString([1]));
+        $this->assertEquals('(1,2)',$la->shapeToString([1,2]));
+        $this->assertEquals('(1,2,3)',$la->shapeToString([1,2,3]));
+    }
+
+    public function testToString()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $mo->la();
+        
+        $a = $la->array([1,2,3],dtype:NDArray::int32);
+        $this->assertEquals("[1,2,3]",$la->toString($a,format:"%d"));
+
+        $a = $la->array([1.0,2.5,3.5],dtype:NDArray::float32);
+        $this->assertEquals("[1.00,2.50,3.50]",$la->toString($a,format:"%6.2f"));
+    }
+
+    public function testSetSeed()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $la->setSeed(1234);
+        $rnd1 = $la->randInt();
+        $rnd2 = $la->randInt();
+        $this->assertNotEquals($rnd1, $rnd2);
+
+        $la->setSeed(1234);
+        $rnd3 = $la->randInt();
+        $rnd4 = $la->randInt();
+        $this->assertEquals($rnd1, $rnd3);
+        $this->assertEquals($rnd2, $rnd4);
     }
 }
