@@ -64,7 +64,7 @@ jobs:
           php-version: ${{ matrix.php }}
           # PHP Extras
           coverage: none
-          tools: composer, phpstan
+          tools: composer, phpstan:2.1.x
           ini-values: "memory_limit=512M"
           extensions: ${{ matrix.ffi }}
         env:
@@ -108,7 +108,7 @@ jobs:
       - name: Run Composer Update
         run: |
           composer update
-          composer require --dev phpunit/phpunit=^${{ matrix.phpunit }}
+          composer require --dev "phpunit/phpunit=${{ matrix.phpunit }}.*"
 
       - name: Download Add-packs (Linux)
         if: ${{ startsWith(matrix.os, 'ubuntu-') }}
