@@ -674,10 +674,14 @@ class LinearAlgebraTest extends TestCase
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
         $x = $la->array([[1,2],[3,4]],dtype:NDArray::float32);
+        $orgX = $la->copy($x);
         $nrm2 = sqrt(1+2**2+3**2+4**2);
         $this->assertLessThan(0.00001,abs($nrm2-
             $la->nrm2($x)
         ));
+        $x = $la->toNDArray($x);
+        $orgX = $la->toNDArray($orgX);
+        $this->assertTrue($mo->la()->isclose($x,$orgX));
 
         $x = $la->array([[C(1),C(2)],[C(3),C(4)]],dtype:NDArray::complex64);
         $nrm2 = sqrt(1+2**2+3**2+4**2);
@@ -3914,6 +3918,43 @@ class LinearAlgebraTest extends TestCase
         ,$X->toArray());
     }
 
+    public function testMaximumBroadcast()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // X := maximum(A,X)
+        $a = $la->array([[-1,0,1],[2,3,4]]);
+        $x = $la->array([1,2,3]);
+        $la->maximum($a,$x);
+        $this->assertEquals(
+            [[1,2,3],[2,3,4]]
+        ,$a->toArray());
+
+
+        // X := maximum(X,1)
+        $a = $la->array([-1,0,1,2,3,4]);
+        $x = $la->array(1);
+        $la->maximum($a,$x);
+        $this->assertEquals(
+            [1,1,1,2,3,4]
+        ,$a->toArray());
+    }
+
+    public function testMaximumScalar()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // X := maximum(2,1)
+        $a = $la->array(2);
+        $x = $la->array(1);
+        $la->maximum($a,$x);
+        $this->assertEquals(
+            2
+        ,$a->toArray());
+    }
+
     public function testMinimumFloat()
     {
         $mo = $this->newMatrixOperator();
@@ -3999,6 +4040,15 @@ class LinearAlgebraTest extends TestCase
         $this->assertEquals(0.0, $X[1]);
         $this->assertEquals(0.0, $X[2]);
         $this->assertEquals(0.0, $X[3]);
+
+        $X = $la->array([INF,0,-INF,NAN]);
+        $la->greater($X,INF);
+        $X = $la->toNDArray($X);
+        $this->assertEquals(0.0, $X[0]);  // INF is not greater than INF
+        $this->assertEquals(0.0, $X[1]);
+        $this->assertEquals(0.0, $X[2]);
+        $this->assertEquals(0.0, $X[3]);
+
     }
 
     public function testGreaterCompDim()
@@ -4078,6 +4128,14 @@ class LinearAlgebraTest extends TestCase
         $this->assertEquals(0.0, $X[1]);
         $this->assertEquals(0.0, $X[2]);
         $this->assertEquals(0.0, $X[3]);
+
+        $X = $la->array([INF,0,-INF,NAN]);
+        $la->greaterEqual($X,INF);
+        $X = $la->toNDArray($X);
+        $this->assertEquals(1.0, $X[0]);
+        $this->assertEquals(0.0, $X[1]);
+        $this->assertEquals(0.0, $X[2]);
+        $this->assertEquals(0.0, $X[3]);
     }
 
     public function testGreaterEqualCompDim()
@@ -4130,6 +4188,14 @@ class LinearAlgebraTest extends TestCase
         $this->assertEquals(0.0, $X[1]);
         $this->assertEquals(0.0, $X[2]);
         $this->assertEquals(0.0, $X[3]);
+
+        $X = $la->array([INF,0,-INF,NAN]);
+        $la->less($X,-INF);
+        $X = $la->toNDArray($X);
+        $this->assertEquals(0.0, $X[0]);
+        $this->assertEquals(0.0, $X[1]);
+        $this->assertEquals(0.0, $X[2]); // -INF is not less than -INF
+        $this->assertEquals(0.0, $X[3]);
     }
 
     public function testLessCompDim()
@@ -4159,7 +4225,7 @@ class LinearAlgebraTest extends TestCase
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
 
-        // X := less(1,X)
+        // X := lessEqual(1,X)
         $X = $la->array([[-1,0,1],[1.5,2,3]]);
         $la->lessEqual($X,1);
         $this->assertEquals(
@@ -4181,6 +4247,14 @@ class LinearAlgebraTest extends TestCase
         $this->assertEquals(0.0, $X[0]);
         $this->assertEquals(0.0, $X[1]);
         $this->assertEquals(0.0, $X[2]);
+        $this->assertEquals(0.0, $X[3]);
+
+        $X = $la->array([INF,0,-INF,NAN]);
+        $la->lessEqual($X,-INF);
+        $X = $la->toNDArray($X);
+        $this->assertEquals(0.0, $X[0]);
+        $this->assertEquals(0.0, $X[1]);
+        $this->assertEquals(1.0, $X[2]);
         $this->assertEquals(0.0, $X[3]);
     }
 
@@ -4204,6 +4278,23 @@ class LinearAlgebraTest extends TestCase
         $this->assertEquals(
             [[0,1,0],[0,1,1]]
         ,$X->toArray());
+    }
+
+    public function testLessAndLessEqualDoNotShareKernelCache() : void
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        $Y = $la->array([1,1,1]);
+
+        // Compile/cache the strict comparison first.
+        $less = $la->array([0,1,2]);
+        $la->less($less,$Y);
+        $this->assertEquals([1,0,0],$less->toArray());
+
+        // Equality must still be accepted by a separately cached kernel.
+        $lessEqual = $la->array([0,1,2]);
+        $la->lessEqual($lessEqual,$Y);
+        $this->assertEquals([1,1,0],$lessEqual->toArray());
     }
 
     public function testMultiplyNormal()
@@ -11802,6 +11893,50 @@ class LinearAlgebraTest extends TestCase
             $y->toArray());
     }
 
+    public function testRandomCategorical()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        //
+        // sigle sample
+        //
+        $probs = $la->softmax($la->log($la->array([
+            [2.0,  2.0,  2.0 ],
+            [9.0,  2.0,  1.0 ],
+            [0.1,  0.8,  0.1 ],
+            [0.1,  0.8,  0.1 ],
+        ])));
+        $sumProbs = $la->reduceSum($probs,axis:-1);
+        //echo $la->toString($sumProbs,indent:true)."\n";
+        $ones = $mo->ones($sumProbs->shape());
+        $this->assertTrue($mo->la()->isclose($la->toNDArray($ones),$la->toNDArray($sumProbs)));
+
+        $actions = $la->randomCategorical($probs);
+        //echo $la->toString($actions,indent:true)."\n";
+
+        $this->assertEquals([4],$actions->shape());
+        $this->assertEquals(NDArray::int32,$actions->dtype());
+        $this->assertLessThan(3,$la->max($actions));
+
+        //
+        // multiple samples
+        //
+        $probs = $la->softmax($la->log($la->array([[3.0,  2.0,  1.0 ]])));
+        $probs = $probs->reshape([$probs->size()]); // (actions)
+        $sumProbs = $la->reduceSum($probs,axis:-1);
+        //echo $la->toString($sumProbs,indent:true)."\n";
+        $ones = $mo->ones($sumProbs->shape());
+        $this->assertTrue($mo->la()->isclose($la->toNDArray($ones),$la->toNDArray($sumProbs)));
+
+        $actions = $la->randomCategorical($probs,numSamples:4);
+
+        $this->assertEquals([4],$actions->shape());
+        $this->assertEquals(NDArray::int32,$actions->dtype());
+        $this->assertLessThan(3,$la->max($actions));
+
+    }
+
     public function testSlice()
     {
         $mo = $this->newMatrixOperator();
@@ -13387,24 +13522,24 @@ class LinearAlgebraTest extends TestCase
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
 
-        $A = $mo->array([0.1,0.3,0.5,0.7,0.9]);
+        $A = $mo->array([0.1, 0.3, 0.5, 0.7, 0.9]);
         $A = $la->array($A);
-        $X = $mo->array([0.0,0.5,1.0]);
+        $X = $mo->array([0.0, 0.5, 1.0]);
         $X = $la->array($X);
         $Y = $la->searchsorted($A,$X);
         $this->assertEquals(
-            [0,2,5],
+            [0, 2, 5],
             $Y->toArray()
         );
 
         // right=true
-        $A = $mo->array([0.1,0.3,0.5,0.7,0.9]);
+        $A = $mo->array([0.1, 0.3, 0.5, 0.7, 0.9]);
         $A = $la->array($A);
-        $X = $mo->array([0.0,0.5,1.0]);
+        $X = $mo->array([0.0, 0.5, 1.0]);
         $X = $la->array($X);
-        $Y = $la->searchsorted($A,$X,true);
+        $Y = $la->searchsorted($A,$X,right:true);
         $this->assertEquals(
-            [0,3,5],
+            [0, 3, 5],
             $Y->toArray()
         );
 
@@ -13432,7 +13567,7 @@ class LinearAlgebraTest extends TestCase
         $A = $la->array($A);
         $X = $mo->array([0, 5, 10]);
         $X = $la->array($X);
-        $Y = $la->searchsorted($A,$X,true);
+        $Y = $la->searchsorted($A,$X,right:true);
         $this->assertEquals(
             [0, 5, 1],
             $Y->toArray()
@@ -13451,7 +13586,7 @@ class LinearAlgebraTest extends TestCase
         $this->assertEquals([0.0,0.0,0.5,0.5],$A->toArray());
         $X = $mo->array([0.0,0.4,0.6,$total]);
         $X = $la->array($X);
-        $Y = $la->searchsorted($A,$X,true);
+        $Y = $la->searchsorted($A,$X,right:true);
         $this->assertEquals(
             [2,2,4,4],
             $Y->toArray()
@@ -13462,7 +13597,7 @@ class LinearAlgebraTest extends TestCase
         $A = $la->array($A);
         $X = $mo->array([0.9]);
         $X = $la->array($X);
-        $Y = $la->searchsorted($A,$X,true);
+        $Y = $la->searchsorted($A,$X,right:true);
         $this->assertEquals(
             [1],
             $Y->toArray()
@@ -13718,6 +13853,36 @@ class LinearAlgebraTest extends TestCase
         $la->isnan($X);
         $this->assertEquals(
             [[1,0,1],[0,1,0]],
+            $X->toArray()
+        );
+    }
+
+    public function testIsfinite()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // X := isfinite(X)
+        $X = $mo->array([[INF,2,NAN],[4,-INF,6]]);
+        $X = $la->array($X);
+        $la->isfinite($X);
+        $this->assertEquals(
+            [[0,1,0],[1,0,1]],
+            $X->toArray()
+        );
+    }
+
+    public function testIsinf()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // X := isinf(X)
+        $X = $mo->array([[INF,2,NAN],[4,-INF,6]]);
+        $X = $la->array($X);
+        $la->isinf($X);
+        $this->assertEquals(
+            [[1,0,0],[0,1,0]],
             $X->toArray()
         );
     }
@@ -14111,6 +14276,68 @@ class LinearAlgebraTest extends TestCase
         $this->assertTrue($la->isFloat($la->array(1,dtype:NDArray::float64)));
 
         $this->assertFalse($la->isFloat($la->array(1,dtype:NDArray::bool)));
+    }
+
+    public function testWhereNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // general
+        $x = $la->array([-1,-2,-3,-4,-5]);
+        $y = $la->array([ 1, 2, 3, 4, 5]);
+        $condition = $la->array([1,0,1,0,1]);
+        $z = $la->where($condition,$x,$y);
+        $z = $la->toNDArray($z);
+        $this->assertTrue($mo->la()->isclose(
+            $mo->array([-1,2,-3,4,-5]),
+            $z
+        ));
+
+        // with condition function
+        $x = $la->array([ 1, 2, 3, 4, 5]);
+        $z = $la->where(
+            $la->less($la->copy($x),3),
+            $la->zerosLike($x),
+            $x
+        );
+        $z = $la->toNDArray($z);
+        $this->assertTrue($mo->la()->isclose(
+            $mo->array([0, 0, 3, 4, 5]),
+            $z
+        ));
+
+        // with normalized condition
+        $x = $la->array([ 1, 2, 3, 4, 5]);
+        $z = $la->where(
+            $la->less($la->copy($x),3),
+            $la->zerosLike($x),
+            $x,
+            normalize:false,
+        );
+        $z = $la->toNDArray($z);
+        $this->assertTrue($mo->la()->isclose(
+            $mo->array([0, 0, 3, 4, 5]),
+            $z
+        ));
+
+    }
+
+    public function testAbsNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $x = $la->array([-1, 2,-3, 4,-5]);
+        $z = $la->abs($x);
+        $z = $la->toNDArray($z);
+        $this->assertTrue($mo->la()->isclose(
+            $mo->array([ 1, 2, 3, 4, 5]),
+            $z
+        ));
+
+        $z = $la->abs(-5);
+        $this->assertEquals(5,$z);
     }
 
     public function testEinsumSimpleNormal()
@@ -15031,4 +15258,64 @@ class LinearAlgebraTest extends TestCase
         ,$A->toArray());
     }
 
+    public function testDtypeToString()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $mo->la();
+
+        $this->assertEquals('bool',$la->dtypeToString(NDArray::bool));
+        $this->assertEquals('int8',$la->dtypeToString(NDArray::int8));
+        $this->assertEquals('uint8',$la->dtypeToString(NDArray::uint8));
+        $this->assertEquals('int16',$la->dtypeToString(NDArray::int16));
+        $this->assertEquals('uint16',$la->dtypeToString(NDArray::uint16));
+        $this->assertEquals('int32',$la->dtypeToString(NDArray::int32));
+        $this->assertEquals('uint32',$la->dtypeToString(NDArray::uint32));
+        $this->assertEquals('int64',$la->dtypeToString(NDArray::int64));
+        $this->assertEquals('uint64',$la->dtypeToString(NDArray::uint64));
+        $this->assertEquals('float16',$la->dtypeToString(NDArray::float16));
+        $this->assertEquals('float32',$la->dtypeToString(NDArray::float32));
+        $this->assertEquals('float64',$la->dtypeToString(NDArray::float64));
+        $this->assertEquals('complex64',$la->dtypeToString(NDArray::complex64));
+        $this->assertEquals('complex128',$la->dtypeToString(NDArray::complex128));
+    }
+
+    public function testShapeToString()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $mo->la();
+
+        $this->assertEquals('()',$la->shapeToString([]));
+        $this->assertEquals('(1)',$la->shapeToString([1]));
+        $this->assertEquals('(1,2)',$la->shapeToString([1,2]));
+        $this->assertEquals('(1,2,3)',$la->shapeToString([1,2,3]));
+    }
+
+    public function testToString()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $mo->la();
+        
+        $a = $la->array([1,2,3],dtype:NDArray::int32);
+        $this->assertEquals("[1,2,3]",$la->toString($a,format:"%d"));
+
+        $a = $la->array([1.0,2.5,3.5],dtype:NDArray::float32);
+        $this->assertEquals("[  1.00,  2.50,  3.50]",$la->toString($a,format:"%6.2f"));
+    }
+
+    public function testSetSeed()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $la->setSeed(1234);
+        $rnd1 = $la->randInt();
+        $rnd2 = $la->randInt();
+        $this->assertNotEquals($rnd1, $rnd2);
+
+        $la->setSeed(1234);
+        $rnd3 = $la->randInt();
+        $rnd4 = $la->randInt();
+        $this->assertEquals($rnd1, $rnd3);
+        $this->assertEquals($rnd2, $rnd4);
+    }
 }
