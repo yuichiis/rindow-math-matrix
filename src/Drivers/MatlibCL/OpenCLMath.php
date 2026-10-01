@@ -192,6 +192,7 @@ class OpenCLMath
     protected bool $fp64;
     /** @var array<int> $maxWorkItem */
     protected array $maxWorkItem;
+    protected int $maxWorkGroupSize;
     protected int $localMemSize;
     protected int $maxComputeUnits;
     protected ?int $kernelMultiple=null;
@@ -217,6 +218,7 @@ class OpenCLMath
             $this->fp64 = true;
         }
         $this->maxWorkItem = $devices->getInfo(0,OpenCL::CL_DEVICE_MAX_WORK_ITEM_SIZES);
+        $this->maxWorkGroupSize = $devices->getInfo(0,OpenCL::CL_DEVICE_MAX_WORK_GROUP_SIZE);
         $this->localMemSize = $devices->getInfo(0,OpenCL::CL_DEVICE_LOCAL_MEM_SIZE);
         $this->maxComputeUnits = $devices->getInfo(0,OpenCL::CL_DEVICE_MAX_COMPUTE_UNITS);
         $this->addressBits = $devices->getInfo(0,OpenCL::CL_DEVICE_ADDRESS_BITS);
@@ -7189,7 +7191,7 @@ EOT;
             "    uint rotation = (uint)(state >> 59u);\n".
             "    return rotate(xorshifted, (uint)(0u - rotation));\n".
             "}\n".
-            "ulong pcg32_seed(uint seed, ulong sequence)\n".
+            "ulong pcg32_seed(ulong seed, ulong sequence)\n".
             "{\n".
             "    ulong increment = (sequence << 1u) | 1u;\n".
             "    ulong state = pcg32_step(0u, increment);\n".
@@ -7327,6 +7329,935 @@ EOT;
         $global_work_size = [$n];
         $local_work_size=null;
         #$local_work_size = [1,1,$size];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
+            $events,$waitEvents);
+    }
+
+    public function pcg32Srand(
+        BufferInterface $pcg32State,
+        int $seed,
+        int $sequence,
+        ?object $events=null, ?object $waitEvents=null
+        ) : void
+    {
+        $dtype = $pcg32State->dtype();
+        if(!$dtype==NDArray::int64||!$dtype==NDArray::uint64) {
+            throw new InvalidArgumentException("Invalid dtype for pcg32State");
+        }
+        if($pcg32State->count()!=2) {
+            throw new InvalidArgumentException("Invalid size for pcg32State");
+        }
+        $kernel_name = "pcg32Srand";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+            $this->pcg32KernelSource().
+            "__kernel void {$kernel_name}(\n".
+            "    __global ulong * pcg32state,\n".
+            "    const long seed,\n".
+            "    const long sequence)\n".
+            "{\n".
+            "   ulong increment;\n".
+            "   pcg32state[0] = pcg32_seed((ulong)seed, (ulong)sequence);\n".
+            "   increment = ((ulong)sequence << 1u) | 1u;\n".
+            "   pcg32state[1] = increment;\n".
+            "}\n";
+        }
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$pcg32State);
+        $kernel->setArg(1,$seed,NDArray::int64);
+        $kernel->setArg(2,$sequence,NDArray::int64);
+        $global_work_size = [1];
+        $local_work_size = null;
+        $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
+            $events,$waitEvents);
+    }
+
+    public function pcg32Step(
+        BufferInterface $pcg32State,
+        ?object $events=null, ?object $waitEvents=null
+        ) : void
+    {
+        $dtype = $pcg32State->dtype();
+        if(!$dtype==NDArray::int64||!$dtype==NDArray::uint64) {
+            throw new InvalidArgumentException("Invalid dtype for pcg32State");
+        }
+        if($pcg32State->count()!=2) {
+            throw new InvalidArgumentException("Invalid size for pcg32State");
+        }
+        $kernel_name = "pcg32step";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+            $this->pcg32KernelSource().
+            "__kernel void {$kernel_name}(\n".
+            "    __global ulong * pcg32state\n".
+            ")\n".
+            "{\n".
+            "   ulong state = pcg32state[0];\n".
+            "   ulong increment = pcg32state[1];\n".
+            "   pcg32state[0] = pcg32_step(state, increment);\n".
+            "}\n";
+        }
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$pcg32State);
+        $global_work_size = [1];
+        $local_work_size = null;
+        $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
+            $events,$waitEvents);
+    }
+
+    public function pcg32RandInt32(
+        BufferInterface $pcg32State,
+        int $min,
+        int $max,
+        BufferInterface $out, int $offsetOut,
+        ?object $events=null, ?object $waitEvents=null
+        ) : void
+    {
+        $dtype = $out->dtype();
+        if($dtype!=NDArray::int32) {
+            throw new InvalidArgumentException("Invalid dtype for out");
+        }
+        $kernel_name = "pcg32RandInt32";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+            $this->pcg32KernelSource().
+            "__kernel void {$kernel_name}(\n".
+            "    __global ulong * pcg32state,\n".
+            "    const int min,\n".
+            "    const int max,\n".
+            "    __global int * out,\n".
+            "    const int offsetOut\n".
+            ")\n".
+            "{\n".
+            "   ulong state = pcg32state[0];\n".
+            "   ulong increment = pcg32state[1];\n".
+            "   ulong range = (ulong)((long)max - (long)min + 1);\n".
+            "   if(range==0) {\n".
+            "     range = 1;\n".
+            "   }\n".
+            "   int randx = (int)((long)min + (long)(pcg32_output(state) % range));\n".
+            "   out[offsetOut] = randx;\n".
+            "   pcg32state[0] = pcg32_step(state, increment);\n".
+            "}\n";
+        }
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$pcg32State);
+        $kernel->setArg(1,$min,NDArray::int32);
+        $kernel->setArg(2,$max,NDArray::int32);
+        $kernel->setArg(3,$out);
+        $kernel->setArg(4,$offsetOut,NDArray::int32);
+        $global_work_size = [1];
+        $local_work_size = null;
+        $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
+            $events,$waitEvents);
+    }
+
+    public function pcg32RandInt(
+        BufferInterface $pcg32State,
+        int $min,
+        int $max,
+        BufferInterface $out, int $offsetOut,
+        ?object $events=null, ?object $waitEvents=null
+        ) : void
+    {
+        $dtype = $out->dtype();
+        if($dtype!=NDArray::int64) {
+            throw new InvalidArgumentException("Invalid dtype for out");
+        }
+        $kernel_name = "pcg32RandInt";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+            $this->pcg32KernelSource().
+            "__kernel void {$kernel_name}(\n".
+            "    __global ulong * pcg32state,\n".
+            "    const long min,\n".
+            "    const long max,\n".
+            "    __global long * out,\n".
+            "    const int offsetOut\n".
+            ")\n".
+            "{\n".
+            "   ulong state = pcg32state[0];\n".
+            "   ulong inc = pcg32state[1];\n".
+            "   ulong range = (ulong)max - (ulong)min + 1UL;\n".
+            "   ulong threshold = (range==0UL) ? 0UL : ((0UL-range) % range);\n".
+            "   ulong r;\n".
+            "   do {\n".
+            "       state = pcg32_step(state, inc);\n".
+            "       ulong hi = (ulong)pcg32_output(state);\n".
+            "       state = pcg32_step(state, inc);\n".
+            "       ulong lo = (ulong)pcg32_output(state);\n".
+            "       r = (hi << 32u) | lo;\n".
+            "   } while(r < threshold);\n".
+            "   ulong v = (range==0UL) ? r : (r % range);\n".
+            "   out[offsetOut] = (long)((ulong)min + v);\n".
+            "   pcg32state[0] = state;\n".
+            "}\n";
+        }
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$pcg32State);
+        $kernel->setArg(1,$min,NDArray::int64);
+        $kernel->setArg(2,$max,NDArray::int64);
+        $kernel->setArg(3,$out);
+        $kernel->setArg(4,$offsetOut,NDArray::int32);
+        $global_work_size = [1];
+        $local_work_size = null;
+        $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
+            $events,$waitEvents);
+    }
+
+    public function pcg32Uniform(
+        BufferInterface $pcg32State,
+        int $n,
+        BufferInterface $X, int $offsetX, int $incX,
+        int|float $low,
+        int|float $high,
+        ?object $events=null, ?object $waitEvents=null
+        ) : void
+    {
+        $dtype = $X->dtype();
+        if($dtype==NDArray::float64) {
+            $this->assertFP64();
+        }
+        if($high<$low) {
+            throw new InvalidArgumentException("high must be greater than or equal to low");
+        }
+        $isInt = array_key_exists($dtype,$this->intTypes);
+        $is64  = ($dtype==NDArray::int64 || $dtype==NDArray::uint64);
+        $itype = ($isInt) ? 'i' : 'f';
+        $type = $this->dtypeToOpenCLType[$dtype];
+        $kernel_name = "pcg32Uniform_{$type}_{$itype}";
+        if(!isset($this->sources[$kernel_name])) {
+            if($isInt && !$is64) {
+                $this->sources[$kernel_name] =
+                $this->pcg32KernelSource().
+                "__kernel void {$kernel_name}(\n".
+                "      __global ulong * pcg32state,\n".
+                "        const {$type} low,\n".
+                "        const {$type} high,\n".
+                "      __global {$type} * x,\n".
+                "        const int offsetX,\n".
+                "        const int incX)\n".
+                "{\n".
+                "   int gid = get_global_id(0);\n".
+                "   ulong inc = ((pcg32state[1] + (ulong)gid) << 1u) | 1u;\n".
+                "   ulong state = pcg32_seed(pcg32state[0], inc);\n".
+                "   uint range = (uint)high - (uint)low + 1u;\n".
+                "   uint threshold = (range==0u) ? 0u : ((0u-range) % range);\n".
+                "   state = pcg32_step(state, inc);\n".
+                "   uint r = pcg32_output(state);\n".
+                "   while(r < threshold) {\n".
+                "       state = pcg32_step(state, inc);\n".
+                "       r = pcg32_output(state);\n".
+                "   }\n".
+                "   uint v = (range==0u) ? r : (r % range);\n".
+                "   x[offsetX+gid*incX] = ({$type})((uint)low + v);\n".
+                "}\n";
+            } elseif($isInt) {
+                $this->sources[$kernel_name] =
+                $this->pcg32KernelSource().
+                "__kernel void {$kernel_name}(\n".
+                "      __global ulong * pcg32state,\n".
+                "        const {$type} low,\n".
+                "        const {$type} high,\n".
+                "      __global {$type} * x,\n".
+                "        const int offsetX,\n".
+                "        const int incX)\n".
+                "{\n".
+                "   int gid = get_global_id(0);\n".
+                "   ulong inc = ((pcg32state[1] + (ulong)gid) << 1u) | 1u;\n".
+                "   ulong state = pcg32_seed(pcg32state[0], inc);\n".
+                "   ulong range = (ulong)high - (ulong)low + 1UL;\n".
+                "   ulong threshold = (range==0UL) ? 0UL : ((0UL-range) % range);\n".
+                "   ulong r;\n".
+                "   do {\n".
+                "       state = pcg32_step(state, inc);\n".
+                "       ulong hi = (ulong)pcg32_output(state);\n".
+                "       state = pcg32_step(state, inc);\n".
+                "       ulong lo = (ulong)pcg32_output(state);\n".
+                "       r = (hi << 32u) | lo;\n".
+                "   } while(r < threshold);\n".
+                "   ulong v = (range==0UL) ? r : (r % range);\n".
+                "   x[offsetX+gid*incX] = ({$type})((ulong)low + v);\n".
+                "}\n";
+            } else {
+                // 16777216.0 = 2^24, which is the precision of float32
+                // 4294967296.0 = 2^32, which is the range of uint32
+                // nextafter is used to avoid generating high, which is not included in the range
+                $this->sources[$kernel_name] =
+                $this->pcg32KernelSource().
+                "__kernel void {$kernel_name}(\n".
+                "      __global ulong * pcg32state,\n".
+                "        const {$type} low,\n".
+                "        const {$type} high,\n".
+                "      __global {$type} * x,\n".
+                "        const int offsetX,\n".
+                "        const int incX)\n".
+                "{\n".
+                "   int gid = get_global_id(0);\n".
+                "   ulong inc = ((pcg32state[1] + (ulong)gid) << 1u) | 1u;\n".
+                "   ulong state = pcg32_seed(pcg32state[0], inc);\n".
+                "   {$type} nextafter_high = nextafter(high, low);\n".
+                "   uint r = pcg32_output(state);\n".
+                "   {$type} randx = ({$type})r * ((nextafter_high-low)/({$type})4294967296.0) + low;\n".
+                "   randx = fmin(randx, nextafter_high);\n".
+                "   x[offsetX+gid*incX] = randx;\n".
+                "}\n";
+            }
+        }
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$pcg32State);
+        $kernel->setArg(1,$low,$dtype);
+        $kernel->setArg(2,$high,$dtype);
+        $kernel->setArg(3,$X);
+        $kernel->setArg(4,$offsetX,NDArray::int32);
+        $kernel->setArg(5,$incX,NDArray::int32);
+        $global_work_size = [$n];
+        $local_work_size=null;
+        #$local_work_size = [1,1,$size];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
+            $events,$waitEvents);
+    }
+
+    /**
+    * randomNormal
+    */
+    public function pcg32Normal(
+        BufferInterface $pcg32State,
+        int $n,
+        BufferInterface $X, int $offsetX, int $incX,
+        float $mean,
+        float $scale,
+        ?object $events=null, ?object $waitEvents=null
+        ) : void
+    {
+        $dtype = $X->dtype();
+        if($dtype!=NDArray::float32 && $dtype!=NDArray::float64) {
+            throw new InvalidArgumentException('Data type of X must be float32 or float64');
+        }
+        if($dtype==NDArray::float64) {
+            $this->assertFP64();
+        }
+        $isInt = array_key_exists($dtype,$this->intTypes);
+        $type = $this->dtypeToOpenCLType[$dtype];
+        $kernel_name = "pcg32Normal_{$type}";
+        if(!isset($this->sources[$kernel_name])) {
+            $PI = ($dtype==NDArray::float32) ? 'M_PI_F' : 'M_PI';
+            $this->sources[$kernel_name] =
+            $this->pcg32KernelSource().
+            "__kernel void {$kernel_name}(\n".
+                "      __global ulong * pcg32state,\n".
+            "            const {$type} mean,\n".
+            "            const {$type} scale,\n".
+            "          __global {$type} * x,\n".
+            "            const int offsetX,\n".
+            "            const int incX)\n".
+            "{\n".
+            "   int gid = get_global_id(0);\n".
+            "   ulong inc = ((pcg32state[1] + (ulong)gid) << 1u) | 1u;\n".
+            "   ulong state = pcg32_seed(pcg32state[0], inc);\n".
+            "   uint bits1 = pcg32_output(state);\n".
+            "   state = pcg32_step(state, inc);\n".
+            "   uint bits2 = pcg32_output(state);\n".
+            // Open intervals avoid log(0) and reduce endpoint artefacts.
+            "   {$type} randx = (({$type})bits1+({$type})1)/({$type})4294967297.0;\n".
+            "   {$type} randy = (({$type})bits2+({$type})1)/({$type})4294967297.0;\n".
+            "   x[offsetX+gid*incX] = sqrt(-2*log(randx))*cos(2*{$PI}*randy)*scale+mean;\n".
+            "}\n";
+        }
+
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$pcg32State);
+        $kernel->setArg(1,$mean,$dtype);
+        $kernel->setArg(2,$scale,$dtype);
+        $kernel->setArg(3,$X);
+        $kernel->setArg(4,$offsetX,NDArray::int32);
+        $kernel->setArg(5,$incX,NDArray::int32);
+        $global_work_size = [$n];
+        $local_work_size=null;
+        #$local_work_size = [1,1,$size];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
+            $events,$waitEvents);
+    }
+
+    /**
+    * splitmix64Uniform
+    */
+    private function splitmix64KernelSource() : string
+    {
+        return
+        "inline ulong splitmix64_next(ulong *state)\n".
+        "{\n".
+        "   ulong z = (*state += 0x9E3779B97F4A7C15UL);\n".
+        "   z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9UL;\n".
+        "   z = (z ^ (z >> 27)) * 0x94D049BB133111EBUL;\n".
+        "   return z ^ (z >> 31);\n".
+        "}\n";
+    }
+
+    public function splitmix64Uniform(
+        int $n,
+        BufferInterface $X, int $offsetX, int $incX,
+        int|float $low,
+        int|float $high,
+        int $seed,
+        ?object $events=null, ?object $waitEvents=null
+        ) : void
+    {
+        $dtype = $X->dtype();
+        if($dtype==NDArray::float64) {
+            $this->assertFP64();
+        }
+        if($high<$low) {
+            throw new InvalidArgumentException("high must be greater than or equal to low");
+        }
+        $isInt = array_key_exists($dtype,$this->intTypes);
+        $is64  = ($dtype==NDArray::int64 || $dtype==NDArray::uint64);
+        $itype = ($isInt) ? 'i' : 'f';
+        $type = $this->dtypeToOpenCLType[$dtype];
+        $kernel_name = "splitmix64Uniform_{$type}_{$itype}";
+        if(!isset($this->sources[$kernel_name])) {
+            if($isInt && !$is64) {
+                $this->sources[$kernel_name] =
+                $this->splitmix64KernelSource().
+                "__kernel void {$kernel_name}(\n".
+                "        const ulong seed,\n".
+                "        const {$type} low,\n".
+                "        const {$type} high,\n".
+                "      __global {$type} * x,\n".
+                "        const int offsetX,\n".
+                "        const int incX)\n".
+                "{\n".
+                "   int gid = get_global_id(0);\n".
+                "   ulong state = seed + ((ulong)gid) * 0x9E3779B97F4A7C15UL;\n".
+                "   uint range = (uint)high - (uint)low + 1u;\n".
+                "   uint threshold = (range==0u) ? 0u : ((0u-range) % range);\n".
+                "   uint r = (uint)(splitmix64_next(&state) >> 32);\n".
+                "   while(r < threshold) {\n".
+                "       r = (uint)(splitmix64_next(&state) >> 32);\n".
+                "   }\n".
+                "   uint v = (range==0u) ? r : (r % range);\n".
+                "   x[offsetX+gid*incX] = ({$type})((uint)low + v);\n".
+                "}\n";
+            } elseif($isInt) {
+                $this->sources[$kernel_name] =
+                $this->splitmix64KernelSource().
+                "__kernel void {$kernel_name}(\n".
+                "        const ulong seed,\n".
+                "        const {$type} low,\n".
+                "        const {$type} high,\n".
+                "      __global {$type} * x,\n".
+                "        const int offsetX,\n".
+                "        const int incX)\n".
+                "{\n".
+                "   int gid = get_global_id(0);\n".
+                "   ulong state = seed + ((ulong)gid) * 0x9E3779B97F4A7C15UL;\n".
+                "   ulong range = (ulong)high - (ulong)low + 1UL;\n".
+                "   ulong threshold = (range==0UL) ? 0UL : ((0UL-range) % range);\n".
+                "   ulong r;\n".
+                "   do {\n".
+                "       r = splitmix64_next(&state);\n".
+                "   } while(r < threshold);\n".
+                "   ulong v = (range==0UL) ? r : (r % range);\n".
+                "   x[offsetX+gid*incX] = ({$type})((ulong)low + v);\n".
+                "}\n";
+            } else {
+                // 4294967296.0 = 2^32, which is the range of uint32
+                // nextafter is used to avoid generating high, which is not included in the range
+                $this->sources[$kernel_name] =
+                $this->splitmix64KernelSource().
+                "__kernel void {$kernel_name}(\n".
+                "        const ulong seed,\n".
+                "        const {$type} low,\n".
+                "        const {$type} high,\n".
+                "      __global {$type} * x,\n".
+                "        const int offsetX,\n".
+                "        const int incX)\n".
+                "{\n".
+                "   int gid = get_global_id(0);\n".
+                "   ulong state = seed + ((ulong)gid) * 0x9E3779B97F4A7C15UL;\n".
+                "   {$type} nextafter_high = nextafter(high, low);\n".
+                "   uint r = (uint)(splitmix64_next(&state) >> 32);\n".
+                "   {$type} randx = ({$type})r * ((nextafter_high-low)/({$type})4294967296.0) + low;\n".
+                "   randx = fmin(randx, nextafter_high);\n".
+                "   x[offsetX+gid*incX] = randx;\n".
+                "}\n";
+            }
+        }
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$seed,NDArray::uint64);
+        $kernel->setArg(1,$low,$dtype);
+        $kernel->setArg(2,$high,$dtype);
+        $kernel->setArg(3,$X);
+        $kernel->setArg(4,$offsetX,NDArray::int32);
+        $kernel->setArg(5,$incX,NDArray::int32);
+        $global_work_size = [$n];
+        $local_work_size=null;
+        $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
+            $events,$waitEvents);
+    }
+    
+    /**
+    * randomNormal
+    */
+    public function splitmix64Normal(
+        int $n,
+        BufferInterface $X, int $offsetX, int $incX,
+        float $mean,
+        float $scale,
+        int $seed,
+        ?object $events=null, ?object $waitEvents=null
+        ) : void
+    {
+        $dtype = $X->dtype();
+        if($dtype!=NDArray::float32 && $dtype!=NDArray::float64) {
+            throw new InvalidArgumentException('Data type of X must be float32 or float64');
+        }
+        if($dtype==NDArray::float64) {
+            $this->assertFP64();
+        }
+        $isInt = array_key_exists($dtype,$this->intTypes);
+        $type = $this->dtypeToOpenCLType[$dtype];
+        $kernel_name = "splitmix64Normal_{$type}";
+        if(!isset($this->sources[$kernel_name])) {
+            $PI = ($dtype==NDArray::float32) ? 'M_PI_F' : 'M_PI';
+            $this->sources[$kernel_name] =
+            $this->splitmix64KernelSource().
+            "__kernel void {$kernel_name}(\n".
+                "        const ulong seed,\n".
+            "            const {$type} mean,\n".
+            "            const {$type} scale,\n".
+            "          __global {$type} * x,\n".
+            "            const int offsetX,\n".
+            "            const int incX)\n".
+            "{\n".
+            "   int gid = get_global_id(0);\n".
+            "   ulong state = seed + ((ulong)gid) * 0x9E3779B97F4A7C15UL;\n".
+            "   uint bits1 = (uint)(splitmix64_next(&state) >> 32);\n".
+            "   uint bits2 = (uint)(splitmix64_next(&state) >> 32);\n".
+            // Open intervals avoid log(0) and reduce endpoint artefacts.
+            "   {$type} randx = (({$type})bits1+({$type})1)/({$type})4294967297.0;\n".
+            "   {$type} randy = (({$type})bits2+({$type})1)/({$type})4294967297.0;\n".
+            "   x[offsetX+gid*incX] = sqrt(-2*log(randx))*cos(2*{$PI}*randy)*scale+mean;\n".
+            "}\n";
+        }
+
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$seed,NDArray::uint64);
+        $kernel->setArg(1,$mean,$dtype);
+        $kernel->setArg(2,$scale,$dtype);
+        $kernel->setArg(3,$X);
+        $kernel->setArg(4,$offsetX,NDArray::int32);
+        $kernel->setArg(5,$incX,NDArray::int32);
+        $global_work_size = [$n];
+        $local_work_size=null;
+        #$local_work_size = [1,1,$size];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
+            $events,$waitEvents);
+    }
+    
+    /**
+    * randomSequence
+    */
+    public function randomSequence(
+        int $n,
+        int $size,
+        BufferInterface $X, int $offsetX, int $incX,
+        int $seed,
+        ?object $events=null, ?object $waitEvents=null
+        ) : void
+    {
+        $dtype = $X->dtype();
+        $isInt = array_key_exists($dtype,$this->intTypes);
+        if(!$isInt) {
+            throw new InvalidArgumentException('Data type of X must be integer');
+        }
+        $nextN = 1;
+        while($nextN < $n) {
+            $nextN <<= 1;
+        }
+        //echo "randomSequence maxWorkGroupSize=" . $this->maxWorkGroupSize . "\n";
+        //echo "seed=$seed\n";
+        //echo "n=$n\n";
+        //echo "nextN=$nextN\n";
+
+        if($nextN <= $this->maxWorkGroupSize) {
+            //echo "randseq0\n";
+            $this->randseq0($nextN, $n,$size,$X,$offsetX,$incX,$seed,$events,$waitEvents);
+        } else {
+            //echo "randseq1\n";
+            $this->randseq2($nextN, $n,$size,$X,$offsetX,$incX,$seed,$events,$waitEvents);
+        }
+    }
+    public function randseq0(
+        int $nextN,
+        int $n,
+        int $size,
+        BufferInterface $X, int $offsetX, int $incX,
+        int $seed,
+        ?object $events=null, ?object $waitEvents=null
+        ) : void
+    {
+        $dtype = $X->dtype();
+        $isInt = array_key_exists($dtype,$this->intTypes);
+        if(!$isInt) {
+            throw new InvalidArgumentException('Data type of X must be integer');
+        }
+
+        $type = $this->dtypeToOpenCLType[$dtype];
+        $kernel_name_fused = "randomSequential0_{$type}_fused";
+        if(!isset($this->sources[$kernel_name_fused])) {
+            $this->sources[$kernel_name_fused] =
+            "ulong splitmix64(ulong x) {\n".
+            "    x += 0x9E3779B97F4A7C15UL;\n".
+            "    x = (x ^ (x >> 30)) * 0xBF58476D1CE4E5B9UL;\n".
+            "    x = (x ^ (x >> 27)) * 0x94D049BB133111EBUL;\n".
+            "    return x ^ (x >> 31);\n".
+            "}\n".
+            "__kernel void {$kernel_name_fused}(\n".
+            "    __global    {$type} * x,\n".
+            "                   int   offset,\n".
+            "                   int    incX,\n".
+            "            const uint    n,\n".
+            "            const uint    nextN,\n".
+            "            const ulong   seed,\n".
+            "    __local     ulong   * lkey,\n".
+            "    __local     uint    * lval)\n".
+            "{\n".
+            "    uint i = get_local_id(0);\n".
+            "    lkey[i] = (i < n) ? splitmix64(seed ^ splitmix64(i)) : ULONG_MAX;\n".
+            "    lval[i] = i;\n".
+            "    barrier(CLK_LOCAL_MEM_FENCE);\n".
+            "\n".
+            "    for (uint k = 2; k <= nextN; k <<= 1) {\n".
+            "        for (uint j = k >> 1; j > 0; j >>= 1) {\n".
+            "            uint ixj = i ^ j;\n".
+            "            if (ixj > i) {\n".
+            "                bool asc = ((i & k) == 0);\n".
+            "                ulong ki = lkey[i], kj = lkey[ixj];\n".
+            "                uint  vi = lval[i], vj = lval[ixj];\n".
+            "                bool gt = (ki > kj) || (ki == kj && vi > vj);\n".
+            "                if (gt == asc) {\n".
+            "                    lkey[i] = kj; lkey[ixj] = ki;\n".
+            "                    lval[i] = vj; lval[ixj] = vi;\n".
+            "                }\n".
+            "            }\n".
+            "            barrier(CLK_LOCAL_MEM_FENCE);\n".
+            "        }\n".
+            "    }\n".
+            "\n".
+            "    if (i < n) {\n".
+            "        x[offset + (i * incX)] = ({$type})lval[i];\n".
+            "    }\n".
+            "}\n";
+        }
+        $kernel_fused = $this->createKernel($kernel_name_fused);
+
+        $kernel_fused->setArg(0, $X);
+        $kernel_fused->setArg(1, $offsetX, NDArray::int32);
+        $kernel_fused->setArg(2, $incX, NDArray::int32);
+        $kernel_fused->setArg(3, $n, NDArray::uint32);
+        $kernel_fused->setArg(4, $nextN, NDArray::uint32);
+        $kernel_fused->setArg(5, $seed, NDArray::int32);
+        $kernel_fused->setArg(6, null, 8 * $nextN); // __local ulong lkey[nextN]
+        $kernel_fused->setArg(7, null, 4 * $nextN); // __local uint  lval[nextN]
+             $global_work_size = [$nextN];
+        $local_work_size = [$nextN];   // fix 1 workgroup
+        $kernel_fused->enqueueNDRange($this->queue, $global_work_size, $local_work_size, null,
+            $events, $waitEvents);
+        
+    }
+    public function randseq1(
+        int $nextN,
+        int $n,
+        int $size,
+        BufferInterface $X, int $offsetX, int $incX,
+        int $seed,
+        ?object $events=null, ?object $waitEvents=null
+        ) : void
+    {
+        $dtype = $X->dtype();
+        $isInt = array_key_exists($dtype,$this->intTypes);
+        if(!$isInt) {
+            throw new InvalidArgumentException('Data type of X must be integer');
+        }
+        $nextN = 1;
+        while($nextN < $n) {
+            $nextN <<= 1;
+        }
+        $value_size = 8;  // 64bit=8bytes valuesize(NDArray::uint64);
+        $key = $this->newBuffer(
+            $value_size*$nextN,
+            OpenCL::CL_MEM_READ_WRITE,null,null,NDArray::uint64);
+        $value_size = 4;  // 32bit=4bytes valuesize(NDArray::uint32);
+        $val = $this->newBuffer(
+            $value_size*$nextN,
+            OpenCL::CL_MEM_READ_WRITE,null,null,NDArray::uint32);
+
+        $type = $this->dtypeToOpenCLType[$dtype];
+        $kernel_name_init = "randomSequential1_init";
+        if(!isset($this->sources[$kernel_name_init])) {
+            $this->sources[$kernel_name_init] =
+            "ulong splitmix64(ulong x) {\n".
+            "    x += 0x9E3779B97F4A7C15UL;\n".
+            "    x = (x ^ (x >> 30)) * 0xBF58476D1CE4E5B9UL;\n".
+            "    x = (x ^ (x >> 27)) * 0x94D049BB133111EBUL;\n".
+            "    return x ^ (x >> 31);\n".
+            "}\n".
+            "__kernel void {$kernel_name_init}(\n".
+            "          __global ulong * key,\n".
+            "          __global uint * val,\n".
+            "            const uint n,\n".
+            "            const ulong seed)\n".
+            "{\n".
+            "   uint i = get_global_id(0);\n".
+            "   key[i] = (i < n) ? splitmix64(seed ^ splitmix64(i)) : ULONG_MAX;;\n".
+            "   val[i] = i;\n".
+            "}\n";
+        }
+        $kernel_name_step = "randomSequential1_step";
+        if(!isset($this->sources[$kernel_name_step])) {
+            $this->sources[$kernel_name_step] =
+            "__kernel void {$kernel_name_step}(\n".
+            "        __global ulong *key,\n".
+            "        __global uint *val,\n".
+            "                 uint j,\n".
+            "                 uint k)\n".
+            "{\n".
+            "    uint i = get_global_id(0);\n".
+            "    uint ixj = i ^ j;\n".
+            "    if (ixj > i) {\n".
+            "        bool asc = ((i & k) == 0);\n".
+            "        ulong ki = key[i], kj = key[ixj];\n".
+            "        uint  vi = val[i], vj = val[ixj];\n".
+            "        bool gt = (ki > kj) || (ki == kj && vi > vj);\n".
+            "        if (gt == asc) {\n".
+            "            key[i] = kj; key[ixj] = ki;\n".
+            "            val[i] = vj; val[ixj] = vi;\n".
+            "        }\n".
+            "    }\n".
+            "}\n";
+        }
+        $kernel_name_write = "randomSequential1_{$type}_write";
+        if(!isset($this->sources[$kernel_name_write])) {
+            $this->sources[$kernel_name_write] =
+            "__kernel void {$kernel_name_write}(\n".
+            "    __global    {$type} * x,\n".
+            "                   int   offset,\n".
+            "                   int    incX,\n".
+            "    __global const uint * val)\n".
+            "{\n".
+            "    int i = get_global_id(0);\n".
+            "    x[offset+(i * incX)] = ({$type})val[i];\n".
+            "}\n";
+        }
+
+        $kernel_init = $this->createKernel($kernel_name_init);
+        $kernel_step = $this->createKernel($kernel_name_step);
+        $kernel_write = $this->createKernel($kernel_name_write);
+
+        $kernel_init->setArg(0,$key);
+        $kernel_init->setArg(1,$val);
+        $kernel_init->setArg(2,$n,NDArray::uint32);
+        $kernel_init->setArg(3,$seed,NDArray::int32);
+        $global_work_size = [$nextN];
+        $local_work_size=null;
+        $kernel_init->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
+            $events,$waitEvents);
+
+        //$count = 0;
+        for ($k = 2; $k <= $nextN; $k <<= 1) {
+            for ($j = $k >> 1; $j > 0; $j >>= 1) {
+                //$count++;
+                //echo "count=$count,k=$k,j=$j\n";
+                $kernel_step->setArg(0,$key);
+                $kernel_step->setArg(1,$val);
+                $kernel_step->setArg(2,$j,NDArray::uint32);
+                $kernel_step->setArg(3,$k,NDArray::uint32);
+                $global_work_size = [$nextN];
+                $local_work_size=null;
+                $kernel_step->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
+                    $events,$waitEvents);
+            }
+        }
+
+        $kernel_write->setArg(0,$X);
+        $kernel_write->setArg(1,$offsetX,NDArray::int32);
+        $kernel_write->setArg(2,$incX,NDArray::int32);
+        $kernel_write->setArg(3,$val);
+        $global_work_size = [$n];
+        $local_work_size=null;
+        $kernel_write->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
+            $events,$waitEvents);
+
+    }
+
+    public function randseq2(
+        int $nextN,
+        int $n,
+        int $size,
+        BufferInterface $X, int $offsetX, int $incX,
+        int $seed,
+        ?object $events=null, ?object $waitEvents=null
+        ) : void
+    {
+        $dtype = $X->dtype();
+        $isInt = array_key_exists($dtype,$this->intTypes);
+        if(!$isInt) {
+            throw new InvalidArgumentException('Data type of X must be integer');
+        }
+
+        $type = $this->dtypeToOpenCLType[$dtype];
+        $kernel_name_permute = "randomSequential2_{$type}_permute";
+        if(!isset($this->sources[$kernel_name_permute])) {
+            $this->sources[$kernel_name_permute] =
+            "uint permute_element(uint i, uint l, uint seed)\n".
+            "{\n".
+            "    uint w = l - 1;\n".
+            "    w |= w >> 1;\n".
+            "    w |= w >> 2;\n".
+            "    w |= w >> 4;\n".
+            "    w |= w >> 8;\n".
+            "    w |= w >> 16;\n".
+            "    do {\n".
+            "        i ^= seed;\n".
+            "        i *= 0xe170893d;\n".
+            "        i ^= seed >> 16;\n".
+            "        i ^= (i & w) >> 4;\n".
+            "        i ^= seed >> 8;\n".
+            "        i *= 0x0929eb3f;\n".
+            "        i ^= seed >> 23;\n".
+            "        i ^= (i & w) >> 1;\n".
+            "        i *= 1 | seed >> 27;\n".
+            "        i *= 0x6935fa69;\n".
+            "        i ^= (i & w) >> 11;\n".
+            "        i *= 0x74dcb303;\n".
+            "        i ^= (i & w) >> 2;\n".
+            "        i *= 0x9e501cc3;\n".
+            "        i ^= (i & w) >> 2;\n".
+            "        i *= 0xc860a3df;\n".
+            "        i &= w;\n".
+            "        i ^= i >> 5;\n".
+            "    } while (i >= l);\n".
+            "    return (i + seed) % l;\n".
+            "}\n".
+            "__kernel void {$kernel_name_permute}(\n".
+            "    __global {$type} *x,\n".
+            "                  int offset,\n".
+            "                  int incX,\n".
+            "            const uint n,\n".
+            "            const uint seed)\n".
+            "{\n".
+            "    uint i = get_global_id(0);\n".
+            "    if (i < n) {\n".
+            "        uint idx = permute_element(i, n, seed);\n".
+            "        x[offset + i * incX] = ({$type})idx;\n".
+            "    }\n".
+            "}\n";
+        }
+
+        $kernel = $this->createKernel($kernel_name_permute);
+        $kernel->setArg(0, $X);
+        $kernel->setArg(1, $offsetX, NDArray::int32);
+        $kernel->setArg(2, $incX, NDArray::int32);
+        $kernel->setArg(3, $n, NDArray::uint32);
+        $kernel->setArg(4, $seed, NDArray::uint32);
+        $global_work_size = [$n];
+        $kernel->enqueueNDRange($this->queue, $global_work_size, null, null, $events, $waitEvents);        
+    }
+
+    /**
+     * randomCategorical
+     *
+     * Sample category indices from the unnormalized log-probabilities (logits)
+     * of each row (batch) using the Gumbel-Max trick:
+     *
+     *     idx = argmax_j( logits[j] - log(-log(u_j)) ),  u_j ~ Uniform(0,1)
+     *
+     * logits : Logits buffer, shape (batchSize, numClasses), row-major, dtype float32/float64
+     * samples : Output category index buffer, shape (batchSize,numSamples), dtype int32/int64
+     * batchSize : batch size.
+     * numClasses : number of categories.
+     * numSamples : number of samples.
+     */
+    public function splitmix64Categorical(
+        int $batchSize,
+        int $numClasses,
+        int $numSamples,
+        BufferInterface $logits, int $offsetLogits,
+        BufferInterface $samples, int $offsetSamples,
+        int $seed,
+        ?object $events=null, ?object $waitEvents=null
+        ) : void
+    {
+        $dtype = $logits->dtype();
+        if($dtype!=NDArray::float32 && $dtype!=NDArray::float64) {
+            throw new InvalidArgumentException('Data type of logits must be float32 or float64');
+        }
+        if($dtype==NDArray::float64) {
+            $this->assertFP64();
+        }
+        $ydtype = $samples->dtype();
+        if($ydtype!=NDArray::int32 && $ydtype!=NDArray::int64) {
+            throw new InvalidArgumentException('Data type of samples must be int32 or int64');
+        }
+        if($batchSize!=1 && $numSamples!=1) {
+            throw new InvalidArgumentException('Not supported: batchSize!=1 and n!=1');
+        }
+        $multiSamples = ($batchSize==1);
+        if($multiSamples) {
+            $logitsIndex = "offsetLogits+j";
+            $funcName = "smpl";
+        } else {
+            $logitsIndex = "offsetLogits+(gid*numClasses+j)";
+            $funcName = "smpl2";
+        }
+
+        $type = $this->dtypeToOpenCLType[$dtype];
+        $ytype = $this->dtypeToOpenCLType[$ydtype];
+        $kernel_name = "splitmix64Categorical{$funcName}_{$type}_{$ytype}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+            $this->splitmix64KernelSource().
+            "__kernel void {$kernel_name}(\n".
+                "        const ulong seed,\n".
+            "            const int numClasses,\n".
+            "     __global const {$type} * logits,\n".
+            "            const int offsetLogits,\n".
+            "          __global {$ytype} * samples,\n".
+            "            const int offsetSamples)\n".
+            "{\n".
+            "   int gid = get_global_id(0);\n".
+            "   {$type} best_score = -INFINITY;\n".
+            "   int best_idx = 0;\n".
+            "   for(int j=0;j<numClasses;j++) {\n".
+            "       ulong state = seed + ((ulong)(gid*numClasses+j)) * 0x9E3779B97F4A7C15UL;\n".
+            "       uint bits = (uint)(splitmix64_next(&state) >> 32);\n".
+            // Open interval avoids log(0) and reduces endpoint artefacts.
+            "       {$type} u = (({$type})bits+({$type})1)/({$type})4294967297.0;\n".
+            "       {$type} gumbel = -log(-log(u));\n".
+            "       {$type} score = logits[{$logitsIndex}] + gumbel;\n".
+            "       if(score>best_score) {\n".
+            "           best_score = score;\n".
+            "           best_idx = j;\n".
+            "       }\n".
+            "   }\n".
+            "   samples[offsetSamples+gid] = best_idx;\n".
+            "}\n";
+        }
+    
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$seed,NDArray::uint64);
+        $kernel->setArg(1,$numClasses,NDArray::int32);
+        $kernel->setArg(2,$logits);
+        $kernel->setArg(3,$offsetLogits,NDArray::int32);
+        $kernel->setArg(4,$samples);
+        $kernel->setArg(5,$offsetSamples,NDArray::int32);
+        if($multiSamples) {
+            $global_work_size = [$numSamples];
+        } else {
+            $global_work_size = [$batchSize];
+        }
+        $local_work_size=null;
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
             $events,$waitEvents);
     }

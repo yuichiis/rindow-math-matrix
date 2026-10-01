@@ -31,10 +31,7 @@ class PhpPcg32
 
     public function __construct(int $seed = 0, int $sequence = 1)
     {
-        // inc = (sequence << 1) | 1 (always odd)
-        $this->inc = self::fromInt(($sequence << 1) | 1);
-
-        $this->setSeed($seed);
+        $this->setSeed($seed, $sequence);
     }
 
     /** 
@@ -161,8 +158,12 @@ class PhpPcg32
 
     // ---- Public API (same interface as Pcg32.php / pcg32.c) ----
 
-    public function setSeed(int $seed): void
+    public function setSeed(int $seed, ?int $sequence=null): void
     {
+        if($sequence !== null) {
+            // inc = (sequence << 1) | 1 (always odd)
+            $this->inc = self::fromInt(($sequence << 1) | 1);
+        }
         $this->state = [0, 0, 0, 0];
         $this->step();
         $this->state = self::add64($this->state, self::fromInt($seed));

@@ -32,7 +32,7 @@ class PhpMath
         //$this->forceMath = $forceMath;
         $this->math = null;
         $this->forceMath = null;
-        $this->rnd = new PhpPcg32();
+        //$this->rnd = new PhpPcg32();
     }
 
     //public function forceMath($forceMath)
@@ -101,12 +101,16 @@ class PhpMath
     {
         $idxX = $offsetX;
         $max = $X[$idxX];
+        if(is_nan($max)) {
+            return NAN;
+        }
         $idxX += $incX;
         for ($i=1; $i<$n; $i++,$idxX+=$incX) {
             $value = $X[$idxX];
-            // *** CAUTION ***
-            // if NaN set NaN
-            // Compatible with reduce_max of tensorflow 2.6
+            // Standard C99 defines that if any of the arguments is NaN, the result is NaN.
+            if(is_nan($value)) {
+                return NAN;
+            }
             if(!($value<=$max)) {
                 $max = $value;
             }
@@ -121,9 +125,16 @@ class PhpMath
         $idxX = $offsetX;
         $max = $X[$idxX];
         $imax = 0;
+        if(is_nan($max)) {
+            return $imax;
+        }
         $idxX += $incX;
         for ($i=1; $i<$n; $i++,$idxX+=$incX) {
             $value = $X[$idxX];
+            // Standard C99 defines that if any of the arguments is NaN, the result is NaN.
+            if(is_nan($value)) {
+                return $i;
+            }
             if($value>$max) {
                 $max = $value;
                 $imax = $i;
@@ -132,20 +143,20 @@ class PhpMath
         return $imax;
     }
 
-    public function srand(int $seed) : void
-    {
-        $this->rnd->setSeed($seed);
-    }
+    //public function srand(int $seed) : void
+    //{
+    //    $this->rnd->setSeed($seed);
+    //}
 
-    public function rand() : int
-    {
-        return $this->rnd->nextInt32();
-    }
+    //public function rand() : int
+    //{
+    //    return $this->rnd->nextInt32();
+    //}
 
-    public function randInt(?int $min=null, ?int $max=null) : int
-    {
-        return $this->rnd->nextInt($min ?? ~self::RANDOM_MAX, $max ?? self::RANDOM_MAX);
-    }
+    //public function randInt(?int $min=null, ?int $max=null) : int
+    //{
+    //    return $this->rnd->nextInt($min ?? ~self::RANDOM_MAX, $max ?? self::RANDOM_MAX);
+    //}
 
     public function getNumThreads() : int
     {
@@ -194,18 +205,10 @@ class PhpMath
         //    return $this->math->imax($n,$X,$offsetX,$incX);
         //}
 
-        if($offsetX+($n-1)*$incX>=count($X))
+        if($offsetX+($n-1)*$incX>=count($X)) {
             throw new InvalidArgumentException('Vector X specification too large for buffer.');
-        $idxX = $offsetX+$incX;
-        $acc = $X[$offsetX];
-        $idx = 0;
-        for($i=1; $i<$n; $i++,$idxX+=$incX) {
-            if($acc < $X[$idxX]||is_nan($acc)) {
-                $acc = $X[$idxX];
-                $idx = $i;
-            }
         }
-        return $idx;
+        return $this->math_imax($n, $X, $offsetX, $incX);
     }
 
     /**
@@ -215,18 +218,25 @@ class PhpMath
         int $n,
         Buffer $X, int $offsetX, int $incX) : int
     {
-        //if($this->useMath($X)) {
-        //    return $this->math->imin($n,$X,$offsetX,$incX);
-        //}
-
-        if($offsetX+($n-1)*$incX>=count($X))
+        if($offsetX+($n-1)*$incX>=count($X)) {
             throw new InvalidArgumentException('Vector X specification too large for buffer.');
+        }
+
+        // Standard C99 defines that if any of the arguments is NaN, the result is NaN.
         $idxX = $offsetX+$incX;
         $acc = $X[$offsetX];
         $idx = 0;
+        if(is_nan($acc)) {
+            return $idx;
+        }
         for($i=1; $i<$n; $i++,$idxX+=$incX) {
-            if($acc > $X[$idxX]) {
-                $acc = $X[$idxX];
+            $value = $X[$idxX];
+            // Standard C99 defines that if any of the arguments is NaN, the result is NaN.
+            if(is_nan($value)) {
+                return $i;
+            }
+            if($acc > $value) {
+                $acc = $value;
                 $idx = $i;
             }
         }
@@ -2612,7 +2622,7 @@ class PhpMath
         //    );
         //    return;
         //}
-        $this->srand($seed);
+        $rng = $this->createPcg32State($seed, 23295953);
         $px = $offsetX;
         if(method_exists($X,'dtype')) {
             $isInt = array_key_exists($X->dtype(),$this->intTypes);
@@ -2621,21 +2631,21 @@ class PhpMath
         }
         if($isInt) {
             for($i=0; $i<$n; $i++,$px+=$incX) {
-                $value = $this->randInt($low,$high);
+                $value = $rng->nextInt($low,$high);
                 $X[$px] = $value;
             }
         } else {
             for($i=0; $i<$n; $i++,$px+=$incX) {
-                $X[$px] = ($high-$low)*$this->randInt(0,self::RANDOM_MAX)/self::RANDOM_MAX+$low;
+                $X[$px] = ($high-$low)*$rng->nextInt(0,self::RANDOM_MAX)/self::RANDOM_MAX+$low;
             }
         }
     }
 
-    protected function genRandNormal(float $mean, float $scale) : float
+    protected function genRandNormal(object $rng, float $mean, float $scale) : float
     {
         $max=self::RANDOM_MAX;
-        $x=$this->randInt(1,$max-1)/$max;
-        $y=$this->randInt(1,$max-1)/$max;
+        $x=$rng->nextInt(1,$max-1)/$max;
+        $y=$rng->nextInt(1,$max-1)/$max;
         return sqrt(-2*log($x))*cos(2*pi()*$y)*$scale+$mean;
     }
 
@@ -2649,22 +2659,10 @@ class PhpMath
         int $seed
         ) : void
     {
-        //if($this->math) {
-        //    $this->math->randomNormal(
-        //        $n,
-        //        $X,
-        //        $offsetX,
-        //        $incX,
-        //        $mean,
-        //        $scale,
-        //        $seed
-        //    );
-        //    return;
-        //}
-        $this->srand($seed);
+        $rng = $this->createPcg32State($seed, 23495953);
         $px = $offsetX;
         for($i=0; $i<$n; $i++,$px+=$incX) {
-            $X[$px] = $this->genRandNormal($mean,$scale);
+            $X[$px] = $this->genRandNormal($rng,$mean,$scale);
         }
     }
 
@@ -2688,14 +2686,166 @@ class PhpMath
         //    );
         //    return;
         //}
-        $this->srand($seed);
+        $rng = $this->createPcg32State($seed, 2349535);
         $px = $offsetX;
         for($i=0; $i<$n; $i++,$px+=$incX){
             $X[$px] = $i;
         }
         $px = $offsetX;
         for($i=0; $i<$n; $i++,$px+=$incX) {
-            $idx = $this->randInt($i,$n-1)*$incX+$offsetX;
+            $idx = $rng->nextInt($i,$n-1)*$incX+$offsetX;
+            $tmp = $X[$px];
+            $X[$px] = $X[$idx];
+            $X[$idx] = $tmp;
+        }
+    }
+
+    /**
+     * randomCategorical
+     *
+     * Sample category indices using the Gumbel-Max trick:
+     *     idx = argmax_j( logits[j] - log(-log(u_j)) ),  u_j ~ Uniform(0,1)
+     */
+    public function randomCategorical(
+        int $batchSize,
+        int $numClasses,
+        int $numSamples,
+        Buffer $logits, int $offsetLogits,
+        Buffer $samples, int $offsetSamples,
+        int $seed,
+        ?object $events=null, ?object $waitEvents=null
+        ) : void
+    {
+        if($batchSize < 1 || $numClasses < 1 || $numSamples < 1) {
+            throw new InvalidArgumentException('batchSize, numClasses and numSamples must be greater than 0.');
+        }
+        $rng = $this->createPcg32State($seed, 2349235);
+        for($b=0; $b<$batchSize; $b++) {
+            $pl = $offsetLogits + $b*$numClasses;
+            $ps = $offsetSamples + $b*$numSamples;
+            for($s=0; $s<$numSamples; $s++,$ps++) {
+                $bestIdx = 0;
+                $bestVal = -INF;
+                for($j=0; $j<$numClasses; $j++) {
+                    // u in the open interval (0,1): avoids log(0) and log(-log(1)).
+                    $u = ($rng->randUint32() + 0.5) / 4294967296.0;
+                    $v = $logits[$pl+$j] - log(-log($u));
+                    if($v > $bestVal) {
+                        $bestVal = $v;
+                        $bestIdx = $j;
+                    }
+                }
+                $samples[$ps] = $bestIdx;
+            }
+        }
+    }
+
+    public function createPcg32State(
+        int $seed,
+        int $sequence
+    ) : PhpPcg32
+    {
+        return new PhpPcg32($seed, $sequence);
+    }
+
+    public function pcg32Srand(
+        PhpPcg32 $rng,
+        int $seed,
+        int $sequence,
+        ) : void
+    {
+        $rng->setSeed($seed,$sequence);
+    }
+
+    public function pcg32step(
+        PhpPcg32 $rng,
+        ) : void
+    {
+        $rng->nextInt32();
+    }
+
+    public function pcg32rand(
+        PhpPcg32 $rng,
+        ) : int
+    {
+        return $rng->nextInt32();
+    }
+
+    public function pcg32randInt32(
+        PhpPcg32 $rng,
+        int $low,
+        int $high,
+        ) : int
+    {
+        return $rng->nextInt($low, $high);
+    }
+
+    public function pcg32randInt64(
+        PhpPcg32 $rng,
+        int $low,
+        int $high,
+        ) : int
+    {
+        return $rng->nextInt($low, $high);
+    }
+    
+    public function pcg32Uniform(
+        PhpPcg32 $rng,
+        int $n,
+        Buffer $X, int $offsetX, int $incX,
+        float|int $low,
+        float|int $high,
+        ) : void
+    {
+        $px = $offsetX;
+        if(method_exists($X,'dtype')) {
+            $isInt = array_key_exists($X->dtype(),$this->intTypes);
+        } else {
+            $isInt = false;
+        }
+        if($isInt) {
+            for($i=0; $i<$n; $i++,$px+=$incX) {
+                $value = $rng->nextInt($low,$high);
+                $X[$px] = $value;
+            }
+        } else {
+            $scale = $high - $low;
+            for($i=0; $i<$n; $i++,$px+=$incX) {
+                $X[$px] = $low + $rng->nextFloat() * $scale;
+            }
+        }
+    }
+
+    public function pcg32Normal(
+        PhpPcg32 $rng,
+        int $n,
+        Buffer $X, int $offsetX, int $incX,
+        float $mean,
+        float $scale,
+        ) : void
+    {
+        $px = $offsetX;
+        for($i=0; $i<$n; $i++,$px+=$incX) {
+            $x=$rng->nextFloat();
+            $y=$rng->nextFloat();
+            $X[$px] = sqrt(-2*log($x))*cos(2*pi()*$y)*$scale+$mean;
+        }
+    }
+
+    public function pcg32Sequence(
+        PhpPcg32 $rng,
+        int $n,
+        int $size,
+        Buffer $X, int $offsetX, int $incX,
+        ) : void
+    {
+        $px = $offsetX;
+        for($i=0; $i<$n; $i++,$px+=$incX){
+            $X[$px] = $i;
+        }
+        $px = $offsetX;
+        for($i=0; $i<$n; $i++,$px+=$incX) {
+            $idx = $rng->nextInt($i,$n-1)*$incX+$offsetX;
             $tmp = $X[$px];
             $X[$px] = $X[$idx];
             $X[$idx] = $tmp;

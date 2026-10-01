@@ -21,6 +21,7 @@ class LinearAlgebraCL
 
     const LAPACK_ROW_MAJOR = 101;
     const LAPACK_COL_MAJOR = 102;
+    const DEFAULT_PCG32_SEQUENCE = 194625709;
 
     protected Service $service;
     protected object $context;
@@ -31,6 +32,7 @@ class LinearAlgebraCL
     //protected object $blas2;
     protected object $openclmath;
     protected object $openblasmath;
+    protected DeviceBuffer $rngState;
     protected int $defaultFloatType = NDArray::float32;
     /** @var array<array{array{array<int>,array<int>,array<int>}}> $einsumEquationCache */
     protected array $einsumEquationCache = [];
@@ -64,6 +66,10 @@ class LinearAlgebraCL
         if($defaultFloatType!==null) {
             $this->defaultFloatType = $defaultFloatType;
         }
+        $this->rngState = $this->createRngState(
+            random_int(PHP_INT_MIN, PHP_INT_MAX),
+            self::DEFAULT_PCG32_SEQUENCE
+        );
         $this->clVersion = $this->context->getInfo(OpenCL::CL_CONTEXT_DEVICES)->getInfo(0,OpenCL::CL_DEVICE_VERSION);
         //                                                    1234567890
         $this->isOpenCL110 = substr($this->clVersion,0,10)==='OpenCL 1.1';
@@ -240,6 +246,64 @@ class LinearAlgebraCL
         return [$trans,$conj];
     }
 
+    protected function createRngState(int $seed, int $sequence) : DeviceBuffer
+    {
+        $rngState = $this->alloc([2],dtype:NDArray::int64)->buffer();
+        $this->openclmath->pcg32Srand($rngState, $seed, $sequence);
+        return $rngState;
+    }
+
+    public function setSeed(int $seed) : void
+    {
+        $this->openclmath->pcg32Srand($this->rngState, $seed, self::DEFAULT_PCG32_SEQUENCE);
+    }
+
+    public function randInt(
+        ?int $min=null,
+        ?int $max=null,
+        ?NDArray $out=null,
+        ?object $events=null,
+        ?object $waitEvents=null
+    ) : NDArray
+    {
+        if($out===null) {
+            $out = $this->alloc([],dtype:NDArray::int32);
+        }
+        $this->openclmath->pcg32RandInt32(
+            $this->rngState,
+            $min ?? -2147483648,
+            $max ?? 2147483647,
+            $out->buffer(),
+            $out->offset(),
+            $events,
+            $waitEvents
+        ); // range of int32
+        return $out;
+    }
+
+    public function randInt64(
+        ?int $min=null,
+        ?int $max=null,
+        ?NDArray $out=null,
+        ?object $events=null,
+        ?object $waitEvents=null
+        ) : NDArray
+    {
+        if($out===null) {
+            $out = $this->alloc([],dtype:NDArray::int64);
+        }
+        $this->openclmath->pcg32RandInt(
+            $this->rngState,
+            $min ?? -2147483648,
+            $max ?? 2147483647,
+            $out->buffer(),
+            $out->offset(),
+            $events,
+            $waitEvents
+        ); // range of int64
+        return $out;
+    }
+    
     public function array(mixed $array, ?int $dtype=null, ?int $flags=null) : NDArray
     {
         if($this->profiling) {
@@ -5741,15 +5805,30 @@ class LinearAlgebraCL
                 throw new InvalidArgumentException('Unmatch shape and shape of X');
             }
         }
-        if($seed===null) {
-            $seed = $this->randInt();
+        if($seed===null||$seed===0) {
+            //$rngState = $this->rngState;
+            $seed = $this->scalar($this->randInt64());
+        } else {
+            //$rngState = $this->createRngState($seed,self::DEFAULT_PCG32_SEQUENCE);
         }
 
         $n = $X->size();
         $XX = $X->buffer();
         $offX = $X->offset();
 
-        $this->openclmath->randomUniform(
+        //$this->openclmath->pcg32Uniform(
+        //    $rngState,
+        //    $n,
+        //    $XX,$offX,1,
+        //    $low,
+        //    $high,
+        //    $events, $waitEvents
+        //);
+        //$this->openclmath->pcg32Step(
+        //    $rngState,
+        //    $events, $waitEvents
+        //);
+        $this->openclmath->splitmix64Uniform(
             $n,
             $XX,$offX,1,
             $low,
@@ -5757,7 +5836,6 @@ class LinearAlgebraCL
             $seed,
             $events, $waitEvents
         );
-
         if($this->blocking) {
             $this->finish();
         }
@@ -5795,15 +5873,27 @@ class LinearAlgebraCL
                 throw new InvalidArgumentException('Unmatch shape and shape of output');
             }
         }
-        if($seed===null) {
-            $seed = $this->randInt();
+        if($seed===null||$seed===0) {
+            $seed = $this->scalar($this->randInt64());
         }
 
         $n = $output->size();
         $XX = $output->buffer();
         $offX = $output->offset();
 
-        $this->openclmath->randomNormal(
+        //$this->openclmath->pcg32Normal(
+        //    $this->rngState,
+        //    $n,
+        //    $XX,$offX,1,
+        //    $mean,
+        //    $scale,
+        //    $events, $waitEvents
+        //);
+        //$this->openclmath->pcg32Step(
+        //    $this->rngState,
+        //    $events, $waitEvents
+        //);
+        $this->openclmath->splitmix64Normal(
             $n,
             $XX,$offX,1,
             $mean,
@@ -5838,33 +5928,28 @@ class LinearAlgebraCL
         }
         if($output==null) {
             $dtype = $dtype ?? NDArray::int32;
-            $hostX = $this->allocHost([$base],$dtype);
+            $output = $this->alloc([$size],dtype:$dtype);
         } else {
             $dtype = $dtype ?? $output->dtype();
             if($output->dtype()!=$dtype || $output->size()!=$size) {
                 throw new InvalidArgumentException("output size must be the same of size and same dtype");
             }
-            $hostX = $this->allocHost([$base],$dtype);
         }
         if($seed===null) {
-            $seed = $this->randInt();
+            $seed = $this->scalar($this->randInt64());
         }
 
         $n = $base;
-        $XX = $hostX->buffer();
-        $offX = $hostX->offset();
+        $XX = $output->buffer();
+        $offX = $output->offset();
 
-        $this->openblasmath->randomSequence(
+        $this->openclmath->randomSequence(
             $n,
             $size,
             $XX,$offX,1,
-            $seed);
-        $hostX = $hostX[R(0,$size)];
-        if($output==null) {
-            $output = $this->array($hostX);
-        } else {
-            throw new InvalidArgumentException("output option is not supported on OpenCL");
-        }
+            $seed,
+            $events,$waitEvents
+        );
         if($this->blocking) {
             $this->finish();
         }
@@ -5875,13 +5960,13 @@ class LinearAlgebraCL
     }
 
     /**
-     * $probs : (batches,numSamples) dtype:float32.
+     * $probs : (batches,numClasses) dtype:float32.
      * $randints: (batches) dtype:int32
      * 
      * sum of probs must be 1.0 each row.
      */
     public function randomCategorical(
-        NDArray $probs,
+        NDArray $logits,
         ?int $numSamples=null,
         ?int $dtype=null,
         ?int $seed=null,
@@ -5892,68 +5977,98 @@ class LinearAlgebraCL
             $this->profilingStart("randomCategorical");
         }
         $la = $this;
-        if(!$la->isFloat($probs)) {
-            throw new InvalidArgumentException('probs must be float dtype.');
+        if(!$la->isFloat($logits)) {
+            throw new InvalidArgumentException('logits must be float dtype. '.$this->dtypeToString($logits->dtype()).' given.');
         }
-        if($numSamples!=null&&$numSamples<0) {
-            throw new InvalidArgumentException('numSamples must be positive.');
+        if($numSamples===null) {
+            if($logits->ndim()!=2) {
+                throw new InvalidArgumentException('logits must be 2D NDArray. '.$this->shapeToString($logits->shape()).' given.');
+            }
+        } else {
+            if($numSamples<1) {
+                throw new InvalidArgumentException('numSamples must be positive.');
+            }
+            if($logits->ndim()!=1) {
+                throw new InvalidArgumentException('logits must be 1D NDArray. '.$this->shapeToString($logits->shape()).' given.');
+            }
         }
         if($dtype===null) {
             $dtype = NDArray::int32;
         }
+        //if($numSamples===null) {
+        //    if($probs->ndim()!=2) {
+        //        throw new InvalidArgumentException('probs must be 2D NDArray without numSamples.');
+        //    }
+        //    [$batches,$numClasses] = $probs->shape();
+        //    $waitPrev = $waitEvents;
+        //    $waitEvents = $this->newEventList();
+        //    $rand = $la->randomUniform(
+        //        [$batches],dtype:$probs->dtype(),low:0.0,high:1.0,seed:$seed,
+        //        events:$waitEvents,waitEvents:$waitPrev
+        //    );// (batches)
+        //    $waitPrev = $waitEvents;
+        //    $waitEvents = $this->newEventList();
+        //    $thresholds = $la->cumsum(
+        //        $probs,axis:-1,
+        //        events:$waitEvents,waitEvents:$waitPrev
+        //    );      // (batches,numClasses)
+        //    $waitPrev = $waitEvents;
+        //    $waitEvents = $this->newEventList();
+        //    $randints = $la->searchsorted(                          // (batches)
+        //        $thresholds,$rand,
+        //        right:true,dtype:$dtype,
+        //        events:$events,waitEvents:$waitPrev
+        //    );
+        //} else {
+        //    if($probs->ndim()!=1) {
+        //        throw new InvalidArgumentException('probs must be 1D NDArray with numSamples.');
+        //    }
+        //    $numClasses = $probs->shape()[0];
+        //    $batches = $numSamples;
+        //    $waitPrev = $waitEvents;
+        //    $waitEvents = $this->newEventList();
+        //    $rand = $la->randomUniform(
+        //        [$batches],dtype:$probs->dtype(),low:0.0,high:1.0,seed:$seed,
+        //        events:$waitEvents,waitEvents:$waitPrev
+        //    );// (batches)
+        //    $waitPrev = $waitEvents;
+        //    $waitEvents = $this->newEventList();
+        //    $thresholds = $la->cumsum(
+        //        $probs,
+        //        events:$waitEvents,waitEvents:$waitPrev
+        //    );      // (numClasses)
+        //    $waitPrev = $waitEvents;
+        //    $waitEvents = $this->newEventList();
+        //    $randints = $la->searchsorted(          // (batches)
+        //        $thresholds,    // (numClasses) :  NON individual mode
+        //        $rand,          // (batches)
+        //        right:true,
+        //        dtype:$dtype,
+        //        events:$events,waitEvents:$waitPrev
+        //    );
+        //    
+        //}
         if($numSamples===null) {
-            if($probs->ndim()!=2) {
-                throw new InvalidArgumentException('probs must be 2D NDArray without numSamples.');
-            }
-            [$batches,$numActions] = $probs->shape();
-            $waitPrev = $waitEvents;
-            $waitEvents = $this->newEventList();
-            $rand = $la->randomUniform(
-                [$batches],dtype:$probs->dtype(),low:0.0,high:1.0,seed:$seed,
-                events:$waitEvents,waitEvents:$waitPrev
-            );// (batches)
-            $waitPrev = $waitEvents;
-            $waitEvents = $this->newEventList();
-            $thresholds = $la->cumsum(
-                $probs,axis:-1,
-                events:$waitEvents,waitEvents:$waitPrev
-            );      // (batches,numActions)
-            $waitPrev = $waitEvents;
-            $waitEvents = $this->newEventList();
-            $randints = $la->searchsorted(                          // (batches)
-                $thresholds,$rand,
-                right:true,dtype:$dtype,
-                events:$events,waitEvents:$waitPrev
-            );
+            $numSamples = 1;
+            [$batches,$numClasses] = $logits->shape();
+            $randints = $la->alloc([$batches],dtype:$dtype);
         } else {
-            if($probs->ndim()!=1) {
-                throw new InvalidArgumentException('probs must be 1D NDArray with numSamples.');
-            }
-            $numActions = $probs->shape()[0];
-            $batches = $numSamples;
-            $waitPrev = $waitEvents;
-            $waitEvents = $this->newEventList();
-            $rand = $la->randomUniform(
-                [$batches],dtype:$probs->dtype(),low:0.0,high:1.0,seed:$seed,
-                events:$waitEvents,waitEvents:$waitPrev
-            );// (batches)
-            $waitPrev = $waitEvents;
-            $waitEvents = $this->newEventList();
-            $thresholds = $la->cumsum(
-                $probs,
-                events:$waitEvents,waitEvents:$waitPrev
-            );      // (numActions)
-            $waitPrev = $waitEvents;
-            $waitEvents = $this->newEventList();
-            $randints = $la->searchsorted(          // (batches)
-                $thresholds,    // (numActions) :  NON individual mode
-                $rand,          // (batches)
-                right:true,
-                dtype:$dtype,
-                events:$events,waitEvents:$waitPrev
-            );
-            
+            $batches = 1;
+            [$numClasses] = $logits->shape();
+            $randints = $la->alloc([$numSamples],dtype:$dtype);
         }
+        if($seed===null || $seed===0) {
+            $seed = $la->scalar($la->randInt64());
+        }
+        $this->openclmath->splitmix64Categorical(
+            $batches,
+            $numClasses,
+            $numSamples,
+            $logits->buffer(), $logits->offset(),
+            $randints->buffer(), $randints->offset(),
+            $seed,
+            $events,$waitEvents
+        );
         if($this->blocking) {
             $this->finish();
         }

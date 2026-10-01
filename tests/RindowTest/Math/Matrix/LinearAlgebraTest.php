@@ -451,6 +451,73 @@ class LinearAlgebraTest extends TestCase
         $x = $la->array([[C(-1),C(2),C(-3)],[C(-4),C(5),C(-6)]],dtype:NDArray::complex64);
         $ret = $la->iamax($x);
         $this->assertEquals(5,$ret);
+
+        $x = $la->array([0,INF,NAN,-INF],dtype:NDArray::float32);
+        $ret = $la->iamax($x);
+        $this->assertEquals(1,$ret);
+
+        $config = explode(' ',$la->getConfig())[0];
+
+        $x = $la->array([0,2,NAN,-3],dtype:NDArray::float32);
+        $ret = $la->iamax($x);
+        switch($config) {
+            case 'CLBlast': {
+                $this->assertEquals(3,$ret);
+                break;
+            }
+            case 'PhpBlas': {
+                $this->assertEquals(3,$ret);
+                break;
+            }
+            case 'OpenBLAS': {
+                $this->assertEquals(2,$ret);
+                break;
+            }
+            default: {
+                throw new \Exception("Unknown config: ".$la->getConfig());
+            }
+        }
+
+        $x = $la->array([0,-INF,NAN,INF],dtype:NDArray::float32);
+        $ret = $la->iamax($x);
+        switch($config) {
+            case 'CLBlast': {
+                $this->assertEquals(1,$ret);
+                break;
+            }
+            case 'PhpBlas': {
+                $this->assertEquals(1,$ret);
+                break;
+            }
+            case 'OpenBLAS': {
+                $this->assertEquals(1,$ret);
+                break;
+            }
+            default: {
+                throw new \Exception("Unknown config: ".$la->getConfig());
+            }
+        }
+
+        $x = $la->array([0,1,NAN,INF],dtype:NDArray::float32);
+        $ret = $la->iamax($x);
+        switch($config) {
+            case 'CLBlast': {
+                $this->assertEquals(3,$ret);
+                break;
+            }
+            case 'PhpBlas': {
+                $this->assertEquals(3,$ret);
+                break;
+            }
+            case 'OpenBLAS': {
+                $this->assertEquals(2,$ret);
+                break;
+            }
+            default: {
+                throw new \Exception("Unknown config: ".$la->getConfig());
+            }
+        }
+
     }
 
     /**
@@ -516,17 +583,68 @@ class LinearAlgebraTest extends TestCase
         $ret = $la->max($x);
         $this->assertTrue(INF==$ret);
 
+        $config = explode(' ',$la->getConfig())[0];
         $x = $la->array([0,INF,-INF,NAN],dtype:NDArray::float32);
         $ret = $la->max($x);
-        $this->assertTrue($ret==INF);
+        switch($config) {
+            case 'CLBlast': {
+                $this->assertTrue(INF==$ret);
+                break;
+            }
+            case 'PhpBlas': {
+                // Standard C99 defines that if any of the arguments is NaN, the result is NaN.
+                $this->assertTrue(is_nan($ret));
+                break;
+            }
+            case 'OpenBLAS': {
+                // Standard C99 defines that if any of the arguments is NaN, the result is NaN.
+                $this->assertTrue(is_nan($ret));
+                break;
+            }
+            default: {
+                throw new \Exception("Unknown config: ".$la->getConfig());
+            }
+        }
 
         $x = $la->array([0,1,-1,NAN],dtype:NDArray::float32);
         $ret = $la->max($x);
-        $this->assertEquals(1.0,$ret);
+        switch($config) {
+            case 'CLBlast': {
+                $this->assertTrue(1==$ret);
+                break;
+            }
+            case 'PhpBlas': {
+                $this->assertTrue(is_nan($ret));
+                break;
+            }
+            case 'OpenBLAS': {
+                $this->assertTrue(is_nan($ret));
+                break;
+            }
+            default: {
+                throw new \Exception("Unknown config: ".$la->getConfig());
+            }
+        }
 
         $x = $la->array([NAN,1,-1,0],dtype:NDArray::float32);
         $ret = $la->max($x);
-        $this->assertEquals(1.0,$ret);
+        switch($config) {
+            case 'CLBlast': {
+                $this->assertTrue(1==$ret);
+                break;
+            }
+            case 'PhpBlas': {
+                $this->assertTrue(is_nan($ret));
+                break;
+            }
+            case 'OpenBLAS': {
+                $this->assertTrue(is_nan($ret));
+                break;
+            }
+            default: {
+                throw new \Exception("Unknown config: ".$la->getConfig());
+            }
+        }
     }
 
     /**
@@ -554,6 +672,7 @@ class LinearAlgebraTest extends TestCase
         // -INF or INF
         $this->assertTrue($ret!=0);
 
+        // Standard C99 defines that if any of the arguments is NaN, the result is NaN.
         $x = $la->array([0,INF,-INF,NAN],dtype:NDArray::float32);
         $ret = $la->amax($x);
         //$this->assertTrue($ret==INF);
@@ -597,13 +716,51 @@ class LinearAlgebraTest extends TestCase
         $ret = $la->min($x);
         $this->assertTrue(-INF==$ret);
 
+        $config = explode(' ',$la->getConfig())[0];
+
         $x = $la->array([0,INF,-INF,NAN],dtype:NDArray::float32);
         $ret = $la->min($x);
-        $this->assertTrue($ret==-INF);
+        switch($config) {
+            case 'CLBlast': {
+                $this->assertTrue(-INF==$ret);
+                break;
+            }
+            case 'PhpBlas': {
+                // Standard C99 defines that if any of the arguments is NaN, the result is NaN.
+                $this->assertTrue(is_nan($ret));
+                break;
+            }
+            case 'OpenBLAS': {
+                // Standard C99 defines that if any of the arguments is NaN, the result is NaN.
+                $this->assertTrue(is_nan($ret));
+                break;
+            }
+            default: {
+                throw new \Exception("Unknown config: ".$la->getConfig());
+            }
+        }
 
         $x = $la->array([0,1,-1,NAN],dtype:NDArray::float32);
         $ret = $la->min($x);
-        $this->assertEquals(-1.0,$ret);
+        switch($config) {
+            case 'CLBlast': {
+                $this->assertTrue(-1==$ret);
+                break;
+            }
+            case 'PhpBlas': {
+                // Standard C99 defines that if any of the arguments is NaN, the result is NaN.
+                $this->assertTrue(is_nan($ret));
+                break;
+            }
+            case 'OpenBLAS': {
+                // Standard C99 defines that if any of the arguments is NaN, the result is NaN.
+                $this->assertTrue(is_nan($ret));
+                break;
+            }
+            default: {
+                throw new \Exception("Unknown config: ".$la->getConfig());
+            }
+        }
     }
 
     /**
@@ -630,17 +787,18 @@ class LinearAlgebraTest extends TestCase
         $ret = $la->amin($x);
         $this->assertTrue(0==$ret);
 
+        // Standard C99 defines that if any of the arguments is NaN, the result is NaN.
         $x = $la->array([0,INF,-INF,NAN],dtype:NDArray::float32);
         $ret = $la->amin($x);
         // *** CAUTION ***
         // Platform dependent
-        // $this->assertTrue($ret==0);
+        // $this->assertTrue(is_nan($ret));
 
         $x = $la->array([0,1,-1,NAN],dtype:NDArray::float32);
         $ret = $la->amin($x);
         // *** CAUTION ***
         // Platform dependent
-        // $this->assertEquals(0,$ret);
+        // $this->assertTrue(is_nan($ret));
     }
 
     /**
@@ -3704,6 +3862,22 @@ class LinearAlgebraTest extends TestCase
         $la->fill(1,$x);
         $ret = $la->sum($x);
         $this->assertEquals(70000,$ret);
+    }
+
+    public function testSumNAN()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        
+        // NAN
+        $x = $la->array([[1,2,NAN],[-4,5,-6]],NDArray::float32);
+        $ret = $la->sum($x);
+        $this->assertTrue(is_nan($ret));
+
+        // INF
+        $x = $la->array([[1,2,INF],[-4,5,-6]],NDArray::float32);
+        $ret = $la->sum($x);
+        $this->assertTrue(is_infinite($ret));
     }
 
     public function testSumIntegerAndBool()
@@ -11823,6 +11997,9 @@ class LinearAlgebraTest extends TestCase
 
     protected function chi2(int $n, NDArray $X, float $min, float $max, int $density) : float
     {
+        if($min>=$max) {
+            throw new \InvalidArgumentException("min($min) must be less than max($max)");
+        }
         $xx = $X->reshape([(int)array_product($X->shape())]);
         $hist_size = $density;
         $histogram = [];
@@ -11871,13 +12048,42 @@ class LinearAlgebraTest extends TestCase
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
 
+        // small size
         $x = $la->randomSequence(
-            $base=500,
-            $size=100
+            200,
             );
         $y = $la->randomSequence(
-            $base=500,
-            $size=100
+            200,
+            );
+        if($la->accelerated()) {
+            $this->assertEquals(
+                NDArray::int32,$x->dtype());
+        } else {
+            $this->assertEquals(
+                NDArray::int32,$x->dtype());
+        }
+
+        $this->assertEquals(
+            [200],$x->shape());
+        $this->assertNotEquals(
+            $x->toArray(),
+            $y->toArray());
+
+        $uniq = [];
+        foreach($x->toArray() as $v) {
+            if(isset($uniq[$v])) {
+                throw new \LogicException("Duplicate value found");
+            }
+            $uniq[$v] = 1;
+        }
+        $this->assertEquals(200,count($uniq));
+
+        // large size
+        $x = $la->randomSequence(
+            500,
+            );
+        $y = $la->randomSequence(
+            500,
             );
         if($la->accelerated()) {
             $this->assertEquals(
@@ -11887,10 +12093,20 @@ class LinearAlgebraTest extends TestCase
                 NDArray::int32,$x->dtype());
         }
         $this->assertEquals(
-            [100],$x->shape());
+            [500],$x->shape());
         $this->assertNotEquals(
             $x->toArray(),
             $y->toArray());
+
+        $uniq = [];
+        foreach($x->toArray() as $v) {
+            if(isset($uniq[$v])) {
+                throw new \LogicException("Duplicate value found");
+            }
+            $uniq[$v] = 1;
+        }
+        $this->assertEquals(500,count($uniq));
+
     }
 
     public function testRandomCategorical()
@@ -11900,19 +12116,21 @@ class LinearAlgebraTest extends TestCase
 
         //
         // sigle sample
+        // batch=4, numClasses=3
         //
-        $probs = $la->softmax($la->log($la->array([
+        $logits = $la->array([
             [2.0,  2.0,  2.0 ],
             [9.0,  2.0,  1.0 ],
             [0.1,  0.8,  0.1 ],
             [0.1,  0.8,  0.1 ],
-        ])));
+        ]);
+        $probs = $la->softmax($logits);
         $sumProbs = $la->reduceSum($probs,axis:-1);
         //echo $la->toString($sumProbs,indent:true)."\n";
         $ones = $mo->ones($sumProbs->shape());
         $this->assertTrue($mo->la()->isclose($la->toNDArray($ones),$la->toNDArray($sumProbs)));
 
-        $actions = $la->randomCategorical($probs);
+        $actions = $la->randomCategorical($logits);
         //echo $la->toString($actions,indent:true)."\n";
 
         $this->assertEquals([4],$actions->shape());
@@ -11921,15 +12139,17 @@ class LinearAlgebraTest extends TestCase
 
         //
         // multiple samples
+        // batch=1, numClasses=3, samples=4
         //
-        $probs = $la->softmax($la->log($la->array([[3.0,  2.0,  1.0 ]])));
-        $probs = $probs->reshape([$probs->size()]); // (actions)
+        $logits = $la->array([[3.0,  2.0,  1.0 ]]);
+        $probs = $la->softmax($logits);
         $sumProbs = $la->reduceSum($probs,axis:-1);
         //echo $la->toString($sumProbs,indent:true)."\n";
         $ones = $mo->ones($sumProbs->shape());
         $this->assertTrue($mo->la()->isclose($la->toNDArray($ones),$la->toNDArray($sumProbs)));
 
-        $actions = $la->randomCategorical($probs,numSamples:4);
+        $logits = $logits->reshape([$logits->size()]); // (actions)
+        $actions = $la->randomCategorical($logits,numSamples:4);
 
         $this->assertEquals([4],$actions->shape());
         $this->assertEquals(NDArray::int32,$actions->dtype());
@@ -15308,13 +15528,13 @@ class LinearAlgebraTest extends TestCase
         $la = $this->newLA($mo);
 
         $la->setSeed(1234);
-        $rnd1 = $la->randInt();
-        $rnd2 = $la->randInt();
+        $rnd1 = $la->scalar($la->randInt());
+        $rnd2 = $la->scalar($la->randInt());
         $this->assertNotEquals($rnd1, $rnd2);
 
         $la->setSeed(1234);
-        $rnd3 = $la->randInt();
-        $rnd4 = $la->randInt();
+        $rnd3 = $la->scalar($la->randInt());
+        $rnd4 = $la->scalar($la->randInt());
         $this->assertEquals($rnd1, $rnd3);
         $this->assertEquals($rnd2, $rnd4);
     }

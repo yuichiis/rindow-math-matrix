@@ -35,16 +35,6 @@ trait LinalgUtils
         return $dtype==NDArray::float32||$dtype==NDArray::float64;
     }
 
-    public function setSeed(int $seed) : void
-    {
-        srand($seed);
-    }
-
-    public function randInt(?int $min=null, ?int $max=null) : int
-    {
-        return rand($min ?? -2147483648, $max ?? 2147483647); // range of int32
-    }
-    
     public function dtypeToString(int $dtype) : string
     {
         if(!isset($this->dtypeToString[$dtype])) {

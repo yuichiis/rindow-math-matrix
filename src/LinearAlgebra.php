@@ -9,6 +9,7 @@ use RuntimeException;
 use LogicException;
 use Rindow\Math\Matrix\Drivers\Service;
 use function Rindow\Math\Matrix\R;
+use Rindow\Math\Matrix\Drivers\MatlibPHP\PhpPcg32;
 
 class LinearAlgebra
 {
@@ -17,12 +18,14 @@ class LinearAlgebra
 
     const LAPACK_ROW_MAJOR = 101;
     const LAPACK_COL_MAJOR = 102;
+    const DEFAULT_PCG32_SEQUENCE = 194625709;
 
     protected bool $iaminwarning = false;
     protected Service $service;
     protected object $blas;
     protected object $lapack;
     protected object $math;
+    protected Buffer|PhpPcg32 $rngState;
     protected int $defaultFloatType = NDArray::float32;
     /** @var array<array{array{array<int>,array<int>,array<int>}}> $einsumEquationCache */
     protected array $einsumEquationCache = [];
@@ -48,6 +51,10 @@ class LinearAlgebra
         if($defaultFloatType!==null) {
             $this->defaultFloatType = $defaultFloatType;
         }
+        $this->rngState = $this->createRngState(
+            random_int(PHP_INT_MIN, PHP_INT_MAX),
+            self::DEFAULT_PCG32_SEQUENCE
+        );
     }
 
     public function service() : Service
@@ -129,6 +136,32 @@ class LinearAlgebra
         return [$trans,$conj];
     }
 
+    protected function createRngState(int $seed, int $sequence) : Buffer|PhpPcg32
+    {
+        if($this->math instanceof \Rindow\Math\Matrix\Drivers\MatlibPHP\PhpMath) {
+            $rngState = $this->math->createPcg32State($seed,$sequence);
+        } else {
+            $rngState = $this->alloc([2],dtype:NDArray::int64)->buffer();
+            $this->math->pcg32Srand($rngState, $seed, $sequence);
+        }
+        return $rngState;
+    }
+
+    public function setSeed(int $seed) : void
+    {
+        $this->math->pcg32Srand($this->rngState, $seed, self::DEFAULT_PCG32_SEQUENCE);
+    }
+
+    public function randInt(?int $min=null, ?int $max=null) : int
+    {
+        return $this->math->pcg32RandInt32($this->rngState, $min ?? -2147483648, $max ?? 2147483647); // range of int32
+    }
+    
+    public function randInt64(?int $min=null, ?int $max=null) : int
+    {
+        return $this->math->pcg32RandInt64($this->rngState, $min ?? -2147483648, $max ?? 2147483647); // range of int64
+    }
+    
     public function array(mixed $array, ?int $dtype=null) : NDArray
     {
         if($this->profiling) {
@@ -4357,7 +4390,7 @@ class LinearAlgebra
                 throw new InvalidArgumentException('Unmatch shape and shape of X');
             }
         }
-        if($seed===null) {
+        if($seed===null||$seed===0) {
             $seed = $this->randInt();
         }
 
@@ -4403,7 +4436,7 @@ class LinearAlgebra
                 throw new InvalidArgumentException('Unmatch shape and shape of output');
             }
         }
-        if($seed===null) {
+        if($seed===null||$seed===0) {
             $seed = $this->randInt();
         }
 
@@ -4423,6 +4456,11 @@ class LinearAlgebra
         return $output;
     }
 
+    /**
+     * Random numbers ranging from 0 to base-1, with no duplicates.
+     * The array size is `size`. 
+     * The condition `base >= size` must be met.
+     */
     public function randomSequence(
         int $base,
         ?int $size=null,
@@ -4448,7 +4486,7 @@ class LinearAlgebra
             }
         }
 
-        if($seed===null) {
+        if($seed===null||$seed===0) {
             $seed = $this->randInt();
         }
 
@@ -4469,21 +4507,28 @@ class LinearAlgebra
     }
 
     /**
-     * $probs : (batches,numSamples) dtype:float32.
+     * Two type of arguments.
+     * 
+     * Simple random categorical sampling.
+     * $logits : (batches,numClasses) dtype:float32.
      * $randints: (batches) dtype:int32
+     * 
+     * Multiple random categorical sampling
+     * $logits : (numClasses) dtype:float32.
+     * $randints: (numSamples) dtype:int32
      * 
      * sum of probs must be 1.0 each row.
      */
     public function randomCategorical(
-        NDArray $probs,
+        NDArray $logits,
         ?int $numSamples=null,
         ?int $dtype=null,
         ?int $seed=null,
     ) : NDArray
     {
         $la = $this;
-        if(!$la->isFloat($probs)) {
-            throw new InvalidArgumentException('probs must be float dtype.');
+        if(!$la->isFloat($logits)) {
+            throw new InvalidArgumentException('logits must be float dtype.');
         }
         if($numSamples!=null&&$numSamples<0) {
             throw new InvalidArgumentException('numSamples must be positive.');
@@ -4491,35 +4536,58 @@ class LinearAlgebra
         if($dtype===null) {
             $dtype = NDArray::int32;
         }
+        //if($numSamples===null) {
+        //    // Simple random categorical sampling
+        //    if($probs->ndim()!=2) {
+        //        throw new InvalidArgumentException('probs must be 2D NDArray without numSamples.');
+        //    }
+        //    [$batches,$numActions] = $probs->shape();
+        //    $rand = $la->randomUniform([$batches],dtype:$probs->dtype(),low:0.0,high:1.0,seed:$seed);// (batches)
+        //    $thresholds = $la->cumsum($probs,axis:-1);      // (batches,numActions)
+        //    $randints = $la->searchsorted(                  // (batches)
+        //        $thresholds,    // (batches,numActions) :  individual mode
+        //        $rand,          // (batches)
+        //        right:true,
+        //        dtype:$dtype
+        //    );
+        //} else {
+        //    // Multiple random categorical sampling
+        //    if($probs->ndim()!=1) {
+        //        throw new InvalidArgumentException('probs must be 1D NDArray with numSamples.');
+        //    }
+        //    $numActions = $probs->shape()[0];
+        //    $batches = $numSamples;
+        //    $rand = $la->randomUniform([$batches],dtype:$probs->dtype(),low:0.0,high:1.0,seed:$seed);// (batches)
+        //    $thresholds = $la->cumsum($probs);      // (numActions)
+        //    $randints = $la->searchsorted(          // (batches)
+        //        $thresholds,    // (numActions) :  NON individual mode
+        //        $rand,          // (batches)
+        //        right:true,
+        //        dtype:$dtype
+        //    );
+        //    
+        //}
         if($numSamples===null) {
-            if($probs->ndim()!=2) {
-                throw new InvalidArgumentException('probs must be 2D NDArray without numSamples.');
-            }
-            [$batches,$numActions] = $probs->shape();
-            $rand = $la->randomUniform([$batches],dtype:$probs->dtype(),low:0.0,high:1.0,seed:$seed);// (batches)
-            $thresholds = $la->cumsum($probs,axis:-1);      // (batches,numActions)
-            $randints = $la->searchsorted(                  // (batches)
-                $thresholds,    // (batches,numActions) :  individual mode
-                $rand,          // (batches)
-                right:true,
-                dtype:$dtype
-            );
+            $numSamples = 1;
+            [$batches,$numClasses] = $logits->shape();
+            $randints = $la->alloc([$batches],dtype:$dtype);
         } else {
-            if($probs->ndim()!=1) {
-                throw new InvalidArgumentException('probs must be 1D NDArray with numSamples.');
-            }
-            $numActions = $probs->shape()[0];
-            $batches = $numSamples;
-            $rand = $la->randomUniform([$batches],dtype:$probs->dtype(),low:0.0,high:1.0,seed:$seed);// (batches)
-            $thresholds = $la->cumsum($probs);      // (numActions)
-            $randints = $la->searchsorted(          // (batches)
-                $thresholds,    // (numActions) :  NON individual mode
-                $rand,          // (batches)
-                right:true,
-                dtype:$dtype
-            );
-            
+            $batches = 1;
+            [$numClasses] = $logits->shape();
+            $randints = $la->alloc([$numSamples],dtype:$dtype);
         }
+        if($seed===null || $seed===0) {
+            $seed = $la->scalar($la->randInt64());
+        }
+        $this->math->randomCategorical(
+            $batches,
+            $numClasses,
+            $numSamples,
+            $logits->buffer(), $logits->offset(),
+            $randints->buffer(), $randints->offset(),
+            $seed,
+        );
+
         return $randints;
     }
 
