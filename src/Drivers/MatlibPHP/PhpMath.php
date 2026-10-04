@@ -24,6 +24,10 @@ class PhpMath
     protected $floatTypes= [
         NDArray::float16,NDArray::float32,NDArray::float64,
     ];
+    /** @var array<int> $complexTypes */
+    protected $complexTypes= [
+        NDArray::complex64,NDArray::complex128,
+    ];
     protected PhpPcg32 $rnd;
 
     public function __construct(?object $math=null, ?bool $forceMath=null)
@@ -1571,6 +1575,54 @@ class PhpMath
         else                   {$true = 1; $false = 0;}
         for($i=0; $i<$n; $i++,$idX+=$incX) {
             $X[$idX] = ($X[$idX]==$false) ? $true : $false;
+        }
+    }
+
+    public function abs(
+        int $n,
+        Buffer $X, int $offsetX, int $incX,
+        ) : void
+    {
+        //if($this->math) { // Support all dtype by math
+        //    $this->math->not($n,$X,$offsetX,$incX);
+        //    return;
+        //}
+
+        if($offsetX+($n-1)*$incX>=count($X)) {
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
+        }
+
+        $idX = $offsetX;
+        for($i=0; $i<$n; $i++,$idX+=$incX) {
+            $X[$idX] = abs($X[$idX]);
+        }
+    }
+
+    public function absComplex(
+        int $n,
+        Buffer $X, int $offsetX, int $incX,
+        Buffer $Y, int $offsetY, int $incY,
+        ) : void
+    {
+        //if($this->math) { // Support all dtype by math
+        //    $this->math->not($n,$X,$offsetX,$incX);
+        //    return;
+        //}
+
+        if($offsetX+($n-1)*$incX>=count($X)) {
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
+        }
+        if(!in_array($X->dtype(), $this->complexTypes)) {
+            throw new InvalidArgumentException('Buffer X dtype must be complex64 or complex128.');
+        }
+        if(!in_array($Y->dtype(), $this->floatTypes)) {
+            throw new InvalidArgumentException('Buffer Y dtype must be float32 or float64.');
+        }
+
+        $idX = $offsetX;
+        $idY = $offsetY;
+        for($i=0; $i<$n; $i++,$idX+=$incX,$idY+=$incY) {
+            $Y[$idY] = $this->cabs($X[$idX]);
         }
     }
 

@@ -14556,8 +14556,23 @@ class LinearAlgebraTest extends TestCase
             $z
         ));
 
-        $z = $la->abs(-5);
-        $this->assertEquals(5,$z);
+        $x = $la->array([
+            [C(-1,-1), C( 2, 2), C(-3, 3)],
+            [C( 4,-4), C(-5, 5), C( 6,-6)]
+        ],dtype:NDArray::complex64);
+        $z = $la->abs($x);
+        $z = $la->toNDArray($z);
+        $this->assertTrue($mo->la()->isclose(
+            $mo->array([
+                [1.4142135623731,
+                2.8284271247462,
+                4.2426406871193],
+                [5.6568542494924,
+                7.0710678118655,
+                8.4852813742386],
+            ], dtype: NDArray::float32),
+            $z
+        ));
     }
 
     public function testEinsumSimpleNormal()

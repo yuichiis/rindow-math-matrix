@@ -1180,8 +1180,14 @@ class LinearAlgebraCL
         if($this->profiling) {
             $this->profilingStart("amax");
         }
+        $dtype = $X->dtype();
+        if($this->isComplex($dtype)) {
+            $rtype = ($dtype==NDArray::complex128)? NDArray::float64 : NDArray::float32;
+        } else {
+            $rtype = $dtype;
+        }
         if($R==null) {
-            $R = $this->alloc([],dtype:$X->dtype(),flags:OpenCL::CL_MEM_READ_WRITE);
+            $R = $this->alloc([],dtype:$rtype,flags:OpenCL::CL_MEM_READ_WRITE);
         }
         // *** CAUTION ****
         // Index result is 32bit
@@ -1196,24 +1202,21 @@ class LinearAlgebraCL
         //$imaxEvents->wait();
 
         $idx = $IR->toArray();
+        if($this->isComplex($X->dtype())) {
+            $TR = $this->alloc([],dtype:$dtype,flags:OpenCL::CL_MEM_READ_WRITE);
+        } else {
+            $TR = $R;
+        }
+        $TRR = $TR->buffer();
+        $offTR = $TR->offset();
+        $this->blas->copy(1,$XX,$offX+$idx,1,$TRR,$offTR,1,$this->queue,$events);
         $RR = $R->buffer();
         $offR = $R->offset();
-        $valueSize = $RR->value_size();
-        if($this->scalarNumeric) {
-            $this->blas->copy(1,$XX,$offX+$idx,1,$RR,$offR,1,$this->queue,$events);
+        if($this->isComplex($dtype)) {
+            $this->openclmath->absComplex(1,$TRR,$offTR,1,$RR,$offR,1,events:$events,/*$copyEvents*/);
         } else {
-            //$copyEvents = $this->newEventList();
-            //$this->blas->copy(1,$XX,$offX+$idx,1,$RR,$offR,1,$this->queue,$copyEvents);
-            $RR->copy($this->queue,
-                $XX, $valueSize, ($offX+$idx)*$valueSize, $offR*$valueSize,
-                /*$copyEvents,$imaxEvents*/
-            );
-            $this->openclmath->abs(1,$RR,$offR,1,$events,/*$copyEvents*/);
+            $this->openclmath->abs(1,$RR,$offR,1,events:$events,/*$copyEvents*/);
         }
-        //$RR = $R->buffer();
-        //$offR = $R->offset();
-        //$this->openclmath->reduceGather(false,false,
-        //    1,1,$N,$IRR,$offIR,$XX,$offX,$RR,$offR,$events,$imaxEvents);
         //if($this->blocking) {
         //    $this->finish();
         //}
@@ -1222,11 +1225,6 @@ class LinearAlgebraCL
         }
         if($this->scalarNumeric) {
             $value = $R->toArray();
-            if($this->isComplex($X->dtype())) {
-                $value = $this->cabs($value);
-            } else {
-                $value = abs($value);
-            }
             return $value;
         }
         return $R;
@@ -1243,8 +1241,14 @@ class LinearAlgebraCL
         if($this->profiling) {
             $this->profilingStart("amin");
         }
+        $dtype = $X->dtype();
+        if($this->isComplex($dtype)) {
+            $rtype = ($dtype==NDArray::complex128)? NDArray::float64 : NDArray::float32;
+        } else {
+            $rtype = $dtype;
+        }
         if($R==null) {
-            $R = $this->alloc([],dtype:$X->dtype(),flags:OpenCL::CL_MEM_READ_WRITE);
+            $R = $this->alloc([],dtype:$rtype,flags:OpenCL::CL_MEM_READ_WRITE);
         }
         // *** CAUTION ****
         // Index result is 32bit
@@ -1259,19 +1263,20 @@ class LinearAlgebraCL
         //$imaxEvents->wait();
 
         $idx = $IR->toArray();
+        if($this->isComplex($X->dtype())) {
+            $TR = $this->alloc([],dtype:$dtype,flags:OpenCL::CL_MEM_READ_WRITE);
+        } else {
+            $TR = $R;
+        }
+        $TRR = $TR->buffer();
+        $offTR = $TR->offset();
+        $this->blas->copy(1,$XX,$offX+$idx,1,$TRR,$offTR,1,$this->queue,$events);
         $RR = $R->buffer();
         $offR = $R->offset();
-        $valueSize = $RR->value_size();
-        if($this->scalarNumeric) {
-            $this->blas->copy(1,$XX,$offX+$idx,1,$RR,$offR,1,$this->queue,$events);
+        if($this->isComplex($dtype)) {
+            $this->openclmath->absComplex(1,$TRR,$offTR,1,$RR,$offR,1,events:$events,/*$copyEvents*/);
         } else {
-            //$copyEvents = $this->newEventList();
-            //$this->blas->copy(1,$XX,$offX+$idx,1,$RR,$offR,1,$this->queue,$copyEvents);
-            $RR->copy($this->queue,
-                $XX, $valueSize, ($offX+$idx)*$valueSize, $offR*$valueSize,
-                /*$copyEvents, $imaxEvents*/
-            );
-            $this->openclmath->abs(1,$RR,$offR,1,$events,/*$copyEvents*/);
+            $this->openclmath->abs(1,$RR,$offR,1,events:$events,/*$copyEvents*/);
         }
         //$RR = $R->buffer();
         //$offR = $R->offset();
@@ -1285,11 +1290,6 @@ class LinearAlgebraCL
         }
         if($this->scalarNumeric) {
             $value = $R->toArray();
-            if($this->isComplex($X->dtype())) {
-                $value = $this->cabs($value);
-            } else {
-                $value = abs($value);
-            }
             return $value;
         }
         return $R;
@@ -6949,6 +6949,7 @@ class LinearAlgebraCL
 
     public function abs(
         float|int|object $value,
+        ?NDArray $output=null,
         ?object $events=null, ?object $waitEvents=null
         ) : float|NDArray
     {
@@ -6956,12 +6957,44 @@ class LinearAlgebraCL
             $this->profilingStart("abs");
         }
         if($value instanceof NDArray) {
-            $abs = $this->absNDArray($value,$events,$waitEvents);
+            if($this->isComplexDtype($value->dtype())) {
+                $ftype = ($value->dtype()==NDArray::complex64) ? NDArray::float32 : NDArray::float64;
+                if($output==null) {
+                    $output = $this->alloc($value->shape(),dtype:$ftype);
+                } else {
+                    if($output->dtype()!=$ftype) {
+                        throw new InvalidArgumentException('output dtype must be same as input.');
+                    }
+                }
+                $this->openclmath->absComplex(
+                    $value->size(),
+                    $value->buffer(),$value->offset(),1,
+                    $output->buffer(),$output->offset(),1,
+                    $events,$waitEvents
+                );
+            } elseif($this->isFloat($value)) {
+                if($output==null) {
+                    $output = $this->copy($value,events:$events,waitEvents:$waitEvents);
+                } else {
+                    if($output->dtype()!=$value->dtype()) {
+                        throw new InvalidArgumentException('output dtype must be same as input.');
+                    }
+                    $this->copy($value,$output,events:$events,waitEvents:$waitEvents);
+                }
+                $this->openclmath->abs(
+                    $output->size(),
+                    $output->buffer(),$output->offset(),1,
+                    $events,$waitEvents
+                );
+            } else {
+                $dtypeString = $this->dtypeToString($value->dtype());
+                throw new InvalidArgumentException("Unsupported dtype: $dtypeString");
+            }
         } elseif(is_numeric($value)) {
             if($waitEvents) {
                 $waitEvents->wait();
             }
-            $abs = abs($value);
+            $output = abs($value);
             if($events) {
                 $events->move($this->newEventList());
             }
@@ -6970,7 +7003,7 @@ class LinearAlgebraCL
             if($waitEvents) {
                 $waitEvents->wait();
             }
-            $abs = $this->cabs($value);
+            $output = $this->cabs($value);
             if($events) {
                 $events->move($this->newEventList());
             }
@@ -6980,7 +7013,7 @@ class LinearAlgebraCL
         if($this->profiling) {
             $this->profilingEnd("abs");
         }
-        return $abs;
+        return $output;
     }
 
     protected function absNDArray(
@@ -6990,7 +7023,7 @@ class LinearAlgebraCL
     {
         if($this->isFloat($value)) {
             if($this->profiling) {
-                $this->profilingStart("svd");
+                $this->profilingStart("absNDArray");
             }
             $waitPrev = $waitEvents;
             $waitEvents = $this->newEventList();

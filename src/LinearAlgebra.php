@@ -5781,7 +5781,17 @@ class LinearAlgebra
             $this->profilingStart("abs");
         }
         if($value instanceof NDArray) {
-            $abs = $this->absNDArray($value);
+            if($this->isComplexDtype($value->dtype())) {
+                $ftype = ($value->dtype()==NDArray::complex64) ? NDArray::float32 : NDArray::float64;
+                $abs = $this->alloc($value->shape(),dtype:$ftype);
+                $this->math->absComplex($value->size(),$value->buffer(),$value->offset(),1,$abs->buffer(),$abs->offset(),1);
+            } elseif($this->isFloat($value)) {
+                $abs = $this->copy($value);
+                $this->math->abs($abs->size(),$abs->buffer(),$abs->offset(),1);
+            } else {
+                $dtypeString = $this->dtypeToString($value->dtype());
+                throw new InvalidArgumentException("Unsupported dtype: $dtypeString");
+            }
         } elseif(is_numeric($value)) {
             $abs = abs($value);
         } elseif($this->isComplexObject($value)) {

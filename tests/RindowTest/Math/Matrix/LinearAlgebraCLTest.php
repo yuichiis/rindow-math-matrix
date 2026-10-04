@@ -870,7 +870,7 @@ class LinearAlgebraCLTest extends ORGTest
         $x = $la->array([[C(-1),C(2),C(-3)],[C(-4),C(5),C(-6)]],dtype:NDArray::complex64);
         $ret = $la->amax($x);
         $la->finish();
-        $this->assertEquals(C(6),$ret->toArray());
+        $this->assertEquals(6,$ret->toArray());
 
         // INFINITY & NaN
         // *** CAUTION ****
@@ -917,7 +917,7 @@ class LinearAlgebraCLTest extends ORGTest
         $x = $la->array([[C(-1),C(2),C(-3)],[C(-4),C(5),C(-6)]],dtype:NDArray::complex64);
         $ret = $la->amin($x);
         $la->finish();
-        $this->assertEquals(C(1),$ret->toArray());
+        $this->assertEquals(1,$ret->toArray());
 
         // INFINITY & NaN
         // *** CAUTION ****

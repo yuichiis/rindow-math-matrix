@@ -2459,7 +2459,7 @@ class OpenCLMath
     }
 
     /**
-     * X(i) := abs(X(i))
+     * X(i) := abs(X(i)) real only
      */
     public function abs(
         int $n,
@@ -2468,22 +2468,16 @@ class OpenCLMath
         ) : void
     {
         $dtypeX = $X->dtype();
-        if($dtypeX==NDArray::float64||$dtypeX==NDArray::complex128) {
+        if($this->isComplex($dtypeX)) {
+            throw new InvalidArgumentException('X must be real data type.');
+        }
+        if($dtypeX==NDArray::float64) {
             $this->assertFP64();
         }
         $isInt = array_key_exists($dtypeX,$this->intTypes);
         $abs = $isInt ? 'abs' : 'fabs';
-        $isComplex = $this->isComplex($dtypeX);
-        if($isComplex) {
-            $dtype = ($dtypeX==NDArray::complex64)?'float':'double';
-            $statement  = "    x[index_x] = sqrt(x[index_x]*x[index_x] + x[index_x+1]*x[index_x+1]);\n";
-            $statement .= "    x[index_x+1] = 0;\n";
-            $incX *= 2;
-            $offsetX *= 2;
-        } else {
-            $dtype = $this->dtypeToOpenCLType[$dtypeX];
-            $statement = "    x[index_x] = {$abs}(x[index_x]);\n";
-        }
+        $dtype = $this->dtypeToOpenCLType[$dtypeX];
+        $statement = "    x[index_x] = {$abs}(x[index_x]);\n";
 
 
         $kernel_name = "abs_{$dtype}";
@@ -2504,6 +2498,76 @@ class OpenCLMath
         $kernel->setArg(0,$X);
         $kernel->setArg(1,$offsetX,NDArray::int32);
         $kernel->setArg(2,$incX,NDArray::int32);
+        $global_work_size = [$n];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
+            $events,$waitEvents);
+    }
+
+    /**
+     * X(i) := abs(X(i)) : complex only
+     */
+    public function absComplex(
+        int $n,
+        BufferInterface $X, int $offsetX, int $incX,
+        BufferInterface $Y, int $offsetY, int $incY,
+        ?object $events=null, ?object $waitEvents=null
+        ) : void
+    {
+        $dtypeX = $X->dtype();
+        if(!$this->isComplex($dtypeX)) {
+            throw new InvalidArgumentException('X must be complex data type.');
+        }
+        if($dtypeX==NDArray::complex128) {
+            $this->assertFP64();
+        }
+        $dtypeY = $Y->dtype();
+        if($this->isComplex($dtypeY)) {
+            throw new InvalidArgumentException('Y must be real data type.');
+        }
+        if($dtypeY==NDArray::float64) {
+            $this->assertFP64();
+        }
+        if($dtypeX==NDArray::complex64) {
+            if($dtypeY!=NDArray::float32) {
+                throw new InvalidArgumentException('Y must be float32 data type.');
+            }
+        } elseif($dtypeX==NDArray::complex128) {
+            if($dtypeY!=NDArray::float64) {
+                throw new InvalidArgumentException('Y must be float64 data type.');
+            }
+        } else {
+            throw new InvalidArgumentException('X must be complex data type.');
+        }
+        $dtype = ($dtypeX==NDArray::complex64)?'float':'double';
+        $statement  = "    y[index_y] = sqrt(x[index_x]*x[index_x] + x[index_x+1]*x[index_x+1]);\n";
+        $incX *= 2;
+        $offsetX *= 2;
+
+        $kernel_name = "cabs_{$dtype}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+                "__kernel void {$kernel_name}(\n".
+                "        __global {$dtype} * x,\n".
+                "    const        int offset_x,\n".
+                "    const        int incx,\n".
+                "        __global {$dtype} * y,\n".
+                "    const        int offset_y,\n".
+                "    const        int incy)\n".
+                "{\n".
+                "    int gid = get_global_id(0);\n".
+                "    int index_x = gid*incx+offset_x;\n".
+                "    int index_y = gid*incy+offset_y;\n".
+                $statement.
+                "}\n";
+        }
+        $kernel = $this->createKernel($kernel_name);
+
+        $kernel->setArg(0,$X);
+        $kernel->setArg(1,$offsetX,NDArray::int32);
+        $kernel->setArg(2,$incX,NDArray::int32);
+        $kernel->setArg(3,$Y);
+        $kernel->setArg(4,$offsetY,NDArray::int32);
+        $kernel->setArg(5,$incY,NDArray::int32);
         $global_work_size = [$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
