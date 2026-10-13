@@ -5,6 +5,7 @@ use RuntimeException;
 use InvalidArgumentException;
 use Interop\Polite\Math\Matrix\NDArray;
 use Interop\Polite\Math\Matrix\Buffer;
+use Interop\Polite\Math\Matrix\BLAS;
 use Rindow\Math\Matrix\ComplexUtils;
 
 class PhpMath
@@ -1583,11 +1584,6 @@ class PhpMath
         Buffer $X, int $offsetX, int $incX,
         ) : void
     {
-        //if($this->math) { // Support all dtype by math
-        //    $this->math->not($n,$X,$offsetX,$incX);
-        //    return;
-        //}
-
         if($offsetX+($n-1)*$incX>=count($X)) {
             throw new InvalidArgumentException('Vector specification too large for buffer.');
         }
@@ -1604,11 +1600,6 @@ class PhpMath
         Buffer $Y, int $offsetY, int $incY,
         ) : void
     {
-        //if($this->math) { // Support all dtype by math
-        //    $this->math->not($n,$X,$offsetX,$incX);
-        //    return;
-        //}
-
         if($offsetX+($n-1)*$incX>=count($X)) {
             throw new InvalidArgumentException('Vector specification too large for buffer.');
         }
@@ -1623,6 +1614,73 @@ class PhpMath
         $idY = $offsetY;
         for($i=0; $i<$n; $i++,$idX+=$incX,$idY+=$incY) {
             $Y[$idY] = $this->cabs($X[$idX]);
+        }
+    }
+
+    public function linspace(
+        int $n,
+        Buffer $X, int $offsetX, int $incX,
+        int|float $start,
+        int|float $stop,
+        ) : void
+    {
+        if($offsetX+($n-1)*$incX>=count($X)) {
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
+        }
+        if($n<=1) {
+            $delta = 0;
+        } else {
+            $delta = ($stop - $start) / ($n - 1);
+        }
+        for($i=0; $i<$n; $i++) {
+            $v = $start + $i*$delta;
+            if($delta>0) {
+                if($v>$stop) {
+                    $v = $stop;
+                }
+            } else {
+                if($v<$stop) {
+                    $v = $stop;
+                }
+            }
+            $X[$offsetX+$i*$incX] = $v;
+        }
+    }
+
+    public function range(
+        int $n,
+        Buffer $X, int $offsetX, int $incX,
+        int|float $start,
+        int|float $limit,
+        int|float $delta
+        ) : void
+    {
+        if($offsetX+($n-1)*$incX>=count($X)) {
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
+        }
+
+        $eps = 1e-7;
+        $isInt = $this->isIntegerDtype($X->dtype());
+        for($i=0; $i<$n; $i++) {
+            $v = $start + $i*$delta;
+            if($delta>0) {
+                if($v>=$limit) {
+                    if($isInt) {
+                        $v = $limit-1;
+                    } else {
+                        $v = $limit-$eps;
+                    }
+                }
+            } else {
+                if($v<=$limit) {
+                    if($isInt) {
+                        $v = $limit+1;
+                    } else {
+                        $v = $limit+$eps;
+                    }
+                }
+            }
+            $X[$offsetX+$i*$incX] = $v;
         }
     }
 
@@ -3688,4 +3746,79 @@ class PhpMath
             }
         }
     }
+    
+    protected const WHERE_MATRIX = 0;
+    protected const WHERE_VECTOR = 1;
+    protected const WHERE_SCALAR = 2;
+
+    /**
+     *    Out(m,n) := Cond ? X : Y
+     *
+     *    Kind of each operand:
+     *      WHERE_MATRIX : Same shape as (m,n) (ld = n)
+     *      WHERE_VECTOR : n elements [j] if trans=false, m elements [i] if trans=true
+     *      WHERE_SCALAR : 1 element
+     *    Out is a contiguous region of (m,n).
+     */
+    public function where(
+        bool $trans,
+        int $m,
+        int $n,
+        Buffer $Cond, int $offsetCond, int $kindCond,
+        Buffer $X, int $offsetX, int $kindX,
+        Buffer $Y, int $offsetY, int $kindY,
+        Buffer $Out, int $offsetOut
+        ) : void
+    {
+        if($m<=0 || $n<=0) {
+            return;
+        }
+
+        // [i-direction increment, j-direction increment, required element count] for each operand
+        [$incCi,$incCj,$sizeC] = $this->whereOperand($kindCond,$trans,$m,$n);
+        [$incXi,$incXj,$sizeX] = $this->whereOperand($kindX,$trans,$m,$n);
+        [$incYi,$incYj,$sizeY] = $this->whereOperand($kindY,$trans,$m,$n);
+
+        if($offsetCond+$sizeC>count($Cond))
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
+        if($offsetX+$sizeX>count($X))
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
+        if($offsetY+$sizeY>count($Y))
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
+        if($offsetOut+$m*$n>count($Out))
+            throw new InvalidArgumentException('Vector specification too large for buffer.');
+
+        $idCi = $offsetCond;
+        $idXi = $offsetX;
+        $idYi = $offsetY;
+        $idOut = $offsetOut;
+        for($i=0; $i<$m; $i++,$idCi+=$incCi,$idXi+=$incXi,$idYi+=$incYi) {
+            $idC = $idCi;
+            $idX = $idXi;
+            $idY = $idYi;
+            for($j=0; $j<$n; $j++,$idC+=$incCj,$idX+=$incXj,$idY+=$incYj,$idOut++) {
+                $Out[$idOut] = ($Cond[$idC]!=0) ? $X[$idX] : $Y[$idY];
+            }
+        }
+    }
+
+    /**
+     * Returns the increments in (i,j) directions and the required number of elements from the operand kind.
+     *
+     * @return array{int,int,int}
+     */
+    protected function whereOperand(int $kind, bool $trans, int $m, int $n) : array
+    {
+        switch($kind) {
+            case self::WHERE_MATRIX:
+                return [$n, 1, $m*$n];
+            case self::WHERE_VECTOR:
+                return $trans ? [1, 0, $m] : [0, 1, $n];
+            case self::WHERE_SCALAR:
+                return [0, 0, 1];
+            default:
+                throw new InvalidArgumentException('Unknown operand kind for where.: '.$kind);
+        }
+    }
+
 }

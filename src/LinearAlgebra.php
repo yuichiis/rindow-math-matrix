@@ -196,67 +196,6 @@ class LinearAlgebra
         return $array;
     }
 
-    public function expandDims(NDArray $x, int $axis) : NDArray
-    {
-        $shape = $x->shape();
-        $ndim = count($shape);
-        $orgAxis = $axis;
-        if($axis<0) {
-            $axis = $ndim + $axis + 1;
-        }
-        if($axis<0||$axis>$ndim) {
-            throw new InvalidArgumentException('axis is out of range: '.$orgAxis);
-        }
-        $newShape = [];
-        $i = 0;
-        foreach ($shape as $n) {
-            if($i==$axis) {
-                $newShape[] = 1;
-            }
-            $newShape[] = $n;
-            $i++;
-        }
-        if($i==$axis) {
-            $newShape[] = 1;
-        }
-        return $x->reshape($newShape);
-    }
-
-    public function squeeze(NDArray $x, ?int $axis=null) : NDArray
-    {
-        $shape = $x->shape();
-        if($axis===null) {
-            $newShape = [];
-            foreach ($shape as $n) {
-                if($n!=1) {
-                    $newShape[] = $n;
-                }
-            }
-            return $x->reshape($newShape);
-        }
-        $ndim = count($shape);
-        $orgAxis = $axis;
-        if($axis<0) {
-            $axis = $ndim + $axis;
-        }
-        if($axis<0||$axis>=$ndim) {
-            throw new InvalidArgumentException('axis is out of range: '.$orgAxis);
-        }
-        $newShape = [];
-        $i = 0;
-        foreach ($shape as $n) {
-            if($i!=$axis) {
-                $newShape[] = $n;
-            } else {
-                if($n!=1) {
-                    throw new InvalidArgumentException('Can not squeeze dim['.$axis.']');
-                }
-            }
-            $i++;
-        }
-        return $x->reshape($newShape);
-    }
-
     /**
      * @param array<int> $shape
      */
@@ -1734,7 +1673,7 @@ class LinearAlgebra
                 $BB, $offB, $ldB,
             );
         } else {
-            $this->omatcopyCompatible(
+            $this->math->omatcopy(
                 $order,$trans,
                 $M,$N,
                 $alpha,
@@ -1750,98 +1689,98 @@ class LinearAlgebra
     }
 
 
-    protected function createIdentityMatrix(int $n, int $dtype) : Buffer
-    {
-        if ($n <= 0) {
-            throw new InvalidArgumentException("Error: Matrix dimension must be positive.");
-        }
-        // Use calloc for zero initialization, which works for complex zero (0.0 + 0.0i)
-        // assuming the underlying representation of 0.0f is all bits zero.
-        $imat = $this->zeros($this->alloc([$n,$n],dtype:$dtype))->buffer();
-
-        // Set diagonal elements to 1.0 + 0.0i
-        // Accessing column-major matrix I(n x n): Element (i, i) is at index i + i * n
-        for($i=0; $i<$n; $i++) {
-            $imat[$i + $i * $n] = $this->buildValByType(1.0,$dtype); // I is the imaginary unit from complex.h
-        }
-        return $imat;
-    }
-    
-    protected function omatcopyCompatible(
-        int $order,
-        int $trans,
-        int $rows,
-        int $cols,
-        float|object $alpha,
-        Buffer $A, int $offsetA, int $ldA,
-        Buffer $B, int $offsetB, int $ldB,
-    ) : void
-    {
-        if ($rows <= 0 || $cols <= 0) {
-            return; // Nothing to do for empty matrices
-        }
-        $dtype = $A->dtype();
-    
-        // Beta parameter for GEMM: C = alpha*op(A)*Id + beta*C
-        // We want B = alpha*op(A), so we use beta = 0.
-        $beta = $this->buildValByType(0.0,$dtype);
-
-        // int m, n, k;           // Dimensions for GEMM C(m x n) = op(A)(m x k) * Identity(k x n)
-        // int ld_identity;       // Leading dimension of the identity matrix
-    
-        // Determine GEMM parameters based on the transpose operation
-        if ($trans == BLAS::NoTrans) {
-            // B(rows x cols) = alpha * A(rows x cols) * I(cols x cols)
-            $m = $rows;          // Rows of B and A
-            $n = $cols;          // Columns of B and A
-            $k = $cols;          // Inner dimension (columns of A, rows of I)
-            $ldIdentity = $k;    // Identity is k x k = cols x cols
-    
-            $identity = $this->createIdentityMatrix($k,$dtype);
-    
-            // C = alpha * op(A) * op(B) + beta * C
-            // Here: B_out = alpha * A * I + 0 * B_out
-            $this->blas->gemm($order, BLAS::NoTrans, BLAS::NoTrans, // op(A)=A, op(Id)=Id
-                        $m, $n, $k,
-                        $alpha, $A, $offsetA, $ldA,
-                        $identity, 0, $ldIdentity, // Matrix B in GEMM is Identity
-                        $beta, $B, $offsetB, $ldB); // Matrix C in GEMM is output B
-    
-        } else if ($trans == BLAS::Trans) {
-            // B(cols x rows) = alpha * A^T(cols x rows) * I(rows x rows)
-            $m = $cols;          // Rows of B and A^T
-            $n = $rows;          // Columns of B and A^T
-            $k = $rows;          // Inner dimension (columns of A^T, rows of I)
-            $ldIdentity = $k;    // Identity is k x k = rows x rows
-            $identity = $this->createIdentityMatrix($k,$dtype);
-    
-            // Here: B_out = alpha * A^T * I + 0 * B_out
-            $this->blas->gemm($order, BLAS::Trans, BLAS::NoTrans, // op(A)=A^T, op(Id)=Id
-                        $m, $n, $k,
-                        $alpha, $A, $offsetA, $ldA,  // A is input, operation is Transpose
-                        $identity, 0, $ldIdentity,
-                        $beta, $B, $offsetB, $ldB);
-    
-        } else if ($trans == BLAS::ConjTrans) {
-            // B(cols x rows) = alpha * A^H(cols x rows) * I(rows x rows)
-            $m = $cols;          // Rows of B and A^H
-            $n = $rows;          // Columns of B and A^H
-            $k = $rows;          // Inner dimension (columns of A^H, rows of I)
-            $ldIdentity = $k;    // Identity is k x k = rows x rows
-    
-            $identity = $this->createIdentityMatrix($k,$dtype);
-    
-            // Here: B_out = alpha * A^H * I + 0 * B_out
-            $this->blas->gemm($order, BLAS::ConjTrans, BLAS::NoTrans, // op(A)=A^H, op(Id)=Id
-                        $m, $n, $k,
-                        $alpha, $A, $offsetA, $ldA, // A is input, operation is Conjugate Transpose
-                        $identity, 0, $ldIdentity,
-                        $beta, $B, $offsetB, $ldB);
-        } else {
-            throw new InvalidArgumentException("Error: Invalid transpose parameter provided.");
-            // No operation performed
-        }
-    }
+    //protected function createIdentityMatrix(int $n, int $dtype) : Buffer
+    //{
+    //    if ($n <= 0) {
+    //        throw new InvalidArgumentException("Error: Matrix dimension must be positive.");
+    //    }
+    //    // Use calloc for zero initialization, which works for complex zero (0.0 + 0.0i)
+    //    // assuming the underlying representation of 0.0f is all bits zero.
+    //    $imat = $this->zeros($this->alloc([$n,$n],dtype:$dtype))->buffer();
+//
+    //    // Set diagonal elements to 1.0 + 0.0i
+    //    // Accessing column-major matrix I(n x n): Element (i, i) is at index i + i * n
+    //    for($i=0; $i<$n; $i++) {
+    //        $imat[$i + $i * $n] = $this->buildValByType(1.0,$dtype); // I is the imaginary unit from complex.h
+    //    }
+    //    return $imat;
+    //}
+    //
+    //protected function omatcopyCompatible(
+    //    int $order,
+    //    int $trans,
+    //    int $rows,
+    //    int $cols,
+    //    float|object $alpha,
+    //    Buffer $A, int $offsetA, int $ldA,
+    //    Buffer $B, int $offsetB, int $ldB,
+    //) : void
+    //{
+    //    if ($rows <= 0 || $cols <= 0) {
+    //        return; // Nothing to do for empty matrices
+    //    }
+    //    $dtype = $A->dtype();
+    //
+    //    // Beta parameter for GEMM: C = alpha*op(A)*Id + beta*C
+    //    // We want B = alpha*op(A), so we use beta = 0.
+    //    $beta = $this->buildValByType(0.0,$dtype);
+//
+    //    // int m, n, k;           // Dimensions for GEMM C(m x n) = op(A)(m x k) * Identity(k x n)
+    //    // int ld_identity;       // Leading dimension of the identity matrix
+    //
+    //    // Determine GEMM parameters based on the transpose operation
+    //    if ($trans == BLAS::NoTrans) {
+    //        // B(rows x cols) = alpha * A(rows x cols) * I(cols x cols)
+    //        $m = $rows;          // Rows of B and A
+    //        $n = $cols;          // Columns of B and A
+    //        $k = $cols;          // Inner dimension (columns of A, rows of I)
+    //        $ldIdentity = $k;    // Identity is k x k = cols x cols
+    //
+    //        $identity = $this->createIdentityMatrix($k,$dtype);
+    //
+    //        // C = alpha * op(A) * op(B) + beta * C
+    //        // Here: B_out = alpha * A * I + 0 * B_out
+    //        $this->blas->gemm($order, BLAS::NoTrans, BLAS::NoTrans, // op(A)=A, op(Id)=Id
+    //                    $m, $n, $k,
+    //                    $alpha, $A, $offsetA, $ldA,
+    //                    $identity, 0, $ldIdentity, // Matrix B in GEMM is Identity
+    //                    $beta, $B, $offsetB, $ldB); // Matrix C in GEMM is output B
+    //
+    //    } else if ($trans == BLAS::Trans) {
+    //        // B(cols x rows) = alpha * A^T(cols x rows) * I(rows x rows)
+    //        $m = $cols;          // Rows of B and A^T
+    //        $n = $rows;          // Columns of B and A^T
+    //        $k = $rows;          // Inner dimension (columns of A^T, rows of I)
+    //        $ldIdentity = $k;    // Identity is k x k = rows x rows
+    //        $identity = $this->createIdentityMatrix($k,$dtype);
+    //
+    //        // Here: B_out = alpha * A^T * I + 0 * B_out
+    //        $this->blas->gemm($order, BLAS::Trans, BLAS::NoTrans, // op(A)=A^T, op(Id)=Id
+    //                    $m, $n, $k,
+    //                    $alpha, $A, $offsetA, $ldA,  // A is input, operation is Transpose
+    //                    $identity, 0, $ldIdentity,
+    //                    $beta, $B, $offsetB, $ldB);
+    //
+    //    } else if ($trans == BLAS::ConjTrans) {
+    //        // B(cols x rows) = alpha * A^H(cols x rows) * I(rows x rows)
+    //        $m = $cols;          // Rows of B and A^H
+    //        $n = $rows;          // Columns of B and A^H
+    //        $k = $rows;          // Inner dimension (columns of A^H, rows of I)
+    //        $ldIdentity = $k;    // Identity is k x k = rows x rows
+    //
+    //        $identity = $this->createIdentityMatrix($k,$dtype);
+    //
+    //        // Here: B_out = alpha * A^H * I + 0 * B_out
+    //        $this->blas->gemm($order, BLAS::ConjTrans, BLAS::NoTrans, // op(A)=A^H, op(Id)=Id
+    //                    $m, $n, $k,
+    //                    $alpha, $A, $offsetA, $ldA, // A is input, operation is Conjugate Transpose
+    //                    $identity, 0, $ldIdentity,
+    //                    $beta, $B, $offsetB, $ldB);
+    //    } else {
+    //        throw new InvalidArgumentException("Error: Invalid transpose parameter provided.");
+    //        // No operation performed
+    //    }
+    //}
 
 
     /**
@@ -2037,19 +1976,9 @@ class LinearAlgebra
                 $m = 1;
                 $n = $A->size();
             } else {
-                $n = 1;
-                while(true) {
-                    $tmpX = array_pop($shapeX);
-                    if($tmpX===null) {
-                        break;
-                    }
-                    $tmpA = array_pop($shapeA);
-                    if($tmpA!=$tmpX) {
-                        throw new InvalidArgumentException('A and X is unmatched for broadcast');
-                    }
-                    $n *= $tmpX;
-                }
-                $m = array_product($shapeA);
+                $this->assertBroadcastShape($shapeA,$shapeX);
+                $n = (int)array_product($shapeX);
+                $m = (int)array_product(array_slice($shapeA, 0, -count($shapeX)));
             }
         }
         if($A->dtype()!=$X->dtype()) {
@@ -2258,28 +2187,13 @@ class LinearAlgebra
         if($this->profiling) {
             $this->profilingStart("multiply");
         }
-        if($trans===null) {
-            $trans = false;
-        }
-        $shapeX = $X->shape();
-        $shapeA = $A->shape();
-        if($trans)
-            $shapeA = array_reverse($shapeA);
-        while(true) {
-            $xd = array_pop($shapeX);
-            if($xd===null)
-                break;
-            $ad = array_pop($shapeA);
-            if($xd!==$ad) {
-                $shapeA = $trans ? array_reverse($A->shape()) : $A->shape();
-                throw new InvalidArgumentException('Unmatch dimension size for broadcast.: '.
-                    '['.implode(',',$X->shape()).'] => ['.implode(',',$shapeA).']');
-            }
-        }
+        $trans ??= false;
+        $this->assertBroadcastShape($A->shape(),$X->shape(),trans:$trans);
+
         $n = $X->size();
         $XX = $X->buffer();
         $offX = $X->offset();
-        $m = $A->size()/$n;
+        $m = intdiv($A->size(),$n);
         $AA = $A->buffer();
         $offA = $A->offset();
         if($trans) {
@@ -2312,27 +2226,10 @@ class LinearAlgebra
         if($this->profiling) {
             $this->profilingStart("add");
         }
-        if($trans===null)
-            $trans = false;
-        if($alpha===null) {
-            $alpha = 1.0;
-        }
-        $shapeX = $X->shape();
-        $shapeA = $A->shape();
-        if($trans) {
-            $shapeA = array_reverse($shapeA);
-        }
-        while(true) {
-            $xd = array_pop($shapeX);
-            if($xd===null) {
-                break;
-            }
-            $ad = array_pop($shapeA);
-            if($xd!==$ad) {
-                throw new InvalidArgumentException('Unmatch dimension size for broadcast.: '.
-                    '['.implode(',',$X->shape()).'] => ['.implode(',',$A->shape()).']');
-            }
-        }
+        $alpha ??= 1.0;
+        $trans ??= false;
+        $this->assertBroadcastShape($A->shape(),$X->shape(),trans:$trans);
+
         $n = $X->size();
         $XX = $X->buffer();
         $offX = $X->offset();
@@ -2452,9 +2349,7 @@ class LinearAlgebra
         if($this->profiling) {
             $this->profilingStart("pow");
         }
-        if($trans===null) {
-            $trans = false;
-        }
+        $trans ??= false;
         $shapeA = $A->shape();
         if(is_numeric($alpha)) {
             $alpha = $this->array($alpha,dtype:$A->dtype());
@@ -2465,21 +2360,8 @@ class LinearAlgebra
             $shapeA = [(int)array_product($shapeA),1];
             $shapeX = [1];
         }
+        $this->assertBroadcastShape($shapeA,$shapeX,trans:$trans);
 
-        if($trans) {
-            $shapeA = array_reverse($shapeA);
-        }
-        while(true) {
-            $xd = array_pop($shapeX);
-            if($xd===null)
-                break;
-            $ad = array_pop($shapeA);
-            if($xd!==$ad) {
-                $shapeA = $trans ? array_reverse($A->shape()) : $A->shape();
-                throw new InvalidArgumentException('Unmatch dimension size for broadcast.: '.
-                    '['.implode(',',$shapeX).'] => ['.implode(',',$shapeA).']');
-            }
-        }
         $n = $alpha->size();
         $XX = $alpha->buffer();
         $offX = $alpha->offset();
@@ -2749,19 +2631,7 @@ class LinearAlgebra
                 $output = $this->alloc(array_merge($input->shape(),[$repeats]),dtype:$input->dtype());
             }
         } else {
-            $shapeX = $input->shape();
-            $shapeA = $output->shape();
-            if($trans)
-                $shapeA = array_reverse($shapeA);
-            while(true) {
-                $xd = array_pop($shapeX);
-                if($xd===null)
-                    break;
-                $ad = array_pop($shapeA);
-                if($xd!==$ad)
-                    throw new InvalidArgumentException('Unmatch dimension size for broadcast.: '.
-                        '['.implode(',',$input->shape()).'] => ['.implode(',',$output->shape()).']');
-            }
+            $this->assertBroadcastShape($output->shape(),$input->shape());
         }
 
         $n = $input->size();
@@ -2899,10 +2769,11 @@ class LinearAlgebra
                 $axis = $ndim+$axis;
             }
             $postfixShape = $A->shape();
-            $prefixShape = [];
-            for($i=0;$i<$axis;$i++) {
-                $prefixShape[] = array_shift($postfixShape);
-            }
+            //$prefixShape = [];
+            //for($i=0;$i<$axis;$i++) {
+            //    $prefixShape[] = array_shift($postfixShape);
+            //}
+            $prefixShape = array_splice($postfixShape,0,$axis);
             $m = array_product($prefixShape);
             $numClass = array_shift($postfixShape);
             $n = array_product($postfixShape);
@@ -3051,11 +2922,12 @@ class LinearAlgebra
             $postfixShape = $A->shape();
             $prefixShape = $X->shape();
             //$numClass
-            $ndimX = $X->ndim();
-            $tmpShape = [];
-            for($i=0;$i<$ndimX;$i++) {
-                $tmpShape[] = array_shift($postfixShape);
-            }
+            //$ndimX = $X->ndim();
+            //$tmpShape = [];
+            //for($i=0;$i<$ndimX;$i++) {
+            //    $tmpShape[] = array_shift($postfixShape);
+            //}
+            $tmpShape = array_splice($postfixShape,0,$X->ndim());
             if($tmpShape!=$prefixShape) {
                 throw new InvalidArgumentException('Unmatch Shape:'.
                                         $this->printableShapes([$X,$A]));
@@ -3080,11 +2952,12 @@ class LinearAlgebra
                 throw new InvalidArgumentException('Unmatch Shape X and A:'.
                                         $this->printableShapes([$X,$A]));
             }
-            $prefixShape = [];
-            for($i=0;$i<$axis;$i++) {
-                $prefixShape[] = array_shift($postfixShape);
-                array_shift($postfixX);
-            }
+            //$prefixShape = [];
+            //for($i=0;$i<$axis;$i++) {
+            //    $prefixShape[] = array_shift($postfixShape);
+            //    array_shift($postfixX);
+            //}
+            $prefixShape = array_splice($postfixShape,0,$axis);
             $m = array_product($prefixShape);
             $n = array_product($postfixShape);
             $k = 1;
@@ -3687,10 +3560,11 @@ class LinearAlgebra
             throw new InvalidArgumentException("Invalid axis: ".$origAxis);
         }
         $postfixShape = $input->shape();
-        $prefixShape = [];
-        for($i=0;$i<$axis;$i++) {
-            $prefixShape[] = array_shift($postfixShape);
-        }
+        //$prefixShape = [];
+        //for($i=0;$i<$axis;$i++) {
+        //    $prefixShape[] = array_shift($postfixShape);
+        //}
+        $prefixShape = array_splice($postfixShape,0,$axis);
         $n = array_shift($postfixShape);
         $m = array_product($prefixShape);
         $k = array_product($postfixShape);
@@ -3752,10 +3626,11 @@ class LinearAlgebra
             throw new InvalidArgumentException("Invalid axis: ".$origAxis);
         }
         $postfixShape = $input->shape();
-        $prefixShape = [];
-        for($i=0;$i<$axis;$i++) {
-            $prefixShape[] = array_shift($postfixShape);
-        }
+        //$prefixShape = [];
+        //for($i=0;$i<$axis;$i++) {
+        //    $prefixShape[] = array_shift($postfixShape);
+        //}
+        $prefixShape = array_splice($postfixShape,0,$axis);
         $n = array_shift($postfixShape);
         $m = array_product($prefixShape);
         $k = array_product($postfixShape);
@@ -3817,10 +3692,11 @@ class LinearAlgebra
             throw new InvalidArgumentException("Invalid axis: ".$origAxis);
         }
         $postfixShape = $input->shape();
-        $prefixShape = [];
-        for($i=0;$i<$axis;$i++) {
-            $prefixShape[] = array_shift($postfixShape);
-        }
+        //$prefixShape = [];
+        //for($i=0;$i<$axis;$i++) {
+        //    $prefixShape[] = array_shift($postfixShape);
+        //}
+        $prefixShape = array_splice($postfixShape,0,$axis);
         $n = array_shift($postfixShape);
         $m = array_product($prefixShape);
         $k = array_product($postfixShape);
@@ -4767,11 +4643,12 @@ class LinearAlgebra
         $shape = [];
         $shapePrefix = [];
         foreach ($values as $value) {
-            $shapePrefix = [];
             $shape = $value->shape();
-            for($j=0;$j<$axis;$j++) {
-                $shapePrefix[] = array_shift($shape);
-            }
+            //$shapePrefix = [];
+            //for($j=0;$j<$axis;$j++) {
+            //    $shapePrefix[] = array_shift($shape);
+            //}
+            $shapePrefix = array_splice($shape,0,$axis);
             $mm = (int)array_product($shapePrefix);
             $nn = array_shift($shape);
             if($base===null) {
@@ -4823,11 +4700,12 @@ class LinearAlgebra
         if($axis<0) {
             $axis = $input->ndim() + $axis;
         }
-        $shapePrefix = [];
         $shape = $input->shape();
-        for($j=0;$j<$axis;$j++) {
-            $shapePrefix[] = array_shift($shape);
-        }
+        //$shapePrefix = [];
+        //for($j=0;$j<$axis;$j++) {
+        //    $shapePrefix[] = array_shift($shape);
+        //}
+        $shapePrefix = array_splice($shape,0,$axis);
         $m = (int)array_product($shapePrefix);
         $n = array_shift($shape);
         $input = $input->reshape(array_merge([$m,$n],$shape));
@@ -5016,9 +4894,10 @@ class LinearAlgebra
         $innerShape = $A->shape();
         $outerShape = [];
         if($axis!==null) {
-            for($i=0;$i<$axis;$i++) {
-                $outerShape[] = array_shift($innerShape);
-            }
+            //for($i=0;$i<$axis;$i++) {
+            //    $outerShape[] = array_shift($innerShape);
+            //}
+            $outerShape = array_splice($innerShape,0,$axis);
         }
         $base = 1;
         if($axis===null) {
@@ -5664,10 +5543,12 @@ class LinearAlgebra
     }
 
     public function linspace(
-        float $start,
-        float $stop,
+        float|array|NDArray $start,
+        float|array|NDArray $stop,
         int $num,
-        ?int $dtype=null
+        ?int $axis=null,
+        ?int $dtype=null,
+        ?NDArray $output=null,
         ) : NDArray
     {
         if($this->profiling) {
@@ -5676,23 +5557,82 @@ class LinearAlgebra
         if($num<=0) {
             throw new InvalidArgumentException('num must be greater than or equal zero.');
         }
-        $array = $this->alloc([$num],dtype:$dtype);
-        $step = ($stop-$start)/($num-1);
-        $value = $start;
-        for($i=0;$i<$num;$i++) {
-            $array[$i] = min($start+$step*$i,$stop);
+        $axis ??= 0;
+        if($dtype===null) {
+            if($output!==null) {
+                $dtype = $output->dtype();
+            } elseif($start instanceof NDArray) {
+                $dtype = $start->dtype();
+            } else {
+                $dtype ??= NDArray::float32;
+            }
+        }
+        if(is_numeric($start)) {
+            if(!is_numeric($stop)) {
+                throw new InvalidArgumentException('if start is scalar, stop must be scalar.');
+            }
+            $start = $this->array($start,dtype:$dtype);
+            $stop = $this->array($stop,dtype:$dtype);
+        } else {
+            if(is_numeric($stop)) {
+                throw new InvalidArgumentException('if start is array, stop must be array.');
+            }
+            if(is_array($start)) {
+                $start = $this->array($start,dtype:$dtype);
+            }
+            if(is_array($stop)) {
+                $stop = $this->array($stop,dtype:$dtype);
+            }
+            if($start->shape() != $stop->shape()) {
+                throw new InvalidArgumentException('start and stop must have same shape.');
+            }
+        }
+        if($axis<0) {
+            $axis = $start->ndim()+1+$axis;
+        }
+        $outershape = $start->shape();
+        $innershape = array_splice($outershape,$axis);
+        $shape = array_merge($outershape,[$num],$innershape);
+        if($output!==null) {
+            if($output->shape()!=$shape) {
+                throw new InvalidArgumentException("output shape must be " . implode(',', $shape));
+            }
+        } else {
+            $output = $this->alloc($shape,dtype:$dtype);
+        }
+        $outerStart = $start->reshape(
+            [array_product($outershape),array_product($innershape)]);
+        $outerStop = $stop->reshape(
+            [array_product($outershape),array_product($innershape)]);
+        $outerOutput = $output->reshape(
+            [array_product($outershape),$num,array_product($innershape)]);
+        $XX = $output->buffer();
+        $incX = (int)array_product($innershape);
+        foreach($outerStart as $outerIndex => $innerStart) {
+            $innerStop = $outerStop[$outerIndex];
+            $innerOutput = $outerOutput[$outerIndex];
+            $offX = $innerOutput->offset();
+            foreach($innerStart as $idx => $startValue) {
+                $stopValue = $innerStop[$idx];
+                if(!is_numeric($startValue)||!is_numeric($stopValue)) {
+                    throw new InvalidArgumentException('start and stop must be numeric.');
+                }
+                $this->math->linspace($num,$XX,$offX,$incX,$startValue,$stopValue);
+                $offX += 1;
+            }
         }
         if($this->profiling) {
             $this->profilingEnd("linspace");
         }
-        return $array;
+        return $output;
     }
 
     public function range(
         int|float $limit,
         int|float|null $start=null,
         int|float|null $delta=null,
-        ?int $dtype=null
+        ?int $dtype=null,
+        ?NDArray $output=null,
         ) : NDArray
     {
         if($this->profiling) {
@@ -5704,19 +5644,20 @@ class LinearAlgebra
         if($delta==0.0) {
             throw new InvalidArgumentException('infinite times');
         }
-        $count = (int)floor(($limit-$start)/$delta);
+        $count = (int)ceil(($limit-$start)/$delta);
 
-        $array = $this->alloc([$count],dtype:$dtype);
-        $value = $start;
-        for($i=0;$i<$count;$i++) {
-            $value = $start+$delta*$i;
-            if($delta>0) {
-                $value = min($value,$limit);
-            } else {
-                $value = max($value,$limit);
+        if($output!=null) {
+            if($output->shape()!=[$count]||$output->dtype()!=$dtype) {
+                throw new InvalidArgumentException("output shape must be [" . $count . "]");
             }
-            $array[$i] = $value;
+        } else {
+            $array = $this->alloc([$count],dtype:$dtype);
         }
+
+        $XX = $array->buffer();
+        $offsetX = $array->offset();
+        $this->math->range($count,$XX,$offsetX,1,$start,$limit,$delta);
+
         if($this->profiling) {
             $this->profilingEnd("range");
         }
@@ -5805,51 +5746,137 @@ class LinearAlgebra
         return $abs;
     }
 
-    protected function absNDArray(NDArray $value) : NDArray
-    {
-        if($this->isFloat($value)) {
-            $conditionValue = $this->copy($value);
-            $this->greaterEqual($conditionValue,0);
-            $this->scal(2,$conditionValue);
-            $this->increment($conditionValue,beta:-1);
-            $this->multiply($conditionValue,$value);
-            return $value;
-        } else {
-            $dtypeString = $this->dtypeToString($value->dtype());
-            throw new InvalidArgumentException("Unsupported dtype: $dtypeString");
-        }
-    }
+    //protected function absNDArray(NDArray $value) : NDArray
+    //{
+    //    if($this->isFloat($value)) {
+    //        $conditionValue = $this->copy($value);
+    //        $this->greaterEqual($conditionValue,0);
+    //        $this->scal(2,$conditionValue);
+    //        $this->increment($conditionValue,beta:-1);
+    //        $this->multiply($conditionValue,$value);
+    //        return $value;
+    //    } else {
+    //        $dtypeString = $this->dtypeToString($value->dtype());
+    //        throw new InvalidArgumentException("Unsupported dtype: $dtypeString");
+    //    }
+    //}
 
+    //public function where(
+    //    NDArray $condition,
+    //    NDArray $x,
+    //    NDArray $y,
+    //    ?bool $normalize=null,
+    //    ) : NDArray
+    //{
+    //    if($this->profiling) {
+    //        $this->profilingStart("where");
+    //    }
+    //    $normalize ??= true;
+    //    $origShape = $x->shape();
+    //    $condition = $condition->reshape([$condition->size()]); // (size)
+    //    $x = $x->reshape([$x->size()]); // (size)
+    //    $y = $y->reshape([$y->size()]); // (size)
+    //    $xy = $this->stack([$y,$x]);        // (2,size)
+    //    if($normalize) {
+    //        if($condition->dtype()!=NDArray::bool) {
+    //            $condition = $this->astype($condition,dtype:NDArray::bool);
+    //        }
+    //    }
+    //    if($condition->dtype()!=NDArray::int32) {
+    //        $condition = $this->astype($condition,dtype:NDArray::int32);
+    //    }
+    //    $result = $this->gatherb($xy,$condition,detailDepth:2,indexDepth:0); // (size)
+    //    $result = $result->reshape($origShape);
+    //    if($this->profiling) {
+    //        $this->profilingEnd("where");
+    //    }
+    //    return $result;
+    //}
+
+
+    /**
+     *    Out(m,n) := Cond(m,n) ? X(m,n) : Y(m,n)
+     *
+     *    The operand with the largest number of dimensions among Cond, X, and Y becomes the output shape (base shape).
+     *    Operands with fewer dimensions are treated as vectors matching the trailing (trans=false) or
+     *    leading (trans=true) dimensions of the base shape.
+     *    Numbers (scalars) can also be specified for X and Y.
+     *
+     *    Operands with the same number of dimensions as the base shape must have the identical shape.
+     *    If there are multiple operands treated as vectors, they must have the same shape.
+     */
+    
     public function where(
         NDArray $condition,
-        NDArray $x,
-        NDArray $y,
-        ?bool $normalize=null,
+        NDArray|float|int $X,
+        NDArray|float|int $Y,
+        ?bool $trans=null,
+        ?NDArray $output=null,
         ) : NDArray
     {
         if($this->profiling) {
             $this->profilingStart("where");
         }
-        $normalize ??= true;
-        $origShape = $x->shape();
-        $condition = $condition->reshape([$condition->size()]); // (size)
-        $x = $x->reshape([$x->size()]); // (size)
-        $y = $y->reshape([$y->size()]); // (size)
-        $xy = $this->stack([$y,$x]);        // (2,size)
-        if($normalize) {
-            if($condition->dtype()!=NDArray::bool) {
-                $condition = $this->astype($condition,dtype:NDArray::bool);
+        $trans ??= false;
+
+        if($condition->dtype()!=NDArray::bool) {
+            throw new InvalidArgumentException('condition must be bool.');
+        }
+
+        // Determine the dtype of X and Y (if both are NDArrays, they must match)
+        $dtype = null;
+        foreach([$X,$Y] as $v) {
+            if($v instanceof NDArray) {
+                if($dtype!==null && $dtype!=$v->dtype()) {
+                    throw new InvalidArgumentException('Unmatch dtype of X and Y.');
+                }
+                $dtype = $v->dtype();
             }
         }
-        if($condition->dtype()!=NDArray::int32) {
-            $condition = $this->astype($condition,dtype:NDArray::int32);
+        $dtype ??= NDArray::float32;
+
+        // Transform args to ndarray and validate broadcast shape
+        [$ops,$baseShape,$kinds,$m,$n,$total] = $this->transformBroadcastShape([
+            $condition,
+            $X,
+            $Y,
+        ],dtype:$dtype,trans:$trans);
+
+        if($output===null) {
+            $output = $this->alloc($baseShape,dtype:$dtype);
+        } else {
+            if($output->shape()!=$baseShape) {
+                throw new InvalidArgumentException('output shape does not match base shape.');
+            }
+            if($output->dtype()!=$dtype) {
+                throw new InvalidArgumentException('output dtype does not match base dtype.');
+            }
         }
-        $result = $this->gatherb($xy,$condition,detailDepth:2,indexDepth:0); // (size)
-        $result = $result->reshape($origShape);
+        if($total>0) {
+            [[$cc,],[$xx,],[$yy,]] = $ops;
+            //echo "=====================\n";
+            //echo "trans:".var_export($trans,true)."\n";
+            //echo "m:".$m.",n:".$n."\n";
+            //echo "C->count:".$cc->buffer()->count().", offsetC: ".$cc->offset().", kindC:".$kinds[0]."\n";
+            //echo "X->count:".$xx->buffer()->count().", offsetX: ".$xx->offset().", kindX:".$kinds[1]."\n";
+            //echo "Y->count:".$yy->buffer()->count().", offsetY: ".$yy->offset().", kindY:".$kinds[2]."\n";
+            //echo "out->count:".$out->buffer()->count().", offsetOut: ".$out->offset()."\n";
+            //throw new \RuntimeException("Test");
+            $this->math->where(
+                $trans,
+                $m,
+                $n,
+                $cc->buffer(),$cc->offset(),$kinds[0],
+                $xx->buffer(),$xx->offset(),$kinds[1],
+                $yy->buffer(),$yy->offset(),$kinds[2],
+                $output->buffer(),$output->offset(),
+            );
+        }
+
         if($this->profiling) {
             $this->profilingEnd("where");
         }
-        return $result;
+        return $output;
     }
 
     /**
@@ -6477,8 +6504,8 @@ class LinearAlgebra
                 [$r,$z,$c,$s] = $this->rotg($pa,$pb);
 
                 $num_elements_A = $n - $j;
-                $rowA_j_start = $a[$j][[$j,$j+$num_elements_A]]; // j行目のj列目から
-                $rowA_i_start = $a[$i][[$j,$j+$num_elements_A]]; // i行目のj列目から
+                $rowA_j_start = $a[$j][[$j,$j+$num_elements_A]]; // From the j-th column of the j-th row
+                $rowA_i_start = $a[$i][[$j,$j+$num_elements_A]]; // From the j-th column of the i-th row
                 $this->rot($rowA_j_start, $rowA_i_start, $c, $s);
                 $this->rot($b[[$j,$j+1]], $b[[$i,$i+1]], $c, $s);
             }

@@ -141,6 +141,78 @@ class LinearAlgebraTest extends TestCase
         return $y;
     }
 
+    public static function providerDtypesFloats()
+    {
+        return [
+            'float32' => [[
+                'dtype' => NDArray::float32,
+            ]],
+            'float64' => [[
+                'dtype' => NDArray::float64,
+            ]],
+        ];
+    }
+            
+    public static function providerDtypesFloatsAndIntegers()
+    {
+        return [
+            'float32' => [[
+                'dtype' => NDArray::float32,
+            ]],
+            'float64' => [[
+                'dtype' => NDArray::float64,
+            ]],
+            'int8' => [[
+                'dtype' => NDArray::int8,
+            ]],
+            'uint8' => [[
+                'dtype' => NDArray::uint8,
+            ]],
+            'int16' => [[
+                'dtype' => NDArray::int16,
+            ]],
+            'uint16' => [[
+                'dtype' => NDArray::uint16,
+            ]],
+            'int32' => [[
+                'dtype' => NDArray::int32,
+            ]],
+            'uint32' => [[
+                'dtype' => NDArray::uint32,
+            ]],
+            'int64' => [[
+                'dtype' => NDArray::int64,
+            ]],
+            'uint64' => [[
+                'dtype' => NDArray::uint64,
+            ]],
+        ];
+    }
+
+    public static function providerDtypesFloatsAndSignedIntegers()
+    {
+        return [
+            'float32' => [[
+                'dtype' => NDArray::float32,
+            ]],
+            'float64' => [[
+                'dtype' => NDArray::float64,
+            ]],
+            'int8' => [[
+                'dtype' => NDArray::int8,
+            ]],
+            'int16' => [[
+                'dtype' => NDArray::int16,
+            ]],
+            'int32' => [[
+                'dtype' => NDArray::int32,
+            ]],
+            'int64' => [[
+                'dtype' => NDArray::int64,
+            ]],
+        ];
+    }
+
     public function testSpeedTest()
     {
         // ==============================================
@@ -212,7 +284,7 @@ class LinearAlgebraTest extends TestCase
         $this->assertEquals(C(1,i:1),$la->scalar($x));
     }
 
-    public function testExpandDims()
+    public function testExpandDimsNormal()
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
@@ -243,7 +315,7 @@ class LinearAlgebraTest extends TestCase
         $la->expandDims($x,axis:-4);
     }
 
-    public function testSqueeze()
+    public function testSqueezeNormal()
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
@@ -4086,7 +4158,7 @@ class LinearAlgebraTest extends TestCase
         // Broadcast
         $X = $la->array([[-1,0,4], [2,4,1]]);
         $Y = $la->array([-2,1,2]);
-        $la->maximum($X,$Y);
+        $la->maximum($X,$Y); // (3) -> (2,3) 
         $this->assertEquals(
             [[-1,1,4],[2,4,2]]
         ,$X->toArray());
@@ -4486,11 +4558,23 @@ class LinearAlgebraTest extends TestCase
         $this->assertEquals(
             [[1,20,300],[-4,-50,-600]]
         ,$Y->toArray());
+        // broadcast scalar
+        $X = $la->array(2);
+        $Y = $la->array([1,2,3]);
+        $la->multiply($X,$Y);
+        $this->assertEquals(2,$X->toArray());
+        $this->assertEquals([2,4,6],$Y->toArray());
 
-        // broadcast
+        // broadcast scalar
+        $X = $la->array(2);
+        $Y = $la->array([1,2,3]);
+        $la->multiply($X,$Y);
+        $this->assertEquals(2,$X->toArray());
+        $this->assertEquals([2,4,6],$Y->toArray());
+
+        // broadcast (1D -> 2D)
         $X = $la->array([1,2,3]);
         $Y = $la->array([[1,10,100],[-1,-10,-100]]);
-        $this->assertEquals([[1,10,100],[-1,-10,-100]],$Y->toArray());
         $la->multiply($X,$Y);
         $this->assertEquals(
             [1,2,3]
@@ -4499,7 +4583,7 @@ class LinearAlgebraTest extends TestCase
             [[1,20,300],[-1,-20,-300]]
         ,$Y->toArray());
 
-        // transpose and broadcast
+        // transpose and broadcast (1D -> 2D)
         $X = $la->array([1,2,3]);
         $Y = $la->array([[1,10],[100,-1],[-10,-100]]);
         $la->multiply($X,$Y,trans:true);
@@ -4509,7 +4593,42 @@ class LinearAlgebraTest extends TestCase
         $this->assertEquals(
             [[1,10],[200,-2],[-30,-300]]
         ,$Y->toArray());
+/*
+        // broadcast (2D -> 3D)
+        $X = $la->array([[1,2,3],[-1,-2,-3]]);
+        $Y = $la->array([[[1,10,100],[-1,-10,-100]],[[1,10,100],[-1,-10,-100]]]);
+        $la->multiply($X,$Y);
+        $this->assertEquals(
+            [[1,2,3],[-1,-2,-3]]
+        ,$X->toArray());
+        $this->assertEquals(
+            [[[1,20,300],[1,20,300]], [[1,20,300],[1,20,300]]]
+        ,$Y->toArray());
 
+        // transpose and broadcast (2D -> 3D)
+        $X = $la->array([[1,2,3],[4,5,6]]);
+        $Y = $la->array([[[1,10],[100,-1],[-10,-100]],[[1,10],[100,-1],[-10,-100]]]);
+        $la->multiply($X,$Y,trans:true);
+        $this->assertEquals(
+            [[1,2,3],[4,5,6]]
+        ,$X->toArray());
+        $this->assertEquals(
+            [[[1,10],[200,-2],[-30,-300]],[[4,40],[500,-5],[-60,-600]]]
+        ,$Y->toArray());
+*/
+    }
+
+    public function testMultiplyBroadcastError()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // Y := X(i) * Y(i)
+        $X = $la->array([5,6]);
+        $Y = $la->array([[1,10,100],[-1,-10,-100]]);
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Unmatch dimension size for broadcast.:');
+        $la->multiply($X,$Y);
     }
 
     public function testMultiplyLarge()
@@ -4604,6 +4723,13 @@ class LinearAlgebraTest extends TestCase
         $this->assertEquals(
             [[2,11],[102,1],[-7,-97]]
         ,$Y->toArray());
+
+        // broadcast scalar
+        $X = $la->array(2);
+        $Y = $la->array([1,2,3]);
+        $la->add($X,$Y);
+        $this->assertEquals(2,$X->toArray());
+        $this->assertEquals([3,4,5],$Y->toArray());
     }
 
     public function testAddLarge()
@@ -4780,6 +4906,14 @@ class LinearAlgebraTest extends TestCase
             [[1,8,27],[16,25,36]]
             ),$X)
         );
+
+        // broadcast scalar
+        $X = $la->array([1,2,3]);
+        $alpha = $la->array(2);
+        $la->pow($X,$alpha);
+        $this->assertEquals(2,$alpha->toArray());
+        $this->assertEquals([1,4,9],$X->toArray());
+
     }
 
     public function testExp()
@@ -4923,6 +5057,12 @@ class LinearAlgebraTest extends TestCase
             [[1,1],[2,2],[3,3]],
             [[4,4],[5,5],[6,6]],
         ],$Y->toArray());
+
+        // broadcast scalar
+        $X = $la->array(2);
+        $Y = $la->duplicate($X,3);
+        $this->assertEquals(2,$X->toArray());
+        $this->assertEquals([2,2,2],$Y->toArray());
     }
 
     public function testZerosNormal()
@@ -14107,18 +14247,191 @@ class LinearAlgebraTest extends TestCase
         );
     }
 
-    public function testLinspace()
+
+    #[DataProvider('providerDtypesFloatsAndIntegers')]
+    public function testRangeNormal($params)
     {
+        extract($params);
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
 
-        $X = $la->linspace($start=10,$stop=100,$num=10);
+        $X = $la->range(5, dtype:$dtype);
         $this->assertEquals(
-            [10,20,30,40,50,60,70,80,90,100],
+            [0,1,2,3,4],
+            $X->toArray()
+        );
+
+        $X = $la->range(start:0, limit:10, delta:2,dtype:$dtype);
+        $this->assertEquals(
+            [0,2,4,6,8],
+            $X->toArray()
+        );
+
+        $X = $la->range(start:10, limit:0, delta:-2,dtype:$dtype);
+        $this->assertEquals(
+            [10,8,6,4,2],
+            $X->toArray()
+        );
+
+        $X = $la->range(start:1, limit:4, delta:2,dtype: $dtype);
+        $this->assertEquals(
+            [1,3],
+            $X->toArray()
+        );
+
+        $X = $la->range(start:1, limit:9, delta:3,dtype: $dtype);
+        $this->assertEquals(
+            [1,4,7],
+            $X->toArray()
+        );
+
+        $X = $la->range(start:1, limit:10, delta:4,dtype: $dtype);
+        $this->assertEquals(
+            [1,5,9],
             $X->toArray()
         );
     }
 
+    #[DataProvider('providerDtypesFloatsAndSignedIntegers')]
+    public function testRangeSigned($params)
+    {
+        extract($params);
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $X = $la->range(start:-5, limit: 5, dtype: $dtype);
+        $this->assertEquals(
+            [-5,-4,-3,-2,-1,0,1,2,3,4],
+            $X->toArray()
+        );
+
+        $X = $la->range(start:-5, limit: 5, delta: 2, dtype: $dtype);
+        $this->assertEquals(
+            [-5,-3,-1,1,3],
+            $X->toArray()
+        );
+
+        $X = $la->range(start:5, limit: -5, delta: -2, dtype: $dtype);
+        $this->assertEquals(
+            [5,3,1,-1,-3],
+            $X->toArray()
+        );
+    }
+
+
+    #[DataProvider('providerDtypesFloats')]
+    public function testLinspaceNormal($params)
+    {
+        extract($params);
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $X = $la->linspace(start:0, stop:9, num:10, dtype: $dtype);
+        $this->assertEquals(
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+            $X->toArray()
+        );
+
+        $X = $la->linspace(start:9, stop:0, num:10, dtype: $dtype);
+        $this->assertEquals(
+            [9, 8, 7, 6, 5, 4, 3, 2, 1, 0],
+            $X->toArray()
+        );
+
+        $X = $la->linspace(start:0, stop:18, num:10, dtype: $dtype);
+        $this->assertEquals(
+            [0, 2, 4, 6, 8, 10, 12, 14, 16, 18],
+            $X->toArray()
+        );
+
+        $X = $la->linspace(start:18, stop:0, num:10, dtype: $dtype);
+        $this->assertEquals(
+            [18, 16, 14, 12, 10, 8, 6, 4, 2, 0],
+            $X->toArray()
+        );
+
+        $X = $la->linspace(start:[1,11], stop:[3,13], num:3, dtype: $dtype);
+        $this->assertEquals(
+            [
+                [1,11],
+                [2,12],
+                [3,13]
+            ],
+            $X->toArray()
+        );
+
+        $X = $la->linspace(start:[[1,11],[21,31]], stop:[[3,13],[23,33]], num:3, dtype: $dtype);
+        $this->assertEquals(
+            [[[ 1., 11.],
+              [21., 31.]],
+             [[ 2., 12.],
+
+              [22., 32.]],
+             [[ 3., 13.],
+              [23., 33.]]],
+            $X->toArray()
+        );
+
+        $X = $la->linspace(start:[[1,11],[21,31]], stop:[[3,13],[23,33]], num:3, axis:1, dtype: $dtype);
+        $this->assertEquals(
+            [[[ 1., 11.],
+              [ 2., 12.],
+              [ 3., 13.]],
+
+             [[21., 31.],
+              [22., 32.],
+              [23., 33.]]],
+            $X->toArray()
+        );
+
+        $X = $la->linspace(start:[[1,11],[21,31]], stop:[[3,13],[23,33]], num:3, axis:2, dtype: $dtype);
+        $this->assertEquals(
+            [[[ 1.,  2.,  3.],
+              [11., 12., 13.]],
+
+             [[21., 22., 23.],
+              [31., 32., 33.]]],
+            $X->toArray()
+        );
+
+        $X = $la->linspace(start:[[1,11],[21,31]], stop:[[3,13],[23,33]], num:3, axis:-1, dtype: $dtype);
+        $this->assertEquals(
+            [[[ 1.,  2.,  3.],
+              [11., 12., 13.]],
+
+             [[21., 22., 23.],
+              [31., 32., 33.]]],
+            $X->toArray()
+        );
+
+        $X = $la->linspace(start:[[1,11],[21,31]], stop:[[3,13],[23,33]], num:3, axis:-2, dtype: $dtype);
+        $this->assertEquals(
+            [[[ 1., 11.],
+              [ 2., 12.],
+              [ 3., 13.]],
+
+             [[21., 31.],
+              [22., 32.],
+              [23., 33.]]],
+            $X->toArray()
+        );
+
+        //$outputs = $la->alloc([2,3,2]);
+        //$X = $la->linspace(start:[1,11], stop:[3,13], num:3, dtype: $dtype, output:$outputs[0]);
+        //$X = $la->linspace(start:[21,31], stop:[23,33], num:3, dtype: $dtype, output:$outputs[1]);
+        //$this->assertEquals(
+        //    [
+        //        [[1,11],
+        //         [2,12],
+        //         [3,13]],
+        //        [[21,31],
+        //         [22,32],
+        //         [23,33]]
+        //    ],
+        //    $outputs->toArray()
+        //);
+
+    }
 
     public function testSvdFull1()
     {
@@ -14503,45 +14816,300 @@ class LinearAlgebraTest extends TestCase
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
 
-        // general
-        $x = $la->array([-1,-2,-3,-4,-5]);
-        $y = $la->array([ 1, 2, 3, 4, 5]);
-        $condition = $la->array([1,0,1,0,1]);
-        $z = $la->where($condition,$x,$y);
-        $z = $la->toNDArray($z);
-        $this->assertTrue($mo->la()->isclose(
-            $mo->array([-1,2,-3,4,-5]),
-            $z
-        ));
+        // cond: (2,3)
+        // x   : (2,3)
+        // y   : (2,3)
+        // out : (2,3)
+        $cond = $la->array([[true,false,true],[false,true,false]], dtype:NDArray::bool);
+        $x = $la->array([[1,2,3],[4,5,6]]);
+        $y = $la->array([[5,6,7],[8,9,10]]);
+        $out = $la->where($cond,$x,$y);
+        $this->assertEquals($out->toArray(),[[1,6,3],[8,5,10]]);
+    }
 
-        // with condition function
-        $x = $la->array([ 1, 2, 3, 4, 5]);
-        $z = $la->where(
-            $la->less($la->copy($x),3),
-            $la->zerosLike($x),
-            $x
-        );
-        $z = $la->toNDArray($z);
-        $this->assertTrue($mo->la()->isclose(
-            $mo->array([0, 0, 3, 4, 5]),
-            $z
-        ));
+    public function testWhereCondBroadcast()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
 
-        // with normalized condition
-        $x = $la->array([ 1, 2, 3, 4, 5]);
-        $z = $la->where(
-            $la->less($la->copy($x),3),
-            $la->zerosLike($x),
-            $x,
-            normalize:false,
+        // cond: (3)
+        // x   : (2,3)
+        // y   : (2,3)
+        // out : (2,3)
+        $cond = $la->array([true,false,true], dtype:NDArray::bool);
+        $x = $la->array([[1,2,3],[4,5,6]]);
+        $y = $la->array([[5,6,7],[8,9,10]]);
+        $out = $la->where($cond,$x,$y);
+        $this->assertEquals($out->toArray(),[[1,6,3],[4,9,6]]);
+
+        // cond: (2)   , trans:true
+        // x   : (2,3)
+        // y   : (2,3)
+        // out : (2,3)
+        $cond = $la->array([true,false], dtype:NDArray::bool);
+        $x = $la->array([[1,2,3],[4,5,6]]);
+        $y = $la->array([[5,6,7],[8,9,10]]);
+        $out = $la->where($cond,$x,$y,trans:true);
+        $this->assertEquals($out->toArray(),[[1,2,3],[8,9,10]]);
+
+        // cond: (3,2)   , trans:false
+        // x   : (2,2,3,2)
+        // y   : (2,2,3,2)
+        // out : (2,2,3,2)
+        $cond = $la->array([[true,false],[false,true],[true,false]], dtype:NDArray::bool);
+        $x = $la->ones($la->alloc([2,2,3,2]));
+        $y = $la->zeros($la->alloc([2,2,3,2]));
+        $out = $la->where($cond,$x,$y);
+        $this->assertEquals($out->toArray(),
+            [[[[1,0],[0,1],[1,0]],
+              [[1,0],[0,1],[1,0]]],
+             [[[1,0],[0,1],[1,0]],
+              [[1,0],[0,1],[1,0]]]]
         );
-        $z = $la->toNDArray($z);
-        $this->assertTrue($mo->la()->isclose(
-            $mo->array([0, 0, 3, 4, 5]),
-            $z
-        ));
+
+        // cond: (3,2)   , trans:true
+        // x   : (3,2,2,2)
+        // y   : (3,2,2,2)
+        // out : (3,2,2,2)
+        $cond = $la->array([[true,false],[false,true],[true,false]], dtype:NDArray::bool);
+        $x = $la->ones($la->alloc([3,2,2,2]));
+        $y = $la->zeros($la->alloc([3,2,2,2]));
+        $out = $la->where($cond,$x,$y, trans:true);
+        $this->assertEquals($out->toArray(),
+            [[[[1,1],[1,1]],
+              [[0,0],[0,0]]],
+             [[[0,0],[0,0]],
+              [[1,1],[1,1]]],
+             [[[1,1],[1,1]],
+              [[0,0],[0,0]]]]
+        );
+
+        // cond: scalar   , trans:false
+        // x   : (2,3)
+        // y   : (2,3)
+        // out : (2,3)
+        $cond = $la->array(true, dtype:NDArray::bool);
+        $x = $la->ones($la->alloc([2,3]));
+        $y = $la->zeros($la->alloc([2,3]));
+        $out = $la->where($cond,$x,$y);
+        $this->assertEquals($out->toArray(),[[1,1,1],[1,1,1]]);
+
+        // cond: scalar   , trans:true
+        // x   : (2,3,2)
+        // y   : (2,3,2)
+        // out : (2,3,2)
+        $cond = $la->array(true, dtype:NDArray::bool);
+        $x = $la->ones($la->alloc([2,3,2]));
+        $y = $la->zeros($la->alloc([2,3,2]));
+        $out = $la->where($cond,$x,$y,trans:true);
+        $this->assertEquals($out->toArray(),
+            [[[1,1],[1,1],[1,1]],[[1,1],[1,1],[1,1]]]
+        );
 
     }
+
+    public function testWhereValueXBroadcast()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // cond: (2,3)
+        // x   : (3)
+        // y   : (2,3)
+        // out : (2,3)
+        $cond = $la->array([[true,false,true],[false,true,false]],dtype:NDArray::bool);
+        $x = $la->array([1,2,3]);
+        $y = $la->array([[5,6,7],[8,9,10]]);
+        $out = $la->where($cond,$x,$y);
+        $this->assertEquals($out->toArray(),[[1,6,3],[8,2,10]]);
+
+        // cond: (2,3)   , trans:true
+        // x   : (2)
+        // y   : (2,3)
+        // out : (2,3)
+        $cond = $la->array([[true,false,true],[false,true,false]],dtype:NDArray::bool);
+        $x = $la->array([1,2]);
+        $y = $la->array([[5,6,7],[8,9,10]]);
+        $out = $la->where($cond,$x,$y,trans:true);
+        $this->assertEquals($out->toArray(),[[1,6,1],[8,2,10]]);
+
+        // cond: (3,2)   , trans:false
+        // x   : (3,2)
+        // y   : (2,2,3,2)
+        // out : (2,2,3,2)
+        $cond = $la->array([[true,false],[false,true],[true,false]], dtype:NDArray::bool);
+        $x = $la->ones($la->alloc([3,2]));
+        $y = $la->zeros($la->alloc([2,2,3,2]));
+        $out = $la->where($cond,$x,$y);
+        $this->assertEquals($out->toArray(),
+            [[[[1,0],[0,1],[1,0]],
+              [[1,0],[0,1],[1,0]]],
+             [[[1,0],[0,1],[1,0]],
+              [[1,0],[0,1],[1,0]]]]
+        );
+
+        // cond: (2,3)   , trans:true
+        // x   : (2,3)
+        // y   : (2,3,2,2)
+        // out : (2,3,2,2)
+        $cond = $la->array([[true,false,true],[false,true,false]],dtype:NDArray::bool);
+        $x = $la->ones($la->alloc([2,3]));
+        $y = $la->zeros($la->alloc([2,3,2,2]));
+        $out = $la->where($cond,$x,$y, trans:true);
+        $this->assertEquals($out->toArray(),
+            [[[[1,1],[1,1]],
+              [[0,0],[0,0]],
+              [[1,1],[1,1]]],
+             [[[0,0],[0,0]],
+              [[1,1],[1,1]],
+              [[0,0],[0,0]]]]
+        );
+
+        // cond: (2,3)   , trans:false
+        // x   : scalar
+        // y   : (2,3)
+        // out : (2,3)
+        $cond = $la->array([[true,false,true],[false,true,false]],dtype:NDArray::bool);
+        $x = $la->array(1);
+        $y = $la->zeros($la->alloc([2,3]));
+        $out = $la->where($cond,$x,$y);
+        $this->assertEquals($out->toArray(),[[1,0,1],[0,1,0]]);
+
+        // cond: (2,3)   , trans:false
+        // x   : scalar
+        // out : (2,3)
+        // y   : (2,3)
+        $cond = $la->array([[true,false,true],[false,true,false]],dtype:NDArray::bool);
+        $x = $la->array(1);
+        $y = $la->zeros($la->alloc([2,3]));
+        $out = $la->where($cond,$x,$y,trans:true);
+        $this->assertEquals($out->toArray(),[[1,0,1],[0,1,0]]);
+
+    }
+
+    public function testWhereValueYBroadcast()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // cond: (2,3)
+        // x   : (2,3)
+        // y   : (3)
+        // out : (2,3)
+        $cond = $la->array([[true,false,true],[false,true,false]],dtype:NDArray::bool);
+        $x = $la->array([[1,2,3],[4,5,6]]);
+        $y = $la->array([5,6,7]);
+        $out = $la->where($cond,$x,$y);
+        $this->assertEquals($out->toArray(),[[1,6,3],[5,5,7]]);
+
+        // cond: (2,3)   , trans:true
+        // x   : (2,3)
+        // y   : (2)
+        // out : (2,3)
+        $cond = $la->array([[true,false,true],[false,true,false]],dtype:NDArray::bool);
+        $x = $la->array([[1,2,3],[4,5,6]]);
+        $y = $la->array([5,6]);
+        $out = $la->where($cond,$x,$y,trans:true);
+        $this->assertEquals($out->toArray(),[[1,5,3],[6,5,6]]);
+
+        // cond: (3,2)   , trans:false
+        // x   : (2,2,3,2)
+        // y   : (3,2)
+        // out : (2,2,3,2)
+        $cond = $la->array([[true,false],[false,true],[true,false]], dtype:NDArray::bool);
+        $x = $la->ones($la->alloc([2,2,3,2]));
+        $y = $la->zeros($la->alloc([3,2]));
+        $out = $la->where($cond,$x,$y);
+        $this->assertEquals($out->toArray(),
+            [[[[1,0],[0,1],[1,0]],
+              [[1,0],[0,1],[1,0]]],
+             [[[1,0],[0,1],[1,0]],
+              [[1,0],[0,1],[1,0]]]]
+        );
+
+        // cond: (2,3)   , trans:true
+        // x   : (2,3,2,2)
+        // y   : (2,3)
+        // out : (2,3,2,2)
+        $cond = $la->array([[true,false,true],[false,true,false]],dtype:NDArray::bool);
+        $x = $la->ones($la->alloc([2,3,2,2]));
+        $y = $la->zeros($la->alloc([2,3]));
+        $out = $la->where($cond,$x,$y, trans:true);
+        $this->assertEquals($out->toArray(),
+            [[[[1,1],[1,1]],
+              [[0,0],[0,0]],
+              [[1,1],[1,1]]],
+             [[[0,0],[0,0]],
+              [[1,1],[1,1]],
+              [[0,0],[0,0]]]]
+        );
+
+        // cond: (2,3)   , trans:false
+        // x   : (2,3)
+        // y   : scalar
+        // out : (2,3)
+        $cond = $la->array([[true,false,true],[false,true,false]],dtype:NDArray::bool);
+        $x = $la->ones($la->alloc([2,3]));
+        $y = $la->array(0);
+        $out = $la->where($cond,$x,$y);
+        $this->assertEquals($out->toArray(),[[1,0,1],[0,1,0]]);
+
+        // cond: (2,3)   , trans:false
+        // x   : (2,3)
+        // y   : scalar
+        // out : (2,3)
+        $cond = $la->array([[true,false,true],[false,true,false]],dtype:NDArray::bool);
+        $x = $la->ones($la->alloc([2,3]));
+        $y = $la->array(0);
+        $out = $la->where($cond,$x,$y,trans:true);
+        $this->assertEquals($out->toArray(),[[1,0,1],[0,1,0]]);
+
+    }
+
+    //public function testWhereNormal()
+    //{
+    //    $mo = $this->newMatrixOperator();
+    //    $la = $this->newLA($mo);
+//
+    //    // general
+    //    $x = $la->array([-1,-2,-3,-4,-5]);
+    //    $y = $la->array([ 1, 2, 3, 4, 5]);
+    //    $condition = $la->array([1,0,1,0,1]);
+    //    $z = $la->where($condition,$x,$y);
+    //    $z = $la->toNDArray($z);
+    //    $this->assertTrue($mo->la()->isclose(
+    //        $mo->array([-1,2,-3,4,-5]),
+    //        $z
+    //    ));
+//
+    //    // with condition function
+    //    $x = $la->array([ 1, 2, 3, 4, 5]);
+    //    $z = $la->where(
+    //        $la->less($la->copy($x),3),
+    //        $la->zerosLike($x),
+    //        $x
+    //    );
+    //    $z = $la->toNDArray($z);
+    //    $this->assertTrue($mo->la()->isclose(
+    //        $mo->array([0, 0, 3, 4, 5]),
+    //        $z
+    //    ));
+//
+    //    // with normalized condition
+    //    $x = $la->array([ 1, 2, 3, 4, 5]);
+    //    $z = $la->where(
+    //        $la->less($la->copy($x),3),
+    //        $la->zerosLike($x),
+    //        $x,
+    //        normalize:false,
+    //    );
+    //    $z = $la->toNDArray($z);
+    //    $this->assertTrue($mo->la()->isclose(
+    //        $mo->array([0, 0, 3, 4, 5]),
+    //        $z
+    //    ));
+//
+    //}
 
     public function testAbsNormal()
     {

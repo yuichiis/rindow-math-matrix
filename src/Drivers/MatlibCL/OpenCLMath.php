@@ -73,8 +73,14 @@ class OpenCLMath
 
     /** @var array<int> $intTypes */
     protected $intTypes= [
-        NDArray::int8,NDArray::int16,NDArray::int32,NDArray::int64,
-        NDArray::uint8,NDArray::uint16,NDArray::uint32,NDArray::uint64,
+        NDArray::int8 => true,
+        NDArray::int16 => true,
+        NDArray::int32 => true,
+        NDArray::int64 => true,
+        NDArray::uint8 => true,
+        NDArray::uint16 => true,
+        NDArray::uint32 => true,
+        NDArray::uint64 => true,
     ];
 
     /** @var array<string,string> $kernelCoreOperation */
@@ -190,6 +196,7 @@ class OpenCLMath
     /** @var array<string,object> $program */
     protected array $program = [];
     protected bool $fp64;
+    protected bool $fp16;
     /** @var array<int> $maxWorkItem */
     protected array $maxWorkItem;
     protected int $maxWorkGroupSize;
@@ -216,6 +223,11 @@ class OpenCLMath
             $this->fp64 = false;
         } else {
             $this->fp64 = true;
+        }
+        if(strpos($extensions,'cl_khr_fp16')===false) {
+            $this->fp16 = false;
+        } else {
+            $this->fp16 = true;
         }
         $this->maxWorkItem = $devices->getInfo(0,OpenCL::CL_DEVICE_MAX_WORK_ITEM_SIZES);
         $this->maxWorkGroupSize = $devices->getInfo(0,OpenCL::CL_DEVICE_MAX_WORK_GROUP_SIZE);
@@ -245,6 +257,11 @@ class OpenCLMath
     public function fp64() : bool
     {
         return $this->fp64;
+    }
+
+    public function fp16() : bool
+    {
+        return $this->fp16;
     }
 
     public function dtypeToString(int $dtype) : string
@@ -1322,15 +1339,16 @@ class OpenCLMath
             $this->assertFP64();
         }
         $type = $this->dtypeToOpenCLType[$dtypeX];
+        $typeFP32 = $this->dtypeToOpenCLType[NDArray::float32];
         $kernel_name = "increment_{$type}";
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        {$type} alpha,\n".
+                "    const        {$typeFP32} alpha,\n".
                 "        __global {$type} * x,\n".
                 "    const        int offset_x,\n".
                 "    const        int incx,\n".
-                "    const        {$type} beta)\n".
+                "    const        {$typeFP32} beta)\n".
                 "{\n".
                 "    int idx = get_global_id(0)*incx+offset_x;\n".
                 "    x[idx] = alpha*x[idx]+beta;\n".
@@ -1363,15 +1381,16 @@ class OpenCLMath
             $this->assertFP64();
         }
         $type = $this->dtypeToOpenCLType[$dtypeX];
+        $typeFP32 = $this->dtypeToOpenCLType[NDArray::float32];
         $kernel_name = "reciprocal_{$type}";
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        {$type} alpha,\n".
+                "    const        {$typeFP32} alpha,\n".
                 "        __global {$type} * x,\n".
                 "    const        int offset_x,\n".
                 "    const        int incx,\n".
-                "    const        {$type} beta)\n".
+                "    const        {$typeFP32} beta)\n".
                 "{\n".
                 "    int idx = get_global_id(0)*incx+offset_x;\n".
                 "    x[idx] = 1.0/(alpha*x[idx]+beta);\n".
@@ -1874,6 +1893,7 @@ class OpenCLMath
             $this->assertFP64();
         }
         $type = $this->dtypeToOpenCLType[$dtypeX];
+        $typeFP32 = $this->dtypeToOpenCLType[NDArray::float32];
         $kernel_name = "add_{$type}_{$trans}";
         if(!isset($this->sources[$kernel_name])) {
             if($trans=='trans') {
@@ -1883,7 +1903,7 @@ class OpenCLMath
             }
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        {$type} alpha,\n".
+                "    const        {$typeFP32} alpha,\n".
                 "    const global {$type} * x,\n".
                 "    const        int offset_x,\n".
                 "    const        int incx,\n".
@@ -2005,15 +2025,16 @@ class OpenCLMath
             $this->assertFP64();
         }
         $type = $this->dtypeToOpenCLType[$dtypeX];
+        $typeFP32 = $this->dtypeToOpenCLType[NDArray::float32];
         $kernel_name = "rsqrt_{$type}";
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        {$type} alpha,\n".
+                "    const        {$typeFP32} alpha,\n".
                 "        __global {$type} * x,\n".
                 "    const        int offset_x,\n".
                 "    const        int incx,\n".
-                "    const        {$type} beta)\n".
+                "    const        {$typeFP32} beta)\n".
                 "{\n".
                 "    int idx = get_global_id(0)*incx+offset_x;\n".
                 "    x[idx] = 1.0/(alpha * sqrt(x[idx]) + beta);\n".
@@ -2568,6 +2589,146 @@ class OpenCLMath
         $kernel->setArg(3,$Y);
         $kernel->setArg(4,$offsetY,NDArray::int32);
         $kernel->setArg(5,$incY,NDArray::int32);
+        $global_work_size = [$n];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
+            $events,$waitEvents);
+    }
+
+    public function linspace(
+        int $n,
+        BufferInterface $X, int $offsetX, int $incX,
+        float $start,
+        float $stop,
+        ?object $events=null, ?object $waitEvents=null
+        ) : void
+    {
+        $dtypeX = $X->dtype();
+        if($this->isComplex($dtypeX)) {
+            throw new InvalidArgumentException('X must be real data type.');
+        }
+        if(array_key_exists($dtypeX,$this->intTypes)) {
+            throw new InvalidArgumentException('X must be float data type.');
+        }
+        if($dtypeX==NDArray::float64) {
+            $this->assertFP64();
+        }
+        if($n<=1) {
+            $delta = 0;
+        } else {
+            $delta = ($stop - $start) / ($n - 1);
+        }
+        $dtype = $this->dtypeToOpenCLType[$dtypeX];
+        $kernel_name = "linspace_{$dtype}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+                "__kernel void {$kernel_name}(\n".
+                "        __global {$dtype} * x,\n".
+                "    const        int       offset_x,\n".
+                "    const        int       incx,\n".
+                "    const        {$dtype}  start,\n".
+                "    const        {$dtype}  stop,\n".
+                "    const        {$dtype}  delta)\n".
+                "{\n".
+                "    int gid = get_global_id(0);\n".
+                "    int index_x = gid*incx+offset_x;\n".
+                "    {$dtype} v = start + ({$dtype})gid * delta;\n".
+                "    if(delta>0) {\n".
+                "        if(v>stop) {\n".
+                "            v = stop;\n".
+                "        }\n".
+                "    } else {\n".
+                "        if(v<stop) {\n".
+                "            v = stop;\n".
+                "        }\n".
+                "    }\n".
+                "    x[index_x] = v;\n".
+                "}\n";
+        }
+        $kernel = $this->createKernel($kernel_name);
+
+        $kernel->setArg(0,$X);
+        $kernel->setArg(1,$offsetX,NDArray::int32);
+        $kernel->setArg(2,$incX,NDArray::int32);
+        $kernel->setArg(3,$start,$dtypeX);
+        $kernel->setArg(4,$stop,$dtypeX);
+        $kernel->setArg(5,$delta,$dtypeX);
+        $global_work_size = [$n];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
+            $events,$waitEvents);
+    }
+
+    public function range(
+        int $n,
+        BufferInterface $X, int $offsetX, int $incX,
+        int|float $start,
+        int|float $limit,
+        int|float $delta,
+        ?object $events=null, ?object $waitEvents=null
+        ) : void
+    {
+        $dtypeX = $X->dtype();
+        if($this->isComplex($dtypeX)) {
+            throw new InvalidArgumentException('X must be real data type.');
+        }
+        if($dtypeX==NDArray::float64) {
+            $this->assertFP64();
+        }
+        if($delta>0) {
+            if($start>$limit) {
+                throw new InvalidArgumentException('When delta is positive, start must be less than or equal to limit.');
+            }
+        } else {
+            if($start<$limit) {
+                throw new InvalidArgumentException('When delta is negative, start must be greater than or equal to limit.');
+            }
+        }
+        $isInt = array_key_exists($dtypeX,$this->intTypes);
+        $dtype = $this->dtypeToOpenCLType[$dtypeX];
+        if($isInt) {
+            $statement_nextlow = "v = limit-1;";
+            $statement_nexthigh = "v = limit+1;";
+            $rangeDtype = 'long';
+            $rangeNDArrayDtype = NDArray::int64;
+        } else {
+            $statement_nextlow = "v = nextafter(limit,({$dtype})(-INFINITY));";
+            $statement_nexthigh = "v = nextafter(limit,({$dtype})(INFINITY));";
+            $rangeDtype = $dtype;
+            $rangeNDArrayDtype = $X->dtype();
+        }
+        $kernel_name = "range_{$dtype}";
+        if(!isset($this->sources[$kernel_name])) {
+            $this->sources[$kernel_name] =
+                "__kernel void {$kernel_name}(\n".
+                "        __global {$dtype} * x,\n".
+                "    const        int       offset_x,\n".
+                "    const        int       incx,\n".
+                "    const        {$rangeDtype}  start,\n".
+                "    const        {$rangeDtype}  limit,\n".
+                "    const        {$rangeDtype}  delta)\n".
+                "{\n".
+                "    int gid = get_global_id(0);\n".
+                "    int index_x = gid*incx+offset_x;\n".
+                "    {$rangeDtype} v = start + ({$rangeDtype})gid * delta;\n".
+                "    if(delta>0) {\n".
+                "        if(v>limit) {\n".
+                $statement_nextlow.
+                "        }\n".
+                "    } else {\n".
+                "        if(v<limit) {\n".
+                $statement_nexthigh.
+                "        }\n".
+                "    }\n".
+                "    x[index_x] = v;\n".
+                "}\n";
+        }
+        $kernel = $this->createKernel($kernel_name);
+
+        $kernel->setArg(0,$X);
+        $kernel->setArg(1,$offsetX,NDArray::int32);
+        $kernel->setArg(2,$incX,NDArray::int32);
+        $kernel->setArg(3,$start,$rangeNDArrayDtype);
+        $kernel->setArg(4,$limit,$rangeNDArrayDtype);
+        $kernel->setArg(5,$delta,$rangeNDArrayDtype);
         $global_work_size = [$n];
         $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
             $events,$waitEvents);
@@ -6334,11 +6495,12 @@ EOT;
             $this->assertFP64();
         }
         $type = $this->dtypeToOpenCLType[$dtypeX];
+        $typeFP32 = $this->dtypeToOpenCLType[NDArray::float32];
         $kernel_name = "nan2num_{$type}";
         if(!isset($this->sources[$kernel_name])) {
             $this->sources[$kernel_name] =
                 "__kernel void {$kernel_name}(\n".
-                "    const        {$type} alpha,\n".
+                "    const        {$typeFP32} alpha,\n".
                 "        __global {$type} * x,\n".
                 "    const        int offset_x,\n".
                 "    const        int incx)\n".
@@ -9031,4 +9193,117 @@ EOT;
             $events,$waitEvents);
     }
 
+    public const WHERE_MATRIX = 0;
+    public const WHERE_VECTOR = 1;
+    public const WHERE_SCALAR = 2;
+
+    /**
+     *    Out(m,n) := Cond ? X : Y
+     *
+     *    Kind of each operand (kind)
+     *      WHERE_MATRIX : Same shape as (m,n) (ld = n)
+     *      WHERE_VECTOR : If trans=false, n elements of [j]; if trans=true, m elements of [i]
+     *      WHERE_SCALAR : 1 element
+     *    Out is a contiguous region of (m,n).
+     */
+    public function where(
+        bool $trans,
+        int $m,
+        int $n,
+        BufferInterface $Cond, int $offsetCond, int $kindCond,
+        BufferInterface $X, int $offsetX, int $kindX,
+        BufferInterface $Y, int $offsetY, int $kindY,
+        BufferInterface $Out, int $offsetOut,
+        ?object $events=null, ?object $waitEvents=null
+        ) : void
+    {
+        if($m<=0 || $n<=0) {
+            return;
+        }
+        foreach([$kindCond,$kindX,$kindY] as $kind) {
+            if($kind!=self::WHERE_MATRIX &&
+                $kind!=self::WHERE_VECTOR &&
+                $kind!=self::WHERE_SCALAR) {
+                throw new InvalidArgumentException('Unknown operand kind for where.: '.$kind);
+            }
+        }
+        $dtypeX = $X->dtype();
+        if($dtypeX!=$Y->dtype() || $dtypeX!=$Out->dtype()) {
+            throw new InvalidArgumentException('Unmatch dtype of X, Y and Out.');
+        }
+        if($dtypeX==NDArray::float64) {
+            $this->assertFP64();
+        }
+        $type = $this->dtypeToOpenCLType[$dtypeX];
+        $typeCond = $this->dtypeToOpenCLType[$Cond->dtype()] ?? 'uchar';
+
+        // If there is no vector, trans does not affect the result, so share the kernel
+        $hasVector = ($kindCond==self::WHERE_VECTOR ||
+                      $kindX==self::WHERE_VECTOR ||
+                      $kindY==self::WHERE_VECTOR);
+        $transName = ($trans && $hasVector) ? 'trans' : 'norm';
+        $letters = [
+            self::WHERE_MATRIX => 'm',
+            self::WHERE_VECTOR => 'v',
+            self::WHERE_SCALAR => 's',
+        ];
+        $kinds = $letters[$kindCond].$letters[$kindX].$letters[$kindY];
+
+        $kernel_name = "where_{$typeCond}_{$type}_{$transName}_{$kinds}";
+        if(!isset($this->sources[$kernel_name])) {
+            $index_c = $this->whereIndex($kindCond,'offset_c',$transName=='trans');
+            $index_x = $this->whereIndex($kindX,'offset_x',$transName=='trans');
+            $index_y = $this->whereIndex($kindY,'offset_y',$transName=='trans');
+            $this->sources[$kernel_name] =
+                "__kernel void {$kernel_name}(\n".
+                "    const global {$typeCond} * cond,\n".
+                "    const        int offset_c,\n".
+                "    const global {$type} * x,\n".
+                "    const        int offset_x,\n".
+                "    const global {$type} * y,\n".
+                "    const        int offset_y,\n".
+                "        __global {$type} * out,\n".
+                "    const        int offset_out,\n".
+                "    const        int n)\n".
+                "{\n".
+                "    const int j = get_global_id(0);\n".
+                "    const int i = get_global_id(1);\n".
+                "    const int index_c = {$index_c};\n".
+                "    const int index_x = {$index_x};\n".
+                "    const int index_y = {$index_y};\n".
+                "    const int index_out = i*n+j+offset_out;\n".
+                "    out[index_out] = (cond[index_c] != 0) ? x[index_x] : y[index_y];\n".
+                "}\n";
+        }
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$Cond);
+        $kernel->setArg(1,$offsetCond,NDArray::int32);
+        $kernel->setArg(2,$X);
+        $kernel->setArg(3,$offsetX,NDArray::int32);
+        $kernel->setArg(4,$Y);
+        $kernel->setArg(5,$offsetY,NDArray::int32);
+        $kernel->setArg(6,$Out);
+        $kernel->setArg(7,$offsetOut,NDArray::int32);
+        $kernel->setArg(8,$n,NDArray::int32);
+        // Align memory access by making dimension 0 the contiguous direction (j)
+        $global_work_size = [$n,$m];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
+            $events,$waitEvents);
+    }
+
+    /**
+     * Returns an OpenCL expression representing the operand's reference position for the output position (i,j).
+     */
+    protected function whereIndex(int $kind, string $offset, bool $trans) : string
+    {
+        switch($kind) {
+            case self::WHERE_MATRIX:
+                return "i*n+j+{$offset}";
+            case self::WHERE_VECTOR:
+                return $trans ? "i+{$offset}" : "j+{$offset}";
+            default:
+                return $offset;
+        }
+    }
+    
 }

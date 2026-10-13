@@ -3102,4 +3102,25 @@ class LinearAlgebraCLTest extends ORGTest
         $this->assertEquals([14,25,36],$arTrans);
     }
 
+    public function testFP16Test()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        if(!$la->getOpenCLMath()->fp16()) {
+            $this->markTestSkipped('Not support fp16');
+            return;
+        }
+
+        $X1 = $la->astype($la->array([100,200,300]),dtype:NDArray::float16);
+        $X2 = $la->astype($la->array([1,2,3]),dtype:NDArray::float16);
+        $this->assertEquals(3*(16/8), $X1->buffer()->bytes());
+        $this->assertEquals(3*(16/8), $X2->buffer()->bytes());
+        $Y16 = $la->add($X1,$X2);
+        $this->assertEquals(3*(16/8), $Y16->buffer()->bytes());
+        $Y32 = $la->astype($Y16,dtype:NDArray::float32);
+        $this->assertEquals(3*(32/8), $Y32->buffer()->bytes());
+
+        $this->assertEquals([101,202,303],$Y32->toArray());
+    }
+
 }

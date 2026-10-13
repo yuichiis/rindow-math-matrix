@@ -3,6 +3,7 @@ namespace Rindow\Math\Matrix;
 
 use Interop\Polite\Math\Matrix\NDArray;
 use Interop\Polite\Math\Matrix\BLAS;
+use InvalidArgumentException;
 
 trait LinalgUtils
 {
@@ -175,6 +176,190 @@ trait LinalgUtils
             $value = $this->cbuild($value);
         }
         return $value;
+    }
+
+    /**
+     * @param array<int> $shapeX
+     * @param array<int> $shapeA
+     */
+    protected function assertBroadcastShape(
+        array $shapeA,
+        array $shapeX,
+        ?bool $trans=null,
+        ) : void
+    {
+        if(count($shapeX)==0) {
+            return;
+        }
+
+        $trans ??= false;
+        if($trans) {
+            $failShape = $shapeX!=array_slice($shapeA,0,count($shapeX));
+        } else {
+            $failShape = $shapeX!=array_slice($shapeA,-count($shapeX));
+        }
+        if($failShape) {
+            throw new InvalidArgumentException('Unmatch dimension size for broadcast.: '.
+                $this->shapeToString($shapeX).' => '.$this->shapeToString($shapeA));
+        }
+    }
+
+    protected const WHERE_MATRIX = 0;
+    protected const WHERE_VECTOR = 1;
+    protected const WHERE_SCALAR = 2;
+
+    /**
+     * @param array<bool|int|NDArray> $args
+     */
+    protected function transformBroadcastShape(
+        array $args,
+        int $dtype,
+        bool $trans,
+        ) : array
+    {
+        $ops = [];
+        // Normalize into pairs of [NDArray, whether it is a scalar]
+        foreach($args as $v) {
+            if($v instanceof NDArray) {
+                $ops[] = [$v, $v->ndim()==0];
+            } else {
+                $ops[] = [$this->array([$v],dtype:$dtype), true];
+            }
+        }
+
+        // Determine the base shape (the one with the largest number of dimensions)
+        $baseShape = [];
+        $baseNdim = -1;
+        foreach($ops as [$a,$scalar]) {
+            if($scalar) {
+                continue;
+            }
+            $ndim = $a->ndim();
+            if($ndim>$baseNdim) {
+                $baseNdim = $ndim;
+                $baseShape = $a->shape();
+            }
+        }
+
+        // Determine the kind of each operand (matrix/vector/scalar)
+        $kinds = [];
+        $vecShape = null;
+        foreach($ops as [$a,$scalar]) {
+            if($scalar) {
+                $kinds[] = self::WHERE_SCALAR;
+                continue;
+            }
+            $shape = $a->shape();
+            $ndim = $a->ndim();
+            if($ndim==$baseNdim) {
+                if($shape!=$baseShape) {
+                    throw new InvalidArgumentException('Unmatch shape for where.: '.
+                        $this->shapeToString($shape).' => '.$this->shapeToString($baseShape));
+                }
+                $kinds[] = self::WHERE_MATRIX;
+                continue;
+            }
+            $expect = $trans
+                ? array_slice($baseShape,0,$ndim)
+                : array_slice($baseShape,-$ndim);
+            if($shape!=$expect) {
+                throw new InvalidArgumentException('Unmatch dimension size for broadcast.: '.
+                    $this->shapeToString($shape).' => '.$this->shapeToString($baseShape));
+            }
+            if($vecShape!==null && $vecShape!=$shape) {
+                throw new InvalidArgumentException('Broadcast shapes must be the same.: '.
+                    $this->shapeToString($vecShape).' and '.$this->shapeToString($shape));
+            }
+            $vecShape = $shape;
+            $kinds[] = self::WHERE_VECTOR;
+        }
+
+        // Decompose into m, n
+        $total = (int)array_product($baseShape);
+        if($vecShape===null) {
+            $m = 1;
+            $n = $total;
+        } else {
+            $k = (int)array_product($vecShape);
+            if($trans) {
+                $m = $k;
+                $n = ($k>0) ? intdiv($total,$k) : 0;
+            } else {
+                $n = $k;
+                $m = ($k>0) ? intdiv($total,$k) : 0;
+            }
+        }
+
+        return [$ops,$baseShape,$kinds,$m,$n,$total];
+    }
+
+    public function expandDims(NDArray $x, int $axis) : NDArray
+    {
+        $shape = $x->shape();
+        $ndim = $x->ndim();
+        $orgAxis = $axis;
+        if($axis<0) {
+            $axis = $ndim + $axis + 1;
+        }
+        if($axis<0||$axis>$ndim) {
+            throw new InvalidArgumentException('axis is out of range: '.$orgAxis);
+        }
+        //$newShape = [];
+        //$i = 0;
+        //foreach ($shape as $n) {
+        //    if($i==$axis) {
+        //        $newShape[] = 1;
+        //    }
+        //    $newShape[] = $n;
+        //    $i++;
+        //}
+        //if($i==$axis) {
+        //    $newShape[] = 1;
+        //}
+        $innerShape = $shape;
+        $outerShape = array_splice($innerShape,0,$axis);
+        $newShape = array_merge($outerShape, [1], $innerShape);
+        return $x->reshape($newShape);
+    }
+
+    public function squeeze(NDArray $x, ?int $axis=null) : NDArray
+    {
+        $shape = $x->shape();
+        if($axis===null) {
+            $newShape = [];
+            foreach ($shape as $n) {
+                if($n!=1) {
+                    $newShape[] = $n;
+                }
+            }
+            return $x->reshape($newShape);
+        }
+        $ndim = $x->ndim();
+        $orgAxis = $axis;
+        if($axis<0) {
+            $axis = $ndim + $axis;
+        }
+        if($axis<0||$axis>=$ndim) {
+            throw new InvalidArgumentException('axis is out of range: '.$orgAxis);
+        }
+        //$newShape = [];
+        //$i = 0;
+        //foreach ($shape as $n) {
+        //    if($i!=$axis) {
+        //        $newShape[] = $n;
+        //    } else {
+        //        if($n!=1) {
+        //            throw new InvalidArgumentException('Can not squeeze dim['.$axis.']');
+        //        }
+        //    }
+        //    $i++;
+        //}
+        if($shape[$axis]!=1) {
+            throw new InvalidArgumentException('Can not squeeze dim['.$axis.']');
+        }
+        $newShape = $shape;
+        array_splice($newShape,$axis,1);
+        return $x->reshape($newShape);
     }
 
 }
