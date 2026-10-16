@@ -8488,6 +8488,101 @@ EOT;
             $events,$waitEvents);
     }
 
+    /**
+     * Count the number of occurrences of each class.
+     * 
+     *  axis=-1 (trans=false):  Y(m,numClasses) := bincount(X(m,n))
+     *  axis=0  (trans=true):   Y(numClasses,n) := bincount(X(m,n))
+     *  Values outside the valid range (negative or greater than or
+     *  equal to `numClasses`) are ignored. `Y` is zeroed out within
+     *  the function.
+     */
+    public function bincount(
+        bool $trans,
+        int $m,
+        int $n,
+        int $numClasses,
+        BufferInterface $X, int $offsetX,
+        BufferInterface $Y, int $offsetY,
+        ?object $events=null, ?object $waitEvents=null
+        ) : void
+    {
+        if($m<=0 || $n<=0 || $numClasses<=0) {
+            return;
+        }
+        $dtypeX = $X->dtype();
+        $dtypeY = $Y->dtype();
+        $intTypes = [NDArray::int32, NDArray::int64];
+        if(!in_array($dtypeX,$intTypes,true) || !in_array($dtypeY,$intTypes,true)) {
+            throw new InvalidArgumentException('X and Y must be int32 or int64.');
+        }
+        $typeX = $this->dtypeToOpenCLType[$dtypeX];
+        $typeY = $this->dtypeToOpenCLType[$dtypeY];
+        if($trans) {
+            $trans = 'trans';
+            $parallel = $n;     // 1 work item per column.
+        } else {
+            $trans = 'norm';
+            $parallel = $m;     // 1 work item per row.
+        }
+        $kernel_name = "bincount_{$typeX}_{$typeY}_{$trans}";
+        if(!isset($this->sources[$kernel_name])) {
+            if($trans=='trans') {
+                // X[m,n] -> Y[numClasses,n]
+                // Adjacent work items read adjacent columns, resulting in continuous memory access.
+                $body =
+                    "    const int j = get_global_id(0);\n".
+                    "    for(int c=0; c<num_classes; c++) {\n".
+                    "        y[offset_y + (long)c*n + j] = 0;\n".
+                    "    }\n".
+                    "    for(int i=0; i<m; i++) {\n".
+                    "        const {$typeX} v = x[offset_x + (long)i*n + j];\n".
+                    "        if(v >= 0 && v < ({$typeX})num_classes) {\n".
+                    "            y[offset_y + (long)v*n + j]++;\n".
+                    "        }\n".
+                    "    }\n";
+            } else {
+                // X[m,n] -> Y[m,numClasses]
+                $body =
+                    "    const int i = get_global_id(0);\n".
+                    "    const global {$typeX} * in = x + offset_x + (long)i*n;\n".
+                    "    __global {$typeY} * out = y + offset_y + (long)i*num_classes;\n".
+                    "    for(int c=0; c<num_classes; c++) {\n".
+                    "        out[c] = 0;\n".
+                    "    }\n".
+                    "    for(int j=0; j<n; j++) {\n".
+                    "        const {$typeX} v = in[j];\n".
+                    "        if(v >= 0 && v < ({$typeX})num_classes) {\n".
+                    "            out[v]++;\n".
+                    "        }\n".
+                    "    }\n";
+            }
+            $this->sources[$kernel_name] =
+                "__kernel void {$kernel_name}(\n".
+                "    const global {$typeX} * x,\n".
+                "    const        int offset_x,\n".
+                "        __global {$typeY} * y,\n".
+                "    const        int offset_y,\n".
+                "    const        int m,\n".
+                "    const        int n,\n".
+                "    const        int num_classes)\n".
+                "{\n".
+                $body.
+                "}\n";
+        }
+        $kernel = $this->createKernel($kernel_name);
+        $kernel->setArg(0,$X);
+        $kernel->setArg(1,$offsetX,NDArray::int32);
+        $kernel->setArg(2,$Y);
+        $kernel->setArg(3,$offsetY,NDArray::int32);
+        $kernel->setArg(4,$m,NDArray::int32);
+        $kernel->setArg(5,$n,NDArray::int32);
+        $kernel->setArg(6,$numClasses,NDArray::int32);
+        $global_work_size = [$parallel];
+        $kernel->enqueueNDRange($this->queue,$global_work_size,null,null,
+            $events,$waitEvents);
+    }
+    
     public function fill(
         int $n,
         BufferInterface $X, int $offsetX, int $incX,

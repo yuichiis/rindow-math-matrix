@@ -6085,6 +6085,74 @@ class LinearAlgebraCL
     }
 
     /**
+     * Returns the number of occurrences of each value in an array.
+     */
+    public function bincount(
+        NDArray $input,
+        int $numClass,
+        ?bool $trans=null,
+        ?NDArray $output=null,
+        ?object $events=null, ?object $waitEvents=null
+    ) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("bincount");
+        }
+        $trans ??= false;
+        $dtype = $input->dtype();
+        if($dtype!==NDArray::int32 && $dtype!==NDArray::int64) {
+            throw new InvalidArgumentException('input must be int32 or int64 dtype.');
+        }
+        $ndim = $input->ndim();
+        if($ndim!=1&&$ndim!=2) {
+            throw new InvalidArgumentException('input must be 1D or 2D NDArray.');
+        }
+        if($numClass<1) {
+            throw new InvalidArgumentException('numClass must be positive.');
+        }
+
+        if($ndim==1) {
+            $m = 1;
+            $n = $input->shape()[0];
+            $outputShape = [$numClass];
+        } else {
+            [$m,$n] = $input->shape();
+            if($trans) {
+                $outputShape = [$numClass,$n];
+            } else {
+                $outputShape = [$m,$numClass];
+            }
+        }
+
+        if($output==null) {
+            $output = $this->alloc($outputShape,dtype:$dtype);
+        } else {
+            if($output->shape()!=$outputShape) {
+                throw new InvalidArgumentException('output shape must match expected shape.');
+            }
+            if($output->dtype()!=$dtype) {
+                throw new InvalidArgumentException('output dtype must match expected dtype.');
+            }
+        }
+        $this->openclmath->bincount(
+            $trans,
+            $m,
+            $n,
+            $numClass,
+            $input->buffer(), $input->offset(),
+            $output->buffer(), $output->offset(),
+            $events,$waitEvents
+        );
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("bincount");
+        }
+        return $output;
+    }
+
+    /**
      *  Y = X(n)
      * @param array<int> $begin
      * @param array<int> $size

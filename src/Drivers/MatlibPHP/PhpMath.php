@@ -2963,6 +2963,79 @@ class PhpMath
     }
 
     /**
+     *    axis=-1 (trans=false):  Y(m,numClasses) := bincount(X(m,n))
+     *    axis=0  (trans=true):   Y(numClasses,n) := bincount(X(m,n))
+     *    Out of range values (negative, greater than or equal to numClasses) are ignored. Y is cleared within the function.
+     */
+    public function bincount(
+        bool $trans,
+        int $m,
+        int $n,
+        int $numClasses,
+        Buffer $X, int $offsetX,
+        Buffer $Y, int $offsetY
+        ) : void
+    {
+        //if($this->useMath($X)) {
+        //    $this->math->bincount($trans,$m,$n,$numClasses,$X,$offsetX,$Y,$offsetY);
+        //    return;
+        //}
+
+        if($m<=0 || $n<=0 || $numClasses<=0) {
+            return;
+        }
+
+        $intTypes = [NDArray::int32, NDArray::int64];
+        if(!in_array($X->dtype(),$intTypes,true) || !in_array($Y->dtype(),$intTypes,true)) {
+            throw new InvalidArgumentException('X and Y must be int32 or int64.');
+        }
+
+        if($offsetX+($m*$n)>count($X))
+            throw new InvalidArgumentException('Matrix specification too large for bufferX.');
+
+        if(!$trans) {
+            $sizeY = $m*$numClasses;
+        } else {
+            $sizeY = $numClasses*$n;
+        }
+        if($offsetY+$sizeY>count($Y))
+            throw new InvalidArgumentException('Matrix specification too large for bufferY.');
+
+        // Clear to zero
+        $idY = $offsetY;
+        for($k=0; $k<$sizeY; $k++,$idY++) {
+            $Y[$idY] = 0;
+        }
+
+        if(!$trans) {
+            // X[m,n] -> Y[m,numClasses]
+            $idXi = $offsetX;
+            $idYi = $offsetY;
+            for($i=0; $i<$m; $i++,$idXi+=$n,$idYi+=$numClasses) {
+                $idX = $idXi;
+                for($j=0; $j<$n; $j++,$idX++) {
+                    $v = $X[$idX];
+                    if($v>=0 && $v<$numClasses) {
+                        $Y[$idYi+$v] = $Y[$idYi+$v] + 1;
+                    }
+                }
+            }
+        } else {
+            // X[m,n] -> Y[numClasses,n]
+            $idX = $offsetX;
+            for($i=0; $i<$m; $i++) {
+                for($j=0; $j<$n; $j++,$idX++) {
+                    $v = $X[$idX];
+                    if($v>=0 && $v<$numClasses) {
+                        $idY = $offsetY+$v*$n+$j;
+                        $Y[$idY] = $Y[$idY] + 1;
+                    }
+                }
+            }
+        }
+    }
+
+    /**
     */
     public function slice(
         bool $reverse,
