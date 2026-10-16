@@ -7192,7 +7192,7 @@ class LinearAlgebraCL
                 $xx->buffer(),$xx->offset(),$kinds[1],
                 $yy->buffer(),$yy->offset(),$kinds[2],
                 $output->buffer(),$output->offset(),
-                $events, $waitEvents
+                events:$events, waitEvents:$waitEvents
             );
         }
 

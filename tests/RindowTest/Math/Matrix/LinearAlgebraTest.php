@@ -12297,6 +12297,148 @@ class LinearAlgebraTest extends TestCase
 
     }
 
+    public static function providerDtypesInt32Int64()
+    {
+        return [
+            'int32' => [[
+                'dtype' => NDArray::int32,
+            ]],
+            'int64' => [[
+                'dtype' => NDArray::int64,
+            ]],
+        ];
+    }
+
+    #[DataProvider('providerDtypesInt32Int64')]
+    public function testBincountNormal($params)
+    {
+        extract($params);
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // ===== trans: false ======
+        $batchSize = 2;
+        $numSamples = 4;
+        $numClasses = 3;
+        $labels = $la->array([
+            [0,1,2,0],
+            [1,1,0,2],
+        ],dtype:$dtype);
+        $this->assertEquals($labels->shape(),[$batchSize,$numSamples]);
+        $output = $la->bincount(
+            $labels,
+            $numClasses,
+        );
+        $this->assertEquals([$batchSize,$numClasses],$output->shape());
+        $expected = [
+            [2,1,1],
+            [1,2,1],
+        ];
+        $this->assertEquals($expected,$output->toArray());
+        $this->assertEquals(
+            [
+                [0,1,2,0],
+                [1,1,0,2],
+            ],
+            $labels->toArray()
+        );
+
+        // ====== trans: true ======
+        $batchSize = 4;
+        $numSamples = 2;
+        $numClasses = 3;
+        $labels = $la->array([
+            [0,1,2,0],
+            [1,1,0,2],
+        ],dtype:$dtype);
+        $this->assertEquals($labels->shape(),[$numSamples,$batchSize]);
+        $output = $la->bincount(
+            $labels,
+            $numClasses,
+            trans: true,
+        );
+        $this->assertEquals([$numClasses,$batchSize],$output->shape());
+
+        $expected = [
+            [1,0,1,1],
+            [1,2,0,0],
+            [0,0,1,1],
+        ];
+        $this->assertEquals($expected,$output->toArray());
+        $this->assertEquals(
+            [
+                [0,1,2,0],
+                [1,1,0,2],
+            ],
+            $labels->toArray()
+        );
+    }
+
+    #[DataProvider('providerDtypesInt32Int64')]
+    public function testBincountOverflow($params)
+    {
+        extract($params);
+
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // ===== trans: false ======
+        $batchSize = 2;
+        $numSamples = 4;
+        $numClass = 3;
+        $labels = $la->array([
+            [0,-1,2,0],
+            [1, 1,0,3],
+        ],dtype:$dtype);
+        $this->assertEquals($labels->shape(),[$batchSize,$numSamples]);
+        $output = $la->bincount(
+            $labels,
+            $numClass,
+        );
+        $this->assertEquals([$batchSize,$numClass],$output->shape());
+        $expected = [
+            [2,0,1],
+            [1,2,0],
+        ];
+        $this->assertEquals($expected,$output->toArray());
+        $this->assertEquals(
+            [
+                [0,-1,2,0],
+                [1, 1,0,3],
+            ],
+            $labels->toArray()
+        );
+
+        // ====== trans: true ======
+        $batchSize = 4;
+        $numSamples = 2;
+        $numClass = 3;
+        $labels = $la->array([
+            [0,-1,2,0],
+            [1, 1,0,3],
+        ],dtype:$dtype);
+        $this->assertEquals($labels->shape(),[$numSamples,$batchSize]);
+        $output = $la->bincount(
+            $labels,
+            $numClass,
+            trans: true,
+        );
+        $this->assertEquals([$numClass,$batchSize],$output->shape());
+        $expected = [
+            [1,0,1,1],
+            [1,1,0,0],
+            [0,0,1,0],
+        ];
+        $this->assertEquals($expected,$output->toArray());
+        $this->assertEquals(
+            [
+                [0,-1,2,0],
+                [1, 1,0,3],
+            ],
+            $labels->toArray()
+        );
+    }
+
     public function testSlice()
     {
         $mo = $this->newMatrixOperator();
