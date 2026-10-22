@@ -2972,6 +2972,7 @@ class PhpMath
         int $m,
         int $n,
         int $numClasses,
+        bool $addMode,
         Buffer $X, int $offsetX,
         Buffer $Y, int $offsetY
         ) : void
@@ -3001,10 +3002,12 @@ class PhpMath
         if($offsetY+$sizeY>count($Y))
             throw new InvalidArgumentException('Matrix specification too large for bufferY.');
 
-        // Clear to zero
-        $idY = $offsetY;
-        for($k=0; $k<$sizeY; $k++,$idY++) {
-            $Y[$idY] = 0;
+        if(!$addMode) {
+            // Clear to zero
+            $idY = $offsetY;
+            for($k=0; $k<$sizeY; $k++,$idY++) {
+                $Y[$idY] = 0;
+            }
         }
 
         if(!$trans) {

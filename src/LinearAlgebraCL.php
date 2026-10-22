@@ -6091,6 +6091,7 @@ class LinearAlgebraCL
         NDArray $input,
         int $numClass,
         ?bool $trans=null,
+        ?bool $addMode=null,
         ?NDArray $output=null,
         ?object $events=null, ?object $waitEvents=null
     ) : NDArray
@@ -6099,6 +6100,7 @@ class LinearAlgebraCL
             $this->profilingStart("bincount");
         }
         $trans ??= false;
+        $addMode ??= false;
         $dtype = $input->dtype();
         if($dtype!==NDArray::int32 && $dtype!==NDArray::int64) {
             throw new InvalidArgumentException('input must be int32 or int64 dtype.');
@@ -6139,6 +6141,7 @@ class LinearAlgebraCL
             $m,
             $n,
             $numClass,
+            $addMode,
             $input->buffer(), $input->offset(),
             $output->buffer(), $output->offset(),
             $events,$waitEvents

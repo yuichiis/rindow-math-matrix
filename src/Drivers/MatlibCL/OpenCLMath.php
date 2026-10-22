@@ -8502,6 +8502,7 @@ EOT;
         int $m,
         int $n,
         int $numClasses,
+        bool $addMode,
         BufferInterface $X, int $offsetX,
         BufferInterface $Y, int $offsetY,
         ?object $events=null, ?object $waitEvents=null
@@ -8525,16 +8526,25 @@ EOT;
             $trans = 'norm';
             $parallel = $m;     // 1 work item per row.
         }
-        $kernel_name = "bincount_{$typeX}_{$typeY}_{$trans}";
+        if($addMode) {
+            $addMode = '_add';
+        } else {
+            $addMode = '';
+        }
+        $kernel_name = "bincount_{$typeX}_{$typeY}_{$trans}{$addMode}";
         if(!isset($this->sources[$kernel_name])) {
             if($trans=='trans') {
                 // X[m,n] -> Y[numClasses,n]
                 // Adjacent work items read adjacent columns, resulting in continuous memory access.
                 $body =
-                    "    const int j = get_global_id(0);\n".
+                    "    const int j = get_global_id(0);\n";
+                if($addMode==='') {
+                    $body .=
                     "    for(int c=0; c<num_classes; c++) {\n".
                     "        y[offset_y + (long)c*n + j] = 0;\n".
-                    "    }\n".
+                    "    }\n";
+                }
+                $body .=
                     "    for(int i=0; i<m; i++) {\n".
                     "        const {$typeX} v = x[offset_x + (long)i*n + j];\n".
                     "        if(v >= 0 && v < ({$typeX})num_classes) {\n".
@@ -8546,10 +8556,14 @@ EOT;
                 $body =
                     "    const int i = get_global_id(0);\n".
                     "    const global {$typeX} * in = x + offset_x + (long)i*n;\n".
-                    "    __global {$typeY} * out = y + offset_y + (long)i*num_classes;\n".
+                    "    __global {$typeY} * out = y + offset_y + (long)i*num_classes;\n";
+                if($addMode==='') {
+                    $body .=
                     "    for(int c=0; c<num_classes; c++) {\n".
                     "        out[c] = 0;\n".
-                    "    }\n".
+                    "    }\n";
+                }
+                $body .=
                     "    for(int j=0; j<n; j++) {\n".
                     "        const {$typeX} v = in[j];\n".
                     "        if(v >= 0 && v < ({$typeX})num_classes) {\n".

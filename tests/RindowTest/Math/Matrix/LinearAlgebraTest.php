@@ -12375,6 +12375,77 @@ class LinearAlgebraTest extends TestCase
     }
 
     #[DataProvider('providerDtypesInt32Int64')]
+    public function testBincountAddMode($params)
+    {
+        extract($params);
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // ===== trans: false ======
+        $batchSize = 2;
+        $numSamples = 4;
+        $numClasses = 3;
+        $labels = $la->array([
+            [0,1,2,0],
+            [1,1,0,2],
+        ],dtype:$dtype);
+        $this->assertEquals($labels->shape(),[$batchSize,$numSamples]);
+        $output = $la->ones($la->alloc([$batchSize,$numClasses],dtype:$dtype));
+        $la->bincount(
+            $labels,
+            $numClasses,
+            addMode:true,
+            output:$output,
+        );
+        $this->assertEquals([$batchSize,$numClasses],$output->shape());
+        $expected = [
+            [3,2,2],
+            [2,3,2],
+        ];
+        $this->assertEquals($expected,$output->toArray());
+        $this->assertEquals(
+            [
+                [0,1,2,0],
+                [1,1,0,2],
+            ],
+            $labels->toArray()
+        );
+
+        // ====== trans: true ======
+        $batchSize = 4;
+        $numSamples = 2;
+        $numClasses = 3;
+        $labels = $la->array([
+            [0,1,2,0],
+            [1,1,0,2],
+        ],dtype:$dtype);
+        $this->assertEquals($labels->shape(),[$numSamples,$batchSize]);
+        $output = $la->ones($la->alloc([$numClasses,$batchSize],dtype:$dtype));
+        $la->bincount(
+            $labels,
+            $numClasses,
+            trans: true,
+            addMode: true,
+            output:$output,
+        );
+        $this->assertEquals([$numClasses,$batchSize],$output->shape());
+
+        $expected = [
+            [2,1,2,2],
+            [2,3,1,1],
+            [1,1,2,2],
+        ];
+        $this->assertEquals($expected,$output->toArray());
+        $this->assertEquals(
+            [
+                [0,1,2,0],
+                [1,1,0,2],
+            ],
+            $labels->toArray()
+        );
+    }
+
+    #[DataProvider('providerDtypesInt32Int64')]
     public function testBincountOverflow($params)
     {
         extract($params);
