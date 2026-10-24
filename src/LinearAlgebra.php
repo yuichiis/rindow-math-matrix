@@ -215,18 +215,37 @@ class LinearAlgebra
     }
 
     public function zeros(
-        NDArray $X) : NDArray
+        array|NDArray $X,
+        ?int $dtype=null,
+        ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("zeros");
+        }
+        if(is_array($X)) {
+            $X = $this->alloc($X,dtype:$dtype);
+        }
         $N = $X->size();
         $XX = $X->buffer();
         $offX = $X->offset();
         $this->math->zeros($N,$XX,$offX,1);
+        if($this->profiling) {
+            $this->profilingEnd("zeros");
+        }
         return $X;
     }
 
     public function ones(
-        NDArray $X) : NDArray
+        array|NDArray $X,
+        ?int $dtype=null,
+        ) : NDArray
     {
+        if($this->profiling) {
+            $this->profilingStart("ones");
+        }
+        if(is_array($X)) {
+            $X = $this->alloc($X,dtype:$dtype);
+        }
         if($X->dtype()==NDArray::bool) {
             $value = true;
         } else {
@@ -5328,11 +5347,15 @@ class LinearAlgebra
 
     public function fill(
         mixed $value,
-        NDArray $X
+        array|NDArray $X,
+        ?int $dtype=null,
         ) : NDArray
     {
         if($this->profiling) {
             $this->profilingStart("fill");
+        }
+        if(is_array($X)) {
+            $X = $this->alloc($X,dtype:$dtype);
         }
         if(is_scalar($value)) {
             if(is_string($value)) {

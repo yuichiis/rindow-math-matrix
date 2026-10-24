@@ -374,24 +374,34 @@ class LinearAlgebraCL
     }
 
     public function zeros(
-        NDArray $X,
+        array|NDArray $X,
+        ?int $dtype=null,
+        ?int $flags=null,
         ?object $events=null, ?object $waitEvents=null) : NDArray
     {
+        if(is_array($X)) {
+            $X = $this->alloc($X,dtype:$dtype,flags:$flags);
+        }
         $value = $this->buildValByType(0.0,$X->dtype());
-        $this->fill($value,$X,$events,$waitEvents);
+        $this->fill($value,$X,events:$events,waitEvents:$waitEvents);
         return $X;
     }
 
     public function ones(
-        NDArray $X,
+        array|NDArray $X,
+        ?int $dtype=null,
+        ?int $flags=null,
         ?object $events=null, ?object $waitEvents=null) : NDArray
     {
+        if(is_array($X)) {
+            $X = $this->alloc($X,dtype:$dtype,flags:$flags);
+        }
         if($X->dtype()==NDArray::bool) {
             $value = true;
         } else {
             $value = $this->buildValByType(1,$X->dtype());
         }
-        $this->fill($value,$X,$events,$waitEvents);
+        $this->fill($value,$X,events:$events,waitEvents:$waitEvents);
         return $X;
     }
 
@@ -406,11 +416,16 @@ class LinearAlgebraCL
 
     public function fill(
         mixed $value,
-        NDArray $X,
+        array|NDArray $X,
+        ?int $dtype=null,
+        ?int $flags=null,
         ?object $events=null, ?object $waitEvents=null) : NDArray
     {
         if($this->profiling) {
             $this->profilingStart("fill");
+        }
+        if(is_array($X)) {
+            $X = $this->alloc($X,dtype:$dtype,flags:$flags);
         }
         if($this->isOpenCL110) {
             if(is_scalar($value)) {
@@ -3993,7 +4008,7 @@ class LinearAlgebraCL
             $output = $this->alloc($outputShape,dtype:$dtype);
             $waitPrev = $waitEvents;
             $waitEvents = $this->newEventList();
-            $this->zeros($output,$waitEvents,$waitPrev);
+            $this->zeros($output, events:$waitEvents, waitEvents:$waitPrev);
         } else {
             if($output->shape()!=$outputShape) {
                 throw new InvalidArgumentException("Unmatch output shape of dimension: ".
@@ -4199,7 +4214,7 @@ class LinearAlgebraCL
             $output = $this->alloc($outputShape,dtype:$dtype);
             $waitPrev = $waitEvents;
             $waitEvents = $this->newEventList();
-            $this->zeros($output,$waitEvents,$waitPrev);
+            $this->zeros($output, events:$waitEvents, waitEvents:$waitPrev);
         } else {
             if($output->shape()!=$outputShape) {
                 $shapeError = '('.implode(',',$A->shape()).'),('.implode(',',$output->shape()).')';
@@ -4354,7 +4369,7 @@ class LinearAlgebraCL
             $B = $this->alloc($outputShape, dtype:$A->dtype());
             $waitPrev = $waitEvents;
             $waitEvents = $this->newEventList();
-            $this->zeros($B,$waitEvents,$waitPrev);
+            $this->zeros($B, events:$waitEvents, waitEvents:$waitPrev);
         } else {
             if($B->shape()!=$outputShape) {
                 $expects = $this->printableShapes($outputShape);
@@ -4459,7 +4474,7 @@ class LinearAlgebraCL
             $outputs = $this->alloc($shape,$updates->dtype());
             $waitPrev = $waitEvents;
             $waitEvents = $this->newEventList();
-            $this->zeros($outputs,$waitEvents,$waitPrev);
+            $this->zeros($outputs, events:$waitEvents, waitEvents:$waitPrev);
         }
         $this->doGatherb(
             $reverse=true,
@@ -4508,7 +4523,7 @@ class LinearAlgebraCL
             $outputs = $this->alloc($shape,$updates->dtype());
             $waitPrev = $waitEvents;
             $waitEvents = $this->newEventList();
-            $this->zeros($outputs,$waitEvents,$waitPrev);
+            $this->zeros($outputs, events:$waitEvents, waitEvents:$waitPrev);
         }
         $this->doGatherb(
             $reverse=true,
@@ -4579,7 +4594,7 @@ class LinearAlgebraCL
             $B = $this->alloc($outputShape,dtype:$A->dtype());
             $waitPrev = $waitEvents;
             $waitEvents = $this->newEventList();
-            $this->zeros($B,$waitEvents,$waitPrev);
+            $this->zeros($B, events:$waitEvents, waitEvents:$waitPrev);
         } else {
             if($B->shape()!=$outputShape) {
                 throw new InvalidArgumentException("Unmatch output shape: ".
@@ -4673,7 +4688,7 @@ class LinearAlgebraCL
             $outputs = $this->alloc($shape,$updates->dtype());
             $waitPrev = $waitEvents;
             $waitEvents = $this->newEventList();
-            $this->zeros($outputs,$waitEvents,$waitPrev);
+            $this->zeros($outputs, events:$waitEvents, waitEvents:$waitPrev);
         }
         
         $this->doGatherND(
@@ -4719,7 +4734,7 @@ class LinearAlgebraCL
             $outputs = $this->alloc($shape,$updates->dtype());
             $waitPrev = $waitEvents;
             $waitEvents = $this->newEventList();
-            $this->zeros($outputs,$waitEvents,$waitPrev);
+            $this->zeros($outputs, events:$waitEvents, waitEvents:$waitPrev);
         }
         
         $this->doGatherND(
@@ -4766,7 +4781,7 @@ class LinearAlgebraCL
             $output = $this->alloc([$sizeX,$numClass],dtype:$this->defaultFloatType);
             $waitPrev = $waitEvents;
             $waitEvents = $this->newEventList();
-            $this->zeros($output,$waitEvents,$waitPrev);
+            $this->zeros($output, events:$waitEvents, waitEvents:$waitPrev);
         }
         if($output->ndim()!=2) {
             throw new InvalidArgumentException('"Y" must be 2D-NDArray.');
@@ -5507,7 +5522,7 @@ class LinearAlgebraCL
                 ],dtype:$images->dtype());
                 $waitPrev = $waitEvents;
                 $waitEvents = $this->newEventList();
-                $this->zeros($cols,$waitEvents,$waitPrev);
+                $this->zeros($cols, events:$waitEvents, waitEvents:$waitPrev);
             } else {
                 $cols = $this->alloc([
                     $batches,$out_w,
@@ -5515,7 +5530,7 @@ class LinearAlgebraCL
                 ],dtype:$images->dtype());
                 $waitPrev = $waitEvents;
                 $waitEvents = $this->newEventList();
-                $this->zeros($cols,$waitEvents,$waitPrev);
+                $this->zeros($cols, events:$waitEvents, waitEvents:$waitPrev);
             }
         }
         $cols_buffer = $cols->buffer();
@@ -5618,7 +5633,7 @@ class LinearAlgebraCL
                 ],dtype:$images->dtype());
                 $waitPrev = $waitEvents;
                 $waitEvents = $this->newEventList();
-                $this->zeros($cols,$waitEvents,$waitPrev);
+                $this->zeros($cols, events:$waitEvents, waitEvents:$waitPrev);
             } else {
                 $cols = $this->alloc([
                     $batches,$out_h,$out_w,
@@ -5626,7 +5641,7 @@ class LinearAlgebraCL
                 ],dtype:$images->dtype());
                 $waitPrev = $waitEvents;
                 $waitEvents = $this->newEventList();
-                $this->zeros($cols,$waitEvents,$waitPrev);
+                $this->zeros($cols, events:$waitEvents, waitEvents:$waitPrev);
             }
         }
         $cols_buffer = $cols->buffer();
@@ -5735,7 +5750,7 @@ class LinearAlgebraCL
                 ],dtype:$images->dtype());
                 $waitPrev = $waitEvents;
                 $waitEvents = $this->newEventList();
-                $this->zeros($cols,$waitEvents,$waitPrev);
+                $this->zeros($cols, events:$waitEvents, waitEvents:$waitPrev);
             } else {
                 $cols = $this->alloc([
                     $batches,$out_d,$out_h,$out_w,
@@ -5743,7 +5758,7 @@ class LinearAlgebraCL
                 ],dtype:$images->dtype());
                 $waitPrev = $waitEvents;
                 $waitEvents = $this->newEventList();
-                $this->zeros($cols,$waitEvents,$waitPrev);
+                $this->zeros($cols, events:$waitEvents, waitEvents:$waitPrev);
             }
         }
         $cols_buffer = $cols->buffer();

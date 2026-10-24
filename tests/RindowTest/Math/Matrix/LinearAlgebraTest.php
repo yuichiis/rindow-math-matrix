@@ -383,6 +383,11 @@ class LinearAlgebraTest extends TestCase
         $x = $la->alloc([10],dtype:NDArray::bool);
         $la->zeros($x);
         $this->assertEquals(array_fill(0,10,false),$x->toArray());
+
+        // shape specilized
+        $x = [2,3];
+        $y = $la->zeros($x,dtype:NDArray::float32);
+        $this->assertEquals([[0,0,0],[0,0,0]],$y->toArray());
     }
 
     public function testOnes()
@@ -401,6 +406,11 @@ class LinearAlgebraTest extends TestCase
         $x = $la->alloc([10],dtype:NDArray::bool);
         $la->ones($x);
         $this->assertEquals(array_fill(0,10,true),$x->toArray());
+
+        // shape specilized
+        $x = [2,3];
+        $y = $la->ones($x,dtype:NDArray::float32);
+        $this->assertEquals([[1,1,1],[1,1,1]],$y->toArray());
     }
 
     public function testZerosLike()
@@ -14088,6 +14098,11 @@ class LinearAlgebraTest extends TestCase
             [C(12,i:3),C(12,i:3),C(12,i:3)],
             [C(12,i:3),C(12,i:3),C(12,i:3)],
         ],$b->toArray());
+
+        // shape specilized
+        $x = [2,3];
+        $y = $la->fill(2, $x,dtype:NDArray::float32);
+        $this->assertEquals([[2,2,2],[2,2,2]],$y->toArray());
     }
 
     public function testSearchsorted()
