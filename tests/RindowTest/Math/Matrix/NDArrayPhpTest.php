@@ -38,7 +38,36 @@ class NDArrayPhpTest extends TestCase
         }
         return $array;
     }
-    public function testCreateFromArray()
+
+    private function complexArrayEqual(array $a, array $b) : bool
+    {
+        if(count($a) !== count($b)) {
+            return false;
+        }
+        foreach($a as $k => $v) {
+            $vb = $b[$k];
+            if(is_array($v)) {
+                if(!is_array($vb)) {
+                    return false;
+                }
+                if(!$this->complexArrayEqual($v,$vb)) {
+                    return false;
+                }
+            } elseif(is_object($v) && is_object($vb)) {
+                if($v->real !== $vb->real) {
+                    return false;
+                }
+                if($v->imag !== $vb->imag) {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public function testCreateFromArrayNormal()
     {
         $array = [[1,2,3],[4,5,6]];
         $nd = new NDArrayPhp($array,service:$this->service);
@@ -127,6 +156,52 @@ class NDArrayPhpTest extends TestCase
         $this->assertEquals(6,count($buffer));
         $this->assertEquals([1,2,3,4,5,6],$this->bufferToArray($buffer));
         $this->assertEquals([[4,5,6]],$nd->toArray());
+    }
+
+    public function testCreateFromArrayComplex()
+    {
+        $array = [[C(1,0),C(2,0),C(3,0)],[C(4,0),C(5,0),C(6,0)]];
+        $nd = new NDArrayPhp($array,dtype:NDArray::complex64,service:$this->service);
+        $this->assertEquals([2,3],$nd->shape());
+        $this->assertEquals(6,$nd->size());
+        $this->assertEquals(NDArray::complex64,$nd->dtype());
+        $this->assertEquals(0,$nd->offset());
+        $buffer = $nd->buffer();
+        $this->assertEquals(6,count($buffer));
+        $this->assertTrue(
+            $this->complexArrayEqual(
+                [C(1,0),C(2,0),C(3,0),C(4,0),C(5,0),C(6,0)],
+                $this->bufferToArray($buffer)
+            )
+        );
+        $this->assertTrue(
+            $this->complexArrayEqual(
+                [[C(1,0),C(2,0),C(3,0)],[C(4,0),C(5,0),C(6,0)]],
+                $nd->toArray()
+            )
+        );
+
+
+        $array = [[1,2,3],[4,5,6]];
+        $nd = new NDArrayPhp($array,dtype:NDArray::complex64,service:$this->service);
+        $this->assertEquals([2,3],$nd->shape());
+        $this->assertEquals(6,$nd->size());
+        $this->assertEquals(NDArray::complex64,$nd->dtype());
+        $this->assertEquals(0,$nd->offset());
+        $buffer = $nd->buffer();
+        $this->assertEquals(6,count($buffer));
+        $this->assertTrue(
+            $this->complexArrayEqual(
+                [C(1,0),C(2,0),C(3,0),C(4,0),C(5,0),C(6,0)],
+                $this->bufferToArray($buffer)
+            )
+        );
+        $this->assertTrue(
+            $this->complexArrayEqual(
+                [[C(1,0),C(2,0),C(3,0)],[C(4,0),C(5,0),C(6,0)]],
+                $nd->toArray()
+            )
+        );
     }
 
     public function testCreateFromIllegalArray()
