@@ -278,27 +278,28 @@ class MatrixOperator
 
     public function array(mixed $array, ?int $dtype=null) : NDArray
     {
-        if($dtype==null) {
-            $dtype=$this->defaultFloatType;
-            //if(is_bool($array)) {
-            //    $dtype = NDArray::bool;
-            //} else {
-            //    $dtype = $this->resolveDtype($array);
-            //    if($dtype!=NDArray::bool) {
-            //        $dtype=$this->defaultFloatType;
-            //    }
-            //}
-        }
-        if(is_array($array)||is_object($array)||is_numeric($array)) {
-            if($this->isComplexDtype($dtype)) {
-                $array = $this->toComplex($array);
-            }
-            return $this->alloc($array,$dtype);
-        } elseif(is_bool($array)) {
-            return $this->alloc($array,$dtype);
-        } else {
-            throw new InvalidArgumentException("Must be array or ArrayObject");
-        }
+        //if($dtype==null) {
+        //    $dtype=$this->defaultFloatType;
+        //    //if(is_bool($array)) {
+        //    //    $dtype = NDArray::bool;
+        //    //} else {
+        //    //    $dtype = $this->resolveDtype($array);
+        //    //    if($dtype!=NDArray::bool) {
+        //    //        $dtype=$this->defaultFloatType;
+        //    //    }
+        //    //}
+        //}
+        //if(is_array($array)||is_object($array)||is_numeric($array)) {
+        //    if($this->isComplexDtype($dtype)) {
+        //        $array = $this->toComplex($array);
+        //    }
+        //    return $this->alloc($array,$dtype);
+        //} elseif(is_bool($array)) {
+        //    return $this->alloc($array,$dtype);
+        //} else {
+        //    throw new InvalidArgumentException("Must be array or ArrayObject");
+        //}
+        return $this->la()->array($array, dtype:$dtype);
     }
 
     /**
