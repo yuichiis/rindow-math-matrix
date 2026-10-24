@@ -83,10 +83,10 @@ class NDArrayPhp implements NDArray, Countable, Serializable, IteratorAggregate
         } elseif(is_array($array)||$array instanceof ArrayObject) {
             $dummyBuffer = new ArrayObject();
             $idx = 0;
-            $this->array2Flat($array, $dummyBuffer, $idx, $prepare=true);
+            $this->array2Flat($array, $dummyBuffer, $idx, $prepare=true, $dtype);
             $this->_buffer = $this->newBuffer($idx, $dtype);
             $idx = 0;
-            $this->array2Flat($array, $this->_buffer, $idx, $prepare=false);
+            $this->array2Flat($array, $this->_buffer, $idx, $prepare=false, $dtype);
             $this->_offset = 0;
             if($shape===null) {
                 $shape = $this->genShape($array);
@@ -193,7 +193,13 @@ class NDArrayPhp implements NDArray, Countable, Serializable, IteratorAggregate
      * @param array<mixed> $A
      * @param BufferInterface|ArrayObject<int,mixed> $F
      */
-    protected function array2Flat(iterable $A, BufferInterface|ArrayObject $F, int &$idx, bool $prepare) : int
+    protected function array2Flat(
+        iterable $A,
+        BufferInterface|ArrayObject $F,
+        int &$idx,
+        bool $prepare,
+        ?int $dtype,
+        ) : int
     {
         if(is_array($A)) {
             ksort($A);
@@ -207,7 +213,7 @@ class NDArrayPhp implements NDArray, Countable, Serializable, IteratorAggregate
                 throw new InvalidArgumentException("Dimension must be integer");
             }
             if(is_array($value)||$value instanceof ArrayObject) {
-                $num2 = $this->array2Flat($value, $F, $idx, $prepare);
+                $num2 = $this->array2Flat($value, $F, $idx, $prepare, $dtype);
                 if($num===null) {
                     $num = $num2;
                 } else {
@@ -220,6 +226,9 @@ class NDArrayPhp implements NDArray, Countable, Serializable, IteratorAggregate
                     throw new InvalidArgumentException("The shape of the dimension is broken");
                 }
                 if(!$prepare) {
+                    if($this->cistype($dtype) && is_numeric($value)) {
+                        $value = new Complex($value, 0);
+                    }
                     $F[$idx] = $value;
                 }
                 $idx++;
