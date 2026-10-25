@@ -411,9 +411,7 @@ class MatrixOperator
 
     public function copy(NDArray $array) : NDArray
     {
-        $newArray = $this->alloc(null, $array->dtype(), $array->shape());
-        $this->getLa($array->dtype())->copy($array,$newArray);
-        return $newArray;
+        return $this->la()->copy($array);
     }
 
     public function cross(NDArray $A, NDArray $B) : NDArray
@@ -1449,6 +1447,16 @@ class MatrixOperator
         return $this->random;
     }
 
+    public function randInt(?int $min=null, ?int $max=null) : int
+    {
+        return $this->la()->randInt(min:$min, max:$max);
+    }
+
+    public function setSeed(int $seed) : void
+    {
+        $this->la()->setSeed($seed);
+    }
+
     public function la() : object
     {
         if($this->la!==null) {
@@ -1458,16 +1466,6 @@ class MatrixOperator
             service:$this->service,
             defaultFloatType:$this->defaultFloatType);
         return $this->la;
-    }
-
-    public function randInt(?int $min=null, ?int $max=null) : int
-    {
-        return $this->la()->randInt(min:$min, max:$max);
-    }
-
-    public function setSeed(int $seed) : void
-    {
-        $this->la()->setSeed($seed);
     }
 
     protected function laPhpMode() : object

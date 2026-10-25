@@ -1009,12 +1009,28 @@ class LinearAlgebraCL
                 throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
             }
         }
+        $dtype = $X->dtype();
+        if($dtype!=$Y->dtype()) {
+            throw new InvalidArgumentException(
+                "Unmatch dtype of dimension: ".
+                $this->dtypeToString($dtype).','.
+                $this->dtypeToString($Y->dtype())
+            );
+        }
         $N = $X->size();
         $XX = $X->buffer();
         $offX = $X->offset();
         $YY = $Y->buffer();
         $offY = $Y->offset();
-        $this->blas->copy($N,$XX,$offX,1,$YY,$offY,1,$this->queue,$events);
+        if($dtype===NDArray::float32 &&
+           $dtype===NDArray::float64 &&
+           $dtype===NDArray::complex64 &&
+           $dtype===NDArray::complex128
+           ) {
+            $this->blas->copy($N,$XX,$offX,1,$YY,$offY,1,$this->queue,$events);
+        } else {
+            $this->openclmath->copyBuffer($N,$XX,$offX,$YY,$offY,events:$events,waitEvents:$waitEvents);
+        }
         //$this->blas2->copy($N,$XX,$offX,1,$YY,$offY,1,$events,$waitEvents);
         if($this->blocking) {
             $this->finish();

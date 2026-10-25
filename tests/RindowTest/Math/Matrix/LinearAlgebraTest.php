@@ -886,7 +886,7 @@ class LinearAlgebraTest extends TestCase
     /**
     *    Y := X
     */
-    public function testcopy()
+    public function testcopyBLAS()
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
@@ -904,6 +904,48 @@ class LinearAlgebraTest extends TestCase
         $z = $la->copy($x);
         $this->assertEquals([[C(-1),C(2),C(-3)],[C(-4),C(5),C(-6)]],$z->toArray());
 
+    }
+
+    public static function providerCopyBuffer()
+    {
+        return [
+            'int8' => [[
+                'dtype' => NDArray::int8,
+            ]],
+            'int32' => [[
+                'dtype' => NDArray::int32,
+            ]],
+            'int64' => [[
+                'dtype' => NDArray::int64,
+            ]],
+        ];
+    }
+    #[DataProvider('providerCopyBuffer')]
+    public function testCopyBuffer($params)
+    {
+        extract($params);
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+
+        $x = $la->array([
+            [-1,2,-3],
+            [-4,5,-6]
+        ],dtype:$dtype);
+
+        $y = $la->copy($x);
+        $this->assertEquals($y->toArray(),$x->toArray());
+
+        $y = $la->fill(99,$x->shape(),dtype:$dtype);
+        $ret = $la->copy($x,$y);
+        $this->assertEquals($y->toArray(),$x->toArray());
+        $this->assertEquals(spl_object_id($ret),spl_object_id($y));
+    
+        $y = $la->fill(99,$x->shape(),dtype:$dtype);
+        $ret = $la->copy($x[1],$y[1]);
+        $this->assertEquals($ret->toArray(),$x[1]->toArray());
+        $this->assertEquals([99,99,99],$y[0]->toArray());
+        $this->assertEquals(spl_object_id($ret->buffer()),spl_object_id($y[1]->buffer()));
     }
 
     /**

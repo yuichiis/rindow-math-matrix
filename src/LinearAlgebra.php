@@ -304,12 +304,28 @@ class LinearAlgebra
                 throw new InvalidArgumentException("Unmatch shape of dimension: ".$shapeError);
             }
         }
+        $dtype = $X->dtype();
+        if($dtype!=$Y->dtype()) {
+            throw new InvalidArgumentException(
+                "Unmatch dtype of dimension: ".
+                $this->dtypeToString($dtype).','.
+                $this->dtypeToString($Y->dtype())
+            );
+        }
         $N = $X->size();
         $XX = $X->buffer();
         $offX = $X->offset();
         $YY = $Y->buffer();
         $offY = $Y->offset();
-        $this->blas->copy($N,$XX,$offX,1,$YY,$offY,1);
+        if($dtype===NDArray::float32 &&
+           $dtype===NDArray::float64 &&
+           $dtype===NDArray::complex64 &&
+           $dtype===NDArray::complex128
+           ) {
+            $this->blas->copy($N,$XX,$offX,1,$YY,$offY,1);
+        } else {
+            $this->math->copyBuffer($N,$XX,$offX,$YY,$offY);
+        }
         if($this->profiling) {
             $this->profilingEnd("copy");
         }
