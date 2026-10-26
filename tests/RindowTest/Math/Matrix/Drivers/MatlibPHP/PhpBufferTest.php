@@ -103,7 +103,7 @@ class PhpBufferTest extends TestCase
         $buf = new PhpBuffer(3,NDArray::complex64);
         $this->assertEquals(NDArray::complex64,$buf->dtype());
         $this->assertEquals(3,count($buf));
-        $this->assertEquals(8,$buf->value_size());
+        $this->assertEquals(8,$buf->valueSize());
         $this->assertEquals(NDArray::complex64,$buf->dtype());
         $buf[1] = new Complex(1.5,2.5);
         $buf[2] = (object)['real'=>3.5,'imag'=>4.5];
@@ -117,7 +117,7 @@ class PhpBufferTest extends TestCase
         $buf = new PhpBuffer(3,NDArray::complex128);
         $this->assertEquals(NDArray::complex128,$buf->dtype());
         $this->assertEquals(3,count($buf));
-        $this->assertEquals(16,$buf->value_size());
+        $this->assertEquals(16,$buf->valueSize());
         $this->assertEquals(NDArray::complex128,$buf->dtype());
         $buf[1] = new Complex(1.5,2.5);
         $buf[2] = (object)['real'=>3.5,'imag'=>4.5];

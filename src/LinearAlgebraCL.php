@@ -470,7 +470,7 @@ class LinearAlgebraCL
             $buffer->fill(
                 $this->getQueue(),
                 $pattern->buffer(),
-                $X->size()*$buffer->value_size(),
+                $X->size()*$buffer->valueSize(),
                 $X->offset()*$X->valueSize(), // buffer offset
                 $pattern->size(), // pattern size
                 $pattern->offset(), // pattern offset
@@ -6800,8 +6800,8 @@ class LinearAlgebraCL
         //$B->buffer()->write(
         //    $this->queue,
         //    $BB,                            // host buffer
-        //    $BB->value_size()*$B->size(),   // bytes
-        //    $BB->value_size()*$B->offset(), // offset bytes
+        //    $BB->valueSize()*$B->size(),   // bytes
+        //    $BB->valueSize()*$B->offset(), // offset bytes
         //);
         if($this->blocking) {
             $this->finish();

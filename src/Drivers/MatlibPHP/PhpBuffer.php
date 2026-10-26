@@ -41,8 +41,8 @@ class PhpBuffer extends SplFixedArray implements BufferInterface
         NDArray::complex128 => 'complex_double',
     ];
 
-    /** @var array<int,int> $valueSize */
-    protected static $valueSize = [
+    /** @var array<int,int> $valueSizeTable */
+    protected static $valueSizeTable = [
         NDArray::bool    => 1,
         NDArray::int8    => 1,
         NDArray::int16   => 2,
@@ -137,9 +137,17 @@ class PhpBuffer extends SplFixedArray implements BufferInterface
         return $this->dtype;
     }
 
+    /**
+     * @deprecated
+     */
     public function value_size() : int
     {
-        return $this::$valueSize[$this->dtype];
+        return $this::$valueSizeTable[$this->dtype];
+    }
+
+    public function valueSize() : int
+    {
+        return $this::$valueSizeTable[$this->dtype];
     }
 
     public function dump() : string

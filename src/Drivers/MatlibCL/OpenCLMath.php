@@ -28,6 +28,7 @@ class OpenCLMath
         NDArray::int64=>'int64', NDArray::uint64=>'uint64',
         NDArray::float16=>'float16',
         NDArray::float32=>'float32', NDArray::float64=>'float64',
+        NDArray::complex64=>'complex64', NDArray::complex128=>'complex128',
     ];
 
     /** @var array<int,string> $dtypeToOpenCLType */
@@ -39,6 +40,7 @@ class OpenCLMath
         NDArray::int64=>'long', NDArray::uint64=>'ulong',
         NDArray::float16=>'half',
         NDArray::float32=>'float', NDArray::float64=>'double',
+        NDArray::complex64=>'complex64', NDArray::complex128=>'complex128',
     ];
 
     /** @var array<int,string> $alternativeUnsignedCLType */
@@ -862,7 +864,7 @@ class OpenCLMath
         if($offsetDst<0) {
             throw new InvalidArgumentException("OffsetDst is less than 0");
         }
-        $valueSize = $dst->value_size();
+        $valueSize = $dst->valueSize();
         $dst->copy(
             $this->queue,
             $src,
@@ -961,7 +963,7 @@ class OpenCLMath
                 ;
             }
         }
-        $value_size = $X->value_size();
+        $valueSize = $X->valueSize();
         $type = $this->dtypeToOpenCLType[$dtype];
         $typeR = $this->dtypeToOpenCLType[$dtypeR];
         $kernel_name = "sum_S_{$type}_{$typeR}";
@@ -990,7 +992,7 @@ class OpenCLMath
         $kernel->setArg(3,$X);
         $kernel->setArg(4,$offsetX,NDArray::int32);
         $kernel->setArg(5,$incX,NDArray::int32);
-        $kernel->setArg(6,null,$this->adjBoundary($max_work_items*$value_size));
+        $kernel->setArg(6,null,$this->adjBoundary($max_work_items*$valueSize));
         $global_work_size = [$max_work_items];
         $local_work_size = [$max_work_items];
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -1023,7 +1025,7 @@ class OpenCLMath
             $segments = 1; // round up float
             $work_items = $total_local_items;
         }
-        $value_size = $R->value_size();
+        $valueSize = $R->valueSize();
         $type = $this->dtypeToOpenCLType[$dtype];
         $typeR = $this->dtypeToOpenCLType[$dtypeR];
         $kernel_name = "sum_M_{$type}_{$typeR}";
@@ -1049,7 +1051,7 @@ class OpenCLMath
         }
         $kernel = $this->createKernel($kernel_name);
 
-        //$seg_work_bytes = $segments*$value_size;
+        //$seg_work_bytes = $segments*$valueSize;
         //$seg_work_bytes += ($seg_work_bytes%4) ? 4-($seg_work_bytes%4) : 0; // Adjust Addressing Boundary
         $kernel->setArg(0,$total_local_items,NDArray::int32);
         $kernel->setArg(1,$segments,NDArray::int32);
@@ -1058,8 +1060,8 @@ class OpenCLMath
         $kernel->setArg(4,$X);
         $kernel->setArg(5,$offsetX,NDArray::int32);
         $kernel->setArg(6,$incX,NDArray::int32);
-        $kernel->setArg(7,null,$this->adjBoundary($max_work_items*$value_size));
-        $kernel->setArg(8,null,$this->adjBoundary($segments*$value_size));
+        $kernel->setArg(7,null,$this->adjBoundary($max_work_items*$valueSize));
+        $kernel->setArg(8,null,$this->adjBoundary($segments*$valueSize));
         $kernel->setArg(9,$work_items,NDArray::int32);
         $global_work_size = [$max_work_items];
         $local_work_size = [$max_work_items];
@@ -1094,10 +1096,10 @@ class OpenCLMath
             }
         }
 
-        $value_size = $R->value_size();
+        $valueSize = $R->valueSize();
         $temp_size = 2*$work_items2;
         $temp_buffer = $this->newBuffer(
-            $value_size*$temp_size,
+            $valueSize*$temp_size,
             OpenCL::CL_MEM_READ_WRITE,null,null,$dtypeR);
 
         $type = $this->dtypeToOpenCLType[$dtype];
@@ -1142,7 +1144,7 @@ class OpenCLMath
         $kernel->setArg(2,$offsetX,NDArray::int32);
         $kernel->setArg(3,$incX,NDArray::int32);
         $kernel->setArg(4,$temp_buffer);
-        $kernel->setArg(5,null,$this->adjBoundary($work_items1*$value_size));
+        $kernel->setArg(5,null,$this->adjBoundary($work_items1*$valueSize));
         $global_work_size = [$work_items1*$temp_size];
         $local_work_size = [$work_items1];
         $sum1Events = $this->newEventList();
@@ -1152,7 +1154,7 @@ class OpenCLMath
         $kernel2->setArg(0,$temp_buffer);
         $kernel2->setArg(1,$R);
         $kernel2->setArg(2,$offsetR,NDArray::int32);
-        $kernel2->setArg(3,null,$this->adjBoundary($work_items2*$value_size));
+        $kernel2->setArg(3,null,$this->adjBoundary($work_items2*$valueSize));
         $global_work_size = [$work_items2];
         $local_work_size = [$work_items2];
         $kernel2->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -1240,7 +1242,7 @@ class OpenCLMath
                 ;
             }
         }
-        $value_size = $X->value_size();
+        $valueSize = $X->valueSize();
         $index_value_size = (int)(32/8); // uint32 size
         $type = $this->dtypeToOpenCLType[$dtype];
         $kernel_name = "imin_S_{$type}";
@@ -1272,7 +1274,7 @@ class OpenCLMath
         $kernel->setArg(3,$X);
         $kernel->setArg(4,$offsetX,NDArray::int32);
         $kernel->setArg(5,$incX,NDArray::int32);
-        $kernel->setArg(6,null,$this->adjBoundary($max_work_items*$value_size));
+        $kernel->setArg(6,null,$this->adjBoundary($max_work_items*$valueSize));
         $kernel->setArg(7,null,$this->adjBoundary($max_work_items*$index_value_size));
         $global_work_size = [$max_work_items];
         $local_work_size = [$max_work_items];
@@ -1305,7 +1307,7 @@ class OpenCLMath
             $segments = 1; // round up float
             $work_items = $total_local_items;
         }
-        $value_size = $X->value_size();
+        $valueSize = $X->valueSize();
         $index_value_size = (int)(32/8); // uint32 size
         $type = $this->dtypeToOpenCLType[$dtype];
         $kernel_name = "imin_M_{$type}";
@@ -1335,7 +1337,7 @@ class OpenCLMath
         }
         $kernel = $this->createKernel($kernel_name);
 
-        //$seg_work_bytes = $segments*$value_size;
+        //$seg_work_bytes = $segments*$valueSize;
         //$seg_work_bytes += ($seg_work_bytes%4) ? 4-($seg_work_bytes%4) : 0; // Adjust Addressing Boundary
         $kernel->setArg(0,$total_local_items,NDArray::int32);
         $kernel->setArg(1,$segments,NDArray::int32);
@@ -1344,8 +1346,8 @@ class OpenCLMath
         $kernel->setArg(4,$X);
         $kernel->setArg(5,$offsetX,NDArray::int32);
         $kernel->setArg(6,$incX,NDArray::int32);
-        $kernel->setArg(7,null,$this->adjBoundary($max_work_items*$value_size));
-        $kernel->setArg(8,null,$this->adjBoundary($segments*$value_size));
+        $kernel->setArg(7,null,$this->adjBoundary($max_work_items*$valueSize));
+        $kernel->setArg(8,null,$this->adjBoundary($segments*$valueSize));
         $kernel->setArg(9,null,$this->adjBoundary($max_work_items*$index_value_size));
         $kernel->setArg(10,null,$this->adjBoundary($segments*$index_value_size));
         $kernel->setArg(11,$work_items,NDArray::int32);
@@ -3074,7 +3076,7 @@ EOT;
         if($groups<1) {
             $groups = 1;
         }
-        $groupsByMemlimit = intdiv($this->localMemSize,$k*($values->value_size()+$indices->value_size()));
+        $groupsByMemlimit = intdiv($this->localMemSize,$k*($values->valueSize()+$indices->valueSize()));
         if($groups>$groupsByMemlimit) {
             $groups = $groupsByMemlimit;
         }
@@ -3101,8 +3103,8 @@ EOT;
         $kernel->setArg(6,$offsetValues,NDArray::int32);
         $kernel->setArg(7,$indices);
         $kernel->setArg(8,$offsetIndices,NDArray::int32);
-        $kernel->setArg(9,null,$this->adjBoundary($k*$values->value_size())*$groups);
-        $kernel->setArg(10,null,$this->adjBoundary($k*$indices->value_size())*$groups);
+        $kernel->setArg(9,null,$this->adjBoundary($k*$values->valueSize())*$groups);
+        $kernel->setArg(10,null,$this->adjBoundary($k*$indices->valueSize())*$groups);
 
         $global_work_size = [$m*$groups];
         $local_work_size = [$groups];
@@ -3571,7 +3573,7 @@ EOT;
             $segments = 1;
             $work_items = $total_local_items;
         }
-        $value_size = $A->value_size();
+        $valueSize = $A->valueSize();
         $type = $this->dtypeToOpenCLType[$dtype];
         $kernel_name = "scatterAdd_S_{$type}";
         if(!isset($this->sources[$kernel_name])) {
@@ -3614,7 +3616,7 @@ EOT;
         $kernel->setArg(6,$offsetA,NDArray::int32);
         $kernel->setArg(7,$B);
         $kernel->setArg(8,$offsetB,NDArray::int32);
-        $kernel->setArg(9,null,$this->adjBoundary($max_work_items*$value_size));
+        $kernel->setArg(9,null,$this->adjBoundary($max_work_items*$valueSize));
         $kernel->setArg(10,$work_items,NDArray::int32);
         $global_work_size = [$max_work_items*$k,$numClass];
         $local_work_size = [$max_work_items,1];
@@ -3649,7 +3651,7 @@ EOT;
             $segments = 1;
             $work_items = $total_local_items;
         }
-        $value_size = $A->value_size();
+        $valueSize = $A->valueSize();
         $type = $this->dtypeToOpenCLType[$dtype];
         $kernel_name = "scatterAdd_M_{$type}";
         if(!isset($this->sources[$kernel_name])) {
@@ -3695,8 +3697,8 @@ EOT;
         $kernel->setArg(7,$B);
         $kernel->setArg(8,$offsetB,NDArray::int32);
         $kernel->setArg(9,$segments,NDArray::int32);
-        $kernel->setArg(10,null,$this->adjBoundary($max_work_items*$value_size));
-        $kernel->setArg(11,null,$this->adjBoundary($segments*$value_size));
+        $kernel->setArg(10,null,$this->adjBoundary($max_work_items*$valueSize));
+        $kernel->setArg(11,null,$this->adjBoundary($segments*$valueSize));
         $kernel->setArg(12,$work_items,NDArray::int32);
         $global_work_size = [$max_work_items*$k,$numClass];
         $local_work_size = [$max_work_items,1];
@@ -3732,10 +3734,10 @@ EOT;
                 ;
             }
         }
-        $value_size = $A->value_size();
+        $valueSize = $A->valueSize();
         $temp_size = 2*$work_items2;
         $temp_buffer = $this->newBuffer(
-            $value_size*$temp_size*$k*$numClass,
+            $valueSize*$temp_size*$k*$numClass,
             OpenCL::CL_MEM_READ_WRITE,null,null,$dtype);
 
         $type = $this->dtypeToOpenCLType[$dtype];
@@ -3799,7 +3801,7 @@ EOT;
         $kernel1->setArg(5,$B);
         $kernel1->setArg(6,$offsetB,NDArray::int32);
         $kernel1->setArg(7,$temp_buffer);
-        $kernel1->setArg(8,null,$this->adjBoundary($work_items1*$value_size));
+        $kernel1->setArg(8,null,$this->adjBoundary($work_items1*$valueSize));
         $global_work_size = [$work_items1*$temp_size,$k*$numClass];
         $local_work_size = [$work_items1,1];
         $phase1Events = $this->newEventList();
@@ -3810,7 +3812,7 @@ EOT;
         $kernel2->setArg(1,$temp_buffer);
         $kernel2->setArg(2,$A);
         $kernel2->setArg(3,$offsetA,NDArray::int32);
-        $kernel2->setArg(4,null,$this->adjBoundary($work_items2*$value_size));
+        $kernel2->setArg(4,null,$this->adjBoundary($work_items2*$valueSize));
         $global_work_size = [$work_items2,$k*$numClass];
         $local_work_size = [$work_items2,1];
         $kernel2->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -4006,7 +4008,7 @@ EOT;
     ) : void
     {
         $dtype = $B->dtype();
-        $value_width = $B->value_size();
+        $value_width = $B->valueSize();
         $type = $this->dtypeToOpenCLType[$B->dtype()];
         $parallel_n = $this->maxComputeUnits;
         $size_m = $batches*$m;
@@ -4209,7 +4211,7 @@ EOT;
             $paramSize *= $iSize;
         }
         $paramShape = $this->newBuffer(
-            count($paramShape)*$paramShape->value_size(),
+            count($paramShape)*$paramShape->valueSize(),
             OpenCL::CL_MEM_READ_ONLY|OpenCL::CL_MEM_COPY_HOST_PTR,
             $paramShape, 0,
             $paramShape->dtype()
@@ -4291,7 +4293,7 @@ EOT;
     ) : void
     {
         $dtype = $B->dtype();
-        $value_width = $B->value_size();
+        $value_width = $B->valueSize();
         $type = $this->dtypeToOpenCLType[$B->dtype()];
         $parallel_n = $this->maxComputeUnits;
         if($n<$parallel_n) {
@@ -4308,7 +4310,7 @@ EOT;
             $paramSize *= $iSize;
         }
         $paramShape = $this->newBuffer(
-            count($paramShape)*$paramShape->value_size(),
+            count($paramShape)*$paramShape->valueSize(),
             OpenCL::CL_MEM_READ_ONLY|OpenCL::CL_MEM_COPY_HOST_PTR,
             $paramShape, 0,
             $paramShape->dtype()
@@ -4793,7 +4795,7 @@ EOT;
                 ;
             }
         }
-        $value_size = $A->value_size();
+        $valueSize = $A->valueSize();
         $type = $this->dtypeToOpenCLType[$dtype];
         $kernel_name = "reduceSum_S_{$type}";
         if(!isset($this->sources[$kernel_name])) {
@@ -4829,7 +4831,7 @@ EOT;
         $kernel->setArg(5,$B);
         $kernel->setArg(6,$offsetB,NDArray::int32);
         $kernel->setArg(7,$ldB,NDArray::int32);
-        $kernel->setArg(8,null,$this->adjBoundary($max_work_items*$value_size));
+        $kernel->setArg(8,null,$this->adjBoundary($max_work_items*$valueSize));
         $global_work_size = [$max_work_items*$k*$rows];
         $local_work_size = [$max_work_items];
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -4864,7 +4866,7 @@ EOT;
             $segments = 1; // round up float
             $work_items = $total_local_items;
         }
-        $value_size = $A->value_size();
+        $valueSize = $A->valueSize();
         $type = $this->dtypeToOpenCLType[$dtype];
         $kernel_name = "reduceSum_M_{$type}";
         if(!isset($this->sources[$kernel_name])) {
@@ -4905,8 +4907,8 @@ EOT;
         $kernel->setArg(7,$offsetB,NDArray::int32);
         $kernel->setArg(8,$ldB,NDArray::int32);
 
-        $kernel->setArg(9,null,$this->adjBoundary($max_work_items*$value_size));
-        $kernel->setArg(10,null,$this->adjBoundary($segments*$value_size));
+        $kernel->setArg(9,null,$this->adjBoundary($max_work_items*$valueSize));
+        $kernel->setArg(10,null,$this->adjBoundary($segments*$valueSize));
         $kernel->setArg(11,$work_items,NDArray::int32);
         $global_work_size = [$max_work_items*$k*$rows];
         $local_work_size = [$max_work_items];
@@ -4943,10 +4945,10 @@ EOT;
                 ;
             }
         }
-        $value_size = $A->value_size();
+        $valueSize = $A->valueSize();
         $temp_size = 2*$work_items2;
         $temp_buffer = $this->newBuffer(
-            $value_size*$temp_size*$rows*$k,
+            $valueSize*$temp_size*$rows*$k,
             OpenCL::CL_MEM_READ_WRITE,null,null,$dtype);
 
         $type = $this->dtypeToOpenCLType[$dtype];
@@ -5000,7 +5002,7 @@ EOT;
         $kernel->setArg(3,$offsetA,NDArray::int32);
         $kernel->setArg(4,$ldA,NDArray::int32);
         $kernel->setArg(5,$temp_buffer);
-        $kernel->setArg(6,null,$this->adjBoundary($work_items1*$value_size));
+        $kernel->setArg(6,null,$this->adjBoundary($work_items1*$valueSize));
         $global_work_size = [$work_items1*$temp_size,$rows*$k];
         $local_work_size  = [$work_items1,1];
         $phase1Events = $this->newEventList();
@@ -5012,7 +5014,7 @@ EOT;
         $kernel2->setArg(2,$B);
         $kernel2->setArg(3,$offsetB,NDArray::int32);
         $kernel2->setArg(4,$ldB,NDArray::int32);
-        $kernel2->setArg(5,null,$this->adjBoundary($work_items2*$value_size));
+        $kernel2->setArg(5,null,$this->adjBoundary($work_items2*$valueSize));
         $global_work_size = [$work_items2,$rows*$k];
         $local_work_size = [$work_items2,1];
         $kernel2->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -5207,7 +5209,7 @@ EOT;
                 ;
             }
         }
-        $value_size = $A->value_size();
+        $valueSize = $A->valueSize();
         $type = $this->dtypeToOpenCLType[$dtype];
         $kernel_name = "reduceMax_S_{$type}";
         if(!isset($this->sources[$kernel_name])) {
@@ -5244,7 +5246,7 @@ EOT;
         $kernel->setArg(5,$B);
         $kernel->setArg(6,$offsetB,NDArray::int32);
         $kernel->setArg(7,$ldB,NDArray::int32);
-        $kernel->setArg(8,null,$this->adjBoundary($max_work_items*$value_size));
+        $kernel->setArg(8,null,$this->adjBoundary($max_work_items*$valueSize));
         $global_work_size = [$max_work_items*$k*$rows];
         $local_work_size = [$max_work_items];
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -5279,7 +5281,7 @@ EOT;
             $segments = 1; // round up float
             $work_items = $total_local_items;
         }
-        $value_size = $A->value_size();
+        $valueSize = $A->valueSize();
         $type = $this->dtypeToOpenCLType[$dtype];
         $kernel_name = "reduceMax_M_{$type}";
         if(!isset($this->sources[$kernel_name])) {
@@ -5321,8 +5323,8 @@ EOT;
         $kernel->setArg(7,$offsetB,NDArray::int32);
         $kernel->setArg(8,$ldB,NDArray::int32);
 
-        $kernel->setArg(9,null,$this->adjBoundary($max_work_items*$value_size));
-        $kernel->setArg(10,null,$this->adjBoundary($segments*$value_size));
+        $kernel->setArg(9,null,$this->adjBoundary($max_work_items*$valueSize));
+        $kernel->setArg(10,null,$this->adjBoundary($segments*$valueSize));
         $kernel->setArg(11,$work_items,NDArray::int32);
         $global_work_size = [$max_work_items*$k*$rows];
         $local_work_size = [$max_work_items];
@@ -5359,10 +5361,10 @@ EOT;
                 ;
             }
         }
-        $value_size = $A->value_size();
+        $valueSize = $A->valueSize();
         $temp_size = 2*$work_items2;
         $temp_buffer = $this->newBuffer(
-            $value_size*$temp_size*$rows*$k,
+            $valueSize*$temp_size*$rows*$k,
             OpenCL::CL_MEM_READ_WRITE,null,null,$dtype);
 
         $type = $this->dtypeToOpenCLType[$dtype];
@@ -5417,7 +5419,7 @@ EOT;
         $kernel->setArg(3,$offsetA,NDArray::int32);
         $kernel->setArg(4,$ldA,NDArray::int32);
         $kernel->setArg(5,$temp_buffer);
-        $kernel->setArg(6,null,$this->adjBoundary($work_items1*$value_size));
+        $kernel->setArg(6,null,$this->adjBoundary($work_items1*$valueSize));
         $global_work_size = [$work_items1*$temp_size,$rows*$k];
         $local_work_size  = [$work_items1,1];
         $phase1Events = $this->newEventList();
@@ -5429,7 +5431,7 @@ EOT;
         $kernel2->setArg(2,$B);
         $kernel2->setArg(3,$offsetB,NDArray::int32);
         $kernel2->setArg(4,$ldB,NDArray::int32);
-        $kernel2->setArg(5,null,$this->adjBoundary($work_items2*$value_size));
+        $kernel2->setArg(5,null,$this->adjBoundary($work_items2*$valueSize));
         $global_work_size = [$work_items2,$rows*$k];
         $local_work_size = [$work_items2,1];
         $kernel2->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -5625,8 +5627,8 @@ EOT;
                 ;
             }
         }
-        $value_size = $A->value_size();
-        //$index_value_size = $B->value_size();
+        $valueSize = $A->valueSize();
+        //$index_value_size = $B->valueSize();
         $index_value_size = (int)(32/8); // uint32 size
         $type = $this->dtypeToOpenCLType[$dtype];
         $kernel_name = "reduceArgMax_S_{$type}";
@@ -5666,7 +5668,7 @@ EOT;
         $kernel->setArg(5,$B);
         $kernel->setArg(6,$offsetB,NDArray::int32);
         $kernel->setArg(7,$ldB,NDArray::int32);
-        $kernel->setArg(8,null,$this->adjBoundary($max_work_items*$value_size));
+        $kernel->setArg(8,null,$this->adjBoundary($max_work_items*$valueSize));
         $kernel->setArg(9,null,$this->adjBoundary($max_work_items*$index_value_size));
         $global_work_size = [$max_work_items*$k*$rows];
         $local_work_size = [$max_work_items];
@@ -5702,8 +5704,8 @@ EOT;
             $segments = 1; // round up float
             $work_items = $total_local_items;
         }
-        $value_size = $A->value_size();
-        //$index_value_size = $B->value_size();
+        $valueSize = $A->valueSize();
+        //$index_value_size = $B->valueSize();
         $index_value_size = (int)(32/8); // uint32 size
         $type = $this->dtypeToOpenCLType[$dtype];
         $kernel_name = "reduceArgMax_M_{$type}";
@@ -5749,8 +5751,8 @@ EOT;
         $kernel->setArg(7,$offsetB,NDArray::int32);
         $kernel->setArg(8,$ldB,NDArray::int32);
 
-        $kernel->setArg(9,null,$this->adjBoundary($max_work_items*$value_size));
-        $kernel->setArg(10,null,$this->adjBoundary($segments*$value_size));
+        $kernel->setArg(9,null,$this->adjBoundary($max_work_items*$valueSize));
+        $kernel->setArg(10,null,$this->adjBoundary($segments*$valueSize));
         $kernel->setArg(11,null,$this->adjBoundary($max_work_items*$index_value_size));
         $kernel->setArg(12,null,$this->adjBoundary($segments*$index_value_size));
         $kernel->setArg(13,$work_items,NDArray::int32);
@@ -5789,11 +5791,11 @@ EOT;
                 ;
             }
         }
-        $value_size = $A->value_size();
-        $index_value_size = $B->value_size();
+        $valueSize = $A->valueSize();
+        $index_value_size = $B->valueSize();
         $temp_size = 2*$work_items2;
         $temp_buffer = $this->newBuffer(
-            $value_size*$temp_size*$rows*$k,
+            $valueSize*$temp_size*$rows*$k,
             OpenCL::CL_MEM_READ_WRITE,null,null,$dtype);
         $temp_ibuffer = $this->newBuffer(
             $index_value_size*$temp_size*$rows*$k,
@@ -5854,7 +5856,7 @@ EOT;
         $kernel->setArg(3,$offsetA,NDArray::int32);
         $kernel->setArg(4,$ldA,NDArray::int32);
         $kernel->setArg(5,$temp_buffer);
-        $kernel->setArg(6,null,$this->adjBoundary($work_items1*$value_size));
+        $kernel->setArg(6,null,$this->adjBoundary($work_items1*$valueSize));
         $kernel->setArg(7,$temp_ibuffer);
         $kernel->setArg(8,null,$this->adjBoundary($work_items1*$index_value_size));
         $global_work_size = [$work_items1*$temp_size,$rows*$k];
@@ -5869,7 +5871,7 @@ EOT;
         $kernel2->setArg(3,$B);
         $kernel2->setArg(4,$offsetB,NDArray::int32);
         $kernel2->setArg(5,$ldB,NDArray::int32);
-        $kernel2->setArg(6,null,$this->adjBoundary($work_items2*$value_size));
+        $kernel2->setArg(6,null,$this->adjBoundary($work_items2*$valueSize));
         $kernel2->setArg(7,null,$this->adjBoundary($work_items2*$index_value_size));
         $global_work_size = [$work_items2,$rows*$k];
         $local_work_size = [$work_items2,1];
@@ -6013,7 +6015,7 @@ EOT;
                 ;
             }
         }
-        $value_size = $A->value_size();
+        $valueSize = $A->valueSize();
         $type = $this->dtypeToOpenCLType[$dtype];
         $kernel_name = "softmax_S_{$type}_{$trans}";
         if(!isset($this->sources[$kernel_name])) {
@@ -6059,7 +6061,7 @@ EOT;
         $kernel->setArg(1,$A);
         $kernel->setArg(2,$offsetA,NDArray::int32);
         $kernel->setArg(3,$ldA,NDArray::int32);
-        $kernel->setArg(4,null,$this->adjBoundary($max_work_items*$value_size));
+        $kernel->setArg(4,null,$this->adjBoundary($max_work_items*$valueSize));
         $global_work_size = [$max_work_items*$rows];
         $local_work_size = [$max_work_items];
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,
@@ -6096,7 +6098,7 @@ EOT;
             $segments = 1; // round up float
             $work_items = $total_local_items;
         }
-        $value_size = $A->value_size();
+        $valueSize = $A->valueSize();
         $type = $this->dtypeToOpenCLType[$dtype];
         $kernel_name = "softmax_M_{$type}_{$trans}";
         if(!isset($this->sources[$kernel_name])) {
@@ -6157,8 +6159,8 @@ EOT;
         $kernel->setArg(3,$offsetA,NDArray::int32);
         $kernel->setArg(4,$ldA,NDArray::int32);
 
-        $kernel->setArg(5,null,$this->adjBoundary($max_work_items*$value_size));
-        $kernel->setArg(6,null,$this->adjBoundary($segments*$value_size));
+        $kernel->setArg(5,null,$this->adjBoundary($max_work_items*$valueSize));
+        $kernel->setArg(6,null,$this->adjBoundary($segments*$valueSize));
         $kernel->setArg(7,$work_items,NDArray::int32);
         $global_work_size = [$max_work_items*$rows];
         $local_work_size = [$max_work_items];
@@ -8242,13 +8244,13 @@ EOT;
         while($nextN < $n) {
             $nextN <<= 1;
         }
-        $value_size = 8;  // 64bit=8bytes valuesize(NDArray::uint64);
+        $valueSize = 8;  // 64bit=8bytes valuesize(NDArray::uint64);
         $key = $this->newBuffer(
-            $value_size*$nextN,
+            $valueSize*$nextN,
             OpenCL::CL_MEM_READ_WRITE,null,null,NDArray::uint64);
-        $value_size = 4;  // 32bit=4bytes valuesize(NDArray::uint32);
+        $valueSize = 4;  // 32bit=4bytes valuesize(NDArray::uint32);
         $val = $this->newBuffer(
-            $value_size*$nextN,
+            $valueSize*$nextN,
             OpenCL::CL_MEM_READ_WRITE,null,null,NDArray::uint32);
 
         $type = $this->dtypeToOpenCLType[$dtype];
@@ -8690,7 +8692,7 @@ EOT;
     {
         $dtype = $clBuffer->dtype();
         $bytes = $clBuffer->bytes();
-        $valueSize = $clBuffer->value_size();
+        $valueSize = $clBuffer->valueSize();
         $size = $clBuffer->count();
         $hostBuffer = $this->newHostBuffer($size,$dtype);
         $event = $clBuffer->read($this->queue,$hostBuffer,$bytes,
@@ -8772,7 +8774,7 @@ EOT;
 
         $shape = $orgShape;
         if(!($shape instanceof BufferInterface)) {
-            $valueSize = $shape->value_size();
+            $valueSize = $shape->valueSize();
             $shape = $this->newBuffer(
                 count($shape)*$valueSize,
                 OpenCL::CL_MEM_READ_ONLY|OpenCL::CL_MEM_COPY_HOST_PTR,
@@ -8780,14 +8782,14 @@ EOT;
                 $shape->dtype());
         }
 
-        $valueSize = $strides->value_size();
+        $valueSize = $strides->valueSize();
         $strides = $this->newBuffer(
             $strides->count()*$valueSize,
             OpenCL::CL_MEM_READ_ONLY|OpenCL::CL_MEM_COPY_HOST_PTR,
             $strides, 0,
             $strides->dtype()
         );
-        $valueSize = $strides->value_size();
+        $valueSize = $strides->valueSize();
         $targetStrides = $this->newBuffer(
             $targetStrides->count()*$valueSize,
             OpenCL::CL_MEM_READ_ONLY|OpenCL::CL_MEM_COPY_HOST_PTR,
@@ -8894,7 +8896,7 @@ EOT;
             "}\n";
         }
 
-        $intSize = $strides->value_size();
+        $intSize = $strides->valueSize();
         $kernel = $this->createKernel($kernel_name);
         $kernel->setArg(0,$ndim,NDArray::int32);
         $kernel->setArg(1,$shape);
@@ -9102,7 +9104,7 @@ EOT;
         if($dtypeA==NDArray::float64) {
             $this->assertFP64();
         }
-        $value_size = $sizeOfIndices->value_size();
+        $valueSize = $sizeOfIndices->valueSize();
         $type = $this->dtypeToOpenCLType[$dtypeA];
         $kernel_name = "einsum_{$type}";
         if(!isset($this->sources[$kernel_name])) {
@@ -9209,7 +9211,7 @@ EOT;
         $kernel->setArg(8,$C);
         $kernel->setArg(9,$offsetC,NDArray::int32);
         $kernel->setArg(10,$ndimC,NDArray::int32);
-        $kernel->setArg(11,null,$this->adjBoundary($depth*$value_size));
+        $kernel->setArg(11,null,$this->adjBoundary($depth*$valueSize));
         $global_work_size = [$sizeC];
         $local_work_size = [1];
         $kernel->enqueueNDRange($this->queue,$global_work_size,$local_work_size,null,

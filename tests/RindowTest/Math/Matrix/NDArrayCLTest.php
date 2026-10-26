@@ -74,7 +74,7 @@ class NDArrayCLTest extends TestCase
         $this->assertInstanceof(DeviceBuffer::class,$array->buffer());
         $this->assertEquals(6*32/8,$array->buffer()->bytes());
         $this->assertEquals(NDArray::float32,$array->buffer()->dtype());
-        $this->assertEquals(32/8,$array->buffer()->value_size());
+        $this->assertEquals(32/8,$array->buffer()->valueSize());
 
         // offsetGet rank 1 ndarray object
         $newArray = $array[1];

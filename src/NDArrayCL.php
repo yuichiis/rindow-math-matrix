@@ -24,6 +24,8 @@ use Rindow\Math\Matrix\Drivers\Service;
  */
 class NDArrayCL implements NDArray, Countable, IteratorAggregate
 {
+    use ComplexUtils;
+
     const RANGE_STYLE_DEFAULT = 0;
     const RANGE_STYLE_1 = 1;
     const RANGE_STYLE_FORCE2 = 2;
@@ -405,10 +407,21 @@ class NDArrayCL implements NDArray, Countable, IteratorAggregate
         $shape = $this->shape;
         $max = array_shift($shape);
         if(count($shape)==0) {
-            if(!($value instanceof NDArray)) {
-                throw new LogicException("Must be NDArray on OpenCL.");
+            if($value instanceof NDArray) {
+                $buffer = $value->buffer();
+            } elseif(is_numeric($value)||$this->cisobject($value)) {
+                $value = new NDArrayPhp($value,dtype:$this->dtype,service:$this->service());
+                $buffer = $this->newBuffer(
+                    $this->context,
+                    $value->size(),
+                    $value->dtype(),
+                    flags:OpenCL::CL_MEM_READ_ONLY|OpenCL::CL_MEM_COPY_HOST_PTR,
+                    hostBuffer:$value->buffer(),
+                    hostOffset:$value->offset(),
+                );
+            } else {
+                throw new LogicException("Must be numeric or NDArray on OpenCL.");
             }
-            $buffer = $value->buffer();
             if(!($buffer instanceof DeviceBuffer)) {
                 throw new LogicException("Must be NDArray on OpenCL.");
             }

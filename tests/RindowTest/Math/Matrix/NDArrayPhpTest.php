@@ -600,7 +600,7 @@ class NDArrayPhpTest extends TestCase
         $this->assertEquals(NDArray::complex64,$array->buffer()->dtype());
         $this->assertEquals(4,$array->size());
         $this->assertEquals(4,$array->buffer()->count());
-        $this->assertEquals(8,$array->buffer()->value_size());
+        $this->assertEquals(8,$array->buffer()->valueSize());
         $this->assertEquals(1,$array[0][0]->real);
         $this->assertEquals(2,$array[0][0]->imag);
         $this->assertEquals(3,$array[0][1]->real);
@@ -615,7 +615,7 @@ class NDArrayPhpTest extends TestCase
         $this->assertEquals(NDArray::complex128,$array->buffer()->dtype());
         $this->assertEquals(4,$array->size());
         $this->assertEquals(4,$array->buffer()->count());
-        $this->assertEquals(16,$array->buffer()->value_size());
+        $this->assertEquals(16,$array->buffer()->valueSize());
         $this->assertEquals(1,$array[0][0]->real);
         $this->assertEquals(2,$array[0][0]->imag);
         $this->assertEquals(3,$array[0][1]->real);
