@@ -8796,6 +8796,30 @@ EOT;
             $targetStrides, 0,
             $targetStrides->dtype()
         );
+        if($this->isComplex($dtype)) {
+            $copyStatement = 
+            "    offsetA = offsetA * 2;\n".
+            "    offsetB = offsetB * 2;\n".
+            "    incA = incA * 2;\n".
+            "    incB = incB * 2;\n".
+            "    for(int i=0;i<n;i++,offsetA+=incA,offsetB+=incB) {\n".
+            "        b[offsetB] = a[offsetA];\n".
+            "        b[offsetB+1] = a[offsetA+1];\n".
+            "    }\n";
+            $sigleCopyStatement =
+            "        offsetA = offsetA * 2;\n".
+            "        offsetB = offsetB * 2;\n".
+            "        b[offsetB] = a[offsetA];\n".
+            "        b[offsetB+1] = a[offsetA+1];";
+            $type = (NDArray::complex64==$dtype) ? 'float' : 'double';
+        } else {
+            $copyStatement = 
+            "    for(int i=0;i<n;i++,offsetA+=incA,offsetB+=incB) {\n".
+            "        b[offsetB] = a[offsetA];\n".
+            "    }\n";
+            $sigleCopyStatement =
+            "        b[offsetB] = a[offsetA];";
+        }
 
         $kernel_name = "transpose_{$type}";
         if(!isset($this->sources[$kernel_name])) {
@@ -8804,14 +8828,12 @@ EOT;
             "                      const  int n,\n".
             "                    __global {$type} * a,\n".
             "                             int offsetA,\n".
-            "                      const  int incA,\n".
+            "                             int incA,\n".
             "                    __global {$type} * b,\n".
             "                             int offsetB,\n".
-            "                      const  int incB)\n".
+            "                             int incB)\n".
             "{\n".
-            "    for(int i=0;i<n;i++,offsetA+=incA,offsetB+=incB) {\n".
-            "        b[offsetB] = a[offsetA];\n".
-            "    }\n".
+            $copyStatement.
             "}\n".
             "__kernel void {$kernel_name}(\n".
             "                      const  int ndim,\n".
@@ -8836,7 +8858,7 @@ EOT;
             "   offsetA = offsetA+strides[0]*gid;\n".
             "   offsetB = offsetB+targetStrides[0]*gid;\n".
             "   if(depth>=ndim) {\n".
-            "       b[offsetB] = a[offsetA];\n".
+            $sigleCopyStatement.
             "       return;\n".
             "   }\n".
             "   while(depth>=surface) {\n".

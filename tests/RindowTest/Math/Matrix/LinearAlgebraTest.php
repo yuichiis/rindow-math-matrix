@@ -107,6 +107,61 @@ class LinearAlgebraTest extends TestCase
         }
     }
 
+    protected function isComplexObject(mixed $value) : bool
+    {
+        if(!is_object($value)) {
+            return false;
+        }
+        return (property_exists($value, 'real') &&
+                property_exists($value, 'imag'));
+    }
+
+    protected function equalComplex(
+        mixed $a, mixed $b
+    ) : bool
+    {
+        if($a instanceof NDArray) {
+            $a = $a->toArray();
+        }
+        if($b instanceof NDArray) {
+            $b = $b->toArray();
+        }
+        if(is_numeric($a)) {
+            $a = C($a,0);
+        }
+        if(is_numeric($b)) {
+            $b = C($b,0);
+        }
+        if(is_object($a)) {
+            if(!is_object($b)) {
+                return false;
+            }
+            if(!$this->isComplexObject($a)) {
+                return false;
+            }
+            if(!$this->isComplexObject($b)) {
+                return false;
+            }
+            $calc = $this->getCalcComplex();
+            return $calc->abs($calc->sub($a,$b)) < $this->equalEpsilon;
+        }
+        if(!is_array($a)) {
+            return false;
+        }
+        if(!is_array($b)) {
+            return false;
+        }
+        if(count($a)!=count($b)) {
+            return false;
+        }
+        foreach($a as $i=>$va) {
+            if(!$this->equalComplex($va,$b[$i])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     protected function toComplex(mixed $array) : mixed
     {
         if(!is_array($array)) {
@@ -149,6 +204,18 @@ class LinearAlgebraTest extends TestCase
             ]],
             'float64' => [[
                 'dtype' => NDArray::float64,
+            ]],
+        ];
+    }
+            
+    public static function providerDtypesComplexes()
+    {
+        return [
+            'complex64' => [[
+                'dtype' => NDArray::complex64,
+            ]],
+            'complex128' => [[
+                'dtype' => NDArray::complex128,
             ]],
         ];
     }
@@ -13404,7 +13471,7 @@ class LinearAlgebraTest extends TestCase
         $this->assertEquals($b->toArray(),$y[1]->toArray());
     }
 
-    public function testTranspose()
+    public function testTransposeNormal()
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
@@ -13570,7 +13637,62 @@ class LinearAlgebraTest extends TestCase
         );
         $this->assertEquals([4,2,3],$a->shape());
         $this->assertEquals([3,4,2],$b->shape());
+    }
 
+    #[DataProvider('providerDtypesComplexes')]
+    public function testTransposeComplex($params)
+    {
+        extract($params);
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        // 2D
+        $X = $mo->array([
+            [C(0,0), C(1,1), C(2,2)],
+            [C(3,3), C(4,4), C(5,5)],
+        ], dtype:$dtype);
+        $X = $la->array($X);
+        $Y = $la->transpose($X);
+        $this->assertTrue($this->equalComplex(
+            [[C(0,0), C(3,3)],
+             [C(1,1), C(4,4)],
+             [C(2,2), C(5,5)]],
+            $Y->toArray()
+        ));
+        $this->assertEquals([2,3],$X->shape());
+        $this->assertEquals([3,2],$Y->shape());
+
+        // with perm
+        $a = $la->array(
+            [[[C( 0, 00), C( 1, 10), C( 2, 20)],
+              [C( 3, 30), C( 4, 40), C( 5, 50)]],
+             [[C( 6, 60), C( 7, 70), C( 8, 80)],
+              [C( 9, 90), C(10,100), C(11,110)]],
+             [[C(12,120), C(13,130), C(14,140)],
+              [C(15,150), C(16,160), C(17,170)]],
+             [[C(18,180), C(19,190), C(20,200)],
+              [C(21,210), C(22,220), C(23,230)]]],
+              dtype:$dtype);
+        $b = $la->transpose(
+            $a,$perm=[2,0,1],
+        );
+        $this->assertEquals(
+            [[[C( 0, 00), C( 3, 30)],
+              [C( 6, 60), C( 9, 90)],
+              [C(12,120), C(15,150)],
+              [C(18,180), C(21,210)]],
+             [[C( 1, 10), C( 4, 40)],
+              [C( 7, 70), C(10,100)],
+              [C(13,130), C(16,160)],
+              [C(19,190), C(22,220)]],
+             [[C( 2, 20), C( 5, 50)],
+              [C( 8, 80), C(11,110)],
+              [C(14,140), C(17,170)],
+              [C(20,200), C(23,230)]]],
+            $b->toArray()
+        );
+        $this->assertEquals([4,2,3],$a->shape());
+        $this->assertEquals([3,4,2],$b->shape());
     }
 
     public function testBandpartFloat()
