@@ -204,10 +204,6 @@ trait LinalgUtils
         }
     }
 
-    protected const WHERE_MATRIX = 0;
-    protected const WHERE_VECTOR = 1;
-    protected const WHERE_SCALAR = 2;
-
     /**
      * @param array<bool|int|NDArray> $args
      */

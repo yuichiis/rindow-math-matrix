@@ -517,7 +517,7 @@ class LinearAlgebraTest extends TestCase
     /**
     *    Y := alpha * X + Y
     */
-    public function testaxpy()
+    public function testaxpyNormal()
     {
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
@@ -530,6 +530,17 @@ class LinearAlgebraTest extends TestCase
         $y = $la->array([[C(10),C(20),C(30)],[C(40),C(50),C(60)]],dtype:NDArray::complex64);
         $la->axpy($x,$y,C(2));
         $this->assertEquals([[C(12),C(24),C(36)],[C(48),C(60),C(72)]],$y->toArray());
+    }
+
+    public function testAxpyComplexMissmatch()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        $x = $la->array([[1,2,3],[4,5,6]],dtype:NDArray::complex64);
+        $y = $la->array([[10,20,30],[40,50,60]],dtype:NDArray::complex64);
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('alpha is not complex');
+        $la->axpy($x,$y,2);
     }
 
     /**

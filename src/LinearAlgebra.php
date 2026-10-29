@@ -20,6 +20,10 @@ class LinearAlgebra
     const LAPACK_COL_MAJOR = 102;
     const DEFAULT_PCG32_SEQUENCE = 194625709;
 
+    protected const WHERE_MATRIX = 0;
+    protected const WHERE_VECTOR = 1;
+    protected const WHERE_SCALAR = 2;
+
     protected bool $iaminwarning = false;
     protected Service $service;
     protected object $blas;

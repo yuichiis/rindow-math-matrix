@@ -126,7 +126,7 @@ class PhpBlas
     protected function cleanComplexNumber(mixed $value,string $name) : object
     {
         if(!$this->cisobject($value)) {
-            throw new RuntimeException("$name is not complex");
+            throw new InvalidArgumentException("$name is not complex");
         }
         return $value;
     }
@@ -134,7 +134,7 @@ class PhpBlas
     protected function cleanFloatNumber(mixed $value,string $name) : float
     {
         if(!is_numeric($value)) {
-            throw new RuntimeException("$name is not float");
+            throw new InvalidArgumentException("$name is not float");
         }
         return (float)$value;
     }
