@@ -997,7 +997,7 @@ class PhpBlas
     ) : void
     {
         if ($n <= 0) {
-            return; // 何もしない
+            return; // Do nothing
         }
 
         [$trans, $conj] = $this->codeToTrans($trans_code);
@@ -1025,13 +1025,13 @@ class PhpBlas
 
         $ix = $ix_start;
         for ($i = $start_i; $i != $end_i; $i += $inc_i) {
-            // A[i,i] を取得 (共役は取らない)
+            // Retrieve A[i,i] (without taking the conjugate)
             $Aii = $this->accessArray($A, $offsetA, $i, $i, $ldA, $order);
-            // 現在の X[i] (初期値は b[i]) を取得
+            // Get the current X[i] (initial value is b[i])
             $temp = $this->accessVector($X, $offsetX, $ix);
             // echo "A[$i,$i]=Aii=$Aii,X[$ix]=temp=$temp\n";
 
-            if ($notrans) { // NoTrans (A*x=b) または ConjNoTrans (conj(A)*x=b)
+            if ($notrans) { // NoTrans (A*x=b) or ConjNoTrans (conj(A)*x=b)
                 //echo "notrans (or conjNoTrans)\n";
                 $sum_val = $calc->build(0.0);
                 if ($forward_i_loop) { // Lower (j < i)
@@ -1039,10 +1039,10 @@ class PhpBlas
                     $jx = $kx;
                     for ($j = 0; $j < $i; $j++) {
                         $Aij = $this->accessArray($A, $offsetA, $i, $j, $ldA, $order); // A[i,j]
-                        if ($use_conj) { // ConjNoTrans: conj(A[i,j]) を使う
+                        if ($use_conj) { // ConjNoTrans: Use conj(A[i,j])
                             $Aij = $calc->conj($Aij);
                         }
-                        $xj = $this->accessVector($X, $offsetX, $jx); // 計算済みの x[j]
+                        $xj = $this->accessVector($X, $offsetX, $jx); // Calculated x[j]
                         //echo "Use Aij(maybe conj)=$Aij, xj=$xj\n";
                         $sum_val = $calc->add($sum_val, $calc->mul($Aij, $xj));
                         $jx += $incX;
@@ -1052,10 +1052,10 @@ class PhpBlas
                     $jx = $kx + ($i + 1) * $incX;
                     for ($j = $i + 1; $j < $n; $j++) {
                         $Aij = $this->accessArray($A, $offsetA, $i, $j, $ldA, $order); // A[i,j]
-                        if ($use_conj) { // ConjNoTrans: conj(A[i,j]) を使う
+                        if ($use_conj) { // ConjNoTrans: Use conj(A[i,j])
                              $Aij = $calc->conj($Aij);
                         }
-                        $xj = $this->accessVector($X, $offsetX, $jx); // 計算済みの x[j]
+                        $xj = $this->accessVector($X, $offsetX, $jx); // Calculated x[j]
                         // echo "Use Aij(maybe conj)=$Aij, xj=$xj\n";
                         $sum_val = $calc->add($sum_val, $calc->mul($Aij, $xj));
                         $jx += $incX;
@@ -1067,23 +1067,23 @@ class PhpBlas
 
                 if ($nounit) {
                     //echo "nounit\n";
-                    $diag_val = $Aii; // オリジナルの A[i,i]
-                    if ($use_conj) { // ConjNoTrans: conj(A[i,i]) で割る
+                    $diag_val = $Aii; // The original A[i,i]
+                    if ($use_conj) { // ConjNoTrans: Divide by conj(A[i,i])
                         $diag_val = $calc->conj($diag_val);
                     }
                     //echo "Use diag_val(maybe conj)=$diag_val\n";
                     if ($calc->iszero($diag_val)) {
                         // trigger_error("Matrix is singular at index $i", E_USER_WARNING);
-                        $temp = NAN; // またはエラー処理
+                        $temp = NAN; // or error handling
                     } else {
                          $temp = $calc->div($temp, $diag_val); // x[i] = temp / diag_val
                     }
                     //echo "x[i] = temp / diag_val = $temp\n";
                 }
                 //echo "SET X[$ix]=$temp\n";
-                $this->storeVector($X, $offsetX, $ix, $temp); // x[i] を格納
+                $this->storeVector($X, $offsetX, $ix, $temp); // Store x[i]
 
-            } else { // Trans (A^T*x=b) または ConjTrans (A^H*x=b)
+            } else { // Trans (A^T*x=b) or ConjTrans (A^H*x=b)
                 // echo "trans (or conjTrans)\n";
                 $sum_val = $calc->build(0.0);
                 if ($forward_i_loop) { // Upper (j < i)
@@ -1091,10 +1091,10 @@ class PhpBlas
                     $jx = $kx;
                     for ($j = 0; $j < $i; $j++) {
                         $Aji = $this->accessArray($A, $offsetA, $j, $i, $ldA, $order); // A[j,i]
-                        if ($use_conj) { // ConjTrans: conj(A[j,i]) を使う
+                        if ($use_conj) { // ConjTrans: Use conj(A[j,i])
                             $Aji = $calc->conj($Aji);
                         }
-                        $xj = $this->accessVector($X, $offsetX, $jx); // 計算済みの x[j]
+                        $xj = $this->accessVector($X, $offsetX, $jx); // Calculated x[j]
                         // echo "Use Aji(maybe conj)=$Aji, xj=$xj\n";
                         $sum_val = $calc->add($sum_val, $calc->mul($Aji, $xj));
                         $jx += $incX;
@@ -1104,10 +1104,10 @@ class PhpBlas
                     $jx = $kx + ($i + 1) * $incX;
                     for ($j = $i + 1; $j < $n; $j++) {
                         $Aji = $this->accessArray($A, $offsetA, $j, $i, $ldA, $order); // A[j,i]
-                        if ($use_conj) { // ConjTrans: conj(A[j,i]) を使う
+                        if ($use_conj) { // ConjTrans: Use conj(A[j,i])
                              $Aji = $calc->conj($Aji);
                         }
-                        $xj = $this->accessVector($X, $offsetX, $jx); // 計算済みの x[j]
+                        $xj = $this->accessVector($X, $offsetX, $jx); // Calculated x[j]
                         // echo "Use Aji(maybe conj)=$Aji, xj=$xj\n";
                         $sum_val = $calc->add($sum_val, $calc->mul($Aji, $xj));
                         $jx += $incX;
@@ -1119,24 +1119,24 @@ class PhpBlas
 
                 if ($nounit) {
                     // echo "nounit\n";
-                    $diag_val = $Aii; // オリジナルの A[i,i]
-                    if ($use_conj) { // ConjTrans: conj(A[i,i]) で割る
+                    $diag_val = $Aii; // The original A[i,i]
+                    if ($use_conj) { // ConjTrans: Divide by conj(A[i,i])
                         $diag_val = $calc->conj($diag_val);
                     }
                     // echo "Use diag_val(maybe conj)=$diag_val\n";
                     if ($calc->iszero($diag_val)) {
                         // trigger_error("Matrix is singular at index $i", E_USER_WARNING);
-                        $temp = NAN; // またはエラー処理
+                        $temp = NAN; // or error handling
                     } else {
                         $temp = $calc->div($temp, $diag_val); // x[i] = temp / diag_val
                     }
                     // echo "x[i] = temp / diag_val = $temp\n";
                 }
                 // echo "SET X[$ix]=$temp\n";
-                $this->storeVector($X, $offsetX, $ix, $temp); // x[i] を格納
+                $this->storeVector($X, $offsetX, $ix, $temp); // Store x[i]
             }
 
-            $ix += $ix_inc; // 次の要素へ
+            $ix += $ix_inc; // To the next element
         }
     }
 
