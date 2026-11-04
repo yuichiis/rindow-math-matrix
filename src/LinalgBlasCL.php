@@ -681,6 +681,1137 @@ trait LinalgBlasCL
     }
 
     /**
+    *    y := alpha * A * x + beta * y  (general band matrix)
+    */
+    public function gbmv(
+        NDArray $A,
+        NDArray $X,
+        int $kl,
+        int $ku,
+        float|object|null $alpha=null,
+        float|object|null $beta=null,
+        ?NDArray $Y=null,
+        ?bool $trans=null,
+        ?bool $conj=null,
+        ?object $events=null) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("gbmv");
+        }
+        [$trans,$conj] = $this->complementTrans($trans,$conj,$A->dtype());
+        if($A->ndim()!=2 || $X->ndim()!=1) {
+            throw new InvalidArgumentException('"A" must be 2D-NDArray and "X" must 1D-NDArray.');
+        }
+        $shapeA = $A->shape();
+        $bandRows = $kl + $ku + 1;
+        if($shapeA[1]<$bandRows) {
+            throw new InvalidArgumentException('The number of columns in "A" must be greater than or equals to kl+ku+1.');
+        }
+        $m = $shapeA[0];
+        if($trans) {
+            if($Y===null) {
+                throw new InvalidArgumentException('"Y" must be specified when trans is true.');
+            }
+            $n = $Y->size();
+            if($X->size()!=$m) {
+                throw new InvalidArgumentException('The number of rows in "A" and The number of item in "X" must be the same');
+            }
+        } else {
+            $n = $X->size();
+        }
+        $rows = ($trans) ? $n : $m;
+        if($Y!==null) {
+            if($Y->ndim()!=1) {
+                throw new InvalidArgumentException('"Y" must 1D-NDArray.');
+            }
+            if($Y->size()!=$rows) {
+                throw new InvalidArgumentException('The number of rows in "A" and The number of item in "Y" must be the same');
+            }
+        } else {
+            $Y = $this->alloc([$rows],dtype:$X->dtype(),flags:OpenCL::CL_MEM_READ_WRITE);
+            $this->zeros($Y);
+        }
+        $AA = $A->buffer();
+        $XX = $X->buffer();
+        $YY = $Y->buffer();
+        $offA = $A->offset();
+        $offX = $X->offset();
+        $offY = $Y->offset();
+        if($alpha===null) {
+            $alpha = $this->buildValByType(1.0,$A->dtype());
+        }
+        if($beta===null) {
+            $beta = $this->buildValByType(0.0,$A->dtype());
+        }
+        $trans = $this->transToCode($trans,$conj);
+
+        $this->blas->gbmv(
+            BLAS::RowMajor,$trans,
+            $m,$n,$kl,$ku,
+            $alpha,
+            $AA,$offA,$shapeA[1],
+            $XX,$offX,1,
+            $beta,
+            $YY,$offY,1,
+            $this->queue,$events);
+
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("gbmv");
+        }
+        return $Y;
+    }
+
+    /**
+    *    y := alpha * A * x + beta * y  (symmetric band matrix)
+    */
+    public function sbmv(
+        NDArray $A,
+        NDArray $X,
+        int $k,
+        float|object|null $alpha=null,
+        float|object|null $beta=null,
+        ?NDArray $Y=null,
+        ?bool $lower=null,
+        ?object $events=null) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("sbmv");
+        }
+        if($A->ndim()!=2 || $X->ndim()!=1) {
+            throw new InvalidArgumentException('"A" must be 2D-NDArray and "X" must 1D-NDArray.');
+        }
+        $shapeA = $A->shape();
+        if($shapeA[1]<$k+1) {
+            throw new InvalidArgumentException('The number of columns in "A" must be greater than or equals to k+1.');
+        }
+        $n = $shapeA[0];
+        if($X->size()!=$n) {
+            throw new InvalidArgumentException('The number of rows in "A" and The number of item in "X" must be the same');
+        }
+        if($Y!==null) {
+            if($Y->ndim()!=1 || $Y->size()!=$n) {
+                throw new InvalidArgumentException('"Y" must be a vector of the same size as "X".');
+            }
+        } else {
+            $Y = $this->alloc([$n],dtype:$X->dtype(),flags:OpenCL::CL_MEM_READ_WRITE);
+            $this->zeros($Y);
+        }
+        $AA = $A->buffer();
+        $XX = $X->buffer();
+        $YY = $Y->buffer();
+        $offA = $A->offset();
+        $offX = $X->offset();
+        $offY = $Y->offset();
+        if($alpha===null) {
+            $alpha = $this->buildValByType(1.0,$A->dtype());
+        }
+        if($beta===null) {
+            $beta = $this->buildValByType(0.0,$A->dtype());
+        }
+        $uplo = ($lower) ? BLAS::Lower : BLAS::Upper;
+
+        $this->blas->sbmv(
+            BLAS::RowMajor,$uplo,
+            $n,$k,
+            $alpha,
+            $AA,$offA,$shapeA[1],
+            $XX,$offX,1,
+            $beta,
+            $YY,$offY,1,
+            $this->queue,$events);
+
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("sbmv");
+        }
+        return $Y;
+    }
+
+    /**
+    *    y := alpha * A * x + beta * y  (symmetric packed matrix)
+    */
+    public function spmv(
+        NDArray $Ap,
+        NDArray $X,
+        float|object|null $alpha=null,
+        float|object|null $beta=null,
+        ?NDArray $Y=null,
+        ?bool $lower=null,
+        ?object $events=null) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("spmv");
+        }
+        if($Ap->ndim()!=1 || $X->ndim()!=1) {
+            throw new InvalidArgumentException('"Ap" and "X" must be 1D-NDArray.');
+        }
+        $n = $X->size();
+        if($Ap->size()<intdiv($n*($n+1),2)) {
+            throw new InvalidArgumentException('Packed matrix "Ap" is too small.');
+        }
+        if($Y!==null) {
+            if($Y->ndim()!=1 || $Y->size()!=$n) {
+                throw new InvalidArgumentException('"Y" must be a vector of the same size as "X".');
+            }
+        } else {
+            $Y = $this->alloc([$n],dtype:$X->dtype(),flags:OpenCL::CL_MEM_READ_WRITE);
+            $this->zeros($Y);
+        }
+        $AA = $Ap->buffer();
+        $XX = $X->buffer();
+        $YY = $Y->buffer();
+        $offA = $Ap->offset();
+        $offX = $X->offset();
+        $offY = $Y->offset();
+        if($alpha===null) {
+            $alpha = $this->buildValByType(1.0,$Ap->dtype());
+        }
+        if($beta===null) {
+            $beta = $this->buildValByType(0.0,$Ap->dtype());
+        }
+        $uplo = ($lower) ? BLAS::Lower : BLAS::Upper;
+
+        $this->blas->spmv(
+            BLAS::RowMajor,$uplo,
+            $n,
+            $alpha,
+            $AA,$offA,
+            $XX,$offX,1,
+            $beta,
+            $YY,$offY,1,
+            $this->queue,$events);
+
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("spmv");
+        }
+        return $Y;
+    }
+
+    /**
+    *    y := alpha * A * x + beta * y  (symmetric matrix)
+    */
+    public function symv(
+        NDArray $A,
+        NDArray $X,
+        float|object|null $alpha=null,
+        float|object|null $beta=null,
+        ?NDArray $Y=null,
+        ?bool $lower=null,
+        ?object $events=null) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("symv");
+        }
+        if($A->ndim()!=2 || $X->ndim()!=1) {
+            throw new InvalidArgumentException('"A" must be 2D-NDArray and "X" must 1D-NDArray.');
+        }
+        $shapeA = $A->shape();
+        if($shapeA[0]!=$shapeA[1]) {
+            throw new InvalidArgumentException('Matrix A must be square.');
+        }
+        $n = $shapeA[0];
+        if($X->size()!=$n) {
+            throw new InvalidArgumentException('The number of rows in "A" and The number of item in "X" must be the same');
+        }
+        if($Y!==null) {
+            if($Y->ndim()!=1 || $Y->size()!=$n) {
+                throw new InvalidArgumentException('"Y" must be a vector of the same size as "X".');
+            }
+        } else {
+            $Y = $this->alloc([$n],dtype:$X->dtype(),flags:OpenCL::CL_MEM_READ_WRITE);
+            $this->zeros($Y);
+        }
+        $AA = $A->buffer();
+        $XX = $X->buffer();
+        $YY = $Y->buffer();
+        $offA = $A->offset();
+        $offX = $X->offset();
+        $offY = $Y->offset();
+        if($alpha===null) {
+            $alpha = $this->buildValByType(1.0,$A->dtype());
+        }
+        if($beta===null) {
+            $beta = $this->buildValByType(0.0,$A->dtype());
+        }
+        $uplo = ($lower) ? BLAS::Lower : BLAS::Upper;
+
+        $this->blas->symv(
+            BLAS::RowMajor,$uplo,
+            $n,
+            $alpha,
+            $AA,$offA,$shapeA[1],
+            $XX,$offX,1,
+            $beta,
+            $YY,$offY,1,
+            $this->queue,$events);
+
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("symv");
+        }
+        return $Y;
+    }
+
+    /**
+    *    y := alpha * A * x + beta * y  (hermitian matrix)
+    */
+    public function hemv(
+        NDArray $A,
+        NDArray $X,
+        float|object|null $alpha=null,
+        float|object|null $beta=null,
+        ?NDArray $Y=null,
+        ?bool $lower=null,
+        ?object $events=null) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("hemv");
+        }
+        if($A->ndim()!=2 || $X->ndim()!=1) {
+            throw new InvalidArgumentException('"A" must be 2D-NDArray and "X" must 1D-NDArray.');
+        }
+        $shapeA = $A->shape();
+        if($shapeA[0]!=$shapeA[1]) {
+            throw new InvalidArgumentException('Matrix A must be square.');
+        }
+        $n = $shapeA[0];
+        if($X->size()!=$n) {
+            throw new InvalidArgumentException('The number of rows in "A" and The number of item in "X" must be the same');
+        }
+        if($Y!==null) {
+            if($Y->ndim()!=1 || $Y->size()!=$n) {
+                throw new InvalidArgumentException('"Y" must be a vector of the same size as "X".');
+            }
+        } else {
+            $Y = $this->alloc([$n],dtype:$X->dtype(),flags:OpenCL::CL_MEM_READ_WRITE);
+            $this->zeros($Y);
+        }
+        $AA = $A->buffer();
+        $XX = $X->buffer();
+        $YY = $Y->buffer();
+        $offA = $A->offset();
+        $offX = $X->offset();
+        $offY = $Y->offset();
+        if($alpha===null) {
+            $alpha = $this->buildValByType(1.0,$A->dtype());
+        }
+        if($beta===null) {
+            $beta = $this->buildValByType(0.0,$A->dtype());
+        }
+        $uplo = ($lower) ? BLAS::Lower : BLAS::Upper;
+
+        $this->blas->hemv(
+            BLAS::RowMajor,$uplo,
+            $n,
+            $alpha,
+            $AA,$offA,$shapeA[1],
+            $XX,$offX,1,
+            $beta,
+            $YY,$offY,1,
+            $this->queue,$events);
+
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("hemv");
+        }
+        return $Y;
+    }
+
+    /**
+    *    y := alpha * A * x + beta * y  (hermitian band matrix)
+    */
+    public function hbmv(
+        NDArray $A,
+        NDArray $X,
+        int $k,
+        float|object|null $alpha=null,
+        float|object|null $beta=null,
+        ?NDArray $Y=null,
+        ?bool $lower=null,
+        ?object $events=null) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("hbmv");
+        }
+        if($A->ndim()!=2 || $X->ndim()!=1) {
+            throw new InvalidArgumentException('"A" must be 2D-NDArray and "X" must 1D-NDArray.');
+        }
+        $shapeA = $A->shape();
+        if($shapeA[1]<$k+1) {
+            throw new InvalidArgumentException('The number of columns in "A" must be greater than or equals to k+1.');
+        }
+        $n = $shapeA[0];
+        if($X->size()!=$n) {
+            throw new InvalidArgumentException('The number of rows in "A" and The number of item in "X" must be the same');
+        }
+        if($Y!==null) {
+            if($Y->ndim()!=1 || $Y->size()!=$n) {
+                throw new InvalidArgumentException('"Y" must be a vector of the same size as "X".');
+            }
+        } else {
+            $Y = $this->alloc([$n],dtype:$X->dtype(),flags:OpenCL::CL_MEM_READ_WRITE);
+            $this->zeros($Y);
+        }
+        $AA = $A->buffer();
+        $XX = $X->buffer();
+        $YY = $Y->buffer();
+        $offA = $A->offset();
+        $offX = $X->offset();
+        $offY = $Y->offset();
+        if($alpha===null) {
+            $alpha = $this->buildValByType(1.0,$A->dtype());
+        }
+        if($beta===null) {
+            $beta = $this->buildValByType(0.0,$A->dtype());
+        }
+        $uplo = ($lower) ? BLAS::Lower : BLAS::Upper;
+
+        $this->blas->hbmv(
+            BLAS::RowMajor,$uplo,
+            $n,$k,
+            $alpha,
+            $AA,$offA,$shapeA[1],
+            $XX,$offX,1,
+            $beta,
+            $YY,$offY,1,
+            $this->queue,$events);
+
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("hbmv");
+        }
+        return $Y;
+    }
+
+    /**
+    *    y := alpha * A * x + beta * y  (hermitian packed matrix)
+    */
+    public function hpmv(
+        NDArray $Ap,
+        NDArray $X,
+        float|object|null $alpha=null,
+        float|object|null $beta=null,
+        ?NDArray $Y=null,
+        ?bool $lower=null,
+        ?object $events=null) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("hpmv");
+        }
+        if($Ap->ndim()!=1 || $X->ndim()!=1) {
+            throw new InvalidArgumentException('"Ap" and "X" must be 1D-NDArray.');
+        }
+        $n = $X->size();
+        if($Ap->size()<intdiv($n*($n+1),2)) {
+            throw new InvalidArgumentException('Packed matrix "Ap" is too small.');
+        }
+        if($Y!==null) {
+            if($Y->ndim()!=1 || $Y->size()!=$n) {
+                throw new InvalidArgumentException('"Y" must be a vector of the same size as "X".');
+            }
+        } else {
+            $Y = $this->alloc([$n],dtype:$X->dtype(),flags:OpenCL::CL_MEM_READ_WRITE);
+            $this->zeros($Y);
+        }
+        $AA = $Ap->buffer();
+        $XX = $X->buffer();
+        $YY = $Y->buffer();
+        $offA = $Ap->offset();
+        $offX = $X->offset();
+        $offY = $Y->offset();
+        if($alpha===null) {
+            $alpha = $this->buildValByType(1.0,$Ap->dtype());
+        }
+        if($beta===null) {
+            $beta = $this->buildValByType(0.0,$Ap->dtype());
+        }
+        $uplo = ($lower) ? BLAS::Lower : BLAS::Upper;
+
+        $this->blas->hpmv(
+            BLAS::RowMajor,$uplo,
+            $n,
+            $alpha,
+            $AA,$offA,
+            $XX,$offX,1,
+            $beta,
+            $YY,$offY,1,
+            $this->queue,$events);
+
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("hpmv");
+        }
+        return $Y;
+    }
+
+    /**
+    *    x := A * x  (triangular matrix)
+    */
+    public function trmv(
+        NDArray $A,
+        NDArray $X,
+        ?bool $lower=null,
+        ?bool $trans=null,
+        ?bool $conj=null,
+        ?bool $unit=null,
+        ?object $events=null) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("trmv");
+        }
+        [$trans,$conj] = $this->complementTrans($trans,$conj,$A->dtype());
+        if($A->ndim()!=2 || $X->ndim()!=1) {
+            throw new InvalidArgumentException('"A" must be 2D-NDArray and "X" must 1D-NDArray.');
+        }
+        $shapeA = $A->shape();
+        if($shapeA[0]!=$shapeA[1]) {
+            throw new InvalidArgumentException('Matrix A must be square.');
+        }
+        $n = $shapeA[0];
+        if($X->size()!=$n) {
+            throw new InvalidArgumentException('The number of rows in "A" and The number of item in "X" must be the same');
+        }
+        $AA = $A->buffer();
+        $XX = $X->buffer();
+        $offA = $A->offset();
+        $offX = $X->offset();
+        $trans = $this->transToCode($trans,$conj);
+        $uplo = ($lower) ? BLAS::Lower : BLAS::Upper;
+        $diag = ($unit) ? BLAS::Unit : BLAS::NonUnit;
+
+        $this->blas->trmv(
+            BLAS::RowMajor,$uplo,$trans,$diag,
+            $n,
+            $AA,$offA,$shapeA[1],
+            $XX,$offX,1,
+            $this->queue,$events);
+
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("trmv");
+        }
+        return $X;
+    }
+
+    /**
+    *    x := A * x  (triangular band matrix)
+    */
+    public function tbmv(
+        NDArray $A,
+        NDArray $X,
+        int $k,
+        ?bool $lower=null,
+        ?bool $trans=null,
+        ?bool $conj=null,
+        ?bool $unit=null,
+        ?object $events=null) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("tbmv");
+        }
+        [$trans,$conj] = $this->complementTrans($trans,$conj,$A->dtype());
+        if($A->ndim()!=2 || $X->ndim()!=1) {
+            throw new InvalidArgumentException('"A" must be 2D-NDArray and "X" must 1D-NDArray.');
+        }
+        $shapeA = $A->shape();
+        if($shapeA[1]<$k+1) {
+            throw new InvalidArgumentException('The number of columns in "A" must be greater than or equals to k+1.');
+        }
+        $n = $shapeA[0];
+        if($X->size()!=$n) {
+            throw new InvalidArgumentException('The number of rows in "A" and The number of item in "X" must be the same');
+        }
+        $AA = $A->buffer();
+        $XX = $X->buffer();
+        $offA = $A->offset();
+        $offX = $X->offset();
+        $trans = $this->transToCode($trans,$conj);
+        $uplo = ($lower) ? BLAS::Lower : BLAS::Upper;
+        $diag = ($unit) ? BLAS::Unit : BLAS::NonUnit;
+
+        $this->blas->tbmv(
+            BLAS::RowMajor,$uplo,$trans,$diag,
+            $n,$k,
+            $AA,$offA,$shapeA[1],
+            $XX,$offX,1,
+            $this->queue,$events);
+
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("tbmv");
+        }
+        return $X;
+    }
+
+    /**
+    *    x := A * x  (triangular packed matrix)
+    */
+    public function tpmv(
+        NDArray $Ap,
+        NDArray $X,
+        ?bool $lower=null,
+        ?bool $trans=null,
+        ?bool $conj=null,
+        ?bool $unit=null,
+        ?object $events=null) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("tpmv");
+        }
+        [$trans,$conj] = $this->complementTrans($trans,$conj,$Ap->dtype());
+        if($Ap->ndim()!=1 || $X->ndim()!=1) {
+            throw new InvalidArgumentException('"Ap" and "X" must be 1D-NDArray.');
+        }
+        $n = $X->size();
+        if($Ap->size()<intdiv($n*($n+1),2)) {
+            throw new InvalidArgumentException('Packed matrix "Ap" is too small.');
+        }
+        $AA = $Ap->buffer();
+        $XX = $X->buffer();
+        $offA = $Ap->offset();
+        $offX = $X->offset();
+        $trans = $this->transToCode($trans,$conj);
+        $uplo = ($lower) ? BLAS::Lower : BLAS::Upper;
+        $diag = ($unit) ? BLAS::Unit : BLAS::NonUnit;
+
+        $this->blas->tpmv(
+            BLAS::RowMajor,$uplo,$trans,$diag,
+            $n,
+            $AA,$offA,
+            $XX,$offX,1,
+            $this->queue,$events);
+
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("tpmv");
+        }
+        return $X;
+    }
+
+    /**
+    *    A * x = b  (triangular band matrix)
+    */
+    public function tbsv(
+        NDArray $A,
+        NDArray $X,
+        int $k,
+        ?bool $lower=null,
+        ?bool $trans=null,
+        ?bool $conj=null,
+        ?bool $unit=null,
+        ?object $events=null) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("tbsv");
+        }
+        [$trans,$conj] = $this->complementTrans($trans,$conj,$A->dtype());
+        if($A->ndim()!=2 || $X->ndim()!=1) {
+            throw new InvalidArgumentException('"A" must be 2D-NDArray and "X" must 1D-NDArray.');
+        }
+        $shapeA = $A->shape();
+        if($shapeA[1]<$k+1) {
+            throw new InvalidArgumentException('The number of columns in "A" must be greater than or equals to k+1.');
+        }
+        $n = $shapeA[0];
+        if($X->size()!=$n) {
+            throw new InvalidArgumentException('The number of rows in "A" and The number of item in "X" must be the same');
+        }
+        $AA = $A->buffer();
+        $XX = $X->buffer();
+        $offA = $A->offset();
+        $offX = $X->offset();
+        $trans = $this->transToCode($trans,$conj);
+        $uplo = ($lower) ? BLAS::Lower : BLAS::Upper;
+        $diag = ($unit) ? BLAS::Unit : BLAS::NonUnit;
+
+        $this->blas->tbsv(
+            BLAS::RowMajor,$uplo,$trans,$diag,
+            $n,$k,
+            $AA,$offA,$shapeA[1],
+            $XX,$offX,1,
+            $this->queue,$events);
+
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("tbsv");
+        }
+        return $X;
+    }
+
+    /**
+    *    A * x = b  (triangular packed matrix)
+    */
+    public function tpsv(
+        NDArray $Ap,
+        NDArray $X,
+        ?bool $lower=null,
+        ?bool $trans=null,
+        ?bool $conj=null,
+        ?bool $unit=null,
+        ?object $events=null) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("tpsv");
+        }
+        [$trans,$conj] = $this->complementTrans($trans,$conj,$Ap->dtype());
+        if($Ap->ndim()!=1 || $X->ndim()!=1) {
+            throw new InvalidArgumentException('"Ap" and "X" must be 1D-NDArray.');
+        }
+        $n = $X->size();
+        if($Ap->size()<intdiv($n*($n+1),2)) {
+            throw new InvalidArgumentException('Packed matrix "Ap" is too small.');
+        }
+        $AA = $Ap->buffer();
+        $XX = $X->buffer();
+        $offA = $Ap->offset();
+        $offX = $X->offset();
+        $trans = $this->transToCode($trans,$conj);
+        $uplo = ($lower) ? BLAS::Lower : BLAS::Upper;
+        $diag = ($unit) ? BLAS::Unit : BLAS::NonUnit;
+
+        $this->blas->tpsv(
+            BLAS::RowMajor,$uplo,$trans,$diag,
+            $n,
+            $AA,$offA,
+            $XX,$offX,1,
+            $this->queue,$events);
+
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("tpsv");
+        }
+        return $X;
+    }
+
+    /**
+    *    A := alpha * x * y^T + A
+    */
+    public function ger(
+        NDArray $X,
+        NDArray $Y,
+        float|object|null $alpha=null,
+        ?NDArray $A=null,
+        ?object $events=null) : NDArray
+    {
+        return $this->gerx($X,$Y,$alpha,$A,false,'ger',$events);
+    }
+
+    /**
+    *    A := alpha * x * y^T + A
+    */
+    public function geru(
+        NDArray $X,
+        NDArray $Y,
+        float|object|null $alpha=null,
+        ?NDArray $A=null,
+        ?object $events=null) : NDArray
+    {
+        return $this->gerx($X,$Y,$alpha,$A,false,'geru',$events);
+    }
+
+    /**
+    *    A := alpha * x * y^H + A
+    */
+    public function gerc(
+        NDArray $X,
+        NDArray $Y,
+        float|object|null $alpha=null,
+        ?NDArray $A=null,
+        ?object $events=null) : NDArray
+    {
+        return $this->gerx($X,$Y,$alpha,$A,true,'gerc',$events);
+    }
+
+    private function gerx(
+        NDArray $X,
+        NDArray $Y,
+        float|object|null $alpha,
+        ?NDArray $A,
+        bool $conjY,
+        string $name,
+        ?object $events
+        ) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart($name);
+        }
+        if($X->ndim()!=1 || $Y->ndim()!=1) {
+            throw new InvalidArgumentException('"X" and "Y" must be 1D-NDArray.');
+        }
+        $m = $X->size();
+        $n = $Y->size();
+        if($A!==null) {
+            $shapeA = $A->shape();
+            if($A->ndim()!=2 || $shapeA[0]!=$m || $shapeA[1]!=$n) {
+                throw new InvalidArgumentException('"A" must be a 2D-NDArray of shape (m,n).');
+            }
+        } else {
+            $A = $this->alloc([$m,$n],dtype:$X->dtype(),flags:OpenCL::CL_MEM_READ_WRITE);
+            $this->zeros($A);
+        }
+        $AA = $A->buffer();
+        $XX = $X->buffer();
+        $YY = $Y->buffer();
+        $offA = $A->offset();
+        $offX = $X->offset();
+        $offY = $Y->offset();
+        if($alpha===null) {
+            $alpha = $this->buildValByType(1.0,$A->dtype());
+        }
+        $method = ($conjY) ? 'gerc' : $name;
+        $this->blas->$method(
+            BLAS::RowMajor,
+            $m,$n,
+            $alpha,
+            $XX,$offX,1,
+            $YY,$offY,1,
+            $AA,$offA,$n,
+            $this->queue,$events);
+
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd($name);
+        }
+        return $A;
+    }
+
+    /**
+    *    A := alpha * x * x^T + A  (symmetric rank-1 update)
+    */
+    public function syr(
+        NDArray $X,
+        float|object|null $alpha=null,
+        ?NDArray $A=null,
+        ?bool $lower=null,
+        ?object $events=null) : NDArray
+    {
+        return $this->rank1Symmetric($X,null,$alpha,$A,$lower,false,'syr',$events);
+    }
+
+    /**
+    *    A := alpha * x * x^T + A  (symmetric packed rank-1 update)
+    */
+    public function spr(
+        NDArray $X,
+        float|object|null $alpha=null,
+        ?NDArray $Ap=null,
+        ?bool $lower=null,
+        ?object $events=null) : NDArray
+    {
+        return $this->rank1Symmetric($X,null,$alpha,$Ap,$lower,true,'spr',$events);
+    }
+
+    /**
+    *    A := alpha * (x*y^T + y*x^T) + A  (symmetric rank-2 update)
+    */
+    public function syr2(
+        NDArray $X,
+        NDArray $Y,
+        float|object|null $alpha=null,
+        ?NDArray $A=null,
+        ?bool $lower=null,
+        ?object $events=null) : NDArray
+    {
+        return $this->rank1Symmetric($X,$Y,$alpha,$A,$lower,false,'syr2',$events);
+    }
+
+    /**
+    *    A := alpha * (x*y^T + y*x^T) + A  (symmetric packed rank-2 update)
+    */
+    public function spr2(
+        NDArray $X,
+        NDArray $Y,
+        float|object|null $alpha=null,
+        ?NDArray $Ap=null,
+        ?bool $lower=null,
+        ?object $events=null) : NDArray
+    {
+        return $this->rank1Symmetric($X,$Y,$alpha,$Ap,$lower,true,'spr2',$events);
+    }
+
+    private function rank1Symmetric(
+        NDArray $X,
+        ?NDArray $Y,
+        float|object|null $alpha,
+        ?NDArray $A,
+        ?bool $lower,
+        bool $packed,
+        string $name,
+        ?object $events
+        ) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart($name);
+        }
+        if($X->ndim()!=1 || ($Y!==null && $Y->ndim()!=1)) {
+            throw new InvalidArgumentException('"X" and "Y" must be 1D-NDArray.');
+        }
+        $n = $X->size();
+        if($Y!==null && $Y->size()!=$n) {
+            throw new InvalidArgumentException('"X" and "Y" must be the same size.');
+        }
+        if($A!==null) {
+            if($packed) {
+                if($A->ndim()!=1 || $A->size()<intdiv($n*($n+1),2)) {
+                    throw new InvalidArgumentException('Packed matrix "Ap" is too small.');
+                }
+            } else {
+                $shapeA = $A->shape();
+                if($A->ndim()!=2 || $shapeA[0]!=$n || $shapeA[1]!=$n) {
+                    throw new InvalidArgumentException('Matrix "A" must be square.');
+                }
+            }
+        } else {
+            if($packed) {
+                $A = $this->alloc([intdiv($n*($n+1),2)],dtype:$X->dtype(),flags:OpenCL::CL_MEM_READ_WRITE);
+            } else {
+                $A = $this->alloc([$n,$n],dtype:$X->dtype(),flags:OpenCL::CL_MEM_READ_WRITE);
+            }
+            $this->zeros($A);
+        }
+        $AA = $A->buffer();
+        $XX = $X->buffer();
+        $YY = ($Y!==null) ? $Y->buffer() : null;
+        $offA = $A->offset();
+        $offX = $X->offset();
+        $offY = ($Y!==null) ? $Y->offset() : 0;
+        if($alpha===null) {
+            $alpha = $this->buildValByType(1.0,$A->dtype());
+        }
+        $uplo = ($lower) ? BLAS::Lower : BLAS::Upper;
+
+        if($name=='syr' || $name=='spr') {
+            if($packed) {
+                $this->blas->$name(
+                    BLAS::RowMajor,$uplo,
+                    $n,
+                    $alpha,
+                    $XX,$offX,1,
+                    $AA,$offA,
+                    $this->queue,$events);
+            } else {
+                $this->blas->$name(
+                    BLAS::RowMajor,$uplo,
+                    $n,
+                    $alpha,
+                    $XX,$offX,1,
+                    $AA,$offA,$n,
+                    $this->queue,$events);
+            }
+        } else {
+            if($packed) {
+                $this->blas->$name(
+                    BLAS::RowMajor,$uplo,
+                    $n,
+                    $alpha,
+                    $XX,$offX,1,
+                    $YY,$offY,1,
+                    $AA,$offA,
+                    $this->queue,$events);
+            } else {
+                $this->blas->$name(
+                    BLAS::RowMajor,$uplo,
+                    $n,
+                    $alpha,
+                    $XX,$offX,1,
+                    $YY,$offY,1,
+                    $AA,$offA,$n,
+                    $this->queue,$events);
+            }
+        }
+
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd($name);
+        }
+        return $A;
+    }
+
+    /**
+    *    A := alpha * x * x^H + A  (hermitian rank-1 update)
+    */
+    public function her(
+        NDArray $X,
+        float|object|null $alpha=null,
+        ?NDArray $A=null,
+        ?bool $lower=null,
+        ?object $events=null) : NDArray
+    {
+        return $this->rank1Hermitian($X,null,$alpha,$A,$lower,false,'her',$events);
+    }
+
+    /**
+    *    A := alpha * x * x^H + A  (hermitian packed rank-1 update)
+    */
+    public function hpr(
+        NDArray $X,
+        float|object|null $alpha=null,
+        ?NDArray $Ap=null,
+        ?bool $lower=null,
+        ?object $events=null) : NDArray
+    {
+        return $this->rank1Hermitian($X,null,$alpha,$Ap,$lower,true,'hpr',$events);
+    }
+
+    /**
+    *    A := alpha * x * y^H + conj(alpha) * y * x^H + A
+    */
+    public function her2(
+        NDArray $X,
+        NDArray $Y,
+        float|object|null $alpha=null,
+        ?NDArray $A=null,
+        ?bool $lower=null,
+        ?object $events=null) : NDArray
+    {
+        return $this->rank1Hermitian($X,$Y,$alpha,$A,$lower,false,'her2',$events);
+    }
+
+    /**
+    *    A := alpha * x * y^H + conj(alpha) * y * x^H + A  (packed)
+    */
+    public function hpr2(
+        NDArray $X,
+        NDArray $Y,
+        float|object|null $alpha=null,
+        ?NDArray $Ap=null,
+        ?bool $lower=null,
+        ?object $events=null) : NDArray
+    {
+        return $this->rank1Hermitian($X,$Y,$alpha,$Ap,$lower,true,'hpr2',$events);
+    }
+
+    private function rank1Hermitian(
+        NDArray $X,
+        ?NDArray $Y,
+        float|object|null $alpha,
+        ?NDArray $A,
+        ?bool $lower,
+        bool $packed,
+        string $name,
+        ?object $events
+        ) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart($name);
+        }
+        if($X->ndim()!=1 || ($Y!==null && $Y->ndim()!=1)) {
+            throw new InvalidArgumentException('"X" and "Y" must be 1D-NDArray.');
+        }
+        $n = $X->size();
+        if($Y!==null && $Y->size()!=$n) {
+            throw new InvalidArgumentException('"X" and "Y" must be the same size.');
+        }
+        if($A!==null) {
+            if($packed) {
+                if($A->ndim()!=1 || $A->size()<intdiv($n*($n+1),2)) {
+                    throw new InvalidArgumentException('Packed matrix "Ap" is too small.');
+                }
+            } else {
+                $shapeA = $A->shape();
+                if($A->ndim()!=2 || $shapeA[0]!=$n || $shapeA[1]!=$n) {
+                    throw new InvalidArgumentException('Matrix "A" must be square.');
+                }
+            }
+        } else {
+            if($packed) {
+                $A = $this->alloc([intdiv($n*($n+1),2)],dtype:$X->dtype(),flags:OpenCL::CL_MEM_READ_WRITE);
+            } else {
+                $A = $this->alloc([$n,$n],dtype:$X->dtype(),flags:OpenCL::CL_MEM_READ_WRITE);
+            }
+            $this->zeros($A);
+        }
+        $AA = $A->buffer();
+        $XX = $X->buffer();
+        $YY = ($Y!==null) ? $Y->buffer() : null;
+        $offA = $A->offset();
+        $offX = $X->offset();
+        $offY = ($Y!==null) ? $Y->offset() : 0;
+        if($alpha===null) {
+            $alpha = $this->buildValByType(1.0,$A->dtype());
+        }
+        $uplo = ($lower) ? BLAS::Lower : BLAS::Upper;
+
+        if($name=='her' || $name=='hpr') {
+            if($packed) {
+                $this->blas->$name(
+                    BLAS::RowMajor,$uplo,
+                    $n,
+                    $alpha,
+                    $XX,$offX,1,
+                    $AA,$offA,
+                    $this->queue,$events);
+            } else {
+                $this->blas->$name(
+                    BLAS::RowMajor,$uplo,
+                    $n,
+                    $alpha,
+                    $XX,$offX,1,
+                    $AA,$offA,$n,
+                    $this->queue,$events);
+            }
+        } else {
+            if($packed) {
+                $this->blas->$name(
+                    BLAS::RowMajor,$uplo,
+                    $n,
+                    $alpha,
+                    $XX,$offX,1,
+                    $YY,$offY,1,
+                    $AA,$offA,
+                    $this->queue,$events);
+            } else {
+                $this->blas->$name(
+                    BLAS::RowMajor,$uplo,
+                    $n,
+                    $alpha,
+                    $XX,$offX,1,
+                    $YY,$offY,1,
+                    $AA,$offA,$n,
+                    $this->queue,$events);
+            }
+        }
+
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd($name);
+        }
+        return $A;
+    }
+
+    /**
     *    C := alpha * AB + beta * C
     */
     public function gemm(

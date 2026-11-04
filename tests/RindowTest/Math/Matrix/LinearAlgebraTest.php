@@ -1947,6 +1947,488 @@ class LinearAlgebraTest extends TestCase
 
     }
 
+    private function toBandMatrix(array $A, int $kl, int $ku) : array
+    {
+        $m = count($A);
+        $n = count($A[0]);
+        $bandRows = $kl + $ku + 1;
+        $B = array_fill(0,$m,array_fill(0,$bandRows,0));
+        for($i=0;$i<$m;$i++) {
+            for($j=max(0,$i-$kl);$j<=min($n-1,$i+$ku);$j++) {
+                $B[$i][$kl+$j-$i] = $A[$i][$j];
+            }
+        }
+        return $B;
+    }
+
+    private function toSymmetricBandMatrix(array $A, int $k, bool $lower) : array
+    {
+        $n = count($A);
+        $B = array_fill(0,$n,array_fill(0,$k+1,0));
+        for($i=0;$i<$n;$i++) {
+            if($lower) {
+                $j0 = max(0,$i-$k); $j1 = $i;
+            } else {
+                $j0 = $i; $j1 = min($n-1,$i+$k);
+            }
+            for($j=$j0;$j<=$j1;$j++) {
+                $B[$i][$lower ? ($k+$j-$i) : ($j-$i)] = $A[$i][$j];
+            }
+        }
+        return $B;
+    }
+
+    private function toPackedMatrix(array $A, bool $lower) : array
+    {
+        $n = count($A);
+        $Ap = [];
+        for($i=0;$i<$n;$i++) {
+            if($lower) {
+                for($j=0;$j<=$i;$j++) {
+                    $Ap[] = $A[$i][$j];
+                }
+            } else {
+                for($j=$i;$j<$n;$j++) {
+                    $Ap[] = $A[$i][$j];
+                }
+            }
+        }
+        return $Ap;
+    }
+
+    public function testGbmvNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $A = $la->array([[1,2,0,0],[3,4,5,0],[0,6,7,8],[0,0,9,10]]);
+        $X = $la->array([1,2,3,4]);
+        $band = $la->array($this->toBandMatrix([[1,2,0,0],[3,4,5,0],[0,6,7,8],[0,0,9,10]],1,1));
+        $Y = $la->gbmv($band,$X,1,1);
+        $this->assertEquals($la->gemv($A,$X)->toArray(),$Y->toArray());
+
+        $X1 = $la->array([1,1,1,1]);
+        $Y = $la->gbmv($band,$X1,1,1,Y:$la->zeros([4],dtype:NDArray::float32),trans:true);
+        $this->assertEquals($la->gemv($A,$X1,trans:true)->toArray(),$Y->toArray());
+
+        $Ac = $la->array($this->toComplex([
+            [C(1,1),C(2,0),C(0),C(0)],
+            [C(3,0),C(4,-1),C(5,0),C(0)],
+            [C(0),C(6,0),C(7,2),C(8,0)],
+            [C(0),C(0),C(9,0),C(10,1)],
+        ]),dtype:NDArray::complex64);
+        $Xc = $la->array($this->toComplex([1,2,3,4]),dtype:NDArray::complex64);
+        $bandc = $la->array($this->toComplex($this->toBandMatrix([
+            [C(1,1),C(2,0),C(0),C(0)],
+            [C(3,0),C(4,-1),C(5,0),C(0)],
+            [C(0),C(6,0),C(7,2),C(8,0)],
+            [C(0),C(0),C(9,0),C(10,1)],
+        ],1,1)),dtype:NDArray::complex64);
+        $Y = $la->gbmv($bandc,$Xc,1,1);
+        $this->assertEquals($la->gemv($Ac,$Xc)->toArray(),$Y->toArray());
+
+        $Xc1 = $la->array($this->toComplex([1,1,1,1]),dtype:NDArray::complex64);
+        $Y = $la->gbmv($bandc,$Xc1,1,1,Y:$la->zeros([4],dtype:NDArray::complex64),trans:true);
+        $this->assertEquals($la->gemv($Ac,$Xc1,trans:true)->toArray(),$Y->toArray());
+    }
+
+    public function testSbmvNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $S = [[10,1,0,0],[1,20,2,0],[0,2,30,3],[0,0,3,40]];
+        $A = $la->array($S);
+        $X = $la->array([1,2,3,4]);
+        $expected = $la->gemv($A,$X)->toArray();
+
+        $upper = $la->array($this->toSymmetricBandMatrix($S,1,false));
+        $Y = $la->sbmv($upper,$X,1);
+        $this->assertEquals($expected,$Y->toArray());
+
+        $lower = $la->array($this->toSymmetricBandMatrix($S,1,true));
+        $Y = $la->sbmv($lower,$X,1,lower:true);
+        $this->assertEquals($expected,$Y->toArray());
+    }
+
+    public function testSpmvNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $S = [[10,1,0,0],[1,20,2,0],[0,2,30,3],[0,0,3,40]];
+        $A = $la->array($S);
+        $X = $la->array([1,2,3,4]);
+        $expected = $la->gemv($A,$X)->toArray();
+
+        $upper = $la->array($this->toPackedMatrix($S,false));
+        $Y = $la->spmv($upper,$X);
+        $this->assertEquals($expected,$Y->toArray());
+
+        $lower = $la->array($this->toPackedMatrix($S,true));
+        $Y = $la->spmv($lower,$X,lower:true);
+        $this->assertEquals($expected,$Y->toArray());
+    }
+
+    public function testSymvNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $S = [[10,1,0,0],[1,20,2,0],[0,2,30,3],[0,0,3,40]];
+        $A = $la->array($S);
+        $X = $la->array([1,2,3,4]);
+        $expected = $la->gemv($A,$X)->toArray();
+
+        $Y = $la->symv($A,$X);
+        $this->assertEquals($expected,$Y->toArray());
+
+        $Y = $la->symv($A,$X,lower:true);
+        $this->assertEquals($expected,$Y->toArray());
+
+        // alpha and beta
+        $Y0 = $la->array([1,2,3,4]);
+        $Y = $la->symv($A,$X,alpha:2.0,beta:3.0,Y:$Y0);
+        $expected = $la->gemv($A,$X,alpha:2.0,beta:3.0,Y:$la->array([1,2,3,4]))->toArray();
+        $this->assertEquals($expected,$Y->toArray());
+    }
+
+    public function testHemvNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $H = [
+            [C(10),C(1,2),C(0),C(0)],
+            [C(1,-2),C(20),C(3,-1),C(0)],
+            [C(0),C(3,1),C(30),C(4,2)],
+            [C(0),C(0),C(4,-2),C(40)],
+        ];
+        $A = $la->array($H,dtype:NDArray::complex64);
+        $X = $la->array($this->toComplex([1,2,3,4]),dtype:NDArray::complex64);
+        $expected = $la->gemv($A,$X)->toArray();
+
+        $Y = $la->hemv($A,$X);
+        $this->assertEquals($expected,$Y->toArray());
+
+        $Y = $la->hemv($A,$X,lower:true);
+        $this->assertEquals($expected,$Y->toArray());
+    }
+
+    public function testHbmvNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $H = [
+            [C(10),C(1,2),C(0),C(0)],
+            [C(1,-2),C(20),C(3,-1),C(0)],
+            [C(0),C(3,1),C(30),C(4,2)],
+            [C(0),C(0),C(4,-2),C(40)],
+        ];
+        $A = $la->array($H,dtype:NDArray::complex64);
+        $X = $la->array($this->toComplex([1,2,3,4]),dtype:NDArray::complex64);
+        $expected = $la->gemv($A,$X)->toArray();
+
+        $upper = $la->array($this->toSymmetricBandMatrix($H,1,false),dtype:NDArray::complex64);
+        $Y = $la->hbmv($upper,$X,1);
+        $this->assertEquals($expected,$Y->toArray());
+
+        $lower = $la->array($this->toSymmetricBandMatrix($H,1,true),dtype:NDArray::complex64);
+        $Y = $la->hbmv($lower,$X,1,lower:true);
+        $this->assertEquals($expected,$Y->toArray());
+    }
+
+    public function testHpmvNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $H = [
+            [C(10),C(1,2),C(0),C(0)],
+            [C(1,-2),C(20),C(3,-1),C(0)],
+            [C(0),C(3,1),C(30),C(4,2)],
+            [C(0),C(0),C(4,-2),C(40)],
+        ];
+        $A = $la->array($H,dtype:NDArray::complex64);
+        $X = $la->array($this->toComplex([1,2,3,4]),dtype:NDArray::complex64);
+        $expected = $la->gemv($A,$X)->toArray();
+
+        $upper = $la->array($this->toPackedMatrix($H,false),dtype:NDArray::complex64);
+        $Y = $la->hpmv($upper,$X);
+        $this->assertEquals($expected,$Y->toArray());
+
+        $lower = $la->array($this->toPackedMatrix($H,true),dtype:NDArray::complex64);
+        $Y = $la->hpmv($lower,$X,lower:true);
+        $this->assertEquals($expected,$Y->toArray());
+    }
+
+    public function testTrmvNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $T = [[10,1,0,0],[0,20,2,0],[0,0,30,3],[0,0,0,40]];
+        $A = $la->array($T);
+        $X = $la->array([1,2,3,4]);
+
+        $Y = $la->trmv($A,$X);
+        $this->assertEquals($la->gemv($A,$la->array([1,2,3,4]))->toArray(),$Y->toArray());
+
+        $Y = $la->trmv($A,$la->array([1,2,3,4]),trans:true);
+        $this->assertEquals($la->gemv($A,$la->array([1,2,3,4]),trans:true)->toArray(),$Y->toArray());
+
+        $L = [[10,0,0,0],[1,20,0,0],[0,2,30,0],[0,0,3,40]];
+        $B = $la->array($L);
+        $Y = $la->trmv($B,$la->array([1,2,3,4]),lower:true);
+        $this->assertEquals($la->gemv($B,$la->array([1,2,3,4]))->toArray(),$Y->toArray());
+
+        $Tunit = [[1,1,0,0],[0,1,2,0],[0,0,1,3],[0,0,0,1]];
+        $U = $la->array($Tunit);
+        $Y = $la->trmv($U,$la->array([1,2,3,4]),unit:true);
+        $this->assertEquals($la->gemv($U,$la->array([1,2,3,4]))->toArray(),$Y->toArray());
+
+        $Tc = $la->array($this->toComplex([
+            [C(10),C(1,2),C(0),C(0)],
+            [C(0),C(20),C(3,-1),C(0)],
+            [C(0),C(0),C(30),C(4,2)],
+            [C(0),C(0),C(0),C(40)],
+        ]),dtype:NDArray::complex64);
+        $Xc = $la->array($this->toComplex([1,2,3,4]),dtype:NDArray::complex64);
+        $Y = $la->trmv($Tc,$Xc,trans:true);
+        $this->assertEquals($la->gemv($Tc,$la->array($this->toComplex([1,2,3,4]),dtype:NDArray::complex64),trans:true)->toArray(),$Y->toArray());
+
+        $Y = $la->trmv($Tc,$la->array($this->toComplex([1,2,3,4]),dtype:NDArray::complex64),trans:true,conj:false);
+        $this->assertEquals($la->gemv($Tc,$la->array($this->toComplex([1,2,3,4]),dtype:NDArray::complex64),trans:true,conj:false)->toArray(),$Y->toArray());
+    }
+
+    public function testTbmvNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $T = [[10,1,0,0],[0,20,2,0],[0,0,30,3],[0,0,0,40]];
+        $A = $la->array($T);
+        $X = [1,2,3,4];
+        $expected = $la->gemv($A,$la->array($X))->toArray();
+
+        $upper = $la->array($this->toSymmetricBandMatrix($T,1,false));
+        $Y = $la->tbmv($upper,$la->array($X),1);
+        $this->assertEquals($expected,$Y->toArray());
+
+        $Y = $la->tbmv($upper,$la->array($X),1,trans:true);
+        $this->assertEquals($la->gemv($A,$la->array($X),trans:true)->toArray(),$Y->toArray());
+
+        $L = [[10,0,0,0],[1,20,0,0],[0,2,30,0],[0,0,3,40]];
+        $B = $la->array($L);
+        $lower = $la->array($this->toSymmetricBandMatrix($L,1,true));
+        $Y = $la->tbmv($lower,$la->array($X),1,lower:true);
+        $this->assertEquals($la->gemv($B,$la->array($X))->toArray(),$Y->toArray());
+
+        $Y = $la->tbmv($lower,$la->array($X),1,lower:true,trans:true);
+        $this->assertEquals($la->gemv($B,$la->array($X),trans:true)->toArray(),$Y->toArray());
+    }
+
+    public function testTpmvNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $T = [[10,1,0,0],[0,20,2,0],[0,0,30,3],[0,0,0,40]];
+        $A = $la->array($T);
+        $X = [1,2,3,4];
+        $expected = $la->gemv($A,$la->array($X))->toArray();
+
+        $upper = $la->array($this->toPackedMatrix($T,false));
+        $Y = $la->tpmv($upper,$la->array($X));
+        $this->assertEquals($expected,$Y->toArray());
+
+        $Y = $la->tpmv($upper,$la->array($X),trans:true);
+        $this->assertEquals($la->gemv($A,$la->array($X),trans:true)->toArray(),$Y->toArray());
+
+        $L = [[10,0,0,0],[1,20,0,0],[0,2,30,0],[0,0,3,40]];
+        $B = $la->array($L);
+        $lower = $la->array($this->toPackedMatrix($L,true));
+        $Y = $la->tpmv($lower,$la->array($X),lower:true);
+        $this->assertEquals($la->gemv($B,$la->array($X))->toArray(),$Y->toArray());
+
+        $Y = $la->tpmv($lower,$la->array($X),lower:true,trans:true);
+        $this->assertEquals($la->gemv($B,$la->array($X),trans:true)->toArray(),$Y->toArray());
+    }
+
+    public function testTbsvNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        if(strpos($la->getConfig(),'CLBlast')!==false) {
+            $this->markTestSkipped('Not Implemented function in clblast');
+            return;
+        }
+
+        $T = [[10,1,0,0],[0,20,2,0],[0,0,30,3],[0,0,0,40]];
+        $A = $la->array($T);
+        $X = $la->array([1,2,3,4]);
+        $b = $la->gemv($A,$X);
+        $band = $la->array($this->toSymmetricBandMatrix($T,1,false));
+        $Y = $la->tbsv($band,$b,1);
+        $this->assertEquals($X->toArray(),$Y->toArray());
+
+        $b = $la->gemv($A,$X,trans:true);
+        $Y = $la->tbsv($band,$b,1,trans:true);
+        $this->assertEquals($X->toArray(),$Y->toArray());
+
+        $L = [[10,0,0,0],[1,20,0,0],[0,2,30,0],[0,0,3,40]];
+        $B = $la->array($L);
+        $b = $la->gemv($B,$X);
+        $lower = $la->array($this->toSymmetricBandMatrix($L,1,true));
+        $Y = $la->tbsv($lower,$b,1,lower:true);
+        $this->assertEquals($X->toArray(),$Y->toArray());
+
+        $Tunit = [[1,1,0,0],[0,1,2,0],[0,0,1,3],[0,0,0,1]];
+        $U = $la->array($Tunit);
+        $b = $la->gemv($U,$X);
+        $upper = $la->array($this->toSymmetricBandMatrix($Tunit,1,false));
+        $Y = $la->tbsv($upper,$b,1,unit:true);
+        $this->assertEquals($X->toArray(),$Y->toArray());
+    }
+
+    public function testTpsvNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        if(strpos($la->getConfig(),'CLBlast')!==false) {
+            $this->markTestSkipped('Not Implemented function in clblast');
+            return;
+        }
+
+        $T = [[10,1,0,0],[0,20,2,0],[0,0,30,3],[0,0,0,40]];
+        $A = $la->array($T);
+        $X = $la->array([1,2,3,4]);
+        $b = $la->gemv($A,$X);
+        $upper = $la->array($this->toPackedMatrix($T,false));
+        $Y = $la->tpsv($upper,$b);
+        $this->assertEquals($X->toArray(),$Y->toArray());
+
+        $b = $la->gemv($A,$X,trans:true);
+        $Y = $la->tpsv($upper,$b,trans:true);
+        $this->assertEquals($X->toArray(),$Y->toArray());
+
+        $L = [[10,0,0,0],[1,20,0,0],[0,2,30,0],[0,0,3,40]];
+        $B = $la->array($L);
+        $b = $la->gemv($B,$X);
+        $lower = $la->array($this->toPackedMatrix($L,true));
+        $Y = $la->tpsv($lower,$b,lower:true);
+        $this->assertEquals($X->toArray(),$Y->toArray());
+
+        $Tunit = [[1,1,0,0],[0,1,2,0],[0,0,1,3],[0,0,0,1]];
+        $U = $la->array($Tunit);
+        $b = $la->gemv($U,$X);
+        $upper = $la->array($this->toPackedMatrix($Tunit,false));
+        $Y = $la->tpsv($upper,$b,unit:true);
+        $this->assertEquals($X->toArray(),$Y->toArray());
+    }
+
+    public function testGerNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $X = $la->array([1,2,3]);
+        $Y = $la->array([4,5]);
+        $A = $la->ger($X,$Y,2.0);
+        $this->assertEquals([[8,10],[16,20],[24,30]],$A->toArray());
+
+        $Xc = $la->array([C(1,1),C(2,-1),C(3,2)],dtype:NDArray::complex64);
+        $Yc = $la->array([C(4,1),C(5,-2)],dtype:NDArray::complex64);
+        $A = $la->geru($Xc,$Yc,C(1,0));
+        $this->assertEquals([
+            [C(3,5),C(7,3)],
+            [C(9,-2),C(8,-9)],
+            [C(10,11),C(19,4)],
+        ],$A->toArray());
+
+        $A = $la->gerc($Xc,$Yc,C(1,0));
+        $this->assertEquals([
+            [C(5,3),C(3,7)],
+            [C(7,-6),C(12,-1)],
+            [C(14,5),C(11,16)],
+        ],$A->toArray());
+    }
+
+    public function testSyrSprNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $X = $la->array([1,2,3]);
+        $Y = $la->array([4,5,6]);
+
+        $A = $la->syr($X,2.0);
+        $this->assertEquals([[2,4,6],[0,8,12],[0,0,18]],$A->toArray());
+        $A = $la->syr($X,2.0,lower:true);
+        $this->assertEquals([[2,0,0],[4,8,0],[6,12,18]],$A->toArray());
+
+        $Ap = $la->spr($X,2.0);
+        $this->assertEquals([2,4,6,8,12,18],$Ap->toArray());
+        $Ap = $la->spr($X,2.0,lower:true);
+        $this->assertEquals([2,4,8,6,12,18],$Ap->toArray());
+
+        $A = $la->syr2($X,$Y);
+        $this->assertEquals([[8,13,18],[0,20,27],[0,0,36]],$A->toArray());
+        $A = $la->syr2($X,$Y,lower:true);
+        $this->assertEquals([[8,0,0],[13,20,0],[18,27,36]],$A->toArray());
+
+        $Ap = $la->spr2($X,$Y);
+        $this->assertEquals([8,13,18,20,27,36],$Ap->toArray());
+        $Ap = $la->spr2($X,$Y,lower:true);
+        $this->assertEquals([8,13,20,18,27,36],$Ap->toArray());
+    }
+
+    public function testHerHprNormal()
+    {
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+
+        $X = $la->array([C(1,1),C(2,-1),C(3,2)],dtype:NDArray::complex64);
+        $Y = $la->array([C(1,1),C(2,2),C(3,3)],dtype:NDArray::complex64);
+
+        $A = $la->her($X);
+        $this->assertEquals([
+            [C(2),C(1,3),C(5,1)],
+            [C(0),C(5),C(4,-7)],
+            [C(0),C(0),C(13)],
+        ],$A->toArray());
+        $A = $la->her($X,lower:true);
+        $this->assertEquals([
+            [C(2),C(0),C(0)],
+            [C(1,-3),C(5),C(0)],
+            [C(5,-1),C(4,7),C(13)],
+        ],$A->toArray());
+
+        $Ap = $la->hpr($X);
+        $this->assertEquals([C(2),C(1,3),C(5,1),C(5),C(4,-7),C(13)],$Ap->toArray());
+        $Ap = $la->hpr($X,lower:true);
+        $this->assertEquals([C(2),C(1,-3),C(5),C(5,-1),C(4,7),C(13)],$Ap->toArray());
+
+        $A = $la->her2($X,$Y);
+        $this->assertEquals([
+            [C(4),C(5,3),C(11,1)],
+            [C(0),C(4),C(13,-7)],
+            [C(0),C(0),C(30)],
+        ],$A->toArray());
+        $A = $la->her2($X,$Y,lower:true);
+        $this->assertEquals([
+            [C(4),C(0),C(0)],
+            [C(5,-3),C(4),C(0)],
+            [C(11,-1),C(13,7),C(30)],
+        ],$A->toArray());
+
+        $Ap = $la->hpr2($X,$Y);
+        $this->assertEquals([C(4),C(5,3),C(11,1),C(4),C(13,-7),C(30)],$Ap->toArray());
+        $Ap = $la->hpr2($X,$Y,lower:true);
+        $this->assertEquals([C(4),C(5,-3),C(4),C(11,-1),C(13,7),C(30)],$Ap->toArray());
+    }
+
     public function testGemmNormal()
     {
         $mo = $this->newMatrixOperator();

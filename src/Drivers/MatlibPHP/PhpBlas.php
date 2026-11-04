@@ -962,6 +962,11 @@ class PhpBlas
         }
     }
 
+    private function accessIndex(int $offset, int $row, int $col, int $lda) : int
+    {
+        return $offset + $row*$lda + $col;
+    }
+
     private function accessVector(Buffer $X, int $baseOffset, int $ix) : mixed
     {
         return $X[$baseOffset + $ix];
@@ -1135,6 +1140,1232 @@ class PhpBlas
         }
     }
 
+    private function assertRowMajorOrder(int $order) : void
+    {
+        if($order != BLAS::RowMajor) {
+            throw new InvalidArgumentException('Invalid Order type');
+        }
+    }
+
+    private function assertBandParameter(string $name,int $k) : void
+    {
+        if($k<0) {
+            throw new InvalidArgumentException("Argument $name must be greater than equals 0.");
+        }
+    }
+
+    private function assertBandMatrixBufferSpec(
+        string $name, Buffer $buffer,
+        int $rows, int $ld, int $offset, int $bandRows) : void
+    {
+        if($offset<0) {
+            throw new InvalidArgumentException("Argument offset$name must be greater than equals 0.");
+        }
+        if($ld<$bandRows) {
+            throw new InvalidArgumentException("Argument ld$name must be greater than or equals to $bandRows.");
+        }
+        if($offset+$rows*$ld > count($buffer)) {
+            throw new InvalidArgumentException("Matrix specification too large for buffer$name.");
+        }
+    }
+
+    private function assertPackedMatrixBufferSpec(
+        string $name, Buffer $buffer, int $n, int $offset) : void
+    {
+        if($offset<0) {
+            throw new InvalidArgumentException("Argument offset$name must be greater than equals 0.");
+        }
+        $size = intdiv($n*($n+1),2);
+        if($offset+$size > count($buffer)) {
+            throw new InvalidArgumentException("Packed matrix specification too large for buffer$name.");
+        }
+    }
+
+    private function bandIndex(
+        int $offset, int $ldA, int $i, int $j, int $kl) : int
+    {
+        return $offset + $i*$ldA + ($kl + $j - $i);
+    }
+
+    private function symmetricBandIndex(
+        int $offset, int $ldA, int $i, int $j, int $k, bool $upper) : int
+    {
+        if($upper) {
+            return $offset + $i*$ldA + ($j - $i);
+        }
+        return $offset + $i*$ldA + ($k + $j - $i);
+    }
+
+    private function packedIndex(int $i, int $j, int $n, bool $upper) : int
+    {
+        if($upper) {
+            return $j + intdiv($i*(2*$n-$i-1),2);
+        }
+        return $j + intdiv($i*($i+1),2);
+    }
+
+    /**
+     * @return array<mixed>
+     */
+    private function getAlphaBeta(
+        int $dtype, object $calc,
+        float|object $alpha, float|object $beta) : array
+    {
+        if($calc->iscomplex($dtype)) {
+            $alpha = $this->cleanComplexNumber($alpha,'alpha');
+            $beta = $this->cleanComplexNumber($beta,'beta');
+        } else {
+            $alpha = $this->cleanFloatNumber($alpha,'alpha');
+            $beta = $this->cleanFloatNumber($beta,'beta');
+        }
+        return [$alpha,$beta];
+    }
+
+    public function gbmv(
+        int $order,
+        int $trans_code,
+        int $m,
+        int $n,
+        int $kl,
+        int $ku,
+        float|object $alpha,
+        Buffer $A, int $offsetA, int $ldA,
+        Buffer $X, int $offsetX, int $incX,
+        float|object $beta,
+        Buffer $Y, int $offsetY, int $incY ) : void
+    {
+        $this->assertRowMajorOrder($order);
+        [$trans,$conj] = $this->codeToTrans($trans_code);
+        $this->assertShapeParameter('m',$m);
+        $this->assertShapeParameter('n',$n);
+        $this->assertBandParameter('kl',$kl);
+        $this->assertBandParameter('ku',$ku);
+
+        $bandRows = $kl + $ku + 1;
+        $this->assertBandMatrixBufferSpec('A',$A,$m,$ldA,$offsetA,$bandRows);
+        $lenX = ($trans) ? $m : $n;
+        $lenY = ($trans) ? $n : $m;
+        $this->assertVectorBufferSpec('X',$X,$lenX,$offsetX,$incX);
+        $this->assertVectorBufferSpec('Y',$Y,$lenY,$offsetY,$incY);
+
+        $dtype = $A->dtype();
+        $calc = $this->getCalc($dtype);
+        [$alpha,$beta] = $this->getAlphaBeta($dtype,$calc,$alpha,$beta);
+        $useConj = $calc->iscomplex($dtype) && $conj;
+
+        for($i=0; $i<$lenY; $i++) {
+            $acc = $calc->build(0.0);
+            $iy = $offsetY + $i*$incY;
+            for($j=0; $j<$lenX; $j++) {
+                if($trans) {
+                    $row = $j; $col = $i;
+                } else {
+                    $row = $i; $col = $j;
+                }
+                if($col<$row-$kl || $col>$row+$ku) {
+                    continue;
+                }
+                $idx = $this->bandIndex($offsetA,$ldA,$row,$col,$kl);
+                $v = $A[$idx];
+                if($useConj) {
+                    $v = $calc->conj($v);
+                }
+                $acc = $calc->add($acc,$calc->mul($v,$X[$offsetX+$j*$incX]));
+            }
+            $Y[$iy] = $calc->add($calc->mul($alpha,$acc),$calc->mul($beta,$Y[$iy]));
+        }
+    }
+
+    public function sbmv(
+        int $order,
+        int $uplo,
+        int $n,
+        int $k,
+        float|object $alpha,
+        Buffer $A, int $offsetA, int $ldA,
+        Buffer $X, int $offsetX, int $incX,
+        float|object $beta,
+        Buffer $Y, int $offsetY, int $incY ) : void
+    {
+        $this->assertRowMajorOrder($order);
+        $this->assertShapeParameter('n',$n);
+        $this->assertBandParameter('k',$k);
+        $this->assertBandMatrixBufferSpec('A',$A,$n,$ldA,$offsetA,$k+1);
+        $this->assertVectorBufferSpec('X',$X,$n,$offsetX,$incX);
+        $this->assertVectorBufferSpec('Y',$Y,$n,$offsetY,$incY);
+        if($uplo!=BLAS::Upper && $uplo!=BLAS::Lower) {
+            throw new InvalidArgumentException('Argument uplo must be Upper or Lower.');
+        }
+        $upper = ($uplo==BLAS::Upper);
+
+        $dtype = $A->dtype();
+        $calc = $this->getCalc($dtype);
+        [$alpha,$beta] = $this->getAlphaBeta($dtype,$calc,$alpha,$beta);
+
+        for($i=0; $i<$n; $i++) {
+            $acc = $calc->build(0.0);
+            $j0 = max(0,$i-$k);
+            $j1 = min($n-1,$i+$k);
+            for($j=$j0; $j<=$j1; $j++) {
+                if($upper) {
+                    $idx = ($j>=$i) ?
+                        $this->symmetricBandIndex($offsetA,$ldA,$i,$j,$k,true) :
+                        $this->symmetricBandIndex($offsetA,$ldA,$j,$i,$k,true);
+                } else {
+                    $idx = ($j<=$i) ?
+                        $this->symmetricBandIndex($offsetA,$ldA,$i,$j,$k,false) :
+                        $this->symmetricBandIndex($offsetA,$ldA,$j,$i,$k,false);
+                }
+                $acc = $calc->add($acc,$calc->mul($A[$idx],$X[$offsetX+$j*$incX]));
+            }
+            $iy = $offsetY + $i*$incY;
+            $Y[$iy] = $calc->add($calc->mul($alpha,$acc),$calc->mul($beta,$Y[$iy]));
+        }
+    }
+
+    public function spmv(
+        int $order,
+        int $uplo,
+        int $n,
+        float|object $alpha,
+        Buffer $Ap, int $offsetAp,
+        Buffer $X, int $offsetX, int $incX,
+        float|object $beta,
+        Buffer $Y, int $offsetY, int $incY ) : void
+    {
+        $this->assertRowMajorOrder($order);
+        $this->assertShapeParameter('n',$n);
+        $this->assertPackedMatrixBufferSpec('Ap',$Ap,$n,$offsetAp);
+        $this->assertVectorBufferSpec('X',$X,$n,$offsetX,$incX);
+        $this->assertVectorBufferSpec('Y',$Y,$n,$offsetY,$incY);
+        if($uplo!=BLAS::Upper && $uplo!=BLAS::Lower) {
+            throw new InvalidArgumentException('Argument uplo must be Upper or Lower.');
+        }
+        $upper = ($uplo==BLAS::Upper);
+
+        $dtype = $Ap->dtype();
+        $calc = $this->getCalc($dtype);
+        [$alpha,$beta] = $this->getAlphaBeta($dtype,$calc,$alpha,$beta);
+
+        for($i=0; $i<$n; $i++) {
+            $acc = $calc->build(0.0);
+            for($j=0; $j<$n; $j++) {
+                if($upper) {
+                    $idx = ($i<=$j) ?
+                        $this->packedIndex($i,$j,$n,true) :
+                        $this->packedIndex($j,$i,$n,true);
+                } else {
+                    $idx = ($i>=$j) ?
+                        $this->packedIndex($i,$j,$n,false) :
+                        $this->packedIndex($j,$i,$n,false);
+                }
+                $acc = $calc->add($acc,$calc->mul($Ap[$offsetAp+$idx],$X[$offsetX+$j*$incX]));
+            }
+            $iy = $offsetY + $i*$incY;
+            $Y[$iy] = $calc->add($calc->mul($alpha,$acc),$calc->mul($beta,$Y[$iy]));
+        }
+    }
+
+    public function symv(
+        int $order,
+        int $uplo,
+        int $n,
+        float|object $alpha,
+        Buffer $A, int $offsetA, int $ldA,
+        Buffer $X, int $offsetX, int $incX,
+        float|object $beta,
+        Buffer $Y, int $offsetY, int $incY ) : void
+    {
+        $this->assertRowMajorOrder($order);
+        $this->assertShapeParameter('n',$n);
+        $this->assertMatrixBufferSpec('A',$A,$n,$n,$offsetA,$ldA);
+        $this->assertVectorBufferSpec('X',$X,$n,$offsetX,$incX);
+        $this->assertVectorBufferSpec('Y',$Y,$n,$offsetY,$incY);
+        if($uplo!=BLAS::Upper && $uplo!=BLAS::Lower) {
+            throw new InvalidArgumentException('Argument uplo must be Upper or Lower.');
+        }
+        $upper = ($uplo==BLAS::Upper);
+
+        $dtype = $A->dtype();
+        $calc = $this->getCalc($dtype);
+        [$alpha,$beta] = $this->getAlphaBeta($dtype,$calc,$alpha,$beta);
+
+        for($i=0; $i<$n; $i++) {
+            $acc = $calc->build(0.0);
+            for($j=0; $j<$n; $j++) {
+                if($upper) {
+                    $idx = ($i<=$j) ?
+                        $this->accessIndex($offsetA,$i,$j,$ldA) :
+                        $this->accessIndex($offsetA,$j,$i,$ldA);
+                } else {
+                    $idx = ($i>=$j) ?
+                        $this->accessIndex($offsetA,$i,$j,$ldA) :
+                        $this->accessIndex($offsetA,$j,$i,$ldA);
+                }
+                $acc = $calc->add($acc,$calc->mul($A[$idx],$X[$offsetX+$j*$incX]));
+            }
+            $iy = $offsetY + $i*$incY;
+            $Y[$iy] = $calc->add($calc->mul($alpha,$acc),$calc->mul($beta,$Y[$iy]));
+        }
+    }
+
+    public function hemv(
+        int $order,
+        int $uplo,
+        int $n,
+        float|object $alpha,
+        Buffer $A, int $offsetA, int $ldA,
+        Buffer $X, int $offsetX, int $incX,
+        float|object $beta,
+        Buffer $Y, int $offsetY, int $incY ) : void
+    {
+        $this->assertRowMajorOrder($order);
+        $this->assertShapeParameter('n',$n);
+        $this->assertMatrixBufferSpec('A',$A,$n,$n,$offsetA,$ldA);
+        $this->assertVectorBufferSpec('X',$X,$n,$offsetX,$incX);
+        $this->assertVectorBufferSpec('Y',$Y,$n,$offsetY,$incY);
+        if($uplo!=BLAS::Upper && $uplo!=BLAS::Lower) {
+            throw new InvalidArgumentException('Argument uplo must be Upper or Lower.');
+        }
+        $upper = ($uplo==BLAS::Upper);
+
+        $dtype = $A->dtype();
+        $calc = $this->getCalc($dtype);
+        [$alpha,$beta] = $this->getAlphaBeta($dtype,$calc,$alpha,$beta);
+        $isComplex = $calc->iscomplex($dtype);
+
+        for($i=0; $i<$n; $i++) {
+            $acc = $calc->build(0.0);
+            for($j=0; $j<$n; $j++) {
+                if($i==$j) {
+                    $v = $this->accessArray($A,$offsetA,$i,$j,$ldA,$order);
+                    if($isComplex) {
+                        $v = $calc->build($v->real);
+                    }
+                } elseif($upper) {
+                    if($i<$j) {
+                        $v = $this->accessArray($A,$offsetA,$i,$j,$ldA,$order);
+                    } else {
+                        $v = $this->accessArray($A,$offsetA,$j,$i,$ldA,$order);
+                        $v = $calc->conj($v);
+                    }
+                } else {
+                    if($i>$j) {
+                        $v = $this->accessArray($A,$offsetA,$i,$j,$ldA,$order);
+                    } else {
+                        $v = $this->accessArray($A,$offsetA,$j,$i,$ldA,$order);
+                        $v = $calc->conj($v);
+                    }
+                }
+                $acc = $calc->add($acc,$calc->mul($v,$X[$offsetX+$j*$incX]));
+            }
+            $iy = $offsetY + $i*$incY;
+            $Y[$iy] = $calc->add($calc->mul($alpha,$acc),$calc->mul($beta,$Y[$iy]));
+        }
+    }
+
+    public function hbmv(
+        int $order,
+        int $uplo,
+        int $n,
+        int $k,
+        float|object $alpha,
+        Buffer $A, int $offsetA, int $ldA,
+        Buffer $X, int $offsetX, int $incX,
+        float|object $beta,
+        Buffer $Y, int $offsetY, int $incY ) : void
+    {
+        $this->assertRowMajorOrder($order);
+        $this->assertShapeParameter('n',$n);
+        $this->assertBandParameter('k',$k);
+        $this->assertBandMatrixBufferSpec('A',$A,$n,$ldA,$offsetA,$k+1);
+        $this->assertVectorBufferSpec('X',$X,$n,$offsetX,$incX);
+        $this->assertVectorBufferSpec('Y',$Y,$n,$offsetY,$incY);
+        if($uplo!=BLAS::Upper && $uplo!=BLAS::Lower) {
+            throw new InvalidArgumentException('Argument uplo must be Upper or Lower.');
+        }
+        $upper = ($uplo==BLAS::Upper);
+
+        $dtype = $A->dtype();
+        $calc = $this->getCalc($dtype);
+        [$alpha,$beta] = $this->getAlphaBeta($dtype,$calc,$alpha,$beta);
+        $isComplex = $calc->iscomplex($dtype);
+
+        for($i=0; $i<$n; $i++) {
+            $acc = $calc->build(0.0);
+            $j0 = max(0,$i-$k);
+            $j1 = min($n-1,$i+$k);
+            for($j=$j0; $j<=$j1; $j++) {
+                if($i==$j) {
+                    $idx = $this->symmetricBandIndex($offsetA,$ldA,$i,$j,$k,$upper);
+                    $v = $A[$idx];
+                    if($isComplex) {
+                        $v = $calc->build($v->real);
+                    }
+                } elseif($upper) {
+                    if($j>$i) {
+                        $idx = $this->symmetricBandIndex($offsetA,$ldA,$i,$j,$k,true);
+                        $v = $A[$idx];
+                    } else {
+                        $idx = $this->symmetricBandIndex($offsetA,$ldA,$j,$i,$k,true);
+                        $v = $calc->conj($A[$idx]);
+                    }
+                } else {
+                    if($j<$i) {
+                        $idx = $this->symmetricBandIndex($offsetA,$ldA,$i,$j,$k,false);
+                        $v = $A[$idx];
+                    } else {
+                        $idx = $this->symmetricBandIndex($offsetA,$ldA,$j,$i,$k,false);
+                        $v = $calc->conj($A[$idx]);
+                    }
+                }
+                $acc = $calc->add($acc,$calc->mul($v,$X[$offsetX+$j*$incX]));
+            }
+            $iy = $offsetY + $i*$incY;
+            $Y[$iy] = $calc->add($calc->mul($alpha,$acc),$calc->mul($beta,$Y[$iy]));
+        }
+    }
+
+    public function hpmv(
+        int $order,
+        int $uplo,
+        int $n,
+        float|object $alpha,
+        Buffer $Ap, int $offsetAp,
+        Buffer $X, int $offsetX, int $incX,
+        float|object $beta,
+        Buffer $Y, int $offsetY, int $incY ) : void
+    {
+        $this->assertRowMajorOrder($order);
+        $this->assertShapeParameter('n',$n);
+        $this->assertPackedMatrixBufferSpec('Ap',$Ap,$n,$offsetAp);
+        $this->assertVectorBufferSpec('X',$X,$n,$offsetX,$incX);
+        $this->assertVectorBufferSpec('Y',$Y,$n,$offsetY,$incY);
+        if($uplo!=BLAS::Upper && $uplo!=BLAS::Lower) {
+            throw new InvalidArgumentException('Argument uplo must be Upper or Lower.');
+        }
+        $upper = ($uplo==BLAS::Upper);
+
+        $dtype = $Ap->dtype();
+        $calc = $this->getCalc($dtype);
+        [$alpha,$beta] = $this->getAlphaBeta($dtype,$calc,$alpha,$beta);
+        $isComplex = $calc->iscomplex($dtype);
+
+        for($i=0; $i<$n; $i++) {
+            $acc = $calc->build(0.0);
+            for($j=0; $j<$n; $j++) {
+                if($i==$j) {
+                    $idx = $this->packedIndex($i,$j,$n,$upper);
+                    $v = $Ap[$offsetAp+$idx];
+                    if($isComplex) {
+                        $v = $calc->build($v->real);
+                    }
+                } elseif($upper) {
+                    if($i<$j) {
+                        $idx = $this->packedIndex($i,$j,$n,true);
+                        $v = $Ap[$offsetAp+$idx];
+                    } else {
+                        $idx = $this->packedIndex($j,$i,$n,true);
+                        $v = $calc->conj($Ap[$offsetAp+$idx]);
+                    }
+                } else {
+                    if($i>$j) {
+                        $idx = $this->packedIndex($i,$j,$n,false);
+                        $v = $Ap[$offsetAp+$idx];
+                    } else {
+                        $idx = $this->packedIndex($j,$i,$n,false);
+                        $v = $calc->conj($Ap[$offsetAp+$idx]);
+                    }
+                }
+                $acc = $calc->add($acc,$calc->mul($v,$X[$offsetX+$j*$incX]));
+            }
+            $iy = $offsetY + $i*$incY;
+            $Y[$iy] = $calc->add($calc->mul($alpha,$acc),$calc->mul($beta,$Y[$iy]));
+        }
+    }
+
+    public function trmv(
+        int $order,
+        int $uplo,
+        int $trans_code,
+        int $diag,
+        int $n,
+        Buffer $A, int $offsetA, int $ldA,
+        Buffer $X, int $offsetX, int $incX ) : void
+    {
+        $this->assertRowMajorOrder($order);
+        [$trans,$conj] = $this->codeToTrans($trans_code);
+        $this->assertShapeParameter('n',$n);
+        $this->assertMatrixBufferSpec('A',$A,$n,$n,$offsetA,$ldA);
+        $this->assertVectorBufferSpec('X',$X,$n,$offsetX,$incX);
+        if($uplo!=BLAS::Upper && $uplo!=BLAS::Lower) {
+            throw new InvalidArgumentException('Argument uplo must be Upper or Lower.');
+        }
+        $upper = ($uplo==BLAS::Upper);
+        $unit = ($diag==BLAS::Unit);
+
+        $dtype = $A->dtype();
+        $calc = $this->getCalc($dtype);
+        $useConj = $calc->iscomplex($dtype) && $conj;
+
+        $src = [];
+        for($j=0; $j<$n; $j++) {
+            $src[$j] = $X[$offsetX+$j*$incX];
+        }
+        $dst = [];
+        for($i=0; $i<$n; $i++) {
+            $acc = $calc->build(0.0);
+            if(!$trans) {
+                if($upper) { $j0 = $i; $j1 = $n-1; }
+                else       { $j0 = 0; $j1 = $i; }
+                for($j=$j0; $j<=$j1; $j++) {
+                    if($j==$i && $unit) {
+                        $v = $calc->build(1.0);
+                    } else {
+                        $v = $this->accessArray($A,$offsetA,$i,$j,$ldA,$order);
+                        if($useConj) {
+                            $v = $calc->conj($v);
+                        }
+                    }
+                    $acc = $calc->add($acc,$calc->mul($v,$src[$j]));
+                }
+            } else {
+                if($upper) { $j0 = 0; $j1 = $i; }
+                else       { $j0 = $i; $j1 = $n-1; }
+                for($j=$j0; $j<=$j1; $j++) {
+                    if($j==$i && $unit) {
+                        $v = $calc->build(1.0);
+                    } else {
+                        $v = $this->accessArray($A,$offsetA,$j,$i,$ldA,$order);
+                        if($useConj) {
+                            $v = $calc->conj($v);
+                        }
+                    }
+                    $acc = $calc->add($acc,$calc->mul($v,$src[$j]));
+                }
+            }
+            $dst[$i] = $acc;
+        }
+        for($i=0; $i<$n; $i++) {
+            $X[$offsetX+$i*$incX] = $dst[$i];
+        }
+    }
+
+    public function tbmv(
+        int $order,
+        int $uplo,
+        int $trans_code,
+        int $diag,
+        int $n,
+        int $k,
+        Buffer $A, int $offsetA, int $ldA,
+        Buffer $X, int $offsetX, int $incX ) : void
+    {
+        $this->assertRowMajorOrder($order);
+        [$trans,$conj] = $this->codeToTrans($trans_code);
+        $this->assertShapeParameter('n',$n);
+        $this->assertBandParameter('k',$k);
+        $this->assertBandMatrixBufferSpec('A',$A,$n,$ldA,$offsetA,$k+1);
+        $this->assertVectorBufferSpec('X',$X,$n,$offsetX,$incX);
+        if($uplo!=BLAS::Upper && $uplo!=BLAS::Lower) {
+            throw new InvalidArgumentException('Argument uplo must be Upper or Lower.');
+        }
+        $upper = ($uplo==BLAS::Upper);
+        $unit = ($diag==BLAS::Unit);
+
+        $dtype = $A->dtype();
+        $calc = $this->getCalc($dtype);
+        $useConj = $calc->iscomplex($dtype) && $conj;
+
+        $src = [];
+        for($j=0; $j<$n; $j++) {
+            $src[$j] = $X[$offsetX+$j*$incX];
+        }
+        $dst = [];
+        for($i=0; $i<$n; $i++) {
+            $acc = $calc->build(0.0);
+            if(!$trans) {
+                if($upper) { $j0 = $i; $j1 = min($n-1,$i+$k); }
+                else       { $j0 = max(0,$i-$k); $j1 = $i; }
+                for($j=$j0; $j<=$j1; $j++) {
+                    if($j==$i && $unit) {
+                        $v = $calc->build(1.0);
+                    } else {
+                        $idx = $this->symmetricBandIndex($offsetA,$ldA,$i,$j,$k,$upper);
+                        $v = $A[$idx];
+                        if($useConj) {
+                            $v = $calc->conj($v);
+                        }
+                    }
+                    $acc = $calc->add($acc,$calc->mul($v,$src[$j]));
+                }
+            } else {
+                if($upper) { $j0 = max(0,$i-$k); $j1 = $i; }
+                else       { $j0 = $i; $j1 = min($n-1,$i+$k); }
+                for($j=$j0; $j<=$j1; $j++) {
+                    if($j==$i && $unit) {
+                        $v = $calc->build(1.0);
+                    } else {
+                        $idx = $this->symmetricBandIndex($offsetA,$ldA,$j,$i,$k,$upper);
+                        $v = $A[$idx];
+                        if($useConj) {
+                            $v = $calc->conj($v);
+                        }
+                    }
+                    $acc = $calc->add($acc,$calc->mul($v,$src[$j]));
+                }
+            }
+            $dst[$i] = $acc;
+        }
+        for($i=0; $i<$n; $i++) {
+            $X[$offsetX+$i*$incX] = $dst[$i];
+        }
+    }
+
+    public function tpmv(
+        int $order,
+        int $uplo,
+        int $trans_code,
+        int $diag,
+        int $n,
+        Buffer $Ap, int $offsetAp,
+        Buffer $X, int $offsetX, int $incX ) : void
+    {
+        $this->assertRowMajorOrder($order);
+        [$trans,$conj] = $this->codeToTrans($trans_code);
+        $this->assertShapeParameter('n',$n);
+        $this->assertPackedMatrixBufferSpec('Ap',$Ap,$n,$offsetAp);
+        $this->assertVectorBufferSpec('X',$X,$n,$offsetX,$incX);
+        if($uplo!=BLAS::Upper && $uplo!=BLAS::Lower) {
+            throw new InvalidArgumentException('Argument uplo must be Upper or Lower.');
+        }
+        $upper = ($uplo==BLAS::Upper);
+        $unit = ($diag==BLAS::Unit);
+
+        $dtype = $Ap->dtype();
+        $calc = $this->getCalc($dtype);
+        $useConj = $calc->iscomplex($dtype) && $conj;
+
+        $src = [];
+        for($j=0; $j<$n; $j++) {
+            $src[$j] = $X[$offsetX+$j*$incX];
+        }
+        $dst = [];
+        for($i=0; $i<$n; $i++) {
+            $acc = $calc->build(0.0);
+            if(!$trans) {
+                if($upper) { $j0 = $i; $j1 = $n-1; }
+                else       { $j0 = 0; $j1 = $i; }
+                for($j=$j0; $j<=$j1; $j++) {
+                    if($j==$i && $unit) {
+                        $v = $calc->build(1.0);
+                    } else {
+                        $idx = $this->packedIndex($i,$j,$n,$upper);
+                        $v = $Ap[$offsetAp+$idx];
+                        if($useConj) {
+                            $v = $calc->conj($v);
+                        }
+                    }
+                    $acc = $calc->add($acc,$calc->mul($v,$src[$j]));
+                }
+            } else {
+                if($upper) { $j0 = 0; $j1 = $i; }
+                else       { $j0 = $i; $j1 = $n-1; }
+                for($j=$j0; $j<=$j1; $j++) {
+                    if($j==$i && $unit) {
+                        $v = $calc->build(1.0);
+                    } else {
+                        $idx = $this->packedIndex($j,$i,$n,$upper);
+                        $v = $Ap[$offsetAp+$idx];
+                        if($useConj) {
+                            $v = $calc->conj($v);
+                        }
+                    }
+                    $acc = $calc->add($acc,$calc->mul($v,$src[$j]));
+                }
+            }
+            $dst[$i] = $acc;
+        }
+        for($i=0; $i<$n; $i++) {
+            $X[$offsetX+$i*$incX] = $dst[$i];
+        }
+    }
+
+    public function tbsv(
+        int $order,
+        int $uplo,
+        int $trans_code,
+        int $diag,
+        int $n,
+        int $k,
+        Buffer $A, int $offsetA, int $ldA,
+        Buffer $X, int $offsetX, int $incX ) : void
+    {
+        $this->assertRowMajorOrder($order);
+        [$trans,$conj] = $this->codeToTrans($trans_code);
+        $this->assertShapeParameter('n',$n);
+        $this->assertBandParameter('k',$k);
+        $this->assertBandMatrixBufferSpec('A',$A,$n,$ldA,$offsetA,$k+1);
+        $this->assertVectorBufferSpec('X',$X,$n,$offsetX,$incX);
+        if($uplo!=BLAS::Upper && $uplo!=BLAS::Lower) {
+            throw new InvalidArgumentException('Argument uplo must be Upper or Lower.');
+        }
+        $upper = ($uplo==BLAS::Upper);
+        $notrans = !$trans;
+        $unit = ($diag==BLAS::Unit);
+
+        $dtype = $A->dtype();
+        $calc = $this->getCalc($dtype);
+        $useConj = $calc->iscomplex($dtype) && $conj;
+
+        $forward = ($notrans xor $upper);
+        $start = ($forward) ? 0 : $n-1;
+        $end   = ($forward) ? $n : -1;
+        $step  = ($forward) ? 1 : -1;
+        for($i=$start; $i!=$end; $i+=$step) {
+            $sum = $calc->build(0.0);
+            if($notrans) {
+                if($upper) { $j0 = $i+1; $j1 = min($n-1,$i+$k); }
+                else       { $j0 = max(0,$i-$k); $j1 = $i-1; }
+                for($j=$j0; $j<=$j1; $j++) {
+                    $idx = $this->symmetricBandIndex($offsetA,$ldA,$i,$j,$k,$upper);
+                    $v = $A[$idx];
+                    if($useConj) {
+                        $v = $calc->conj($v);
+                    }
+                    $sum = $calc->add($sum,$calc->mul($v,$X[$offsetX+$j*$incX]));
+                }
+            } else {
+                if($upper) { $j0 = max(0,$i-$k); $j1 = $i-1; }
+                else       { $j0 = $i+1; $j1 = min($n-1,$i+$k); }
+                for($j=$j0; $j<=$j1; $j++) {
+                    $idx = $this->symmetricBandIndex($offsetA,$ldA,$j,$i,$k,$upper);
+                    $v = $A[$idx];
+                    if($useConj) {
+                        $v = $calc->conj($v);
+                    }
+                    $sum = $calc->add($sum,$calc->mul($v,$X[$offsetX+$j*$incX]));
+                }
+            }
+            $ix = $offsetX + $i*$incX;
+            $temp = $calc->sub($X[$ix],$sum);
+            if(!$unit) {
+                $idx = $this->symmetricBandIndex($offsetA,$ldA,$i,$i,$k,$upper);
+                $diagVal = $A[$idx];
+                if($useConj) {
+                    $diagVal = $calc->conj($diagVal);
+                }
+                if($calc->iszero($diagVal)) {
+                    $temp = NAN;
+                } else {
+                    $temp = $calc->div($temp,$diagVal);
+                }
+            }
+            $X[$ix] = $temp;
+        }
+    }
+
+    public function tpsv(
+        int $order,
+        int $uplo,
+        int $trans_code,
+        int $diag,
+        int $n,
+        Buffer $Ap, int $offsetAp,
+        Buffer $X, int $offsetX, int $incX ) : void
+    {
+        $this->assertRowMajorOrder($order);
+        [$trans,$conj] = $this->codeToTrans($trans_code);
+        $this->assertShapeParameter('n',$n);
+        $this->assertPackedMatrixBufferSpec('Ap',$Ap,$n,$offsetAp);
+        $this->assertVectorBufferSpec('X',$X,$n,$offsetX,$incX);
+        if($uplo!=BLAS::Upper && $uplo!=BLAS::Lower) {
+            throw new InvalidArgumentException('Argument uplo must be Upper or Lower.');
+        }
+        $upper = ($uplo==BLAS::Upper);
+        $notrans = !$trans;
+        $unit = ($diag==BLAS::Unit);
+
+        $dtype = $Ap->dtype();
+        $calc = $this->getCalc($dtype);
+        $useConj = $calc->iscomplex($dtype) && $conj;
+
+        $forward = ($notrans xor $upper);
+        $start = ($forward) ? 0 : $n-1;
+        $end   = ($forward) ? $n : -1;
+        $step  = ($forward) ? 1 : -1;
+        for($i=$start; $i!=$end; $i+=$step) {
+            $sum = $calc->build(0.0);
+            if($notrans) {
+                if($upper) { $j0 = $i+1; $j1 = $n-1; }
+                else       { $j0 = 0; $j1 = $i-1; }
+                for($j=$j0; $j<=$j1; $j++) {
+                    $idx = $this->packedIndex($i,$j,$n,$upper);
+                    $v = $Ap[$offsetAp+$idx];
+                    if($useConj) {
+                        $v = $calc->conj($v);
+                    }
+                    $sum = $calc->add($sum,$calc->mul($v,$X[$offsetX+$j*$incX]));
+                }
+            } else {
+                if($upper) { $j0 = 0; $j1 = $i-1; }
+                else       { $j0 = $i+1; $j1 = $n-1; }
+                for($j=$j0; $j<=$j1; $j++) {
+                    $idx = $this->packedIndex($j,$i,$n,$upper);
+                    $v = $Ap[$offsetAp+$idx];
+                    if($useConj) {
+                        $v = $calc->conj($v);
+                    }
+                    $sum = $calc->add($sum,$calc->mul($v,$X[$offsetX+$j*$incX]));
+                }
+            }
+            $ix = $offsetX + $i*$incX;
+            $temp = $calc->sub($X[$ix],$sum);
+            if(!$unit) {
+                $idx = $this->packedIndex($i,$i,$n,$upper);
+                $diagVal = $Ap[$offsetAp+$idx];
+                if($useConj) {
+                    $diagVal = $calc->conj($diagVal);
+                }
+                if($calc->iszero($diagVal)) {
+                    $temp = NAN;
+                } else {
+                    $temp = $calc->div($temp,$diagVal);
+                }
+            }
+            $X[$ix] = $temp;
+        }
+    }
+
+    public function ger(
+        int $order,
+        int $m,
+        int $n,
+        float|object $alpha,
+        Buffer $X, int $offsetX, int $incX,
+        Buffer $Y, int $offsetY, int $incY,
+        Buffer $A, int $offsetA, int $ldA ) : void
+    {
+        $this->gerx($order,$m,$n,$alpha,$X,$offsetX,$incX,$Y,$offsetY,$incY,
+            $A,$offsetA,$ldA,false);
+    }
+
+    public function geru(
+        int $order,
+        int $m,
+        int $n,
+        float|object $alpha,
+        Buffer $X, int $offsetX, int $incX,
+        Buffer $Y, int $offsetY, int $incY,
+        Buffer $A, int $offsetA, int $ldA ) : void
+    {
+        $this->gerx($order,$m,$n,$alpha,$X,$offsetX,$incX,$Y,$offsetY,$incY,
+            $A,$offsetA,$ldA,false);
+    }
+
+    public function gerc(
+        int $order,
+        int $m,
+        int $n,
+        float|object $alpha,
+        Buffer $X, int $offsetX, int $incX,
+        Buffer $Y, int $offsetY, int $incY,
+        Buffer $A, int $offsetA, int $ldA ) : void
+    {
+        $this->gerx($order,$m,$n,$alpha,$X,$offsetX,$incX,$Y,$offsetY,$incY,
+            $A,$offsetA,$ldA,true);
+    }
+
+    private function gerx(
+        int $order,
+        int $m,
+        int $n,
+        float|object $alpha,
+        Buffer $X, int $offsetX, int $incX,
+        Buffer $Y, int $offsetY, int $incY,
+        Buffer $A, int $offsetA, int $ldA,
+        bool $conjY ) : void
+    {
+        $this->assertRowMajorOrder($order);
+        $this->assertShapeParameter('m',$m);
+        $this->assertShapeParameter('n',$n);
+        $this->assertVectorBufferSpec('X',$X,$m,$offsetX,$incX);
+        $this->assertVectorBufferSpec('Y',$Y,$n,$offsetY,$incY);
+        $this->assertMatrixBufferSpec('A',$A,$m,$n,$offsetA,$ldA);
+
+        $dtype = $A->dtype();
+        $calc = $this->getCalc($dtype);
+        [$alpha] = $this->getAlphaBeta($dtype,$calc,$alpha,$calc->build(0.0));
+        $useConj = $calc->iscomplex($dtype) && $conjY;
+
+        for($i=0; $i<$m; $i++) {
+            $xi = $X[$offsetX+$i*$incX];
+            for($j=0; $j<$n; $j++) {
+                $yj = $Y[$offsetY+$j*$incY];
+                if($useConj) {
+                    $yj = $calc->conj($yj);
+                }
+                $idx = $this->accessIndex($offsetA,$i,$j,$ldA);
+                $A[$idx] = $calc->add($A[$idx],$calc->mul($alpha,$calc->mul($xi,$yj)));
+            }
+        }
+    }
+
+    public function syr(
+        int $order,
+        int $uplo,
+        int $n,
+        float|object $alpha,
+        Buffer $X, int $offsetX, int $incX,
+        Buffer $A, int $offsetA, int $ldA ) : void
+    {
+        $this->assertRowMajorOrder($order);
+        $this->assertShapeParameter('n',$n);
+        $this->assertVectorBufferSpec('X',$X,$n,$offsetX,$incX);
+        $this->assertMatrixBufferSpec('A',$A,$n,$n,$offsetA,$ldA);
+        if($uplo!=BLAS::Upper && $uplo!=BLAS::Lower) {
+            throw new InvalidArgumentException('Argument uplo must be Upper or Lower.');
+        }
+        $upper = ($uplo==BLAS::Upper);
+
+        $dtype = $A->dtype();
+        $calc = $this->getCalc($dtype);
+        [$alpha] = $this->getAlphaBeta($dtype,$calc,$alpha,$calc->build(0.0));
+
+        for($i=0; $i<$n; $i++) {
+            $xi = $X[$offsetX+$i*$incX];
+            $j0 = ($upper) ? $i : 0;
+            $j1 = ($upper) ? $n-1 : $i;
+            for($j=$j0; $j<=$j1; $j++) {
+                $idx = $this->accessIndex($offsetA,$i,$j,$ldA);
+                $A[$idx] = $calc->add($A[$idx],
+                    $calc->mul($alpha,$calc->mul($xi,$X[$offsetX+$j*$incX])));
+            }
+        }
+    }
+
+    public function spr(
+        int $order,
+        int $uplo,
+        int $n,
+        float|object $alpha,
+        Buffer $X, int $offsetX, int $incX,
+        Buffer $Ap, int $offsetAp ) : void
+    {
+        $this->assertRowMajorOrder($order);
+        $this->assertShapeParameter('n',$n);
+        $this->assertVectorBufferSpec('X',$X,$n,$offsetX,$incX);
+        $this->assertPackedMatrixBufferSpec('Ap',$Ap,$n,$offsetAp);
+        if($uplo!=BLAS::Upper && $uplo!=BLAS::Lower) {
+            throw new InvalidArgumentException('Argument uplo must be Upper or Lower.');
+        }
+        $upper = ($uplo==BLAS::Upper);
+
+        $dtype = $Ap->dtype();
+        $calc = $this->getCalc($dtype);
+        [$alpha] = $this->getAlphaBeta($dtype,$calc,$alpha,$calc->build(0.0));
+
+        for($i=0; $i<$n; $i++) {
+            $xi = $X[$offsetX+$i*$incX];
+            $j0 = ($upper) ? $i : 0;
+            $j1 = ($upper) ? $n-1 : $i;
+            for($j=$j0; $j<=$j1; $j++) {
+                $idx = $this->packedIndex($i,$j,$n,$upper);
+                $Ap[$offsetAp+$idx] = $calc->add($Ap[$offsetAp+$idx],
+                    $calc->mul($alpha,$calc->mul($xi,$X[$offsetX+$j*$incX])));
+            }
+        }
+    }
+
+    public function syr2(
+        int $order,
+        int $uplo,
+        int $n,
+        float|object $alpha,
+        Buffer $X, int $offsetX, int $incX,
+        Buffer $Y, int $offsetY, int $incY,
+        Buffer $A, int $offsetA, int $ldA ) : void
+    {
+        $this->assertRowMajorOrder($order);
+        $this->assertShapeParameter('n',$n);
+        $this->assertVectorBufferSpec('X',$X,$n,$offsetX,$incX);
+        $this->assertVectorBufferSpec('Y',$Y,$n,$offsetY,$incY);
+        $this->assertMatrixBufferSpec('A',$A,$n,$n,$offsetA,$ldA);
+        if($uplo!=BLAS::Upper && $uplo!=BLAS::Lower) {
+            throw new InvalidArgumentException('Argument uplo must be Upper or Lower.');
+        }
+        $upper = ($uplo==BLAS::Upper);
+
+        $dtype = $A->dtype();
+        $calc = $this->getCalc($dtype);
+        [$alpha] = $this->getAlphaBeta($dtype,$calc,$alpha,$calc->build(0.0));
+
+        for($i=0; $i<$n; $i++) {
+            $xi = $X[$offsetX+$i*$incX];
+            $yi = $Y[$offsetY+$i*$incY];
+            $j0 = ($upper) ? $i : 0;
+            $j1 = ($upper) ? $n-1 : $i;
+            for($j=$j0; $j<=$j1; $j++) {
+                $xj = $X[$offsetX+$j*$incX];
+                $yj = $Y[$offsetY+$j*$incY];
+                $v = $calc->add($calc->mul($xi,$yj),$calc->mul($yi,$xj));
+                $idx = $this->accessIndex($offsetA,$i,$j,$ldA);
+                $A[$idx] = $calc->add($A[$idx],$calc->mul($alpha,$v));
+            }
+        }
+    }
+
+    public function spr2(
+        int $order,
+        int $uplo,
+        int $n,
+        float|object $alpha,
+        Buffer $X, int $offsetX, int $incX,
+        Buffer $Y, int $offsetY, int $incY,
+        Buffer $Ap, int $offsetAp ) : void
+    {
+        $this->assertRowMajorOrder($order);
+        $this->assertShapeParameter('n',$n);
+        $this->assertVectorBufferSpec('X',$X,$n,$offsetX,$incX);
+        $this->assertVectorBufferSpec('Y',$Y,$n,$offsetY,$incY);
+        $this->assertPackedMatrixBufferSpec('Ap',$Ap,$n,$offsetAp);
+        if($uplo!=BLAS::Upper && $uplo!=BLAS::Lower) {
+            throw new InvalidArgumentException('Argument uplo must be Upper or Lower.');
+        }
+        $upper = ($uplo==BLAS::Upper);
+
+        $dtype = $Ap->dtype();
+        $calc = $this->getCalc($dtype);
+        [$alpha] = $this->getAlphaBeta($dtype,$calc,$alpha,$calc->build(0.0));
+
+        for($i=0; $i<$n; $i++) {
+            $xi = $X[$offsetX+$i*$incX];
+            $yi = $Y[$offsetY+$i*$incY];
+            $j0 = ($upper) ? $i : 0;
+            $j1 = ($upper) ? $n-1 : $i;
+            for($j=$j0; $j<=$j1; $j++) {
+                $xj = $X[$offsetX+$j*$incX];
+                $yj = $Y[$offsetY+$j*$incY];
+                $v = $calc->add($calc->mul($xi,$yj),$calc->mul($yi,$xj));
+                $idx = $this->packedIndex($i,$j,$n,$upper);
+                $Ap[$offsetAp+$idx] = $calc->add($Ap[$offsetAp+$idx],$calc->mul($alpha,$v));
+            }
+        }
+    }
+
+    public function her(
+        int $order,
+        int $uplo,
+        int $n,
+        float|object $alpha,
+        Buffer $X, int $offsetX, int $incX,
+        Buffer $A, int $offsetA, int $ldA ) : void
+    {
+        $this->assertRowMajorOrder($order);
+        $this->assertShapeParameter('n',$n);
+        $this->assertVectorBufferSpec('X',$X,$n,$offsetX,$incX);
+        $this->assertMatrixBufferSpec('A',$A,$n,$n,$offsetA,$ldA);
+        if($uplo!=BLAS::Upper && $uplo!=BLAS::Lower) {
+            throw new InvalidArgumentException('Argument uplo must be Upper or Lower.');
+        }
+        $upper = ($uplo==BLAS::Upper);
+
+        $dtype = $A->dtype();
+        $calc = $this->getCalc($dtype);
+        $isComplex = $calc->iscomplex($dtype);
+        if($isComplex) {
+            if(is_object($alpha)) {
+                $alpha = $alpha->real;
+            }
+            $alpha = $calc->build((float)$alpha);
+        } else {
+            $alpha = $this->cleanFloatNumber($alpha,'alpha');
+        }
+
+        for($i=0; $i<$n; $i++) {
+            $xi = $X[$offsetX+$i*$incX];
+            $j0 = ($upper) ? $i : 0;
+            $j1 = ($upper) ? $n-1 : $i;
+            for($j=$j0; $j<=$j1; $j++) {
+                $xj = $X[$offsetX+$j*$incX];
+                if($isComplex) {
+                    $v = $calc->mul($xi,$calc->conj($xj));
+                } else {
+                    $v = $calc->mul($xi,$xj);
+                }
+                $idx = $this->accessIndex($offsetA,$i,$j,$ldA);
+                if($i==$j && $isComplex) {
+                    $real = $A[$idx]->real + $calc->mul($alpha,$v)->real;
+                    $A[$idx] = $calc->build($real);
+                } else {
+                    $A[$idx] = $calc->add($A[$idx],$calc->mul($alpha,$v));
+                }
+            }
+        }
+    }
+
+    public function hpr(
+        int $order,
+        int $uplo,
+        int $n,
+        float|object $alpha,
+        Buffer $X, int $offsetX, int $incX,
+        Buffer $Ap, int $offsetAp ) : void
+    {
+        $this->assertRowMajorOrder($order);
+        $this->assertShapeParameter('n',$n);
+        $this->assertVectorBufferSpec('X',$X,$n,$offsetX,$incX);
+        $this->assertPackedMatrixBufferSpec('Ap',$Ap,$n,$offsetAp);
+        if($uplo!=BLAS::Upper && $uplo!=BLAS::Lower) {
+            throw new InvalidArgumentException('Argument uplo must be Upper or Lower.');
+        }
+        $upper = ($uplo==BLAS::Upper);
+
+        $dtype = $Ap->dtype();
+        $calc = $this->getCalc($dtype);
+        $isComplex = $calc->iscomplex($dtype);
+        if($isComplex) {
+            if(is_object($alpha)) {
+                $alpha = $alpha->real;
+            }
+            $alpha = $calc->build((float)$alpha);
+        } else {
+            $alpha = $this->cleanFloatNumber($alpha,'alpha');
+        }
+
+        for($i=0; $i<$n; $i++) {
+            $xi = $X[$offsetX+$i*$incX];
+            $j0 = ($upper) ? $i : 0;
+            $j1 = ($upper) ? $n-1 : $i;
+            for($j=$j0; $j<=$j1; $j++) {
+                $xj = $X[$offsetX+$j*$incX];
+                if($isComplex) {
+                    $v = $calc->mul($xi,$calc->conj($xj));
+                } else {
+                    $v = $calc->mul($xi,$xj);
+                }
+                $idx = $this->packedIndex($i,$j,$n,$upper);
+                if($i==$j && $isComplex) {
+                    $real = $Ap[$offsetAp+$idx]->real + $calc->mul($alpha,$v)->real;
+                    $Ap[$offsetAp+$idx] = $calc->build($real);
+                } else {
+                    $Ap[$offsetAp+$idx] = $calc->add($Ap[$offsetAp+$idx],$calc->mul($alpha,$v));
+                }
+            }
+        }
+    }
+
+    public function her2(
+        int $order,
+        int $uplo,
+        int $n,
+        float|object $alpha,
+        Buffer $X, int $offsetX, int $incX,
+        Buffer $Y, int $offsetY, int $incY,
+        Buffer $A, int $offsetA, int $ldA ) : void
+    {
+        $this->assertRowMajorOrder($order);
+        $this->assertShapeParameter('n',$n);
+        $this->assertVectorBufferSpec('X',$X,$n,$offsetX,$incX);
+        $this->assertVectorBufferSpec('Y',$Y,$n,$offsetY,$incY);
+        $this->assertMatrixBufferSpec('A',$A,$n,$n,$offsetA,$ldA);
+        if($uplo!=BLAS::Upper && $uplo!=BLAS::Lower) {
+            throw new InvalidArgumentException('Argument uplo must be Upper or Lower.');
+        }
+        $upper = ($uplo==BLAS::Upper);
+
+        $dtype = $A->dtype();
+        $calc = $this->getCalc($dtype);
+        $isComplex = $calc->iscomplex($dtype);
+        if($isComplex) {
+            $alpha = $this->cleanComplexNumber($alpha,'alpha');
+        } else {
+            $alpha = $this->cleanFloatNumber($alpha,'alpha');
+        }
+        $conjAlpha = ($isComplex) ? $calc->conj($alpha) : $alpha;
+
+        for($i=0; $i<$n; $i++) {
+            $xi = $X[$offsetX+$i*$incX];
+            $yi = $Y[$offsetY+$i*$incY];
+            $j0 = ($upper) ? $i : 0;
+            $j1 = ($upper) ? $n-1 : $i;
+            for($j=$j0; $j<=$j1; $j++) {
+                $xj = $X[$offsetX+$j*$incX];
+                $yj = $Y[$offsetY+$j*$incY];
+                if($isComplex) {
+                    $v = $calc->add(
+                        $calc->mul($alpha,$calc->mul($xi,$calc->conj($yj))),
+                        $calc->mul($conjAlpha,$calc->mul($yi,$calc->conj($xj))));
+                } else {
+                    $v = $calc->mul($alpha,
+                        $calc->add($calc->mul($xi,$yj),$calc->mul($yi,$xj)));
+                }
+                $idx = $this->accessIndex($offsetA,$i,$j,$ldA);
+                if($i==$j && $isComplex) {
+                    $real = $A[$idx]->real + $v->real;
+                    $A[$idx] = $calc->build($real);
+                } else {
+                    $A[$idx] = $calc->add($A[$idx],$v);
+                }
+            }
+        }
+    }
+
+    public function hpr2(
+        int $order,
+        int $uplo,
+        int $n,
+        float|object $alpha,
+        Buffer $X, int $offsetX, int $incX,
+        Buffer $Y, int $offsetY, int $incY,
+        Buffer $Ap, int $offsetAp ) : void
+    {
+        $this->assertRowMajorOrder($order);
+        $this->assertShapeParameter('n',$n);
+        $this->assertVectorBufferSpec('X',$X,$n,$offsetX,$incX);
+        $this->assertVectorBufferSpec('Y',$Y,$n,$offsetY,$incY);
+        $this->assertPackedMatrixBufferSpec('Ap',$Ap,$n,$offsetAp);
+        if($uplo!=BLAS::Upper && $uplo!=BLAS::Lower) {
+            throw new InvalidArgumentException('Argument uplo must be Upper or Lower.');
+        }
+        $upper = ($uplo==BLAS::Upper);
+
+        $dtype = $Ap->dtype();
+        $calc = $this->getCalc($dtype);
+        $isComplex = $calc->iscomplex($dtype);
+        if($isComplex) {
+            $alpha = $this->cleanComplexNumber($alpha,'alpha');
+        } else {
+            $alpha = $this->cleanFloatNumber($alpha,'alpha');
+        }
+        $conjAlpha = ($isComplex) ? $calc->conj($alpha) : $alpha;
+
+        for($i=0; $i<$n; $i++) {
+            $xi = $X[$offsetX+$i*$incX];
+            $yi = $Y[$offsetY+$i*$incY];
+            $j0 = ($upper) ? $i : 0;
+            $j1 = ($upper) ? $n-1 : $i;
+            for($j=$j0; $j<=$j1; $j++) {
+                $xj = $X[$offsetX+$j*$incX];
+                $yj = $Y[$offsetY+$j*$incY];
+                if($isComplex) {
+                    $v = $calc->add(
+                        $calc->mul($alpha,$calc->mul($xi,$calc->conj($yj))),
+                        $calc->mul($conjAlpha,$calc->mul($yi,$calc->conj($xj))));
+                } else {
+                    $v = $calc->mul($alpha,
+                        $calc->add($calc->mul($xi,$yj),$calc->mul($yi,$xj)));
+                }
+                $idx = $this->packedIndex($i,$j,$n,$upper);
+                if($i==$j && $isComplex) {
+                    $real = $Ap[$offsetAp+$idx]->real + $v->real;
+                    $Ap[$offsetAp+$idx] = $calc->build($real);
+                } else {
+                    $Ap[$offsetAp+$idx] = $calc->add($Ap[$offsetAp+$idx],$v);
+                }
+            }
+        }
+    }
 
     /**
      * C(m,k) = A(m,n)*B(n,k)
