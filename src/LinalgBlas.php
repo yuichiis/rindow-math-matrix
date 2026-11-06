@@ -203,38 +203,45 @@ trait LinalgBlas
     /**
     *   legacy opennblas compatible
     */
+    //public function blasIaminCompatible(
+    //    int $n,
+    //    Buffer $X, int $offsetX, int $incX ) : int
+    //{
+    //    if($this->iaminwarning) {
+    //        echo "*iamin* not found. probably OpenBLAS is legacy version.";
+    //        $this->iaminwarning = true;
+    //    }
+    //    if($offsetX+($n-1)*$incX>=count($X)) {
+    //        throw new InvalidArgumentException('Vector X specification too large for buffer.');
+    //    }
+    //    $idxX = $offsetX+$incX;
+    //    if($this->isComplex($X->dtype())) {
+    //        $acc = $this->cabs($X[$offsetX]);
+    //        $idx = 0;
+    //        for($i=1; $i<$n; $i++,$idxX+=$incX) {
+    //            if($acc > $this->cabs($X[$idxX])) {
+    //                $acc = $this->cabs($X[$idxX]);
+    //                $idx = $i;
+    //            }
+    //        }
+    //    } else {
+    //        $acc = abs($X[$offsetX]);
+    //        $idx = 0;
+    //        for($i=1; $i<$n; $i++,$idxX+=$incX) {
+    //            if($acc > abs($X[$idxX])) {
+    //                $acc = abs($X[$idxX]);
+    //                $idx = $i;
+    //            }
+    //        }
+    //    }
+    //    return $idx;
+    //}
     public function blasIaminCompatible(
         int $n,
-        Buffer $X, int $offsetX, int $incX ) : int
+        Buffer $X, int $offsetX, int $incX        
+    ) : int
     {
-        if($this->iaminwarning) {
-            echo "*iamin* not found. probably OpenBLAS is legacy version.";
-            $this->iaminwarning = true;
-        }
-        if($offsetX+($n-1)*$incX>=count($X)) {
-            throw new InvalidArgumentException('Vector X specification too large for buffer.');
-        }
-        $idxX = $offsetX+$incX;
-        if($this->isComplex($X->dtype())) {
-            $acc = $this->cabs($X[$offsetX]);
-            $idx = 0;
-            for($i=1; $i<$n; $i++,$idxX+=$incX) {
-                if($acc > $this->cabs($X[$idxX])) {
-                    $acc = $this->cabs($X[$idxX]);
-                    $idx = $i;
-                }
-            }
-        } else {
-            $acc = abs($X[$offsetX]);
-            $idx = 0;
-            for($i=1; $i<$n; $i++,$idxX+=$incX) {
-                if($acc > abs($X[$idxX])) {
-                    $acc = abs($X[$idxX]);
-                    $idx = $i;
-                }
-            }
-        }
-        return $idx;
+        return $this->math->iamin($n,$X,$offsetX,$incX);
     }
 
     /**
