@@ -16,6 +16,9 @@ use Rindow\Math\Matrix\NDArrayCL;
 use Rindow\Math\Matrix\Drivers\Service;
 use Rindow\Math\Matrix\ComplexUtils;
 
+/**
+ * This class is for experimental purposes and is not actually used.
+ */
 class OpenCLBlas
 {
     use ComplexUtils;
