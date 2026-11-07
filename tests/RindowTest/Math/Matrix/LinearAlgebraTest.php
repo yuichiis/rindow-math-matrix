@@ -2333,21 +2333,24 @@ class LinearAlgebraTest extends TestCase
         $mo = $this->newMatrixOperator();
         $la = $this->newLA($mo);
 
+        // real number
         $X = $la->array([1,2,3]);
         $Y = $la->array([4,5]);
         $A = $la->ger($X,$Y,2.0);
         $this->assertEquals([[8,10],[16,20],[24,30]],$A->toArray());
 
+        // complex number
         $Xc = $la->array([C(1,1),C(2,-1),C(3,2)],dtype:NDArray::complex64);
         $Yc = $la->array([C(4,1),C(5,-2)],dtype:NDArray::complex64);
-        $A = $la->geru($Xc,$Yc,C(1,0));
+        $A = $la->ger($Xc,$Yc,C(1,0));
         $this->assertEquals([
             [C(3,5),C(7,3)],
             [C(9,-2),C(8,-9)],
             [C(10,11),C(19,4)],
         ],$A->toArray());
 
-        $A = $la->gerc($Xc,$Yc,C(1,0));
+        // complex number with conjugate 
+        $A = $la->ger($Xc,$Yc,C(1,0),conj:true);
         $this->assertEquals([
             [C(5,3),C(3,7)],
             [C(7,-6),C(12,-1)],

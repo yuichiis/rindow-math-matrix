@@ -1265,53 +1265,20 @@ trait LinalgBlas
         NDArray $X,
         NDArray $Y,
         float|object|null $alpha=null,
+        ?bool $conj=null,
         ?NDArray $A=null
-        ) : NDArray
-    {
-        return $this->gerx($X,$Y,$alpha,$A,false,'ger');
-    }
-
-    /**
-    *    A := alpha * x * y^T + A
-    */
-    public function geru(
-        NDArray $X,
-        NDArray $Y,
-        float|object|null $alpha=null,
-        ?NDArray $A=null
-        ) : NDArray
-    {
-        return $this->gerx($X,$Y,$alpha,$A,false,'geru');
-    }
-
-    /**
-    *    A := alpha * x * y^H + A
-    */
-    public function gerc(
-        NDArray $X,
-        NDArray $Y,
-        float|object|null $alpha=null,
-        ?NDArray $A=null
-        ) : NDArray
-    {
-        return $this->gerx($X,$Y,$alpha,$A,true,'gerc');
-    }
-
-    private function gerx(
-        NDArray $X,
-        NDArray $Y,
-        float|object|null $alpha,
-        ?NDArray $A,
-        bool $conjY,
-        string $name
         ) : NDArray
     {
         if($this->profiling) {
-            $this->profilingStart($name);
+            $this->profilingStart('ger');
         }
         if($X->ndim()!=1 || $Y->ndim()!=1) {
             throw new InvalidArgumentException('"X" and "Y" must be 1D-NDArray.');
         }
+        if($X->dtype()!=$Y->dtype()) {
+            throw new InvalidArgumentException('"X" and "Y" must be same dtype.');
+        }
+        $conj ??= false;
         $m = $X->size();
         $n = $Y->size();
         if($A!==null) {
@@ -1333,17 +1300,37 @@ trait LinalgBlas
         }
         $ldA = $n;
 
-        $method = ($conjY) ? 'gerc' : $name;
-        $this->blas->$method(
-            BLAS::RowMajor,
-            $m,$n,
-            $alpha,
-            $XX,$offX,1,
-            $YY,$offY,1,
-            $AA,$offA,$ldA);
+        if(!$this->isComplex($X->dtype())) {
+            $this->blas->ger(
+                BLAS::RowMajor,
+                $m,$n,
+                $alpha,
+                $XX,$offX,1,
+                $YY,$offY,1,
+                $AA,$offA,$ldA,
+            );
+        } elseif($conj===false) { // explicit conjugation false
+            $this->blas->geru(
+                BLAS::RowMajor,
+                $m,$n,
+                $alpha,
+                $XX,$offX,1,
+                $YY,$offY,1,
+                $AA,$offA,$ldA,
+            );
+        } else {            // implicit conjugation true
+            $this->blas->gerc(
+                BLAS::RowMajor,
+                $m,$n,
+                $alpha,
+                $XX,$offX,1,
+                $YY,$offY,1,
+                $AA,$offA,$ldA,
+            );
+        }
 
         if($this->profiling) {
-            $this->profilingEnd($name);
+            $this->profilingEnd('ger');
         }
         return $A;
     }
