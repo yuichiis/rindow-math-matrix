@@ -2568,6 +2568,20 @@ class PhpBlas
         }
     }
 
+    public function hemm(
+        int $order,
+        int $side,
+        int $uplo,
+        int $m,
+        int $n,
+        float|object $alpha,
+        Buffer $A, int $offsetA, int $ldA,
+        Buffer $B, int $offsetB, int $ldB,
+        float|object $beta,
+        Buffer $C, int $offsetC, int $ldC ) : void
+    {
+    }
+
     public function syrk(
         int $order,
         int $uplo,
@@ -2674,6 +2688,19 @@ class PhpBlas
         }
     }
 
+    public function herk(
+        int $order,
+        int $uplo,
+        int $trans,
+        int $n,
+        int $k,
+        float $alpha,
+        Buffer $A, int $offsetA, int $ldA,
+        float $beta,
+        Buffer $C, int $offsetC, int $ldC ) : void
+    {
+    }
+    
     public function syr2k(
         int $order,
         int $uplo,
@@ -2794,6 +2821,19 @@ class PhpBlas
         }
     }
 
+    public function her2k(
+        int $order,
+        int $uplo,
+        int $trans,
+        int $n,
+        int $k,
+        float|object $alpha,
+        Buffer $A, int $offsetA, int $ldA,
+        Buffer $B, int $offsetB, int $ldB,
+        float $beta,
+        Buffer $C, int $offsetC, int $ldC ) : void
+    {
+    }
 
     /**
      *   B(m,n) = alpha * A(m,m)B(m,n)  : side=Left

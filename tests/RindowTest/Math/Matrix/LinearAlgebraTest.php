@@ -2911,6 +2911,56 @@ class LinearAlgebraTest extends TestCase
         ],$C->toArray());
     }
 
+    #[DataProvider('providerDtypesComplexes')]
+    public function testHemmNormal($params)
+    {
+        extract($params);
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        $A = $la->array([
+            [C(2),C(1,1),C(0)],
+            [C(1,-1),C(3),C(1,2)],
+            [C(0),C(1,-2),C(4)],
+        ],$dtype);
+        foreach([false,true] as $right) {
+            foreach([false,true] as $lower) {
+                if(!$right) {
+                    $B = $la->array([
+                        [C(1),C(2)],
+                        [C(3),C(4)],
+                        [C(5),C(6)],
+                    ],$dtype);
+                    $expected = [
+                        [C(5,3),C(8,4)],
+                        [C(15,9),C(20,10)],
+                        [C(23,-6),C(28,-8)],
+                    ];
+                } else {
+                    $B = $la->array([
+                        [C(1),C(2),C(3)],
+                        [C(4),C(5),C(6)],
+                    ],$dtype);
+                    $expected = [
+                        [C(4,-2),C(10,-5),C(14,4)],
+                        [C(13,-5),C(25,-8),C(29,10)],
+                    ];
+                }
+                $C = $la->hemm(
+                    $A,
+                    $B,
+                    alpha:C(1.0),
+                    beta:C(0.0),
+                    right:$right,
+                    lower:$lower,
+                );
+                $this->assertTrue($mo->la()->isclose(
+                    $la->toNDArray($la->array($expected,$dtype)),
+                    $la->toNDArray($C),
+                ));
+            }
+        }
+    }
+
     public function testSyrkNormal()
     {
         $mo = $this->newMatrixOperator();
@@ -3026,6 +3076,82 @@ class LinearAlgebraTest extends TestCase
             [C(  0,i: 0),C(210,i:52),C(236,i:56)],
             [C(  0,i: 0),C(  0,i: 0),C(266,i:60)]
         ],$C->toArray());
+    }
+
+    #[DataProvider('providerDtypesComplexes')]
+    public function testHerkNormal($params)
+    {
+        extract($params);
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        $A = $la->array([
+            [C(1,1),C(2)],
+            [C(3),C(4,-1)],
+            [C(0,5),C(6)],
+        ],$dtype);
+        foreach([false,true] as $lower) {
+            $C = $la->herk(
+                $A,
+                alpha:1.0,
+                beta:0.0,
+                lower:$lower,
+            );
+            if(!$lower) {
+                $expected = [
+                    [C(6),C(11,5),C(17,-5)],
+                    [C(0),C(26),C(24,-21)],
+                    [C(0),C(0),C(61)],
+                ];
+            } else {
+                $expected = [
+                    [C(6),C(0),C(0)],
+                    [C(11,-5),C(26),C(0)],
+                    [C(17,5),C(24,21),C(61)],
+                ];
+            }
+            $this->assertTrue($mo->la()->isclose(
+                $la->toNDArray($la->array($expected,$dtype)),
+                $la->toNDArray($C)
+            ));
+        }
+    }
+
+    #[DataProvider('providerDtypesComplexes')]
+    public function testHerkTranspose($params)
+    {
+        extract($params);
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        $A = $la->array([
+            [C(1,1),C(2),C(3)],
+            [C(4),C(5,-1),C(6)],
+        ],$dtype);
+        foreach([false,true] as $lower) {
+            $C = $la->herk(
+                $A,
+                alpha:1.0,
+                beta:0.0,
+                lower:$lower,
+                trans:true,
+            );
+            if(!$lower) {
+                $expected = [
+                    [C(18),C(22,-6),C(27,-3)],
+                    [C(0),C(30),C(36,6)],
+                    [C(0),C(0),C(45)],
+                ];
+            } else {
+                $expected = [
+                    [C(18),C(0),C(0)],
+                    [C(22,6),C(30),C(0)],
+                    [C(27,3),C(36,-6),C(45)],
+                ];
+            }
+            $this->assertTrue($mo->la()->isclose(
+                $la->toNDArray($la->array($expected,$dtype)),
+                $la->toNDArray($C)
+            ));
+        }
     }
 
     public function testSyr2kNormal()
@@ -3172,6 +3298,94 @@ class LinearAlgebraTest extends TestCase
             [C(  0,i: 0),C(408,i:104),C(486,i:116)],
             [C(  0,i: 0),C(  0,i:  0),C(580,i:128)]
         ],$C->toArray());
+    }
+
+    #[DataProvider('providerDtypesComplexes')]
+    public function testHer2kNormal($params)
+    {
+        extract($params);
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        $A = $la->array([
+            [C(1,1),C(2)],
+            [C(3),C(4,-1)],
+            [C(0,5),C(6)],
+        ],$dtype);
+        $B = $la->array([
+            [C(2),C(1,-1)],
+            [C(1,2),C(3)],
+            [C(4),C(0,2)],
+        ],$dtype);
+        foreach([false,true] as $lower) {
+            $C = $la->her2k(
+                $A,
+                $B,
+                alpha:C(1.0),
+                beta:0.0,
+                lower:$lower,
+                trans:false,
+            );
+            if(!$lower) {
+                $expected = [
+                    [C(8),C(20,-4),C(10,-16)],
+                    [C(0),C(30),C(38,-13)],
+                    [C(0),C(0),C(0)],
+                ];
+            } else {
+                $expected = [
+                    [C(8),C(0),C(0)],
+                    [C(20,4),C(30),C(0)],
+                    [C(10,16),C(38,13),C(0)],
+                ];
+            }
+            $this->assertTrue($mo->la()->isclose(
+                $la->toNDArray($la->array($expected,$dtype)),
+                $la->toNDArray($C),
+            ));
+        }
+    }
+
+    #[DataProvider('providerDtypesComplexes')]
+    public function testHer2kTranspose($params)
+    {
+        extract($params);
+        $mo = $this->newMatrixOperator();
+        $la = $this->newLA($mo);
+        $A = $la->array([
+            [C(1,1),C(2),C(3)],
+            [C(4),C(5,-1),C(6)],
+        ],$dtype);
+        $B = $la->array([
+            [C(7),C(8,1),C(9)],
+            [C(10),C(11),C(12,1)],
+        ],$dtype);
+        foreach([false,true] as $lower) {
+            $C = $la->her2k(
+                $A,
+                $B,
+                alpha:C(1.0),
+                beta:0.0,
+                lower:$lower,
+                trans:true,
+            );
+            if(!$lower) {
+                $expected = [
+                    [C(94),C(117,-17),C(138,-5)],
+                    [C(0),C(142),C(167,14)],
+                    [C(0),C(0),C(198)],
+                ];
+            } else {
+                $expected = [
+                    [C(94),C(0),C(0)],
+                    [C(117,17),C(142),C(0)],
+                    [C(138,5),C(167,-14),C(198)],
+                ];
+            }
+            $this->assertTrue($mo->la()->isclose(
+                $la->toNDArray($la->array($expected,$dtype)),
+                $la->toNDArray($C)
+            ));
+        }
     }
 
     public function testTrmmNormal()

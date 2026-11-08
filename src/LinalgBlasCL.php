@@ -1986,6 +1986,92 @@ trait LinalgBlasCL
     }
 
     /**
+    *    A = Hermitian matrix
+    *    C := alpha * AB + beta * C  ( right = false )
+    *    C := alpha * BA + beta * C  ( right = true )
+    */
+    public function hemm(
+        NDArray $A,
+        NDArray $B,
+        float|object|null $alpha=null,
+        float|object|null $beta=null,
+        ?NDArray $C=null,
+        ?bool $right=null,
+        ?bool $lower=null,
+        ?object $events=null
+        ) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("hemm");
+        }
+        if(!$this->isComplex($A->dtype())) {
+            throw new InvalidArgumentException('The matrix "A" must be complex type');
+        }
+        if($A->ndim()!=2 || $B->ndim()!=2) {
+            throw new InvalidArgumentException('Dimensions must be 2D-NDArray');
+        }
+        $shapeA = $A->shape();
+        $rowsA = $shapeA[0];
+        if($rowsA!=$shapeA[1]) {
+            throw new InvalidArgumentException('The matrix "A" must be symmetric');
+        }
+        $shapeB = $B->shape();
+        $M = $shapeB[0];
+        $N = $shapeB[1];
+        $tmpB = ($right) ? $N : $M;
+        if($rowsA!=$tmpB) {
+            throw new InvalidArgumentException('Unmatch Shape of matrix "A" and "B": '."($rowsA,$rowsA) != ($M,$N)");
+        }
+        $AA = $A->buffer();
+        $BB = $B->buffer();
+        $offA = $A->offset();
+        $offB = $B->offset();
+
+        if($alpha===null) {
+            $alpha = $this->buildValByType(1.0,$A->dtype());
+        }
+        if($beta===null) {
+            $beta = $this->buildValByType(0.0,$A->dtype());
+        }
+        if($C!=null) {
+            $shapeC = $C->shape();
+            if($M!=$shapeC[0] || $N!=$shapeC[1]) {
+                throw new InvalidArgumentException('Matrix "B" and "C" must be same shape');
+            }
+        } else {
+            $C = $this->zeros($this->alloc([$M,$N],dtype:$A->dtype()));
+        }
+        $CC = $C->buffer();
+        $offC = $C->offset();
+
+        $lda = $rowsA;
+        $ldb = $N;
+        $ldc = $N;
+        $side = ($right) ? BLAS::Right : BLAS::Left;
+        $uplo = ($lower) ? BLAS::Lower : BLAS::Upper;
+
+        $this->blas->hemm(
+            BLAS::RowMajor,$side,$uplo,
+            $M,$N,
+            $alpha,
+            $AA,$offA,$lda,
+            $BB,$offB,$ldb,
+            $beta,
+            $CC,$offC,$ldc,
+            $this->queue,$events
+        );
+
+        if($this->blocking) {
+            $this->finish();
+        }
+
+        if($this->profiling) {
+            $this->profilingEnd("hemm");
+        }
+        return $C;
+    }
+
+    /**
     *    C := alpha * A A^T + beta * C  (trans=false)
     *    C := alpha * A^T A + beta * C  (trans=true)
     */
@@ -2061,6 +2147,84 @@ trait LinalgBlasCL
             $this->profilingEnd("syrk");
         }
 
+        return $C;
+    }
+
+    /**
+    *    A = Hermitian matrix
+    *    C := alpha * A A^T + beta * C  (trans=false)
+    *    C := alpha * A^T A + beta * C  (trans=true)
+    */
+    public function herk(
+        NDArray $A,
+        ?float $alpha=null,
+        ?float $beta=null,
+        ?NDArray $C=null,
+        ?bool $lower=null,
+        ?bool $trans=null,
+        ?bool $conj=null,
+        ?object $events=null,
+        ) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("herk");
+        }
+        if(!$this->isComplex($A->dtype())) {
+            throw new InvalidArgumentException('The matrix "A" must be complex type');
+        }
+        $trans = $trans ?? false;
+        $conj = $conj ?? $trans;
+
+        if($A->ndim()!=2) {
+            throw new InvalidArgumentException('Dimensions must be 2D-NDArray');
+        }
+        $shapeA = $A->shape();
+        if($trans) {
+            $shapeA = [$shapeA[1],$shapeA[0]];
+        }
+        $AA = $A->buffer();
+        $offA = $A->offset();
+        $N = $shapeA[0];
+        $K = $shapeA[1];
+
+        if($alpha===null) {
+            $alpha = 1.0;
+        }
+        if($beta===null) {
+            $beta = 0.0;
+        }
+        if($C!=null) {
+            $shapeC = $C->shape();
+            if($N!=$shapeC[0] || $N!=$shapeC[1]) {
+                throw new InvalidArgumentException('"C" rows and cols must have the same number of "A" cols');
+            }
+        } else {
+            $C = $this->zeros($this->alloc([$N,$N],dtype:$A->dtype()));
+        }
+        $CC = $C->buffer();
+        $offC = $C->offset();
+
+        $lda = ($trans) ? $N : $K;
+        $ldc = $N;
+        $uplo  = ($lower) ? BLAS::Lower : BLAS::Upper;
+        $trans = $this->transToCode($trans,$conj);
+
+        $this->blas->herk(
+            BLAS::RowMajor,$uplo,$trans,
+            $N,$K,
+            $alpha,
+            $AA,$offA,$lda,
+            $beta,
+            $CC,$offC,$ldc,
+            $this->queue,$events,
+        );
+
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("herk");
+        }
         return $C;
     }
 
@@ -2149,6 +2313,93 @@ trait LinalgBlasCL
             $this->profilingEnd("syr2k");
         }
 
+        return $C;
+    }
+
+    /**
+    *    A = Hermitian matrix
+    *    C := alpha * A B^T + alpha * B A^T + beta * C  (trans=false)
+    *    C := alpha * B A^T + alpha * A B^T + beta * C  (trans=true)
+    */
+    public function her2k(
+        NDArray $A,
+        NDArray $B,
+        float|object|null $alpha=null,
+        ?float $beta=null,
+        ?NDArray $C=null,
+        ?bool $lower=null,
+        ?bool $trans=null,
+        ?bool $conj=null,
+        ?object $events=null
+        ) : NDArray
+    {
+        if($this->profiling) {
+            $this->profilingStart("syr2k");
+        }
+        if(!$this->isComplex($A->dtype())) {
+            throw new InvalidArgumentException('The matrix "A" must be complex type');
+        }
+        $trans = $trans ?? false;
+        $conj = $conj ?? $trans;
+
+        if($A->ndim()!=2 || $B->ndim()!=2) {
+            throw new InvalidArgumentException('Dimensions must be 2D-NDArray');
+        }
+        $shapeA = $A->shape();
+        $shapeB = $B->shape();
+        if($shapeA!=$shapeB) {
+            throw new InvalidArgumentException('Matrix A and B must be same shape');
+        }
+        if($trans) {
+            $shapeA = [$shapeA[1],$shapeA[0]];
+        }
+        $AA   = $A->buffer();
+        $offA = $A->offset();
+        $BB   = $B->buffer();
+        $offB = $B->offset();
+        $N = $shapeA[0];
+        $K = $shapeA[1];
+
+        if($alpha===null) {
+            $alpha = $this->buildValByType(1.0,$A->dtype());
+        }
+        if($beta===null) {
+            $beta = 0.0;
+        }
+        if($C!=null) {
+            $shapeC = $C->shape();
+            if($N!=$shapeC[0] || $N!=$shapeC[1]) {
+                throw new InvalidArgumentException('"C" rows and cols must have the same number of "A" cols');
+            }
+        } else {
+            $C = $this->zeros($this->alloc([$N,$N],dtype:$A->dtype()));
+        }
+        $CC = $C->buffer();
+        $offC = $C->offset();
+
+        $lda = ($trans) ? $N : $K;
+        $ldb = ($trans) ? $N : $K;
+        $ldc = $N;
+        $uplo  = ($lower) ? BLAS::Lower : BLAS::Upper;
+        $trans = $this->transToCode($trans,$conj);
+
+        $this->blas->her2k(
+            BLAS::RowMajor,$uplo,$trans,
+            $N,$K,
+            $alpha,
+            $AA,$offA,$lda,
+            $BB,$offB,$ldb,
+            $beta,
+            $CC,$offC,$ldc,
+            $this->queue,$events
+        );
+
+        if($this->blocking) {
+            $this->finish();
+        }
+        if($this->profiling) {
+            $this->profilingEnd("her2k");
+        }
         return $C;
     }
 
