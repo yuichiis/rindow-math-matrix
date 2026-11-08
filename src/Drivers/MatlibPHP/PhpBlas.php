@@ -2580,6 +2580,74 @@ class PhpBlas
         float|object $beta,
         Buffer $C, int $offsetC, int $ldC ) : void
     {
+        if($side!=BLAS::Left && $side!=BLAS::Right) {
+            throw new InvalidArgumentException('Invalid side value: '.$side);
+        }
+        if($uplo!=BLAS::Upper && $uplo!=BLAS::Lower) {
+            throw new InvalidArgumentException('Argument uplo must be Upper or Lower.');
+        }
+        if($order==BLAS::ColMajor) {
+            // Interpret the column major storage as the transposed row major matrix.
+            // Transposing the equation swaps the side and the stored triangle.
+            [$m,$n] = [$n,$m];
+            $side = ($side==BLAS::Left) ? BLAS::Right : BLAS::Left;
+            $uplo = ($uplo==BLAS::Upper) ? BLAS::Lower : BLAS::Upper;
+        } elseif($order!=BLAS::RowMajor) {
+            throw new InvalidArgumentException('Invalid Order type');
+        }
+        $this->assertShapeParameter('m',$m);
+        $this->assertShapeParameter('n',$n);
+
+        $sizeA = ($side==BLAS::Left) ? $m : $n;
+        $this->assertMatrixBufferSpec("A", $A, $sizeA, $sizeA, $offsetA, $ldA);
+        $this->assertMatrixBufferSpec("B", $B, $m, $n, $offsetB, $ldB);
+        $this->assertMatrixBufferSpec("C", $C, $m, $n, $offsetC, $ldC);
+
+        $dtype = $A->dtype();
+        $calc = $this->getCalc($dtype);
+        [$alpha,$beta] = $this->getAlphaBeta($dtype,$calc,$alpha,$beta);
+        $isComplex = $calc->iscomplex($dtype);
+        $upper = ($uplo==BLAS::Upper);
+        $left  = ($side==BLAS::Left);
+        $hasBeta = !$calc->iszero($beta);
+
+        for($im=0; $im<$m; $im++) {
+            for($in=0; $in<$n; $in++) {
+                $acc = $calc->build(0.0);
+                for($ik=0; $ik<$sizeA; $ik++) {
+                    if($left) {
+                        $row = $im;
+                        $col = $ik;
+                        $ib = $offsetB + $ik*$ldB + $in;
+                    } else {
+                        $row = $ik;
+                        $col = $in;
+                        $ib = $offsetB + $im*$ldB + $ik;
+                    }
+                    if($row==$col) {
+                        // The diagonal of a Hermitian matrix is real.
+                        $v = $A[$offsetA + $row*$ldA + $col];
+                        if($isComplex) {
+                            $v = $calc->build($v->real);
+                        }
+                    } elseif(($upper && $row<$col) || (!$upper && $row>$col)) {
+                        $v = $A[$offsetA + $row*$ldA + $col];
+                    } else {
+                        $v = $A[$offsetA + $col*$ldA + $row];
+                        if($isComplex) {
+                            $v = $calc->conj($v);
+                        }
+                    }
+                    $acc = $calc->add($acc,$calc->mul($v,$B[$ib]));
+                }
+                $ic = $offsetC + $im*$ldC + $in;
+                $acc = $calc->mul($alpha,$acc);
+                if($hasBeta) {
+                    $acc = $calc->add($acc,$calc->mul($beta,$C[$ic]));
+                }
+                $C[$ic] = $acc;
+            }
+        }
     }
 
     public function syrk(
@@ -2699,6 +2767,66 @@ class PhpBlas
         float $beta,
         Buffer $C, int $offsetC, int $ldC ) : void
     {
+        if($uplo!=BLAS::Upper && $uplo!=BLAS::Lower) {
+            throw new InvalidArgumentException('Argument uplo must be Upper or Lower.');
+        }
+        if($order==BLAS::ColMajor) {
+            [$n,$k] = [$k,$n];
+        } elseif($order!=BLAS::RowMajor) {
+            throw new InvalidArgumentException('Invalid Order type');
+        }
+        [$trans,$conj] = $this->codeToTrans($trans);
+        $this->assertShapeParameter('n',$n);
+        $this->assertShapeParameter('k',$k);
+
+        $rows = (!$trans) ? $n : $k;
+        $cols = (!$trans) ? $k : $n;
+        $this->assertMatrixBufferSpec("A", $A, $rows, $cols, $offsetA, $ldA);
+        $this->assertMatrixBufferSpec("C", $C, $n, $n, $offsetC, $ldC);
+
+        $dtype = $A->dtype();
+        $calc = $this->getCalc($dtype);
+        $alpha = $this->cleanFloatNumber($alpha,'alpha');
+        $beta  = $this->cleanFloatNumber($beta,'beta');
+        $isComplex = $calc->iscomplex($dtype);
+        $upper = ($uplo==BLAS::Upper);
+
+        for($im=0; $im<$n; $im++) {
+            $start = $upper ? $im : 0;
+            $end   = $upper ? $n  : $im+1;
+            for($in=$start; $in<$end; $in++) {
+                $acc = $calc->build(0.0);
+                for($ik=0; $ik<$k; $ik++) {
+                    // M(im,ik) and M(in,ik) where M is A or A^H.
+                    if(!$trans) {
+                        $vIm = $A[$offsetA + $im*$ldA + $ik];
+                        $vIn = $A[$offsetA + $in*$ldA + $ik];
+                    } else {
+                        $vIm = $A[$offsetA + $ik*$ldA + $im];
+                        $vIn = $A[$offsetA + $ik*$ldA + $in];
+                    }
+                    if($conj) {
+                        $vIm = $calc->conj($vIm);
+                        $vIn = $calc->conj($vIn);
+                    }
+                    // C(im,in) += alpha * M(im,ik) * conj(M(in,ik))
+                    $acc = $calc->add($acc,$calc->mul($vIm,$calc->conj($vIn)));
+                }
+                $ic = $offsetC + $im*$ldC + $in;
+                if($isComplex) {
+                    $old = $C[$ic];
+                    $real = $alpha*$acc->real + $beta*$old->real;
+                    $imag = $alpha*$acc->imag + $beta*$old->imag;
+                    if($im==$in) {
+                        // The diagonal of a Hermitian matrix must be real.
+                        $imag = 0.0;
+                    }
+                    $C[$ic] = $calc->build($real,$imag);
+                } else {
+                    $C[$ic] = $alpha*$acc + $beta*$C[$ic];
+                }
+            }
+        }
     }
     
     public function syr2k(
@@ -2833,6 +2961,85 @@ class PhpBlas
         float $beta,
         Buffer $C, int $offsetC, int $ldC ) : void
     {
+        if($uplo!=BLAS::Upper && $uplo!=BLAS::Lower) {
+            throw new InvalidArgumentException('Argument uplo must be Upper or Lower.');
+        }
+        if($order==BLAS::ColMajor) {
+            [$n,$k] = [$k,$n];
+        } elseif($order!=BLAS::RowMajor) {
+            throw new InvalidArgumentException('Invalid Order type');
+        }
+        [$trans,$conj] = $this->codeToTrans($trans);
+        $this->assertShapeParameter('n',$n);
+        $this->assertShapeParameter('k',$k);
+
+        $rows = (!$trans) ? $n : $k;
+        $cols = (!$trans) ? $k : $n;
+        $this->assertMatrixBufferSpec("A", $A, $rows, $cols, $offsetA, $ldA);
+        $this->assertMatrixBufferSpec("B", $B, $rows, $cols, $offsetB, $ldB);
+        $this->assertMatrixBufferSpec("C", $C, $n, $n, $offsetC, $ldC);
+
+        $dtype = $A->dtype();
+        $calc = $this->getCalc($dtype);
+        $isComplex = $calc->iscomplex($dtype);
+        if($isComplex) {
+            $alpha = $this->cleanComplexNumber($alpha,'alpha');
+            $conjAlpha = $this->cconj($alpha);
+        } else {
+            $alpha = $this->cleanFloatNumber($alpha,'alpha');
+            $conjAlpha = $alpha;
+        }
+        $beta = $this->cleanFloatNumber($beta,'beta');
+        $upper = ($uplo==BLAS::Upper);
+
+        for($im=0; $im<$n; $im++) {
+            $start = $upper ? $im : 0;
+            $end   = $upper ? $n  : $im+1;
+            for($in=$start; $in<$end; $in++) {
+                $acc1 = $calc->build(0.0);
+                $acc2 = $calc->build(0.0);
+                for($ik=0; $ik<$k; $ik++) {
+                    // M_A(im,ik), M_A(in,ik), M_B(im,ik), M_B(in,ik)
+                    // where M is the matrix itself or its conjugate transpose.
+                    if(!$trans) {
+                        $aIm = $A[$offsetA + $im*$ldA + $ik];
+                        $aIn = $A[$offsetA + $in*$ldA + $ik];
+                        $bIm = $B[$offsetB + $im*$ldB + $ik];
+                        $bIn = $B[$offsetB + $in*$ldB + $ik];
+                    } else {
+                        $aIm = $A[$offsetA + $ik*$ldA + $im];
+                        $aIn = $A[$offsetA + $ik*$ldA + $in];
+                        $bIm = $B[$offsetB + $ik*$ldB + $im];
+                        $bIn = $B[$offsetB + $ik*$ldB + $in];
+                    }
+                    if($conj) {
+                        $aIm = $calc->conj($aIm);
+                        $aIn = $calc->conj($aIn);
+                        $bIm = $calc->conj($bIm);
+                        $bIn = $calc->conj($bIn);
+                    }
+                    // C += alpha * A(im,ik) * conj(B(in,ik))
+                    $acc1 = $calc->add($acc1,$calc->mul($aIm,$calc->conj($bIn)));
+                    // C += conj(alpha) * B(im,ik) * conj(A(in,ik))
+                    $acc2 = $calc->add($acc2,$calc->mul($bIm,$calc->conj($aIn)));
+                }
+                $val = $calc->add(
+                    $calc->mul($alpha,$acc1),
+                    $calc->mul($conjAlpha,$acc2)
+                );
+                $ic = $offsetC + $im*$ldC + $in;
+                if($isComplex) {
+                    $val = $calc->add($val,$calc->scale($beta,$C[$ic]));
+                    if($im==$in) {
+                        // The diagonal of a Hermitian matrix must be real.
+                        $val = $calc->build($val->real);
+                    }
+                } else {
+                    $val = $val + $beta*$C[$ic];
+                }
+                $C[$ic] = $val;
+            }
+        }
     }
 
     /**
